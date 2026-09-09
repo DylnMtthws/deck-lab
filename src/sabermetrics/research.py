@@ -4,9 +4,19 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
+
+from sabermetrics.substrate.models import CardSearchQuery, CardSearchResult
+
+
+class CardSearcher(Protocol):
+    """The Oracle-ID retrieval facade surface used by the Research page."""
+
+    def search(self, query: CardSearchQuery) -> CardSearchResult:
+        """Return ranked Oracle cards for one strict query."""
 
 
 def _colors(value: Any) -> list[str]:
@@ -18,9 +28,105 @@ def _colors(value: Any) -> list[str]:
         return []
 
 
+def _card_search_query(
+    query: str,
+    *,
+    oracle_text: str,
+    type_line: str,
+    colors: Sequence[str],
+    color_mode: str,
+    mana_operator: str,
+    mana_value: float | None,
+    top_k: int,
+) -> CardSearchQuery:
+    """Translate legacy form controls into the strict retrieval contract."""
+    selected = tuple(dict.fromkeys(color for color in colors if color in "WUBRGC"))
+    colored = tuple(color for color in selected if color != "C")
+    identity: tuple[str, ...] | None = None
+    mode = {
+        "any": "intersects",
+        "intersects": "intersects",
+        "exact": "exact",
+        "all": "subset",
+        "subset": "subset",
+    }.get(color_mode, "subset")
+    if selected:
+        identity = () if selected == ("C",) else colored
+        if selected == ("C",):
+            mode = "exact"
+
+    known_types = {
+        "artifact",
+        "battle",
+        "creature",
+        "enchantment",
+        "instant",
+        "kindred",
+        "land",
+        "planeswalker",
+        "sorcery",
+        "tribal",
+    }
+    requested_types = tuple(
+        sorted(
+            {
+                word.casefold()
+                for word in type_line.replace("—", " ").replace("//", " ").split()
+                if word.casefold() in known_types
+            }
+        )
+    )
+    text_parts = [value.strip() for value in (query, oracle_text) if value.strip()]
+    if type_line.strip() and not requested_types:
+        text_parts.append(type_line.strip())
+    minimum = mana_value if mana_value is not None and mana_operator == "gte" else None
+    maximum = mana_value if mana_value is not None and mana_operator == "lte" else None
+    if mana_value is not None and mana_operator == "eq":
+        minimum = maximum = mana_value
+    return CardSearchQuery.model_validate(
+        {
+            "text": " ".join(text_parts),
+            "filters": {
+                "color_identity": identity,
+                "color_mode": mode,
+                "required_types": requested_types,
+                "mana_value_min": minimum,
+                "mana_value_max": maximum,
+                "commander_legal": None,
+            },
+            "top_k": top_k,
+        }
+    )
+
+
+def _retrieval_unavailable_errors() -> tuple[type[BaseException], ...]:
+    """Return failures that mean the derived retrieval capability is absent."""
+    from sabermetrics.substrate.artifacts import RetrievalArtifactError
+    from sabermetrics.substrate.bundle import BundleBuildError
+    from sabermetrics.substrate.dense import DenseRetrievalError
+    from sabermetrics.substrate.reranker import RerankerError
+    from sabermetrics.substrate.retrieval import RetrievalBundleMismatchError
+
+    return (
+        RetrievalArtifactError,
+        RetrievalBundleMismatchError,
+        BundleBuildError,
+        DenseRetrievalError,
+        RerankerError,
+        sqlite3.DatabaseError,
+        OSError,
+    )
+
+
 class ResearchRepo:
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        card_searcher: CardSearcher | None = None,
+    ) -> None:
         self.db_path = Path(db_path)
+        self._card_searcher = card_searcher
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
@@ -220,53 +326,100 @@ class ResearchRepo:
         mana_value: float | None = None,
         rarity: str = "",
     ) -> dict[str, Any]:
+        """Search the immutable retrieval bundle, then hydrate display fields.
+
+        The app-state card table supplies printing IDs, images, and rarity for
+        presentation only. It receives already-ranked Oracle IDs and cannot
+        filter, score, or reorder them.
+        """
         page = max(page, 1)
-        where = ["c.name LIKE ?"]
-        values: list[Any] = [f"%{query}%"]
-        if oracle_text:
-            where.append("c.oracle_text LIKE ?")
-            values.append(f"%{oracle_text}%")
-        if type_line:
-            where.append("c.type_line LIKE ?")
-            values.append(f"%{type_line}%")
-        selected_colors = [color for color in colors or [] if color in set("WUBRGC")]
-        colored = [color for color in selected_colors if color != "C"]
-        color_tests = ["c.color_identity LIKE ?" for _ in colored]
-        color_values = [f'%"{color}"%' for color in colored]
-        if "C" in selected_colors:
-            color_tests.append("json_array_length(c.color_identity)=0")
-        if color_tests:
-            if color_mode == "any":
-                where.append(f"({' OR '.join(color_tests)})")
-                values.extend(color_values)
+        per_page = max(1, min(per_page, 50))
+        try:
+            retrieval_query = _card_search_query(
+                query,
+                oracle_text=oracle_text,
+                type_line=type_line,
+                colors=colors or (),
+                color_mode=color_mode,
+                mana_operator=mana_operator,
+                mana_value=mana_value,
+                top_k=min(100, page * per_page + 1),
+            )
+            retrieval = self._search_cards(retrieval_query)
+        except _retrieval_unavailable_errors() as exc:
+            return {
+                "results": [],
+                "page": page,
+                "has_next": False,
+                "unavailable": f"Card retrieval unavailable: {exc}",
+                "notices": (),
+            }
+
+        ordered_ids = [hit.oracle_id for hit in retrieval.hits]
+        by_oracle_id: dict[str, dict[str, Any]] = {}
+        if ordered_ids:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    """SELECT c.id,c.oracle_id,c.name,c.type_line,c.mana_cost,c.cmc,
+                              c.oracle_text,c.color_identity,c.image_uri,c.rarity
+                       FROM cards c
+                       WHERE c.oracle_id IN (SELECT value FROM json_each(?))
+                         AND c.id=(
+                           SELECT c2.id FROM cards c2
+                           WHERE c2.oracle_id=c.oracle_id
+                           ORDER BY c2.image_uri IS NULL,c2.id LIMIT 1
+                         )""",
+                    (json.dumps(ordered_ids),),
+                ).fetchall()
+            by_oracle_id = {str(row["oracle_id"]): dict(row) for row in rows}
+
+        ranked_rows: list[dict[str, Any]] = []
+        hits_by_id = {hit.oracle_id: hit for hit in retrieval.hits}
+        for oracle_id in ordered_ids:
+            row = by_oracle_id.get(oracle_id)
+            if row is None:
+                hit = hits_by_id[oracle_id]
+                row = {
+                    "id": oracle_id,
+                    "oracle_id": oracle_id,
+                    "name": hit.name,
+                    "type_line": hit.type_line,
+                    "mana_cost": hit.mana_cost,
+                    "cmc": hit.mana_value,
+                    "oracle_text": hit.oracle_text,
+                    "color_identity": list(hit.color_identity),
+                    "image_uri": None,
+                    "rarity": None,
+                }
             else:
-                where.extend(color_tests)
-                values.extend(color_values)
-                if color_mode == "exact":
-                    where.append("json_array_length(c.color_identity)=?")
-                    values.append(len(colored))
-        if mana_value is not None:
-            operator = {"eq": "=", "gte": ">=", "lte": "<="}.get(mana_operator, "<=")
-            where.append(f"c.cmc {operator} ?")
-            values.append(mana_value)
+                row["color_identity"] = _colors(row.get("color_identity"))
+            ranked_rows.append(row)
+
+        offset = (page - 1) * per_page
+        page_rows = ranked_rows[offset : offset + per_page]
+        notices = list(retrieval.availability.notices)
         if rarity in {"common", "uncommon", "rare", "mythic"}:
-            where.append("c.rarity=?")
-            values.append(rarity)
-        with self._connect() as conn:
-            rows = conn.execute(
-                f"""SELECT c.id,c.oracle_id,c.name,c.type_line,c.mana_cost,c.cmc,
-                          c.oracle_text,c.color_identity,c.image_uri,c.rarity
-                   FROM cards c WHERE {' AND '.join(where)}
-                     AND c.id=(SELECT c2.id FROM cards c2 WHERE c2.name=c.name
-                               ORDER BY c2.image_uri IS NULL,c2.id LIMIT 1)
-                   ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?""",
-                [*values, per_page + 1, (page - 1) * per_page],
-            ).fetchall()
-        has_next = len(rows) > per_page
-        results = [dict(row) for row in rows[:per_page]]
-        for row in results:
-            row["color_identity"] = _colors(row.get("color_identity"))
-        return {"results": results, "page": page, "has_next": has_next}
+            notices.append(
+                "Rarity is a presentation field and was not applied to retrieval."
+            )
+        return {
+            "results": page_rows,
+            "page": page,
+            "has_next": len(ranked_rows) > offset + per_page
+            or retrieval.fused_truncated,
+            "unavailable": None,
+            "notices": tuple(notices),
+            "provenance": retrieval.provenance.model_dump(mode="json"),
+        }
+
+    def _search_cards(self, query: CardSearchQuery) -> CardSearchResult:
+        if self._card_searcher is not None:
+            return self._card_searcher.search(query)
+        from sabermetrics.substrate.retrieval import CardRetrievalFacade
+        from sabermetrics.substrate.settings import load_research_settings
+
+        with CardRetrievalFacade(load_research_settings()) as searcher:
+            return searcher.search(query)
 
     def commander_detail(
         self, card_id: str, *, window_days: int = 90

@@ -766,7 +766,7 @@ runs all of them and is the single gate**; `--verbose` prints each step, and
 R0 gate before its own — a green R1 over a red R0 measures the wrong thing.
 
 - [x] **Regression parity.** `ruff check src tests`, `black --check src tests`,
-      `mypy src`, `pytest -q`, at or above the post-R0 floor of **1325 passed /
+      `mypy src`, `pytest -q`, at or above the post-R0 floor of **1410 passed /
       31 skipped**, pinned in `scripts/check_r1.py`.
 - [x] **≥25 tags across two complete families.** Read from the shipped registry,
       not from a file count, and both `cost:*` and `mana:*` must be non-empty.
@@ -853,6 +853,164 @@ to do, done better, deterministically, and for free.
 **G1:** recall@50 per retriever and fused over `required_oracle_ids`. Target
 ≥0.90 fused. **Below 0.80: stop and fix the substrate.** No model fixes
 retrieval.
+
+#### R2 implementation contract
+
+**One atomic source observation produces one immutable bundle.** A production
+build reads snapshot identity, `card_any_medium`, `card_face`, and Commander
+legality on one Postgres connection in one read-only, repeatable-read
+transaction. Every statement passes `assert_v1_only`; no statement names
+`mtg_internal`, and the narrow `mtg_v1.card` view is never used. A canonical
+corpus hash covers card, face, and legality facts but excludes capture time.
+The same frozen rows feed the mechanic-tag build, FTS catalog, and dense
+encoder; none may reopen Postgres independently.
+
+A bundle is a content-addressed directory beneath the configured artifact root:
+
+```
+<root>/
+  CURRENT
+  <bundle_sha256>/
+    manifest.json
+    catalog.sqlite
+    card-vectors.npy
+```
+
+`catalog.sqlite` is standalone and read-only at query time. It contains one
+row per Oracle card, normalized type and tag relations, Commander legality,
+deterministic row/vector offsets ordered by `oracle_id`, and FTS5 over the
+versioned canonical card document (name, type line, mana cost, all face text).
+`card-vectors.npy` is normalized float32 and opened as a numpy memmap. The
+manifest binds the corpus hash, tag-library and tag-row hashes, document
+template version, retrieval-config hash, exact embedding/reranker model IDs and
+40-character revisions, dimensions, dtype, normalization, and every artifact
+file digest. Capture/build timestamps are provenance, not bundle identity.
+
+Builds write a sibling scratch directory, validate SQLite integrity, vector
+shape/finiteness/norms, manifest identity, and every file digest, then rename
+the completed directory. `CURRENT` changes by `os.replace` only after that
+validation. A failed build leaves the old pointer untouched. A reader validates
+the pointer and manifest before opening any file; an absent or corrupt bundle is
+an explicit unavailable result, never an empty search and never a fallthrough
+to the legacy card table.
+
+**The retrieval facade is the only card-search entry point.** It accepts the
+strict `CardSearchQuery`, translates it to parameterized catalog predicates,
+and executes this fixed sequence:
+
+1. SQL computes the eligible Oracle-ID set for color identity (`subset`,
+   `exact`, or `intersects`), required/excluded types and mechanic tags,
+   any-of mechanic tags, mana value bounds, Commander legality, and an optional
+   caller allowlist.
+2. FTS5 and dense search each rank only that same eligible set, with bounded
+   pools from `config/research.yaml`. Plain text is compiled to quoted FTS
+   tokens; raw FTS syntax is never accepted.
+3. Weighted RRF fuses lexical and dense ranks. Stage scores are retained as
+   provenance but do not enter the RRF formula.
+4. The pinned local cross-encoder reranks only the configured top pool
+   (tuned to 300), in bounded batches. No model loader may contact a hub at
+   query time.
+5. A second configured RRF combines the pre-rerank hybrid order with the
+   cross-encoder order. This is deliberate, measured guardrail behavior: the
+   cross-encoder may promote a semantically strong candidate but may not erase
+   strong deterministic retrieval on a disjunctive mechanic query.
+6. Results are hydrated by Oracle ID from the bundle and returned with every
+   stage rank/score, truncation flags, availability, and complete bundle
+   provenance. Ties have an explicit final `oracle_id` ordering.
+
+FTS/BM25 weights, RRF weights and `k`, pool sizes, result bound, model IDs,
+model revisions, query prefix, dimensions, normalization, batch sizes, and
+cross-encoder maximum length are configuration, not code. Model files are
+provisioned separately. Missing files, wrong revisions, wrong dimensions,
+non-finite vectors/scores, and zero vectors fail visibly.
+
+**The live reference index migrates as one generation.** Inspection disproved
+the earlier idle-index assumption: `main.py` exposes retrieval directly, and
+the legacy profiler reaches it through `reference_layer.evidence`. R2 therefore
+re-indexes reference chunks too. Reference embeddings live in generation-keyed
+rows with model ID, immutable revision, document-template version, dimensions,
+dtype, normalization and content hash recorded once per generation. A complete
+new generation is written and validated before one singleton active-generation
+pointer changes in the same SQLite transaction. The retriever reads one active
+generation only and refuses stale MiniLM, mixed-model, partial, or unlabelled
+rows. Reverting is another complete generation build and pointer swap.
+
+**The existing Research card page becomes a consumer, not a second
+retriever.** `ResearchRepo.cards` obtains ranked Oracle IDs from the facade.
+It may hydrate image/rarity/printing fields from the legacy SQLite card table
+for presentation only, preserving retrieval order; those fields cannot filter,
+score, break ties, or enter the assistant contract. The old `%LIKE%` card
+search is removed. An unavailable active bundle is rendered as unavailable
+rather than silently returning legacy-ranked results.
+
+#### G1 and the R2 gate
+
+G1 labels are a separate, versioned artifact mapped from discovery questions
+whose answer is card retrieval alone. Agent-drafted mappings remain `draft` and
+cannot produce an authoritative score. Dylan must verify the query, every
+required/forbidden Oracle ID, and the intended structured filters; the label
+then records `owner_verified`, the labeller, date, and review note.
+
+An authoritative run requires all of the following and refuses to print a G1
+claim if any is absent:
+
+- an active, validated bundle sourced from `mtg_v1.card_any_medium`, with at
+  least 30,000 cards and every labelled Oracle ID resolved;
+- the exact pinned local BGE embedding and reranker revisions from config;
+- one observation for every owner-verified G1 label; and
+- rankings at 50 for lexical, dense, pre-rerank RRF, and the final reranked
+  fused pipeline.
+
+The scorecard reports per-question and aggregate macro/micro recall, forbidden
+hits, truncation, corpus/bundle/model/config/label hashes, and elapsed time.
+For naming, `rrf` is the pre-rerank diagnostic and `fused` is the final
+post-rerank pipeline output to which the existing ≥0.90 target applies. A fused
+macro recall below 0.90 fails R2; below 0.80 additionally carries
+`stop_and_fix`, because proceeding to a model planner would hide a substrate
+failure rather than repair it.
+
+`python scripts/check_r2.py` is the single completion gate. By default it
+re-runs R1, lint, format, types, package-boundary tests, all portable retrieval
+tests, the full suite with a passed-test floor and exact skip count, validates
+the active bundle, runs authoritative G1, and writes the scorecard. A
+`--portable` mode may prove code and fixture checks in CI without local model
+files, but it prints **not G1 / not R2 complete** and cannot be the evidence
+used to tick the boxes below.
+
+#### R2 definition of done
+
+- [x] Strict query/filter/result/provenance and retrieval configuration models;
+      pinned model revisions; no price or collection field.
+- [x] Snapshot-consistent corpus export; immutable catalog/artifact validation;
+      safe FTS5, structured filters, dense memmap search, weighted RRF, bounded
+      cross-encoder; portable tests use fake encoders/scorers.
+- [x] One builder creates and atomically activates a complete bundle from one
+      frozen corpus observation; one facade runs the whole pipeline.
+- [ ] Reference chunks are rebuilt under a validated BGE generation and every
+      live consumer reads only the active generation.
+- [x] `ResearchRepo.cards` uses facade-ranked Oracle IDs and contains no legacy
+      `%LIKE%` card-ranking path.
+- [ ] All G1 labels are owner-verified; the full `mtg_v1` bundle and pinned
+      local models produce a recorded authoritative fused recall@50 ≥0.90.
+- [ ] `python scripts/check_r2.py` passes in authoritative mode, the R0→R1→R2
+      chain stays green, and this section records the measured hashes, counts,
+      recall, and completion date.
+
+**Implementation checkpoint, 2026-09-09.** `python scripts/check_r2.py
+--portable --skip-r1` passes: lint, format, types, package boundaries, 141
+portable retrieval tests, and the full suite at 1,563 passed / 31 skipped. The
+reference generation code and its rollback/mixed-generation tests are green,
+but its checklist remains open until the real reference corpus is encoded and
+activated. Both pinned local model snapshots are provisioned and
+revision-attested. A real-model, 34,551-card Scryfall development bundle
+(`cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff`,
+`card-document.v2`) measured **0.9583 fused macro recall@50**, 29/31 micro
+recall, and zero forbidden hits after canonicalizing 43 synthetic fixture IDs;
+this is useful tuning evidence but explicitly **not G1**. Authoritative G1 still
+refuses to run, correctly: no Postgres DSN is configured in this worktree, the
+active development bundle says `scryfall:oracle_cards` rather than
+`mtg_v1.card_any_medium`, and all 12 labels remain explicitly `draft` pending
+Dylan's review (`fixtures/research/g1_label_review.json`).
 
 ### R3 — Query IR and deterministic executor · ~1.5 weeks · no LLM · **GATE G2**
 
@@ -1117,33 +1275,20 @@ both at once is one re-index; the cost of doing them separately is a class of bu
 that is very hard to attribute. R2 already rebuilds the card index, so it is the
 cheapest moment.
 
-Sequencing note, **and the assumption this decision rests on**:
-`reference_layer` appears to be **idle**, so re-indexing it should have no live
-consumer to break. That is only true until `rules_lookup` is wired at R3, which
-is why R2 is the cheap moment rather than "later."
+**Verification result (R2, 2026-09-09): the reference index is live.**
+`main.py` constructs `ReferenceRetriever` directly, while
+`reference_layer.evidence` constructs it for the legacy profiler through
+`reasoning/profiler.py`. The old index records neither model identity nor a
+generation, and both MiniLM-L6 and bge-small emit 384 dimensions, so shape
+checking alone cannot distinguish stale and current rows.
 
-**Verify before re-indexing — do not assume it.** The claim is that nothing
-currently reads the `reference_layer` index. Establish it, at R2, before the
-rebuild:
-
-1. Grep the import graph for consumers of `reference_layer.retriever` /
-   `.evidence`, including the legacy `reasoning/` path — `profile_synthesis.txt`
-   takes a `{reference_chunks}` slot and `card_fit.txt` takes
-   `{relevant_rule_excerpts}`, so the **legacy casual generator is a plausible
-   live consumer** and is the specific thing to rule in or out.
-2. Check `scripts/index_references.py` and `index_set_mechanics.py` for what they
-   populate and whether anything in a scheduled job reads it.
-3. Confirm the stored vectors' dimensionality is recorded alongside them, so a
-   mixed-dimension index fails loudly rather than returning silently wrong
-   neighbours. MiniLM-L6 and bge-small are both 384-dim, which means **a stale
-   row and a fresh row are the same shape and will not error** — that is the
-   failure this check exists to prevent, and it is the reason to verify rather
-   than assume.
-
-If a live consumer is found, the decision does not flip; the swap simply
-re-indexes that consumer too, in the same change, per "one model, two indexes."
-If the swap must be split across phases for any reason, that is the new evidence
-that reopens 4b.
+This does not reopen the one-model decision; it determines the migration
+mechanism. R2 builds a complete generation keyed by model ID, immutable
+revision, document-template version, dimensions, normalization and reference
+content hash, validates every row, and atomically switches one active-generation
+pointer. Existing consumers move to that reader in the same change. A partial
+in-place rewrite of `reference_chunks.embedding` is forbidden because it can
+serve a same-shaped mixture with no observable error.
 
 ---
 

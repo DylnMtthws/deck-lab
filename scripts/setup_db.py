@@ -188,6 +188,49 @@ DDL_STATEMENTS = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_chunks_document ON reference_chunks(document)",
     "CREATE INDEX IF NOT EXISTS idx_chunks_tier ON reference_chunks(tier)",
+    # R2 reference embeddings. `reference_chunks.embedding` remains inert
+    # compatibility data; all live vectors are generation-keyed here.
+    """
+    CREATE TABLE IF NOT EXISTS reference_embedding_generations (
+        generation_id TEXT PRIMARY KEY,
+        model_id TEXT NOT NULL,
+        model_revision TEXT NOT NULL,
+        document_template_version TEXT NOT NULL,
+        dimensions INTEGER NOT NULL CHECK(dimensions > 0),
+        dtype TEXT NOT NULL,
+        normalized INTEGER NOT NULL CHECK(normalized IN (0, 1)),
+        content_sha256 TEXT NOT NULL,
+        embedding_sha256 TEXT NOT NULL,
+        row_count INTEGER NOT NULL CHECK(row_count > 0),
+        complete INTEGER NOT NULL DEFAULT 0 CHECK(complete IN (0, 1)),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS reference_chunk_embeddings (
+        generation_id TEXT NOT NULL,
+        chunk_id TEXT NOT NULL,
+        embedding BLOB NOT NULL,
+        PRIMARY KEY (generation_id, chunk_id),
+        FOREIGN KEY (generation_id)
+            REFERENCES reference_embedding_generations(generation_id)
+            ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_reference_embeddings_chunk
+        ON reference_chunk_embeddings(chunk_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS active_reference_embedding_generation (
+        singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+        generation_id TEXT NOT NULL,
+        activated_at TIMESTAMP NOT NULL,
+        FOREIGN KEY (generation_id)
+            REFERENCES reference_embedding_generations(generation_id)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS card_rulings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,0 +1,370 @@
+schema_version: research-g1-labels.v1
+labels:
+- question_id: mechanic-001
+  query:
+    text: Find blue instants that counter a spell and either exile a blue card,
+      require controlling your commander, or have no mana symbols in their printed
+      cost.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Instant
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 956381ba-6d37-4a8a-846c-bad79222dbee
+  - ac2173f9-f223-440a-9231-fd98762bdc6f
+  - d09c9cba-fdd2-479b-ad5d-d05181c3e3f9
+  - f3e213a4-ba5a-468a-93b3-c0a34e1bd725
+  forbidden_oracle_ids:
+  - 8ddfc283-c9b4-41a5-af88-cf0068e986cc
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify the four required zero-mana counterspells, the Swan
+    Song negative, and that the filters should span both alternate-cost and conditional-free-cast
+    wording.
+- question_id: mechanic-002
+  query:
+    text: Find nonland artifacts that tap to add mana, including artifacts that do
+      not untap normally and require a separate untap payment.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Artifact
+      excluded_types:
+      - Land
+      required_tags:
+      - mana:mana_rock
+      - mana:adds_two_or_more
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 6ad8011d-3471-4369-9d68-b264cc027487
+  - 736892cb-a34b-4bb9-b56c-e26e3db207a2
+  - 6b8cf2a0-b045-4d91-9d91-c602d40c6237
+  - 229d6627-1292-4ae1-8849-b0f956fa6540
+  forbidden_oracle_ids:
+  - 23467047-6dba-4498-b783-1ebc4f74b8c2
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify the four required mana rocks, the Ancient Tomb negative,
+    and that requiring both mana:mana_rock and mana:adds_two_or_more expresses the
+    intended Kinnan-amplified scope.
+- question_id: mechanic-003
+  query:
+    text: Find Simic-legal lands with channel abilities that discard the land to
+      destroy an artifact, enchantment, or land, or return a nonland permanent.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Land
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - bf1341dd-41a3-49f6-87ec-63170dde4324
+  - e9b6a394-691c-425a-9307-76d8edc7375e
+  forbidden_oracle_ids:
+  - b2c6aa39-2d2a-459c-a555-fb48ba993373
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Boseiju and Otawara as required, Island as forbidden,
+    and the intended boundary of activated non-mana interaction.
+- question_id: mechanic-004
+  query:
+    text: Find Simic enchantments that enter as a copy of an artifact or another
+      artifact or enchantment.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Enchantment
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 80bc56a9-40e0-48da-ae86-190e39c8a4a3
+  - 79a71fe5-38ce-4bb5-aea0-c9b9a856d397
+  forbidden_oracle_ids:
+  - d4ec0df9-a4a3-48cf-a0aa-b1aea5c49142
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Copy Artifact and Mirrormade as required, Clever
+    Impersonator as forbidden, and that entering as an artifact copy is the intended
+    mechanic.
+- question_id: mechanic-005
+  query:
+    text: Find a Simic instant with convoke that searches the library for a creature
+      card and puts it onto the battlefield.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Instant
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 6789a170-f2c5-4fc0-8a45-2b2361e67410
+  forbidden_oracle_ids:
+  - 69872a9a-fe54-4e58-940c-89395af71acd
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Chord of Calling as required, Finale of Devastation
+    as forbidden, and the instant-speed tutor scope.
+- question_id: mechanic-006
+  query:
+    text: Find cards with mana value three and transmute for three mana that search
+      for another card with mana value three.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types: []
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: 3.0
+      mana_value_max: 3.0
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 6ee51134-c4ad-4101-8ce2-23dde9359cd4
+  forbidden_oracle_ids:
+  - 7de04284-dcaa-4b63-a734-fcfe2698f83c
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Drift of Phantasms as required, Dizzy Spell as forbidden,
+    and that exact mana value three captures the intended transmute restriction.
+- question_id: mechanic-007
+  query:
+    text: Find one-mana Simic-legal creatures that tap to add mana of a color.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Creature
+      excluded_types: []
+      required_tags:
+      - mana:mana_dork
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: 1.0
+      mana_value_max: 1.0
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - d3a0b660-358c-41bd-9cd2-41fbf3491b1a
+  - 3f3b2c10-21f8-4e13-be83-4ef3fa36e123
+  - 68954295-54e3-4303-a6bc-fc4547a4e3a3
+  - df317532-7d36-40fd-938f-e972749c8792
+  forbidden_oracle_ids:
+  - 0bc7f093-bef0-4f1a-852c-4b75ebf54838
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify the four required one-mana mana creatures, Arcane
+    Signet as forbidden, and the narrower mana:mana_dork tag scope.
+- question_id: mechanic-008
+  query:
+    text: Find Simic interaction cast without paying its mana cost by exiling a card
+      from hand, returning a permanent, or controlling your commander.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types: []
+      excluded_types:
+      - Land
+      required_tags: []
+      any_tags:
+      - cost:free_alternative_cost
+      - cost:evoke
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 956381ba-6d37-4a8a-846c-bad79222dbee
+  - c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5
+  - ad7d854b-d303-40eb-acd6-03a8023e05e7
+  - e88de17c-086d-4e2a-b5b2-2f9f57ca7c0f
+  - c85d824b-c190-4d04-ab99-918ad0e6516c
+  forbidden_oracle_ids:
+  - 6d7be242-a072-40ce-b540-95880506cccd
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify all five required alternate-cost interaction cards,
+    Dispel as forbidden, and that the any-of free-alternative-cost or evoke filter
+    expresses the intended heterogeneous pitch-interaction scope.
+- question_id: mechanic-009
+  query:
+    text: Find Simic enchantments that draw when opponents cast noncreature spells
+      unless they pay, draw cards with cumulative upkeep, or look at two additional
+      cards when drawing the first card each turn.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types:
+      - Enchantment
+      excluded_types: []
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 53236dd7-845a-444c-96d5-f41ed7325d8f
+  - 8a52f3c0-2552-4425-b2e3-5496eb2232a7
+  - 92eed395-62ca-4293-882b-8565c40daab5
+  forbidden_oracle_ids:
+  - 3aa83ed2-f48b-4ce6-a614-2c54ddf50538
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify the three required persistent draw enchantments,
+    The One Ring as forbidden, and the multiple-turn card-draw boundary.
+- question_id: mechanic-010
+  query:
+    text: Find Simic nonland cards that untap all nonland permanents, or artifacts
+      that do not untap during the untap step and have an activated ability to untap.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types: []
+      excluded_types:
+      - Land
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - da46904c-8fb8-44c2-b2ab-775a1cc12ec3
+  - 6b8cf2a0-b045-4d91-9d91-c602d40c6237
+  forbidden_oracle_ids:
+  - b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Dramatic Reversal and Basalt Monolith as required,
+    Forest as forbidden, and the repeated-or-multiple untap scope.
+- question_id: mechanic-011
+  query:
+    text: Find Simic cards that let their controller cast spells or noncreature
+      spells this turn as though they had flash.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types: []
+      excluded_types:
+      - Land
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - ce19962d-94f9-4b2b-b668-963c0acce308
+  - 28c1a4a0-f58c-4d07-a918-51ff8a74f050
+  forbidden_oracle_ids:
+  - 8ddfc283-c9b4-41a5-af88-cf0068e986cc
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Borne Upon a Wind and High Fae Trickster as required,
+    Swan Song as forbidden, and the intended breadth of granted flash timing.
+- question_id: mechanic-012
+  query:
+    text: Find a Simic permanent with an activated ability that costs four mana,
+      scries, reveals the top card, puts a land onto the battlefield tapped, and
+      otherwise draws a card.
+    filters:
+      color_identity:
+      - U
+      - G
+      color_mode: subset
+      required_types: []
+      excluded_types:
+      - Instant
+      - Sorcery
+      required_tags: []
+      excluded_tags: []
+      allowed_oracle_ids: []
+      mana_value_min: null
+      mana_value_max: null
+      commander_legal: true
+    top_k: 50
+  required_oracle_ids:
+  - 3d867016-2601-4a37-a73d-308898d3bd37
+  forbidden_oracle_ids:
+  - 53236dd7-845a-444c-96d5-f41ed7325d8f
+  labeller: agent draft
+  labelled_on: '2026-09-09'
+  review_status: draft
+  review_note: Dylan must verify Thrasios as required, Rhystic Study as forbidden,
+    and that repeatable activated card access is the intended outlet criterion.

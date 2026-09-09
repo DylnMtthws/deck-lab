@@ -36,7 +36,7 @@ PY = sys.executable
 
 #: The suite floor after R0. Passed is a FLOOR; skipped is EXACT, because a test
 #: that starts skipping is a test that stopped running.
-BASELINE_PASSED = 1325
+BASELINE_PASSED = 1410
 BASELINE_SKIPPED = 31
 
 #: Spec §9, R1 acceptance.

@@ -1,10 +1,56 @@
 """Research metrics state their real cohorts and missing-data coverage."""
 
+import inspect
 from datetime import date, timedelta
 
 from sabermetrics import db
 from sabermetrics.research import ResearchRepo
+from sabermetrics.substrate.artifacts import RetrievalArtifactError
+from sabermetrics.substrate.models import (
+    CardSearchResult,
+    IndexProvenance,
+    RetrievalAvailability,
+    RetrievalHit,
+)
 from scripts.setup_db import setup_database
+
+
+class _StaticCardSearcher:
+    def search(self, query):
+        assert query.filters.required_types == ("artifact",)
+        assert query.filters.color_identity == ()
+        assert query.filters.mana_value_min == query.filters.mana_value_max == 1
+        return CardSearchResult(
+            query=query,
+            hits=(
+                RetrievalHit(
+                    oracle_id="or",
+                    name="Sol Ring",
+                    mana_value=1,
+                    type_line="Artifact",
+                    oracle_text="",
+                ),
+            ),
+            eligible_cards=1,
+            provenance=IndexProvenance(
+                bundle_id="bundle",
+                corpus_sha256="a" * 64,
+                tag_library_sha256="b" * 64,
+                retrieval_config_sha256="c" * 64,
+                document_version="card-document.v1",
+            ),
+            availability=RetrievalAvailability(
+                lexical=False,
+                dense=False,
+                reranked=False,
+            ),
+        )
+
+
+class _UnavailableCardSearcher:
+    def search(self, query):
+        del query
+        raise RetrievalArtifactError("CURRENT is missing")
 
 
 def test_commander_metrics_and_inclusion_denominators(tmp_path):
@@ -49,7 +95,7 @@ def test_commander_metrics_and_inclusion_denominators(tmp_path):
         )
         conn.commit()
 
-    repo = ResearchRepo(path)
+    repo = ResearchRepo(path, card_searcher=_StaticCardSearcher())
     data = repo.commanders(query="Kinnan", window_days=90)
     assert data["recorded_entries"] == 3
     row = data["results"][0]
@@ -81,3 +127,17 @@ def test_commander_metrics_and_inclusion_denominators(tmp_path):
         colors=["C"],
     )
     assert [item["name"] for item in cards["results"]] == ["Sol Ring"]
+
+
+def test_card_retrieval_absence_is_visible(tmp_path):
+    repo = ResearchRepo(
+        tmp_path / "unused.db", card_searcher=_UnavailableCardSearcher()
+    )
+    result = repo.cards("counterspell")
+    assert result["results"] == []
+    assert result["has_next"] is False
+    assert "Card retrieval unavailable" in result["unavailable"]
+
+
+def test_card_search_has_no_legacy_like_ranking_path():
+    assert " LIKE " not in inspect.getsource(ResearchRepo.cards).upper()

@@ -1,0 +1,309 @@
+{
+  "mapping_source": ".research-dev/corpus.jsonl",
+  "replacement_count": 43,
+  "replacements": [
+    {
+      "canonical_oracle_id": "956381ba-6d37-4a8a-846c-bad79222dbee",
+      "card_name": "Force of Will",
+      "fixture_id": "e272683f-a2cb-5599-85d4-90de2858e45f",
+      "kind": "required",
+      "question_id": "mechanic-001"
+    },
+    {
+      "canonical_oracle_id": "ac2173f9-f223-440a-9231-fd98762bdc6f",
+      "card_name": "Force of Negation",
+      "fixture_id": "ea86f7b9-a5ba-591a-aa51-b0db15061055",
+      "kind": "required",
+      "question_id": "mechanic-001"
+    },
+    {
+      "canonical_oracle_id": "d09c9cba-fdd2-479b-ad5d-d05181c3e3f9",
+      "card_name": "Fierce Guardianship",
+      "fixture_id": "8d61ab14-627e-520c-83fc-e2aadac40133",
+      "kind": "required",
+      "question_id": "mechanic-001"
+    },
+    {
+      "canonical_oracle_id": "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
+      "card_name": "Pact of Negation",
+      "fixture_id": "0f3e82c7-d12f-50cd-9bfa-d17b6fdb4f94",
+      "kind": "required",
+      "question_id": "mechanic-001"
+    },
+    {
+      "canonical_oracle_id": "8ddfc283-c9b4-41a5-af88-cf0068e986cc",
+      "card_name": "Swan Song",
+      "fixture_id": "9dc7fe8a-6908-552b-8078-333e54224f97",
+      "kind": "forbidden",
+      "question_id": "mechanic-001"
+    },
+    {
+      "canonical_oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+      "card_name": "Sol Ring",
+      "fixture_id": "7d556b35-62ab-5a43-bdb9-346c2dff694a",
+      "kind": "required",
+      "question_id": "mechanic-002"
+    },
+    {
+      "canonical_oracle_id": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "card_name": "Mana Vault",
+      "fixture_id": "1a9e5ed4-b8ab-5b87-b44c-e12f4717aaae",
+      "kind": "required",
+      "question_id": "mechanic-002"
+    },
+    {
+      "canonical_oracle_id": "6b8cf2a0-b045-4d91-9d91-c602d40c6237",
+      "card_name": "Basalt Monolith",
+      "fixture_id": "0efb9f5d-56a1-53a3-9357-9b244761b075",
+      "kind": "required",
+      "question_id": "mechanic-002"
+    },
+    {
+      "canonical_oracle_id": "229d6627-1292-4ae1-8849-b0f956fa6540",
+      "card_name": "Grim Monolith",
+      "fixture_id": "e8f4f2dd-630c-5228-b16c-f61d172b06a3",
+      "kind": "required",
+      "question_id": "mechanic-002"
+    },
+    {
+      "canonical_oracle_id": "23467047-6dba-4498-b783-1ebc4f74b8c2",
+      "card_name": "Ancient Tomb",
+      "fixture_id": "69076e9d-5549-571e-85f7-b408e11aba63",
+      "kind": "forbidden",
+      "question_id": "mechanic-002"
+    },
+    {
+      "canonical_oracle_id": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+      "card_name": "Boseiju, Who Endures",
+      "fixture_id": "78318e5e-a4c9-53f4-86a2-e2ced0a9cd77",
+      "kind": "required",
+      "question_id": "mechanic-003"
+    },
+    {
+      "canonical_oracle_id": "e9b6a394-691c-425a-9307-76d8edc7375e",
+      "card_name": "Otawara, Soaring City",
+      "fixture_id": "fe60fdd0-310c-5453-9800-4aede60cdd41",
+      "kind": "required",
+      "question_id": "mechanic-003"
+    },
+    {
+      "canonical_oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373",
+      "card_name": "Island",
+      "fixture_id": "a0b98382-95fe-5a7b-b28a-702b5e05c769",
+      "kind": "forbidden",
+      "question_id": "mechanic-003"
+    },
+    {
+      "canonical_oracle_id": "80bc56a9-40e0-48da-ae86-190e39c8a4a3",
+      "card_name": "Copy Artifact",
+      "fixture_id": "ccc250da-3ef9-5759-b589-4eabe1bbcbbe",
+      "kind": "required",
+      "question_id": "mechanic-004"
+    },
+    {
+      "canonical_oracle_id": "79a71fe5-38ce-4bb5-aea0-c9b9a856d397",
+      "card_name": "Mirrormade",
+      "fixture_id": "8033461f-4f86-5477-b28f-bc897658e2f1",
+      "kind": "required",
+      "question_id": "mechanic-004"
+    },
+    {
+      "canonical_oracle_id": "d4ec0df9-a4a3-48cf-a0aa-b1aea5c49142",
+      "card_name": "Clever Impersonator",
+      "fixture_id": "01948542-44b0-5f59-8d77-bef275e35557",
+      "kind": "forbidden",
+      "question_id": "mechanic-004"
+    },
+    {
+      "canonical_oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410",
+      "card_name": "Chord of Calling",
+      "fixture_id": "425fa23d-c8d6-5599-b019-42f8a9807b87",
+      "kind": "required",
+      "question_id": "mechanic-005"
+    },
+    {
+      "canonical_oracle_id": "69872a9a-fe54-4e58-940c-89395af71acd",
+      "card_name": "Finale of Devastation",
+      "fixture_id": "b3a21c5e-26bf-5fd0-976a-ef8630fbbdd4",
+      "kind": "forbidden",
+      "question_id": "mechanic-005"
+    },
+    {
+      "canonical_oracle_id": "6ee51134-c4ad-4101-8ce2-23dde9359cd4",
+      "card_name": "Drift of Phantasms",
+      "fixture_id": "39c9c537-f46a-54dc-99b1-0861953f8187",
+      "kind": "required",
+      "question_id": "mechanic-006"
+    },
+    {
+      "canonical_oracle_id": "7de04284-dcaa-4b63-a734-fcfe2698f83c",
+      "card_name": "Dizzy Spell",
+      "fixture_id": "f4e1c1db-2da8-538a-a3e5-00d697822566",
+      "kind": "forbidden",
+      "question_id": "mechanic-006"
+    },
+    {
+      "canonical_oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+      "card_name": "Birds of Paradise",
+      "fixture_id": "90748a1e-5fc6-5996-84eb-afdd8ff2e50d",
+      "kind": "required",
+      "question_id": "mechanic-007"
+    },
+    {
+      "canonical_oracle_id": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+      "card_name": "Elvish Mystic",
+      "fixture_id": "6f7be947-5fef-5510-a94a-469839eb31f2",
+      "kind": "required",
+      "question_id": "mechanic-007"
+    },
+    {
+      "canonical_oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+      "card_name": "Llanowar Elves",
+      "fixture_id": "c1b4fbbd-d3ed-5d0b-87f2-59679424ed87",
+      "kind": "required",
+      "question_id": "mechanic-007"
+    },
+    {
+      "canonical_oracle_id": "df317532-7d36-40fd-938f-e972749c8792",
+      "card_name": "Fyndhorn Elves",
+      "fixture_id": "0fee529d-6515-5fe5-9b2b-36b3add47c61",
+      "kind": "required",
+      "question_id": "mechanic-007"
+    },
+    {
+      "canonical_oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838",
+      "card_name": "Arcane Signet",
+      "fixture_id": "05306eaa-0a5a-501f-9b1c-ec672c1fddde",
+      "kind": "forbidden",
+      "question_id": "mechanic-007"
+    },
+    {
+      "canonical_oracle_id": "956381ba-6d37-4a8a-846c-bad79222dbee",
+      "card_name": "Force of Will",
+      "fixture_id": "e272683f-a2cb-5599-85d4-90de2858e45f",
+      "kind": "required",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5",
+      "card_name": "Misdirection",
+      "fixture_id": "f97e4e93-0642-544a-8864-7921493692ba",
+      "kind": "required",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "ad7d854b-d303-40eb-acd6-03a8023e05e7",
+      "card_name": "Commandeer",
+      "fixture_id": "61204fc6-b20f-5e68-8fb0-2cb141e3d885",
+      "kind": "required",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "e88de17c-086d-4e2a-b5b2-2f9f57ca7c0f",
+      "card_name": "Snapback",
+      "fixture_id": "ff03c84c-7131-56ec-939e-7c0d94da441b",
+      "kind": "required",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "c85d824b-c190-4d04-ab99-918ad0e6516c",
+      "card_name": "Endurance",
+      "fixture_id": "f10d2704-4b90-5bdd-a953-4f4f9e46d808",
+      "kind": "required",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "6d7be242-a072-40ce-b540-95880506cccd",
+      "card_name": "Dispel",
+      "fixture_id": "fda47a59-3437-53f0-a7d7-3c9c07559257",
+      "kind": "forbidden",
+      "question_id": "mechanic-008"
+    },
+    {
+      "canonical_oracle_id": "53236dd7-845a-444c-96d5-f41ed7325d8f",
+      "card_name": "Rhystic Study",
+      "fixture_id": "a1fb9375-c93b-57a2-953f-c75473fa5898",
+      "kind": "required",
+      "question_id": "mechanic-009"
+    },
+    {
+      "canonical_oracle_id": "8a52f3c0-2552-4425-b2e3-5496eb2232a7",
+      "card_name": "Mystic Remora",
+      "fixture_id": "57e35965-1dea-5c00-9535-b6e9b6bdec6a",
+      "kind": "required",
+      "question_id": "mechanic-009"
+    },
+    {
+      "canonical_oracle_id": "92eed395-62ca-4293-882b-8565c40daab5",
+      "card_name": "Sylvan Library",
+      "fixture_id": "67f4f119-352d-540e-adda-f4e8d8b192b5",
+      "kind": "required",
+      "question_id": "mechanic-009"
+    },
+    {
+      "canonical_oracle_id": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538",
+      "card_name": "The One Ring",
+      "fixture_id": "f665b8df-e7ab-567c-89bd-ee5a60783da5",
+      "kind": "forbidden",
+      "question_id": "mechanic-009"
+    },
+    {
+      "canonical_oracle_id": "da46904c-8fb8-44c2-b2ab-775a1cc12ec3",
+      "card_name": "Dramatic Reversal",
+      "fixture_id": "29d11c2e-7f16-576f-adab-dd9955f4a7f2",
+      "kind": "required",
+      "question_id": "mechanic-010"
+    },
+    {
+      "canonical_oracle_id": "6b8cf2a0-b045-4d91-9d91-c602d40c6237",
+      "card_name": "Basalt Monolith",
+      "fixture_id": "0efb9f5d-56a1-53a3-9357-9b244761b075",
+      "kind": "required",
+      "question_id": "mechanic-010"
+    },
+    {
+      "canonical_oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+      "card_name": "Forest",
+      "fixture_id": "f3f7e450-fa7c-5d18-83cb-d2db9791850f",
+      "kind": "forbidden",
+      "question_id": "mechanic-010"
+    },
+    {
+      "canonical_oracle_id": "ce19962d-94f9-4b2b-b668-963c0acce308",
+      "card_name": "Borne Upon a Wind",
+      "fixture_id": "87bfe91a-5ef3-5b12-85ab-cb147b6646dc",
+      "kind": "required",
+      "question_id": "mechanic-011"
+    },
+    {
+      "canonical_oracle_id": "28c1a4a0-f58c-4d07-a918-51ff8a74f050",
+      "card_name": "High Fae Trickster",
+      "fixture_id": "0ac75c1c-2f36-57e2-92b6-5703dce29637",
+      "kind": "required",
+      "question_id": "mechanic-011"
+    },
+    {
+      "canonical_oracle_id": "8ddfc283-c9b4-41a5-af88-cf0068e986cc",
+      "card_name": "Swan Song",
+      "fixture_id": "9dc7fe8a-6908-552b-8078-333e54224f97",
+      "kind": "forbidden",
+      "question_id": "mechanic-011"
+    },
+    {
+      "canonical_oracle_id": "3d867016-2601-4a37-a73d-308898d3bd37",
+      "card_name": "Thrasios, Triton Hero",
+      "fixture_id": "210f06b9-fc4b-55fd-8fcc-7fe267e69a46",
+      "kind": "required",
+      "question_id": "mechanic-012"
+    },
+    {
+      "canonical_oracle_id": "53236dd7-845a-444c-96d5-f41ed7325d8f",
+      "card_name": "Rhystic Study",
+      "fixture_id": "a1fb9375-c93b-57a2-953f-c75473fa5898",
+      "kind": "forbidden",
+      "question_id": "mechanic-012"
+    }
+  ],
+  "schema_version": "research-g1-label-review.v1",
+  "status": "awaiting_owner_review"
+}

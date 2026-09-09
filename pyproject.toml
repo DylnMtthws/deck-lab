@@ -36,6 +36,10 @@ postgres = ["psycopg[binary]>=3.1"]
 # carrying PyTorch and scikit-learn into the production container.
 legacy = ["pandas", "sentence-transformers"]
 
+# Local BGE card/reference indexing and reranking for Ask. Kept separate from
+# the legacy analytics extra so production can install retrieval without pandas.
+research = ["sentence-transformers"]
+
 # Pinned exactly. These tools gate or report on CI, and an unpinned linter
 # turns main red on someone else's release day with no change to this repo.
 # Bump deliberately, not incidentally.

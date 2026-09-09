@@ -70,13 +70,13 @@ def index():
         current_user.id
     )
     card_colors = [
-        color for color in request.args.getlist("card_color") if color in list("WUBRGC")
+        color for color in request.args.getlist("card_color") if color in list("WUBRG")
     ]
     card_filters: dict[str, Any] = {
         "oracle_text": (request.args.get("oracle_text") or "").strip()[:120],
         "type_line": (request.args.get("type_line") or "").strip()[:120],
         "colors": card_colors,
-        "color_mode": request.args.get("color_mode", "all"),
+        "color_mode": request.args.get("color_mode", "subset"),
         "mana_operator": request.args.get("mana_operator", "lte"),
         "mana_value": _optional_float_arg("mana_value"),
         "rarity": request.args.get("rarity", ""),
