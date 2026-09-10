@@ -1,0 +1,115 @@
+# Owner adjudications on the golden question set.
+#
+# A golden label is a judgement, and G2 measures the substrate against it. That
+# only means anything if the label moves when it is wrong and the PLAN moves
+# when the plan is wrong — never the reverse. Every entry here records which
+# direction was chosen and why, so a later reader can tell an adjudication from
+# a convenience.
+#
+# This file is versioned so a scorecard can name the adjudication set it was
+# measured under. It does NOT ratify the golden set: every question remains
+# `contested` and every plan remains `draft` until a full review happens.
+schema_version: research-adjudications.v1
+adjudication_set: 2026-09-10.a
+adjudicated_by: Dylan Matthews
+adjudicated_on: 2026-09-10
+ratifies_golden_set: false
+
+adjudications:
+  - question_id: deck-local-010
+    ruling: label_corrected
+    summary: >-
+      The forbidden card contradicted the question's own clarified ask.
+      Delighted Halfling is a non-Human creature that taps for mana and Kinnan
+      may put it onto the battlefield, so the exclusion was removed rather than
+      a predicate invented to enforce it. Re-enumeration added Enduring Vitality
+      and Gene Pollinator, which the draft had omitted. Elvish Spirit Guide is
+      forbidden and the ask now states why: it makes mana only from hand, so it
+      produces nothing once on the battlefield.
+    direction: the label moved to the ask
+
+  - question_id: metagame-006
+    ruling: label_corrected
+    summary: >-
+      The label required Force of Will, which DEFINES the cohort rather than
+      answering the question. Required is now the co-occurring zero-mana
+      counterspells, and an expected absence records that the co-inclusion
+      counts backing them need R5. Mental Misstep stays: "zero mana" means no
+      mana is paid, and the clarified ask now documents that these counters may
+      still require another cost or condition.
+    direction: the label moved to the ask
+
+  - question_id: metagame-010
+    ruling: unscored_pending
+    summary: >-
+      The ask says "appear most often", which is a frequency claim. Neither the
+      pack's two lands nor the wider set of mechanically qualifying lands
+      establishes it: membership and frequency are separate evaluations and
+      only the first is available. The question is preserved as written and its
+      retrieval half leaves the denominator explicitly, rather than being
+      quietly rescored against a membership key it does not ask for.
+    direction: the score deferred, not the question rewritten
+
+  - question_id: combo-004
+    ruling: label_corrected
+    summary: >-
+      Six qualify, confirmed by an independent re-enumeration of the fixture
+      rather than by reading what retrieval returned: Finale of Devastation and
+      Nature's Rhythm join the four already required. Invasion of Ikoria is
+      rejected — its front face searches for a NON-HUMAN creature and Kinnan is
+      a Human Druid — and Dizzy Spell is rejected because transmute searches at
+      the card's own mana value of one. Both are recorded as counterexamples
+      rather than forbidden: retrieving a plausible trap is acceptable, and only
+      presenting one as an answer is not.
+    direction: the label moved to the ask
+
+  - question_id: deck-local-009
+    ruling: label_corrected
+    summary: >-
+      Nature's Rhythm and Invasion of Ikoria accepted. The asymmetry with
+      combo-004 is deliberate and is the point: there the ask requires reaching
+      Kinnan, whom Ikoria's non-Human clause excludes; here the ask is only
+      "puts a creature from the library onto the battlefield", which it does. A
+      card qualifies against an ask, not in general.
+    direction: the label moved to the ask
+
+  - question_id: mechanic-005
+    ruling: scoring_semantics_changed
+    summary: >-
+      "Find a tutor" is a singular request, so Chord of Calling, Mask of the
+      Mimic and March of Burgeoning Life are satisfied_by_any_of rather than
+      required. Turning alternatives into mandatory answers would convert a
+      request for an option into a demand for exhaustive coverage and score the
+      difference as a failure. Dig-without-search effects are excluded under the
+      clarified ask. March's absence from the plan's answer is reported as
+      incomplete coverage, not as a failure of this question.
+    direction: the metric moved to the ask
+
+  - question_id: mechanic-013
+    ruling: question_added
+    summary: >-
+      Exhaustive recall needs its own question, where completeness IS the ask,
+      every member is required and a miss is a failure. This is the question
+      that would have caught March of Burgeoning Life. It is expected to fail
+      until the query or the substrate improves; that failure is the
+      measurement.
+    direction: a new question rather than a redefined one
+
+  - question_id: mechanic-006
+    ruling: scope_clarified
+    summary: >-
+      Catalog-wide, Simic-restricted — not pack-scoped. A category default may
+      supply the commander context, so "legal in Kinnan" is a legitimate
+      restriction and is now stated in the clarified ask; only an ask saying "in
+      my list" restricts membership to the fixture. Drift of Phantasms alone is
+      correct under that scope. The discriminator is corrected to the card's own
+      mana value, not its printed transmute cost.
+    direction: the ask made explicit; the label stands
+
+  - question_id: mechanic-014
+    ruling: question_added
+    summary: >-
+      The unrestricted counterpart to mechanic-006, carrying no commander
+      context, so Perplex and Dimir Machinations join Drift of Phantasms. The
+      pair isolates what the commander context was doing.
+    direction: a new question rather than a redefined one

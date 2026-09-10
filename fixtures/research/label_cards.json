@@ -1,0 +1,104 @@
+{
+  "_README": "SYNTHETIC FIXTURE — cards the GOLDEN LABELS name that the Kinnan deck does not contain. A corpus-wide question ('find a tutor that does X') has qualifying answers outside any one deck, so its label must be able to name them; fixtures/cedh/cards.json is the DECK and must not grow to hold them. Oracle ids are uuid5 under the same namespace as the deck fixture, so they are stable and are not Scryfall ids. There are no prices (ADR-025).",
+  "cards": [
+    {
+      "all_types": [
+        "Sorcery"
+      ],
+      "castable_cmcs": [
+        3.0
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "colors": [
+        "B"
+      ],
+      "faces": [],
+      "keywords": [
+        "Transmute"
+      ],
+      "layout": "normal",
+      "mana_cost": "{2}{B}",
+      "mana_value": 3.0,
+      "name": "Dimir Machinations",
+      "oracle_id": "feaf9980-035e-529f-b74b-320866fb0347",
+      "oracle_text": "Look at the top three cards of target player's library. Exile any number of those cards, then put the rest back in any order.\nTransmute {1}{B}{B} ({1}{B}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+      "type_line": "Sorcery"
+    },
+    {
+      "all_types": [
+        "Instant"
+      ],
+      "castable_cmcs": [
+        1.0
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "colors": [
+        "G"
+      ],
+      "faces": [],
+      "keywords": [],
+      "layout": "normal",
+      "mana_cost": "{X}{G}",
+      "mana_value": 1.0,
+      "name": "March of Burgeoning Life",
+      "oracle_id": "b1e512f3-a2e3-5dd2-8d2c-761336e03ace",
+      "oracle_text": "As an additional cost to cast this spell, you may exile any number of green cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nChoose target creature with mana value less than X. Search your library for a creature card with the same name as that creature, put it onto the battlefield tapped, then shuffle.",
+      "type_line": "Instant"
+    },
+    {
+      "all_types": [
+        "Instant"
+      ],
+      "castable_cmcs": [
+        1.0
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "colors": [
+        "U"
+      ],
+      "faces": [],
+      "keywords": [],
+      "layout": "normal",
+      "mana_cost": "{U}",
+      "mana_value": 1.0,
+      "name": "Mask of the Mimic",
+      "oracle_id": "e956ef0e-fab7-5564-8349-9be7a9a6d9d7",
+      "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card with the same name as target nontoken creature, put that card onto the battlefield, then shuffle.",
+      "type_line": "Instant"
+    },
+    {
+      "all_types": [
+        "Instant"
+      ],
+      "castable_cmcs": [
+        3.0
+      ],
+      "color_identity": [
+        "B",
+        "U"
+      ],
+      "colors": [
+        "B",
+        "U"
+      ],
+      "faces": [],
+      "keywords": [
+        "Transmute"
+      ],
+      "layout": "normal",
+      "mana_cost": "{1}{U}{B}",
+      "mana_value": 3.0,
+      "name": "Perplex",
+      "oracle_id": "e42b5aad-e80f-5bab-8723-d0aa596e360d",
+      "oracle_text": "Counter target spell unless its controller discards their hand.\nTransmute {1}{U}{B} ({1}{U}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+      "type_line": "Instant"
+    }
+  ],
+  "schema_version": "research-label-cards.v1"
+}

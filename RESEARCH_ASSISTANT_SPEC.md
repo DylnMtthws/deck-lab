@@ -1285,6 +1285,58 @@ never returned — is a recall miss **the gate is structurally unable to see**,
 because recall is scored against a label written by the same authorship as the
 plans.
 
+**Owner adjudications, and the corrected baseline (2026-09-10).** Nine rulings
+are recorded in `fixtures/research/adjudications.yaml` as adjudication set
+`2026-09-10.a`, which every scorecard now names. The set explicitly **does not
+ratify** the golden set: every question stays `contested` and every plan stays
+`draft`.
+
+Two of the rulings changed the metric rather than a label, and both were
+changes the labels alone could not express:
+
+- **A singular request is not a demand for exhaustive coverage.** "Find a tutor"
+  is answered by any one qualifying card, so `mechanic-005` carries
+  `satisfied_by_any_of` rather than `required_oracle_ids`. Turning alternatives
+  into mandates would score the difference between "an option" and "all options"
+  as a failure. Coverage is still measured — `alternative_coverage` reports 2 of
+  3 — and exhaustive recall moved to its own question, `mechanic-013`, where
+  completeness *is* the ask and a miss *is* a failure.
+- **A question whose evidence does not exist yet leaves the denominator.**
+  `metagame-010` asks which lands "appear most often", which is a frequency
+  claim; membership and frequency are separate evaluations and only the first is
+  available. It is preserved as written and reported `unscored_pending: R5`,
+  with the denominator change stated rather than absorbed.
+
+**The corrected baseline is 47/48 = 0.9792, and the point of it is the one that
+fails.** `deck-local-009` misses Invasion of Ikoria. Its bounds were set on
+2026-09-10 after inspecting where the *then*-required cards ranked; the label
+gained a card afterwards, and a bound fitted to one answer key did not survive
+the correction. It is left failing. Widening it now would be fitting the plan to
+the answer a second time, and the failure is more informative than the pass
+would be: **bounds chosen after looking at answer ranks are development tuning,
+and only questions written before their answers are known can show whether they
+generalise.** `mechanic-013` is the first such question, and it passes with
+March of Burgeoning Life at rank 29 — which also shows that `mechanic-005`'s
+bound of 10, not the substrate, is what hides that card.
+
+`combo-004` gained a second kind of label: `counterexample_oracle_ids`. Invasion
+of Ikoria and Dizzy Spell are plausible traps that a restriction check must
+reject — Ikoria searches for a **non-Human** creature and Kinnan is a Human
+Druid; Dizzy Spell's transmute searches at its own mana value of one. They are
+recorded rather than forbidden, because retrieving a trap is acceptable and only
+presenting one as an answer is not. No R3 step performs that check:
+`CardFilters` cannot express a second-order fetch restriction, so it is
+narration work and R3 does not do it.
+
+A **face-text regression check** (`tests/test_research_face_text.py`) now pins a
+substrate asymmetry that has already misled two readers. 891 of the 34,551
+corpus rows publish no card-level `oracle_text` — their text is on faces — so
+anything reading that column directly is blind to them. Retrieval is not: the
+canonical document carries face text, and so does the tag build. An earlier
+audit inferred from the blank column that Invasion of Ikoria "ranked on name and
+type line alone"; that inference was **wrong**, and both halves are now
+asserted so it cannot recur.
+
 `scripts/run_g2.py --chunk N` executes the plans in sequential subprocesses so
 the reranker's working set is released between chunks; the parent never opens a
 facade. The chunks are execution only. Every chunk must report the same bundle

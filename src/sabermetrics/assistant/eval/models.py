@@ -37,8 +37,26 @@ class GoldenQuestion(_StrictModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,63}$")
     ask: str = Field(min_length=8)
     clarified_ask: str = Field(min_length=8)
+    #: Cards the answer must ALL contain. Use for an enumeration question —
+    #: "which cards in this list do X" — where a missing member is a wrong
+    #: answer.
     required_oracle_ids: list[str]
+    #: Cards any ONE of which satisfies the ask. Use for a singular request —
+    #: "find a tutor that does X" — where several cards qualify and returning
+    #: one of them answers the question. Turning these into mandatory answers
+    #: would silently convert a request for an option into a demand for
+    #: exhaustive coverage, and then score the difference as a failure.
+    satisfied_by_any_of: list[str] = Field(default_factory=list)
     forbidden_oracle_ids: list[str]
+    #: Cards that a retrieval step may legitimately return but that a later
+    #: restriction check must reject. Retrieving a plausible trap is not a
+    #: failure; presenting it as an answer would be. Recorded so the trap is
+    #: documented rather than rediscovered, and deliberately NOT forbidden.
+    counterexample_oracle_ids: list[str] = Field(default_factory=list)
+    #: The phase that owns this question's missing evidence, when its answer
+    #: cannot be scored yet. Such a question leaves the retrieval denominator
+    #: and is listed explicitly rather than counted either way.
+    unscored_pending: str | None = None
     expected_absences: list[str]
     category: QuestionCategory
     difficulty: Difficulty
@@ -62,6 +80,25 @@ class GoldenQuestion(_StrictModel):
             raise ValueError("required_oracle_ids contains duplicates")
         if len(forbidden) != len(self.forbidden_oracle_ids):
             raise ValueError("forbidden_oracle_ids contains duplicates")
+        alternatives = set(self.satisfied_by_any_of)
+        if len(alternatives) != len(self.satisfied_by_any_of):
+            raise ValueError("satisfied_by_any_of contains duplicates")
+        if alternatives & forbidden:
+            raise ValueError(
+                "an id cannot both satisfy the ask and be forbidden: "
+                + ", ".join(sorted(alternatives & forbidden))
+            )
+        if alternatives & required:
+            raise ValueError(
+                "an id is either mandatory or an alternative, not both: "
+                + ", ".join(sorted(alternatives & required))
+            )
+        counterexamples = set(self.counterexample_oracle_ids)
+        if counterexamples & (required | alternatives):
+            raise ValueError(
+                "a counterexample cannot also be an answer: "
+                + ", ".join(sorted(counterexamples & (required | alternatives)))
+            )
         if self.category == "ambiguous" and not self.clarification_expected:
             raise ValueError("ambiguous questions must expect clarification")
         if self.category == "out_of_scope" and not self.expected_absences:

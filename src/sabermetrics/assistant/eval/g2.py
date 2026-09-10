@@ -222,6 +222,7 @@ def g2_scorecard(
             "reranker_revision": run.reranker_revision,
             "plans_sha256": plans.sha256(),
             "plans_unverified": list(plans.unverified),
+            "adjudication_set": _adjudication_set(),
             "id_map_status": id_map.status,
             "id_map_sha256": id_map.sha256(),
         },
@@ -370,16 +371,22 @@ def _retrieval_gate(
     recall_k: int,
 ) -> dict[str, Any]:
     """Score the gate the spec's G2 sentence actually describes."""
-    applicable = [
+    scoreable = [
         question
         for question in by_id.values()
-        if question.required_oracle_ids and question.id in rows
+        if (question.required_oracle_ids or question.satisfied_by_any_of)
+        and question.id in rows
     ]
+    unscored = sorted(
+        question.id for question in scoreable if question.unscored_pending
+    )
+    applicable = [question for question in scoreable if not question.unscored_pending]
     passed: list[str] = []
     failed: list[str] = []
     windows: dict[str, str] = {}
     populations: dict[str, int] = {}
     answer_size: dict[str, int] = {}
+    coverage: dict[str, dict[str, int]] = {}
     unranked_over_window: list[str] = []
     forbidden_anywhere: list[str] = []
     for question in applicable:
@@ -410,7 +417,19 @@ def _retrieval_gate(
             window = returned
             windows[question.id] = "full_returned_set"
 
-        if required <= set(window) and not (forbidden & set(window)):
+        alternatives = set(question.satisfied_by_any_of)
+        window_set = set(window)
+        # An enumeration question needs every required card. A singular request
+        # needs one of its alternatives. A question carrying both needs both
+        # conditions, which is what "required" and "any of these" jointly mean.
+        satisfied = required <= window_set
+        if alternatives:
+            satisfied = satisfied and bool(alternatives & window_set)
+            coverage[question.id] = {
+                "returned": len(alternatives & set(returned)),
+                "qualifying": len(alternatives),
+            }
+        if satisfied and not (forbidden & window_set):
             passed.append(question.id)
         else:
             failed.append(question.id)
@@ -427,6 +446,16 @@ def _retrieval_gate(
         "pass_rate": len(passed) / len(applicable) if applicable else 0.0,
         "not_applicable": len(not_applicable),
         "not_applicable_ids": not_applicable,
+        # Questions whose answer cannot be scored yet. Named and removed from
+        # the denominator rather than counted as a pass or a failure — the
+        # denominator change is the point, so it is stated.
+        "unscored_pending": {
+            question_id: by_id[question_id].unscored_pending for question_id in unscored
+        },
+        # For a singular request, how many of its qualifying alternatives came
+        # back. Reported and NOT gated: "find a tutor" is answered by one, and
+        # scoring exhaustive coverage here would turn an option into a demand.
+        "alternative_coverage": coverage,
         "forbidden_hit_anywhere": sorted(forbidden_anywhere),
         "windows": windows,
         # How large a population each answer was drawn from. A question scored
@@ -724,6 +753,29 @@ def _asks_that_name_their_own_answer(
         if all(mentions_card_name(asked, name) for name in names if name):
             out.append(question.id)
     return sorted(out)
+
+
+def _adjudication_set() -> str:
+    """Return the versioned owner-adjudication set the labels reflect.
+
+    A scorecard measured before and after a label ruling are different
+    measurements. Naming the set makes that legible instead of leaving two
+    numbers to be compared as though they came from one question set.
+    """
+    from pathlib import Path
+
+    import yaml
+
+    path = (
+        Path(__file__).resolve().parents[4]
+        / "fixtures"
+        / "research"
+        / "adjudications.yaml"
+    )
+    if not path.is_file():
+        return "none"
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return str(raw.get("adjudication_set") or "none")
 
 
 def _unnamed_label_ids(

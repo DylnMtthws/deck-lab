@@ -25,6 +25,9 @@ from sabermetrics.substrate.settings import load_research_settings
 ROOT = Path(__file__).resolve().parent.parent
 ID_MAP_SCHEMA = "research-deck-context-id-map.v1"
 DEFAULT_FIXTURE = ROOT / "fixtures" / "cedh" / "cards.json"
+#: Cards the golden labels name that the Kinnan deck does not contain. A
+#: corpus-wide question has qualifying answers outside any one deck.
+DEFAULT_LABEL_CARDS = ROOT / "fixtures" / "research" / "label_cards.json"
 DEFAULT_OUTPUT = ROOT / "fixtures" / "research" / "deck_context_id_map.json"
 
 
@@ -50,6 +53,7 @@ def main() -> int:
     """Resolve every fixture card name against the active bundle."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
+    parser.add_argument("--label-cards", type=Path, default=DEFAULT_LABEL_CARDS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument(
@@ -64,6 +68,9 @@ def main() -> int:
     cards = list(payload.get("cards") or ())
     if not cards:
         raise SystemExit(f"ID MAP REFUSED: no cards in {args.fixture}")
+    if args.label_cards.exists():
+        extra = json.loads(args.label_cards.read_text(encoding="utf-8"))
+        cards += list(extra.get("cards") or ())
 
     settings = load_research_settings(args.config)
     with CardRetrievalFacade(settings) as facade:

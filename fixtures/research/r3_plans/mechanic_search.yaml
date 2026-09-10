@@ -475,3 +475,83 @@ plans:
               commander_legal: true
       answer_step: outlet
       stated_absences: []
+
+  - question_id: mechanic-013
+    author: Claude agent draft
+    authored_on: 2026-09-10
+    review_status: draft
+    review_note: >-
+      This question exists because mechanic-005 could not measure what it was
+      being asked to measure. That one is a singular request answered by any
+      one qualifying tutor, so scoring exhaustive coverage there would convert
+      an option into a mandate. Here completeness IS the ask, every member is
+      required, and a miss is a failure — which is the point, because March of
+      Burgeoning Life was never returned by mechanic-005's plan and nothing in
+      the gate could see that. Expect this question to FAIL until the query or
+      the substrate improves; that failure is the measurement. Confirm the
+      three-card truth set before ratifying: it was enumerated by template
+      match, not by an exhaustive catalog sweep, so it may itself be short.
+    rationale: >-
+      The same printed template as mechanic-005, asked as a population rather
+      than as a request for one option, and bounded wide enough that a miss is
+      a miss rather than an artefact of the window.
+    plan:
+      intent: Enumerate every Simic instant that searches out a creature onto the battlefield.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: all_instant_tutors
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            Deliberately wider than mechanic-005's bound of ten. An enumeration
+            question wants coverage, and a narrow window would hide a miss
+            behind the bound instead of exposing it.
+          query:
+            text: >-
+              Search your library for a creature card and put it onto the
+              battlefield. Instant speed.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              excluded_tags: [mana:land_to_battlefield]
+              commander_legal: true
+      answer_step: all_instant_tutors
+      stated_absences: []
+
+  - question_id: mechanic-014
+    author: Claude agent draft
+    authored_on: 2026-09-10
+    review_status: draft
+    review_note: >-
+      The unrestricted counterpart to mechanic-006. That question carries a
+      commander context and is therefore Simic-restricted; this one carries
+      none, so the answer is every mana-value-three transmute card in the
+      catalog. Structured for the same reason mechanic-006 is: the ranker put
+      the one correct card fifth behind four cards with no transmute at all,
+      and this is a population rather than a ranking. Confirm the three-card
+      truth set — Drift of Phantasms, Perplex and Dimir Machinations — is
+      complete over the catalog and not just over what the fixture happens to
+      carry.
+    rationale: >-
+      cost:transmute plus a mana-value bound of exactly three IS the question.
+      Removing the colour filter is the only difference from mechanic-006, so
+      the pair isolates what the commander context was doing.
+    plan:
+      intent: Find every three-mana transmute card in the catalog, unrestricted by colour.
+      steps:
+        - id: transmute_three_any_colour
+          kind: tag_filter
+          scope: corpus
+          field_absence: not_a_field_query
+          limit: 50
+          note: no colour filter; the only difference from mechanic-006
+          filters:
+            required_tags: [cost:transmute]
+            mana_value_min: 3.0
+            mana_value_max: 3.0
+            commander_legal: true
+      answer_step: transmute_three_any_colour
+      stated_absences: []

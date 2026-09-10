@@ -31,6 +31,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
+from sabermetrics.mechanics.tags.predicates import FaceView
 from sabermetrics.substrate.bundle import build_bundle
 from sabermetrics.substrate.corpus import (
     CardView,
@@ -187,6 +188,39 @@ CONTROL_HUMAN_DORK = {
     "faces": [],
 }
 
+#: A synthetic modal double-faced control. It publishes NO card-level oracle
+#: text — its text lives on its faces, like 891 real corpus rows — and its back
+#: face taps for mana. Anything reading ``oracle_text`` directly sees nothing
+#: here; the tag build and the indexed document both see the face.
+CONTROL_FACE_ONLY = {
+    "oracle_id": "d0000000-0000-4000-8000-000000000002",
+    "name": "Synthetic Split Sorcery",
+    "layout": "modal_dfc",
+    "mana_cost": "",
+    "mana_value": 3.0,
+    "type_line": "Sorcery // Land — Island",
+    "oracle_text": "",
+    "colors": ["U"],
+    "color_identity": ["U"],
+    "keywords": [],
+    "all_types": ["Sorcery", "Land"],
+    "castable_cmcs": [],
+    "faces": [
+        {
+            "name": "Synthetic Split Sorcery",
+            "mana_cost": "{2}{U}",
+            "type_line": "Sorcery",
+            "oracle_text": "Return target creature to its owner's hand.",
+        },
+        {
+            "name": "Synthetic Split Shore",
+            "mana_cost": "",
+            "type_line": "Land — Island",
+            "oracle_text": "{T}: Add {U}.",
+        },
+    ],
+}
+
 _TOKEN = re.compile(r"[a-z0-9]+")
 
 
@@ -278,8 +312,9 @@ def research_export() -> CorpusExport:
     """
     payload = json.loads(FIXTURE_CARDS.read_text(encoding="utf-8"))
     legality: dict[str, str] = dict(payload["legality"].get("commander", {}))
-    rows = [*payload["cards"], CONTROL_HUMAN_DORK]
+    rows = [*payload["cards"], CONTROL_HUMAN_DORK, CONTROL_FACE_ONLY]
     legality.setdefault(str(CONTROL_HUMAN_DORK["oracle_id"]), "legal")
+    legality.setdefault(str(CONTROL_FACE_ONLY["oracle_id"]), "legal")
     cards = tuple(
         CardView(
             oracle_id=str(row["oracle_id"]),
@@ -294,6 +329,15 @@ def research_export() -> CorpusExport:
             keywords=tuple(row.get("keywords") or ()),
             all_types=tuple(row.get("all_types") or ()),
             castable_cmcs=tuple(float(value) for value in row.get("castable_cmcs", ())),
+            faces=tuple(
+                FaceView(
+                    name=str(face.get("name") or ""),
+                    mana_cost=face.get("mana_cost"),
+                    type_line=face.get("type_line"),
+                    oracle_text=face.get("oracle_text"),
+                )
+                for face in row.get("faces") or ()
+            ),
             commander_legal=legality.get(str(row["oracle_id"])),
         )
         for row in rows

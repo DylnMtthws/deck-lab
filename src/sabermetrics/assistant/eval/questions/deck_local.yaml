@@ -85,10 +85,14 @@ questions:
     id: deck-local-009
     ask: Which cards can put a creature straight onto the battlefield?
     clarified_ask: Find cards in the current list whose resolution or activated ability can put a creature card from the library onto the battlefield.
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
     required_oracle_ids:
       - 425fa23d-c8d6-5599-b019-42f8a9807b87
       - b3a21c5e-26bf-5fd0-976a-ef8630fbbdd4
       - 38d25a87-dcc1-5cc2-a086-48796e7cdced
+      - ba9d9106-f97a-509f-b813-76a57c26412f
+      - f952546c-463e-57dd-ba22-e7cc4e988f72
 
   - <<: *defaults
     id: deck-local-010

@@ -45,11 +45,24 @@ def test_every_label_is_attributable_and_agent_drafts_are_contested():
 
 
 def test_every_labelled_oracle_id_resolves_in_the_checked_in_corpus_fixture():
+    """Every labelled card exists in a checked-in fixture.
+
+    Two fixtures, because a label may legitimately name a card the deck does
+    not contain: ``fixtures/cedh/cards.json`` is the Kinnan list, and
+    ``fixtures/research/label_cards.json`` holds the cards that corpus-wide
+    questions require. Growing the deck fixture to hold them would corrupt the
+    thing it is a fixture of.
+    """
     fixture = json.loads((ROOT / "fixtures/cedh/cards.json").read_text())
+    labels = json.loads((ROOT / "fixtures/research/label_cards.json").read_text())
     known = {card["oracle_id"] for card in fixture["cards"]}
+    known |= {card["oracle_id"] for card in labels["cards"]}
     for question in load_questions().questions:
-        labelled = set(question.required_oracle_ids) | set(
-            question.forbidden_oracle_ids
+        labelled = (
+            set(question.required_oracle_ids)
+            | set(question.forbidden_oracle_ids)
+            | set(question.satisfied_by_any_of)
+            | set(question.counterexample_oracle_ids)
         )
         assert (
             labelled <= known

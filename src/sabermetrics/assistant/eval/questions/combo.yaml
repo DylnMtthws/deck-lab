@@ -41,11 +41,18 @@ questions:
     id: combo-004
     ask: What cards in my list can find either half of the engine?
     clarified_ask: Identify current-list tutors for Kinnan or Basalt Monolith under each tutor's actual restrictions.
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
     required_oracle_ids:
-      - 71e6dee3-514f-58f5-9b9e-4599139dca70
       - 425fa23d-c8d6-5599-b019-42f8a9807b87
+      - 71e6dee3-514f-58f5-9b9e-4599139dca70
       - 39c9c537-f46a-54dc-99b1-0861953f8187
       - d4a7ecca-504f-544c-9cf2-b011194b07b1
+      - b3a21c5e-26bf-5fd0-976a-ef8630fbbdd4
+      - ba9d9106-f97a-509f-b813-76a57c26412f
+    counterexample_oracle_ids:
+      - f952546c-463e-57dd-ba22-e7cc4e988f72
+      - f4e1c1db-2da8-538a-a3e5-00d697822566
 
   - <<: *defaults
     id: combo-005

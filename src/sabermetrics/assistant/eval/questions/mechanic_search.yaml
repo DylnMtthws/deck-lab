@@ -57,15 +57,20 @@ questions:
     id: mechanic-005
     ask: Find a tutor that can put a creature into play at instant speed.
     clarified_ask: Find an instant in Simic that searches for a creature and puts it onto the battlefield.
-    required_oracle_ids:
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
+    required_oracle_ids: []
+    satisfied_by_any_of:
       - 425fa23d-c8d6-5599-b019-42f8a9807b87
+      - e956ef0e-fab7-5564-8349-9be7a9a6d9d7
+      - b1e512f3-a2e3-5dd2-8d2c-761336e03ace
     forbidden_oracle_ids:
       - b3a21c5e-26bf-5fd0-976a-ef8630fbbdd4
 
   - <<: *defaults
     id: mechanic-006
     ask: What can transmute directly for Basalt Monolith?
-    clarified_ask: Find cards with transmute mana value three that can search for Basalt Monolith.
+    clarified_ask: Search the whole catalog for cards legal in a Kinnan (Simic) deck whose own mana value is three and that have transmute, so transmute can fetch Basalt Monolith.
     required_oracle_ids:
       - 39c9c537-f46a-54dc-99b1-0861953f8187
     forbidden_oracle_ids:
@@ -136,3 +141,28 @@ questions:
       - 210f06b9-fc4b-55fd-8fcc-7fe267e69a46
     forbidden_oracle_ids:
       - a1fb9375-c93b-57a2-953f-c75473fa5898
+
+  - <<: *defaults
+    id: mechanic-013
+    ask: List every instant in my colours that tutors a creature onto the battlefield.
+    clarified_ask: Enumerate ALL Simic-legal instants that search a library for a creature card and put it onto the battlefield; completeness is the point, not a single example.
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
+    required_oracle_ids:
+      - 425fa23d-c8d6-5599-b019-42f8a9807b87
+      - e956ef0e-fab7-5564-8349-9be7a9a6d9d7
+      - b1e512f3-a2e3-5dd2-8d2c-761336e03ace
+    difficulty: hard
+
+  - <<: *defaults
+    id: mechanic-014
+    ask: Which cards anywhere can transmute directly for a three-mana artifact?
+    clarified_ask: Search the whole catalog with no colour restriction for cards whose own mana value is three and that have transmute, so transmute can fetch a three-mana artifact.
+    context_id: null
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
+    required_oracle_ids:
+      - 39c9c537-f46a-54dc-99b1-0861953f8187
+      - e42b5aad-e80f-5bab-8723-d0aa596e360d
+      - feaf9980-035e-529f-b74b-320866fb0347
+    difficulty: hard

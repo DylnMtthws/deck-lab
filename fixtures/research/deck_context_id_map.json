@@ -1,5 +1,5 @@
 {
-  "bundle_id": "cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff",
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
   "corpus_row_count": 34551,
   "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
   "corpus_source_view": "scryfall:oracle_cards",
@@ -108,6 +108,11 @@
       "canonical_oracle_id": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
       "fixture_oracle_id": "2dec0954-d0e2-56e4-9de7-dcbec32353c5",
       "name": "Delighted Halfling"
+    },
+    {
+      "canonical_oracle_id": "cab67380-4e1a-4210-a98b-d2a21022b4b7",
+      "fixture_oracle_id": "feaf9980-035e-529f-b74b-320866fb0347",
+      "name": "Dimir Machinations"
     },
     {
       "canonical_oracle_id": "6d7be242-a072-40ce-b540-95880506cccd",
@@ -295,6 +300,16 @@
       "name": "Mana Vault"
     },
     {
+      "canonical_oracle_id": "a81fd70c-c2bc-4863-97a0-facde86f024c",
+      "fixture_oracle_id": "b1e512f3-a2e3-5dd2-8d2c-761336e03ace",
+      "name": "March of Burgeoning Life"
+    },
+    {
+      "canonical_oracle_id": "f1a16f6d-ea11-485e-8c5b-7f919a731fe0",
+      "fixture_oracle_id": "e956ef0e-fab7-5564-8349-9be7a9a6d9d7",
+      "name": "Mask of the Mimic"
+    },
+    {
       "canonical_oracle_id": "1a0770e6-b093-4439-baff-6889a50ba12e",
       "fixture_oracle_id": "dd0eb273-355e-5af9-aa43-81fd6c1d4040",
       "name": "Mental Misstep"
@@ -363,6 +378,11 @@
       "canonical_oracle_id": "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
       "fixture_oracle_id": "0f3e82c7-d12f-50cd-9bfa-d17b6fdb4f94",
       "name": "Pact of Negation"
+    },
+    {
+      "canonical_oracle_id": "904f9e0c-cb7f-4611-8bf7-2e408e8ab237",
+      "fixture_oracle_id": "e42b5aad-e80f-5bab-8723-d0aa596e360d",
+      "name": "Perplex"
     },
     {
       "canonical_oracle_id": "ef86989d-ce80-4e55-aece-7d11710eeffa",
@@ -505,8 +525,8 @@
       "name": "Yavimaya Coast"
     }
   ],
-  "entry_count": 100,
-  "generated_on": "2026-09-09",
+  "entry_count": 104,
+  "generated_on": "2026-09-10",
   "mapping_source": "fixtures/cedh/cards.json",
   "reviewer": null,
   "schema_version": "research-deck-context-id-map.v1",

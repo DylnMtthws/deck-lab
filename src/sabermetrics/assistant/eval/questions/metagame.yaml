@@ -100,6 +100,7 @@ questions:
     id: metagame-010
     ask: Which interactive lands appear most often in complete Kinnan lists?
     clarified_ask: Rank interactive lands in complete eligible Kinnan lists by inclusion count and report denominator, window, and event-size floor.
+    unscored_pending: R5 (cohort counts for a field-frequency claim)
     required_oracle_ids:
       - 78318e5e-a4c9-53f4-86a2-e2ced0a9cd77
       - fe60fdd0-310c-5453-9800-4aede60cdd41
