@@ -1228,11 +1228,11 @@ things are published beside it.**
   rates can diverge, and a test asserts they do when the underlying results
   differ.
 - **Breadth is published per question.** `gates.retrieval.breadth` reports
-  returned rows per required card. Several answers sit at 50.0: fifty cards
-  returned to answer a one-card question. Those are passes, and the gate cannot
-  tell them apart from a well-aimed answer. No threshold is applied, because
-  where "too wide" begins is a judgement; the ratios are published and the
-  widest are named so a reader makes it.
+  returned rows per required card. No threshold is applied, because where "too
+  wide" begins is a judgement; the ratios are published and the widest are
+  named so a reader makes it. The widest answers were then **audited** — see
+  `docs/r3-breadth-audit.md`. Median breadth is now 3.0 and the maximum 27.5,
+  down from 50.0 in both, with recall unchanged at 47/47.
 - **An unranked answer larger than the recall window counts as a failure.** A
   set with no best-first order cannot be truncated to a top k, so scoring one
   whole let a deck-dump plan pass 14 of 47 questions without retrieving
@@ -1244,6 +1244,46 @@ things are published beside it.**
   manufactured-finding rate of zero over zero findings is arithmetic.
   `rules_lookup` reports `step_availability: false` throughout, which
   demonstrates fallback behaviour and not rules retrieval.
+
+**The widest answers were audited, and it found more than width
+(2026-09-10).** `docs/r3-breadth-audit.md` judged 15 of the 47 scored questions
+— the widest — against their asks rather than against their labels. **None of
+the fifteen had a width justified by its ask.** Two classes of finding came out
+of it, and they are different kinds of work:
+
+*Plan problems, now fixed.* The `top_k=50` default was authoring the answer in
+eleven plans that never set a bound. Bounds are now derived per question from
+the shape of its answer — a named card gets 3, a question with printed
+comparanda gets 3 to 5, a population known to be small under its filters gets
+its size. Two query texts recruited their own noise and were cut. One plan was
+missing the colour filter every sibling carries. Two plans now exclude
+`mana:land_to_battlefield`, which is exactly the fetchlands and is derived from
+asks that say "creature". `mechanic-006` became a `tag_filter` over a new
+`cost:transmute` tag: it had the one correct card at rank 5 of 2,892 behind four
+tutor-flavoured cards with no transmute at all, so the ranker was not carrying
+it and the question is a population, not a ranking.
+
+*One finding worth more than the rest.* `mechanic-005`'s query asked for "a
+Simic instant **with convoke** that searches the library for a creature card".
+Convoke is a property only the labelled answer has — answer-fitting through a
+property rather than through a name, which the plan-naming check cannot see.
+With it, Chord of Calling ranks **1** of 1,429 eligible. Removing it and
+describing the mechanic plainly, it ranks **8**; on a wordier accurate
+description, **18**. That question's earlier pass was an artefact. It still
+passes, honestly, at a bound of 10 — and the substrate ranking the canonical
+answer eighth on an accurate description of what it does is a retrieval result
+worth knowing before anyone reads 47/47 as a statement about retrieval.
+
+*Label gaps, which are the owner's.* The audit found **five of fifteen** audited
+questions have a short or mis-scoped label, and two draft review notes assert
+something factually wrong about a card. They cluster in exactly the four
+questions where retrieval is doing real work. Section A of the audit lists them;
+they are not fixed here, because a label is a judgement and correcting one to
+match a plan is the direction that makes G2 meaningless. One of them —
+`mechanic-005`'s missing **March of Burgeoning Life**, which qualifies and was
+never returned — is a recall miss **the gate is structurally unable to see**,
+because recall is scored against a label written by the same authorship as the
+plans.
 
 `scripts/run_g2.py --chunk N` executes the plans in sequential subprocesses so
 the reranker's working set is released between chunks; the parent never opens a

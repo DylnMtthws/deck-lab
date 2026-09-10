@@ -192,8 +192,9 @@ plans:
             text: >-
               Search your library for an artifact or creature card, put it onto
               the battlefield, or transmute for a card with the same mana value.
-            top_k: 50
+            top_k: 15
             filters:
+              excluded_tags: [mana:land_to_battlefield]
               commander_legal: true
       answer_step: tutors
       stated_absences: []
@@ -350,7 +351,7 @@ plans:
             text: >-
               Find a blue instant whose entire effect is to untap all nonland
               permanents you control.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U, G]
               color_mode: subset

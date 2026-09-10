@@ -368,6 +368,30 @@ COST_TAGS: tuple[TagDefinition, ...] = (
         ),
     ),
     _keyword_cost_tag(
+        name="transmute",
+        keyword="Transmute",
+        description=(
+            "The card has transmute, so it may be discarded and its transmute "
+            "cost paid to search the library for a card with the same mana "
+            "value."
+        ),
+        limitations=(
+            "Uses the published keyword array. It says the card HAS transmute, "
+            "not what transmute can reach: the mana value a transmute card "
+            "fetches is the card's OWN mana value, so two cards with the same "
+            "printed transmute cost search for different things. Filter on "
+            "mana_value alongside this tag; the tag alone does not express the "
+            "target."
+        ),
+        positives=(
+            "Drift of Phantasms",
+            "Dizzy Spell",
+            "Perplex",
+            "Dimir Machinations",
+            "Muddle the Mixture",
+        ),
+    ),
+    _keyword_cost_tag(
         name="delve",
         keyword="Delve",
         description=(

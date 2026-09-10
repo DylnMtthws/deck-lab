@@ -75,7 +75,7 @@ plans:
               Mental Misstep, the blue instant whose printed cost is a
               Phyrexian mana symbol payable with two life, countering target
               spell with mana value 1.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset
@@ -129,7 +129,7 @@ plans:
               Force of Will, the blue instant cast by paying 1 life and
               exiling a blue card from your hand rather than its mana cost,
               countering target spell.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset
@@ -182,7 +182,7 @@ plans:
               Pact of Negation, the blue instant with no mana cost that
               counters target spell, then makes you pay at the beginning of
               your next upkeep or lose the game.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset
@@ -233,7 +233,7 @@ plans:
               Boseiju, Who Endures, the legendary green land with a channel
               ability activated by discarding it to destroy target artifact,
               enchantment, or nonbasic land an opponent controls.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [G]
               color_mode: subset
@@ -286,7 +286,7 @@ plans:
               Sink into Stupor, the blue modal double-faced card whose front
               face is an instant and whose back face is a land that enters
               tapped.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset
@@ -336,7 +336,7 @@ plans:
               Copy Artifact, the blue enchantment that may enter as a copy of
               any artifact on the battlefield, except it is also an
               enchantment.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset
@@ -390,7 +390,7 @@ plans:
               Kinnan, a two-mana green and blue legendary Human Druid that
               adds an extra mana whenever you tap a nonland permanent for
               mana.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U, G]
               color_mode: subset
@@ -445,7 +445,7 @@ plans:
               Basalt Monolith, the artifact that doesn't untap during your
               untap step, taps to add three colorless mana, and pays three
               generic mana to untap.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Artifact]
               required_tags: [mana:mana_rock]
@@ -497,7 +497,7 @@ plans:
             text: >-
               Endurance, the green Elemental Incarnation creature with flash
               and reach whose evoke cost exiles a green card from your hand.
-            top_k: 50
+            top_k: 5
             filters:
               color_identity: [G]
               color_mode: subset
@@ -548,7 +548,7 @@ plans:
             text: >-
               Commandeer, the blue instant cast by exiling two blue cards from
               your hand, gaining control of target noncreature spell.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U]
               color_mode: subset

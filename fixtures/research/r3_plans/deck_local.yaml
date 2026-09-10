@@ -538,8 +538,9 @@ plans:
             text: >-
               Search your library for a creature card with mana value X or less
               and put it onto the battlefield, then shuffle.
-            top_k: 50
+            top_k: 10
             filters:
+              excluded_tags: [mana:land_to_battlefield]
               commander_legal: true
         - id: top_of_library
           kind: card_search
@@ -550,7 +551,7 @@ plans:
             text: >-
               Look at the top five cards of your library and put a creature card
               from among them onto the battlefield.
-            top_k: 50
+            top_k: 5
             filters:
               commander_legal: true
         - id: onto_battlefield

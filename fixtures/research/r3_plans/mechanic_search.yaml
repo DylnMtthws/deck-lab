@@ -198,9 +198,20 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      Reuses the measured G1 query. The Finale of Devastation negative is a
-      sorcery, so the required Instant type is what makes instant speed the
-      discriminator; confirm that is the intent.
+      READ THIS ONE. The G1 query said "a Simic instant WITH CONVOKE that
+      searches the library for a creature card", and convoke is a property only
+      the labelled answer has — answer-fitting through a property rather than
+      through a name, which the plan-naming check cannot see. Removing it is
+      the honest change and it costs a great deal: with convoke in the query
+      Chord of Calling ranks 1 of 1,429 eligible; on a plain restatement of its
+      printed template it ranks 8, and on a wordier accurate description it
+      ranks 18. Behind it sit Mask of the Mimic, Become Anonymous, Archdruid's
+      Charm and Kindred Summons. So this question's earlier pass was an
+      artefact, and its current pass at top_k 10 is genuine but thin. The bound
+      is 10 because "find me a tutor" wants a handful of options, not because
+      8 is where the answer happens to sit — but a reader should know it sits
+      there. Also confirm the Finale of Devastation negative is about it being
+      a sorcery rather than about the effect.
     rationale: >-
       Instant-speed creature tutoring onto the battlefield is one printed
       mechanic and the instant type carries the timing requirement.
@@ -214,13 +225,14 @@ plans:
           field_absence: not_a_field_query
           query:
             text: >-
-              Find a Simic instant with convoke that searches the library for a
-              creature card and puts it onto the battlefield.
-            top_k: 50
+              Search your library for a creature card and put it onto the
+              battlefield. Instant speed.
+            top_k: 10
             filters:
               color_identity: [U, G]
               color_mode: subset
               required_types: [Instant]
+              excluded_tags: [mana:land_to_battlefield]
               commander_legal: true
       answer_step: instant_tutor
       stated_absences: []
@@ -242,20 +254,23 @@ plans:
       context_id: cedh:kinnan-basalt-fixture
       steps:
         - id: transmute_three
-          kind: card_search
+          kind: tag_filter
           scope: corpus
           field_absence: not_a_field_query
-          query:
-            text: >-
-              Find cards with mana value three and transmute for three mana
-              that search for another card with mana value three.
-            top_k: 50
-            filters:
-              color_identity: [U, G]
-              color_mode: subset
-              mana_value_min: 3.0
-              mana_value_max: 3.0
-              commander_legal: true
+          limit: 50
+          note: >-
+            Structured rather than ranked, because the ranker was not carrying
+            this question: over an eligible population of 2,892 the one correct
+            card sat at rank 5, behind four tutor-flavoured cards with no
+            transmute at all. cost:transmute plus a mana-value bound of exactly
+            three IS the question, so it is asked as a population.
+          filters:
+            required_tags: [cost:transmute]
+            color_identity: [U, G]
+            color_mode: subset
+            mana_value_min: 3.0
+            mana_value_max: 3.0
+            commander_legal: true
       answer_step: transmute_three
       stated_absences: []
 

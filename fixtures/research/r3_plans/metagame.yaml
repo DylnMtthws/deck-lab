@@ -61,7 +61,7 @@ plans:
               Basalt Monolith, the colourless artifact that taps to add three
               colourless mana, does not untap during its controller's untap
               step, and has an activated ability to untap itself.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Artifact]
               commander_legal: true
@@ -100,7 +100,7 @@ plans:
               Rhystic Study, the blue enchantment that lets you draw a card
               whenever an opponent casts a spell unless that player pays one
               generic mana.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Enchantment]
               commander_legal: true
@@ -114,7 +114,7 @@ plans:
               Mystic Remora, the blue enchantment with cumulative upkeep that
               lets you draw a card whenever an opponent casts a noncreature
               spell unless that player pays four generic mana.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Enchantment]
               commander_legal: true
@@ -198,8 +198,10 @@ plans:
               Fierce Guardianship, the blue instant that counters target
               noncreature spell and may be cast without paying its mana cost if
               you control your commander.
-            top_k: 50
+            top_k: 3
             filters:
+              color_identity: [U, G]
+              color_mode: subset
               required_types: [Instant]
               commander_legal: true
       answer_step: named_counter
@@ -342,7 +344,7 @@ plans:
               Thrasios, the legendary Merfolk Wizard with partner whose
               four-mana ability scries, then reveals the top card and puts a
               land onto the battlefield tapped or draws it.
-            top_k: 50
+            top_k: 3
             filters:
               color_identity: [U, G]
               color_mode: subset
@@ -407,7 +409,7 @@ plans:
               The One Ring, the legendary artifact that grants protection from
               everything as it enters, gains a burden counter each upkeep, and
               taps to draw a card for each burden counter on it.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Artifact]
               commander_legal: true
@@ -421,7 +423,7 @@ plans:
               Consecrated Sphinx, the blue legendary Sphinx creature with
               flying that lets you draw two cards whenever an opponent draws a
               card.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Creature]
               commander_legal: true
@@ -469,7 +471,7 @@ plans:
               Find legendary lands with channel abilities that discard the land
               from hand to destroy an artifact, enchantment, or land, or return
               a nonland permanent.
-            top_k: 50
+            top_k: 5
             filters:
               color_identity: [U, G]
               color_mode: subset
@@ -483,9 +485,8 @@ plans:
           query:
             text: >-
               Find lands with an activated ability that sacrifices this land to
-              destroy target nonbasic land, or that makes its controller search
-              for a basic land instead.
-            top_k: 50
+              destroy target nonbasic land.
+            top_k: 15
             filters:
               color_identity: [U, G]
               color_mode: subset
@@ -528,7 +529,7 @@ plans:
               Mox Diamond, the zero-cost artifact that is sacrificed unless you
               discard a land card as it enters, and that taps to add one mana
               of any colour.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Artifact]
               commander_legal: true
@@ -542,7 +543,7 @@ plans:
               Chrome Mox, the zero-cost artifact that may exile a nonartifact,
               nonland card from your hand as it enters and taps to add one mana
               of a colour of the exiled card.
-            top_k: 50
+            top_k: 3
             filters:
               required_types: [Artifact]
               commander_legal: true

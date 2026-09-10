@@ -6,9 +6,9 @@ Splits documents into ~500-token chunks with semantic boundary respect:
 - Each chunk gets metadata: document, section, tier
 """
 
+import hashlib
 import logging
 import re
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +24,32 @@ class Chunk:
     section: str | None
     tier: int
     content: str
+
+
+def chunk_id(document: str, section: str | None, content: str) -> str:
+    """Return a stable identity for one chunk of reference text.
+
+    Chunk ids used to be ``uuid4()``. That made
+    :func:`~sabermetrics.reference_layer.indexer.reference_content_sha256`
+    unreproducible, because it hashes chunk identity — so the same source text
+    rebuilt twice produced two different corpus hashes and therefore two
+    different generation ids, and an upsert keyed on a random id could only
+    ever insert. A content-addressed artefact that is not addressed by its
+    content is the defect this project exists to avoid.
+
+    Derived from the document, the section label and the chunk text, so
+    identical source text yields an identical id and a rebuild is idempotent.
+
+    Args:
+        document: Source document label, e.g. ``"comprehensive_rules"``.
+        section: Section label, when the chunker identified one.
+        content: The chunk text.
+
+    Returns:
+        A 32-character hex digest.
+    """
+    payload = "\u241f".join((document, section or "", content.strip()))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
 class DocumentChunker:
@@ -77,7 +103,7 @@ class DocumentChunker:
             for sub_content, sub_section in sub_chunks:
                 chunks.append(
                     Chunk(
-                        id=str(uuid.uuid4()),
+                        id=chunk_id("comprehensive_rules", sub_section, sub_content),
                         document="comprehensive_rules",
                         section=sub_section,
                         tier=1,
@@ -121,7 +147,9 @@ class DocumentChunker:
             if current_length >= target_chars:
                 chunks.append(
                     Chunk(
-                        id=str(uuid.uuid4()),
+                        id=chunk_id(
+                            "commander_rules", None, "\n\n".join(current_content)
+                        ),
                         document="commander_rules",
                         section=None,
                         tier=1,
@@ -135,7 +163,7 @@ class DocumentChunker:
         if current_content:
             chunks.append(
                 Chunk(
-                    id=str(uuid.uuid4()),
+                    id=chunk_id("commander_rules", None, "\n\n".join(current_content)),
                     document="commander_rules",
                     section=None,
                     tier=1,
@@ -179,7 +207,7 @@ class DocumentChunker:
             if current_length >= target_chars:
                 chunks.append(
                     Chunk(
-                        id=str(uuid.uuid4()),
+                        id=chunk_id(doc_name, None, "\n\n".join(current_content)),
                         document=doc_name,
                         section=None,
                         tier=tier,
@@ -198,7 +226,7 @@ class DocumentChunker:
         if current_content:
             chunks.append(
                 Chunk(
-                    id=str(uuid.uuid4()),
+                    id=chunk_id(doc_name, None, "\n\n".join(current_content)),
                     document=doc_name,
                     section=None,
                     tier=tier,
@@ -339,7 +367,9 @@ class DocumentChunker:
                 # Flush pending
                 chunks.append(
                     Chunk(
-                        id=str(uuid.uuid4()),
+                        id=chunk_id(
+                            doc_name, pending_section, "\n\n".join(pending_content)
+                        ),
                         document=doc_name,
                         section=pending_section,
                         tier=2,
@@ -359,7 +389,9 @@ class DocumentChunker:
         if pending_content:
             chunks.append(
                 Chunk(
-                    id=str(uuid.uuid4()),
+                    id=chunk_id(
+                        doc_name, pending_section, "\n\n".join(pending_content)
+                    ),
                     document=doc_name,
                     section=pending_section,
                     tier=2,
@@ -404,7 +436,7 @@ class DocumentChunker:
 
         return [
             Chunk(
-                id=str(uuid.uuid4()),
+                id=chunk_id("game_changers", None, "\n".join(lines)),
                 document="game_changers",
                 section=None,
                 tier=2,
