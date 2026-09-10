@@ -1,0 +1,41 @@
+# A test-only deck built to exercise ONE filter: creature subtype.
+#
+# It contains four non-Human mana dorks and one Human mana dork whose printed
+# ability is identical to Llanowar Elves. Every mechanic tag that fires on the
+# non-Humans fires on the Human too, so no tag, type, colour or mana-value
+# predicate can separate them. Only a subtype filter can — which is the point.
+#
+# Not a strategy pack the product ships. It exists so "non-Human creature",
+# which deck-local-010 asks for and R3 could not express, has a counterexample
+# with a real answer key.
+pack_id: subtype_control
+name: Subtype control deck
+summary: Four non-Human mana dorks and one Human one with identical text.
+commander_names:
+- Kinnan, Bonder Prodigy
+primary_win_package:
+  name: not a real line
+  kind: loop
+  pieces:
+  - Birds of Paradise
+  converts_via: This pack exists to test a filter, not to win a game.
+secondary_win_packages: []
+role_targets:
+  acceleration: 5
+auto_include: []
+cards:
+- name: Birds of Paradise
+  roles: [acceleration]
+  priority: 10.0
+- name: Elvish Mystic
+  roles: [acceleration]
+  priority: 9.9
+- name: Llanowar Elves
+  roles: [acceleration]
+  priority: 9.8
+- name: Fyndhorn Elves
+  roles: [acceleration]
+  priority: 9.7
+- name: Synthetic Human Druid
+  roles: [acceleration]
+  priority: 9.6

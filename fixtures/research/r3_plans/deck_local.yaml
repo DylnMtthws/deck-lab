@@ -44,9 +44,10 @@
 # Two plans are worth reading closely. deck-local-010 was authored to its
 # clarified_ask against a label that contradicted it, and failed; the owner
 # ruled for the ask on 2026-09-10 and the label changed rather than the plan.
-# Its review note records what is still open, including that "non-Human" is not
-# expressible in the IR at all. deck-local-001 is scoreable by no gate and says
-# so.
+# It now also states excluded_subtypes: [Human], which is the first time any
+# plan has been able to express the word its ask is built on. deck-local-001 is
+# scoreable by no gate and says so — and its Island leg is now a structural
+# subtype predicate rather than a free-text workaround.
 schema_version: research-r3-plans.v1
 plans:
   - question_id: deck-local-001
@@ -65,21 +66,22 @@ plans:
       search with the role_targets facet is the wanted shape: the facet returns
       no cards, only the pack's authored targets and the standing notice that a
       target is not a threshold. Third, and this is the one that matters: the
-      typed_blue_lands leg exists ONLY because the substrate cannot see the
-      most important blue sources in the list. Island, Tropical Island and
-      Breeding Pool tap for blue because of their land subtypes, and that
-      ability is never printed on the card, so they carry no oracle text, no
-      mana:produces_mana tag, and nothing a mechanic query can match — a
-      single printed-text leg puts Island at rank 50 and misses Tropical Island
-      entirely. The second leg recovers them through the indexed type line,
-      which is a workaround and not a predicate. A produced-mana field, or a
-      tag that fires on intrinsic land-type mana abilities, is the real fix.
+      typed_blue_lands leg exists because the most important blue sources in
+      the list are invisible to any mechanic query. Island, Tropical Island and
+      Breeding Pool tap for blue because of their land SUBTYPE, and that
+      ability is never printed, so they carry no oracle text and no
+      mana:produces_mana tag — a single printed-text leg put Island at rank 50
+      and missed Tropical Island entirely. That leg used to recover them by
+      naming the type line in free text, which was a workaround; it is now a
+      structural predicate, required_subtypes: [Island], which returns exactly
+      those three. What remains genuinely absent is a produced-mana field: the
+      subtype says a land can make blue, not that any given permanent does.
     rationale: >-
       The clarified ask asks for a profile plus its assumptions, not a verdict.
       Two search legs enumerate the sources the list actually contains, split
       because they are found two different ways: one by printed mana text, one
-      by land subtype through the type line, since an intrinsic land-type mana
-      ability appears in no rules text. The profile supplies the pack's own
+      by the indexed Island subtype, since an intrinsic land-type mana ability
+      appears in no rules text at all. The profile supplies the pack's own
       land target with the notice that no configured threshold makes a count
       below a target a deficit. The stated absence carries the word the ask
       leans on, which is "light" — nothing here can say light relative to what.
@@ -88,18 +90,19 @@ plans:
       context_id: cedh:kinnan-basalt-fixture
       steps:
         - id: typed_blue_lands
-          kind: card_search
+          kind: tag_filter
           scope: deck
           field_absence: field_statistics_deferred_to_r5
-          note: lands whose blue mana comes from a land subtype and is never printed
-          query:
-            text: >-
-              A land with the Island or Forest Island land type that taps to add
-              blue mana without entering tapped.
-            top_k: 50
-            filters:
-              required_types: [Land]
-              commander_legal: true
+          limit: 200
+          note: >-
+            Lands whose blue mana comes from the Island subtype and is never
+            printed. A structural predicate rather than the free-text
+            workaround this leg used to be: the subtype is indexed, so this is
+            a population and not a ranking guess.
+          filters:
+            required_types: [Land]
+            required_subtypes: [Island]
+            commander_legal: true
         - id: printed_blue_sources
           kind: card_search
           scope: deck
@@ -570,16 +573,17 @@ plans:
       list — that is worth noticing rather than celebrating: the tag was a
       correct reading of the ask all along and the label was not, which is the
       case for authoring plans to the ask rather than to the answer key.
-      TWO THINGS STILL OPEN. Elvish Spirit Guide is a non-Human creature Kinnan
-      may put onto the battlefield, but it makes mana only from hand, so it
-      produces nothing once there; it carries mana:produces_mana and NOT
-      mana:mana_dork, so this plan excludes it and the label leaves it out of
-      both lists pending a ruling. And "non-Human" remains inexpressible: the
-      catalog's types carry card types only, never creature subtypes, so
-      excluded_types cannot say "not Human". The restriction is vacuous on this
-      list — every mana dork in it is non-Human — so the plan passes without
-      ever expressing the ask's central word. On a list containing a Human mana
-      dork it would silently return a wrong answer.
+      BOTH EARLIER GAPS ARE NOW CLOSED. Elvish Spirit Guide is forbidden by
+      owner ruling and the clarified ask now says why: it makes mana only from
+      hand, so Kinnan may put it onto the battlefield and it produces nothing
+      there. It carries mana:produces_mana and NOT mana:mana_dork, so this plan
+      excludes it on the mechanic rather than on the answer key. And
+      "non-Human" is now expressible: the catalog carries creature subtypes and
+      this plan states excluded_subtypes: [Human]. On this list the restriction
+      changes nothing — every mana dork here is non-Human — but it is no longer
+      vacuous by luck. tests/test_research_subtypes.py runs this plan shape over
+      a deck that does contain a Human mana dork and asserts it is dropped,
+      which is the case the old plan would have got confidently wrong.
     rationale: >-
       A shipped tag carries this exactly: mana:mana_dork is "a creature with a
       printed tap ability that adds mana", which is the mechanical content of
@@ -599,6 +603,7 @@ plans:
           filters:
             required_types: [Creature]
             required_tags: [mana:mana_dork]
+            excluded_subtypes: [Human]
             commander_legal: true
       answer_step: creature_mana_sources
       stated_absences: []

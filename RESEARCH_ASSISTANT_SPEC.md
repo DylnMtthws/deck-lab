@@ -1193,6 +1193,31 @@ map is `awaiting_owner_review`, and the bundle is not `mtg_v1.card_any_medium`.
 A measured run never stamps a gate `status` at all; it reports
 `status: not_authoritative` and a separate `measured_pass_rate`.
 
+**Creature and land subtypes are now expressible (2026-09-10).** R3 originally
+shipped with the part of a type line after the dash unreadable: the catalog
+carried card types only. Two documented defects followed from that one gap.
+`deck-local-010` asks for **non-Human** creature mana sources and its plan could
+not say "non-Human" — it passed on the Kinnan list only because every mana dork
+in that list happens to be non-Human, so the restriction was vacuous by luck
+rather than expressed. `deck-local-001` could not see Island, Tropical Island or
+Breeding Pool at all, because a land taps for blue by virtue of its **subtype**
+and that ability is printed nowhere; its plan recovered them by naming the type
+line in free text, which is a workaround and not a predicate.
+
+`card_subtype` is now a catalog relation, `CardFilters` carries
+`required_subtypes` / `excluded_subtypes`, and both plans use them. The catalog
+schema is `retrieval-catalog.v2`; a v1 bundle is refused by version rather than
+read as though a subtype filter matched nothing, and the development bundle was
+rebuilt (`c9174872…`, same corpus hash `62a6198c…`, since the card facts did not
+change). The acceptance condition is `tests/test_research_subtypes.py`, which
+builds a deck containing a **Human mana dork whose printed ability is identical
+to Llanowar Elves** — same tags, same types, same mana value, same oracle text,
+differing only in subtype — runs deck-local-010's plan shape over it, and
+asserts the Human is dropped while all four qualifying non-Humans are kept. A
+companion test runs the same plan *without* the subtype filter and asserts the
+Human comes back, so the filter is demonstrably load-bearing rather than
+decorative.
+
 **A perfect rate is the least informative number on the scorecard, so four
 things are published beside it.**
 

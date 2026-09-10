@@ -48,7 +48,7 @@ questions:
   - <<: *defaults
     id: metagame-006
     ask: Which zero-mana counters co-occur with Force of Will in Kinnan?
-    clarified_ask: Among eligible Kinnan lists containing Force of Will, report co-inclusion counts for zero-mana counterspells with all denominators stated.
+    clarified_ask: Among eligible Kinnan lists containing Force of Will, report co-inclusion counts for zero-mana counterspells with all denominators stated. Zero-mana means no mana is paid; these counters may still require another cost or condition, such as paying life, exiling a card, controlling a commander, or a payment owed on a later turn.
     # Owner adjudication, 2026-09-10. The draft required Force of Will alone,
     # which is the card that DEFINES the cohort rather than the answer to it:
     # retrieving it establishes nothing about whether the co-occurring set was
@@ -58,9 +58,11 @@ questions:
     # state: the counterspells are retrievable, but the co-inclusion counts they
     # must be "backed by" need cohort data that field_stats owns, and that is
     # deferred to R5 — hence the expected absence.
-    # STILL OPEN: Mental Misstep costs {U/P}, so it is zero-MANA only if paying
-    # two life counts as paying no mana. Included on that reading; say so if the
-    # intended set is the three alternate-cost free counters alone.
+    # Owner ruling, 2026-09-10: Mental Misstep STAYS. "Zero mana" permits paying
+    # life, and the clarified ask now documents that these counters may require
+    # another cost or condition entirely — life, exiling a card, controlling a
+    # commander, or a debt owed next upkeep. The set is defined by what is not
+    # paid in mana, not by being unconditionally free.
     required_oracle_ids:
       - ea86f7b9-a5ba-591a-aa51-b0db15061055
       - 8d61ab14-627e-520c-83fc-e2aadac40133

@@ -26,6 +26,12 @@ class CardFilters(BaseModel):
     color_mode: ColorMode = "subset"
     required_types: tuple[str, ...] = ()
     excluded_types: tuple[str, ...] = ()
+    #: Creature, land, artifact and enchantment subtypes — the part of a type
+    #: line after the dash. Without these, "non-Human creature" and "a land
+    #: with the Island type" are both inexpressible, and a plan can only gesture
+    #: at them through free text that the ranker may or may not honour.
+    required_subtypes: tuple[str, ...] = ()
+    excluded_subtypes: tuple[str, ...] = ()
     required_tags: tuple[str, ...] = ()
     any_tags: tuple[str, ...] = ()
     excluded_tags: tuple[str, ...] = ()
@@ -47,6 +53,8 @@ class CardFilters(BaseModel):
             ("color_identity", self.color_identity or ()),
             ("required_types", self.required_types),
             ("excluded_types", self.excluded_types),
+            ("required_subtypes", self.required_subtypes),
+            ("excluded_subtypes", self.excluded_subtypes),
             ("required_tags", self.required_tags),
             ("any_tags", self.any_tags),
             ("excluded_tags", self.excluded_tags),
@@ -59,6 +67,12 @@ class CardFilters(BaseModel):
             raise ValueError(
                 "types cannot be both required and excluded: "
                 + ", ".join(sorted(type_conflicts))
+            )
+        subtype_conflicts = set(self.required_subtypes) & set(self.excluded_subtypes)
+        if subtype_conflicts:
+            raise ValueError(
+                "subtypes cannot be both required and excluded: "
+                + ", ".join(sorted(subtype_conflicts))
             )
         tag_conflicts = set(self.required_tags) & set(self.excluded_tags)
         if tag_conflicts:

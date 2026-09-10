@@ -119,6 +119,11 @@ AUTHORED_TEXT: dict[str, str] = {
         "legendary spell. That spell can't be countered."
     ),
     "Birds of Paradise": ("Flying\n{T}: Add one mana of any color."),
+    # The three green one-drops deck-local-010 requires. Real text so the
+    # mana-dork tag fires on them exactly as it does on the Human control.
+    "Elvish Mystic": "{T}: Add {G}.",
+    "Llanowar Elves": "{T}: Add {G}.",
+    "Fyndhorn Elves": "{T}: Add {G}.",
     "Kinnan, Bonder Prodigy": (
         "Whenever you tap a nonland permanent for mana, add one mana of any "
         "type that permanent produced.\n"
@@ -158,6 +163,28 @@ AUTHORED_TEXT: dict[str, str] = {
         "Whenever an opponent casts a noncreature spell, you may draw a card "
         "unless that player pays {4}."
     ),
+}
+
+#: A synthetic control card. Its mechanics are *identical* to Llanowar Elves —
+#: same printed ability, so the same mechanic tags fire — and it differs in
+#: exactly one respect: it is a Human. That isolates the creature subtype as
+#: the only thing that can separate it from a qualifying non-Human mana dork,
+#: which is precisely what a subtype filter has to be able to do. It is
+#: obviously not a real card, and the corpus it lives in is labelled synthetic.
+CONTROL_HUMAN_DORK = {
+    "oracle_id": "d0000000-0000-4000-8000-000000000001",
+    "name": "Synthetic Human Druid",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "mana_value": 1.0,
+    "type_line": "Creature — Human Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "colors": ["G"],
+    "color_identity": ["G"],
+    "keywords": [],
+    "all_types": ["Creature"],
+    "castable_cmcs": [1.0],
+    "faces": [],
 }
 
 _TOKEN = re.compile(r"[a-z0-9]+")
@@ -251,6 +278,8 @@ def research_export() -> CorpusExport:
     """
     payload = json.loads(FIXTURE_CARDS.read_text(encoding="utf-8"))
     legality: dict[str, str] = dict(payload["legality"].get("commander", {}))
+    rows = [*payload["cards"], CONTROL_HUMAN_DORK]
+    legality.setdefault(str(CONTROL_HUMAN_DORK["oracle_id"]), "legal")
     cards = tuple(
         CardView(
             oracle_id=str(row["oracle_id"]),
@@ -267,7 +296,7 @@ def research_export() -> CorpusExport:
             castable_cmcs=tuple(float(value) for value in row.get("castable_cmcs", ())),
             commander_legal=legality.get(str(row["oracle_id"])),
         )
-        for row in payload["cards"]
+        for row in rows
     )
     return CorpusExport(
         identity=SnapshotIdentity(source_view=SOURCE_VIEW, row_count=len(cards)),

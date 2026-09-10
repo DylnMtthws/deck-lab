@@ -27,11 +27,12 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
+from sabermetrics.mechanics.text import type_line_subtypes
 from sabermetrics.substrate.corpus import CardView
 from sabermetrics.substrate.models import CardFilters
 from sabermetrics.substrate.tagging import CARD_TYPES, TagBuild
 
-CATALOG_SCHEMA_VERSION = "retrieval-catalog.v1"
+CATALOG_SCHEMA_VERSION = "retrieval-catalog.v2"
 _COLOR_BITS = {"W": 1, "U": 2, "B": 4, "R": 8, "G": 16}
 _TOKEN_RE = re.compile(r"[^\W_]+", flags=re.UNICODE)
 MAX_QUERY_TOKENS = 32
@@ -129,6 +130,13 @@ _SCHEMA = (
     ) WITHOUT ROWID
     """,
     """
+    CREATE TABLE card_subtype (
+        oracle_id TEXT NOT NULL REFERENCES card_document(oracle_id) ON DELETE CASCADE,
+        subtype TEXT NOT NULL,
+        PRIMARY KEY (oracle_id, subtype)
+    ) WITHOUT ROWID
+    """,
+    """
     CREATE TABLE card_tag (
         oracle_id TEXT NOT NULL REFERENCES card_document(oracle_id) ON DELETE CASCADE,
         tag_id TEXT NOT NULL,
@@ -165,6 +173,10 @@ _SCHEMA = (
     ON card_type(card_type, oracle_id)
     """,
     """
+    CREATE INDEX idx_card_subtype_lookup
+    ON card_subtype(subtype, oracle_id)
+    """,
+    """
     CREATE INDEX idx_card_tag_lookup
     ON card_tag(tag_id, oracle_id)
     """,
@@ -195,6 +207,7 @@ class CatalogRecord:
     commander_legal: bool | None
     canonical_document: str
     types: tuple[str, ...]
+    subtypes: tuple[str, ...]
     tags: tuple[str, ...]
 
 
@@ -218,6 +231,7 @@ class CatalogHit:
     commander_legal: bool | None
     canonical_document: str
     types: tuple[str, ...]
+    subtypes: tuple[str, ...]
     tags: tuple[str, ...]
     bm25_score: float
 
@@ -517,11 +531,12 @@ class Catalog:
 
     def _relations(
         self, oracle_ids: tuple[str, ...]
-    ) -> dict[str, tuple[tuple[str, ...], tuple[str, ...]]]:
+    ) -> dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]]:
         if not oracle_ids:
             return {}
         encoded = json.dumps(oracle_ids)
         types: dict[str, list[str]] = defaultdict(list)
+        subtypes: dict[str, list[str]] = defaultdict(list)
         tags: dict[str, list[str]] = defaultdict(list)
         for row in self._connection.execute(
             """
@@ -534,6 +549,15 @@ class Catalog:
             types[str(row["oracle_id"])].append(str(row["card_type"]))
         for row in self._connection.execute(
             """
+            SELECT oracle_id, subtype FROM card_subtype
+            WHERE oracle_id IN (SELECT value FROM json_each(?))
+            ORDER BY oracle_id, subtype
+            """,
+            (encoded,),
+        ):
+            subtypes[str(row["oracle_id"])].append(str(row["subtype"]))
+        for row in self._connection.execute(
+            """
             SELECT oracle_id, tag_id FROM card_tag
             WHERE oracle_id IN (SELECT value FROM json_each(?))
             ORDER BY oracle_id, tag_id
@@ -544,6 +568,7 @@ class Catalog:
         return {
             oracle_id: (
                 tuple(types.get(oracle_id, ())),
+                tuple(subtypes.get(oracle_id, ())),
                 tuple(tags.get(oracle_id, ())),
             )
             for oracle_id in oracle_ids
@@ -582,6 +607,19 @@ def _normalize_terms(values: Sequence[str], label: str) -> tuple[str, ...]:
 
 def _color_mask(colors: Sequence[str]) -> int:
     return sum(_COLOR_BITS[color] for color in _normalize_colors(colors))
+
+
+def _card_subtypes(card: CardView) -> tuple[str, ...]:
+    """Every subtype printed on the card or any of its faces.
+
+    Casefolded to match :func:`_card_types` and ``_normalize_terms``, so a
+    filter written as ``"Human"`` finds a card whose line prints ``Human``.
+    """
+    values: dict[str, None] = {}
+    for line in (card.type_line, *(face.type_line or "" for face in card.faces)):
+        for subtype in type_line_subtypes(line):
+            values.setdefault(subtype.casefold(), None)
+    return tuple(sorted(values))
 
 
 def _card_types(card: CardView) -> tuple[str, ...]:
@@ -668,6 +706,7 @@ def _populate_catalog(
         document_rows: list[tuple[object, ...]] = []
         fts_rows: list[tuple[object, ...]] = []
         type_rows: list[tuple[str, str]] = []
+        subtype_rows: list[tuple[str, str]] = []
         for offset, card in enumerate(cards):
             canonical_name, canonical_type, canonical_oracle, document = (
                 _canonical_fields(card)
@@ -705,6 +744,9 @@ def _populate_catalog(
             type_rows.extend(
                 (card.oracle_id, card_type) for card_type in _card_types(card)
             )
+            subtype_rows.extend(
+                (card.oracle_id, subtype) for subtype in _card_subtypes(card)
+            )
 
         connection.executemany(
             """
@@ -727,6 +769,10 @@ def _populate_catalog(
         )
         connection.executemany(
             "INSERT INTO card_type(oracle_id, card_type) VALUES (?, ?)", type_rows
+        )
+        connection.executemany(
+            "INSERT INTO card_subtype(oracle_id, subtype) VALUES (?, ?)",
+            subtype_rows,
         )
         connection.executemany(
             """
@@ -803,6 +849,20 @@ def _compile_filters(filters: CardFilters) -> tuple[list[str], list[object]]:
             "AND excluded_type.card_type = ?)"
         )
         parameters.append(card_type)
+    for subtype in _normalize_terms(filters.required_subtypes, "required_subtypes"):
+        clauses.append(
+            "EXISTS (SELECT 1 FROM card_subtype AS required_subtype "
+            "WHERE required_subtype.oracle_id = d.oracle_id "
+            "AND required_subtype.subtype = ?)"
+        )
+        parameters.append(subtype)
+    for subtype in _normalize_terms(filters.excluded_subtypes, "excluded_subtypes"):
+        clauses.append(
+            "NOT EXISTS (SELECT 1 FROM card_subtype AS excluded_subtype "
+            "WHERE excluded_subtype.oracle_id = d.oracle_id "
+            "AND excluded_subtype.subtype = ?)"
+        )
+        parameters.append(subtype)
     for tag_id in _normalize_terms(filters.required_tags, "required_tags"):
         clauses.append(
             "EXISTS (SELECT 1 FROM card_tag AS required_tag "
@@ -842,7 +902,8 @@ def _compile_filters(filters: CardFilters) -> tuple[list[str], list[object]]:
 
 
 def _record_from_row(
-    row: sqlite3.Row, relations: tuple[tuple[str, ...], tuple[str, ...]]
+    row: sqlite3.Row,
+    relations: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
 ) -> CatalogRecord:
     status = row["commander_legal"]
     return CatalogRecord(
@@ -858,12 +919,14 @@ def _record_from_row(
         commander_legal=None if status is None else bool(status),
         canonical_document=str(row["canonical_document"]),
         types=relations[0],
-        tags=relations[1],
+        subtypes=relations[1],
+        tags=relations[2],
     )
 
 
 def _hit_from_row(
-    row: sqlite3.Row, relations: tuple[tuple[str, ...], tuple[str, ...]]
+    row: sqlite3.Row,
+    relations: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
 ) -> CatalogHit:
     record = _record_from_row(row, relations)
     return CatalogHit(
@@ -879,6 +942,7 @@ def _hit_from_row(
         commander_legal=record.commander_legal,
         canonical_document=record.canonical_document,
         types=record.types,
+        subtypes=record.subtypes,
         tags=record.tags,
         bm25_score=float(row["bm25_score"]),
     )

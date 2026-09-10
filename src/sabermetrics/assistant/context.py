@@ -149,13 +149,22 @@ def known_context_ids() -> tuple[str, ...]:
 class DeckContextRegistry:
     """Resolve and cache deck contexts against one card source."""
 
-    def __init__(self, packs_dir: Path = PACKS_DIR) -> None:
+    def __init__(
+        self,
+        packs_dir: Path = PACKS_DIR,
+        contexts: Mapping[str, dict[str, Any]] | None = None,
+    ) -> None:
         """Bind the registry to a directory of strategy packs.
 
         Args:
             packs_dir: Directory holding the pack YAML files.
+            contexts: Context registry to resolve against. Defaults to the two
+                shipped ids. Injectable so a test can bind a context of its own
+                — a deck built to exercise one filter — without adding it to
+                the registry the product ships.
         """
         self._packs_dir = packs_dir
+        self._contexts = _CONTEXTS if contexts is None else contexts
         self._cache: dict[tuple[str, str], DeckContext] = {}
 
     def resolve(self, context_id: str, *, cards: CardSource) -> DeckContext:
@@ -173,11 +182,11 @@ class DeckContextRegistry:
             DeckContextUnresolvedError: If the pack is missing, or any card
                 name fails to resolve or resolves ambiguously.
         """
-        spec = _CONTEXTS.get(context_id)
+        spec = self._contexts.get(context_id)
         if spec is None:
             raise UnknownDeckContextError(
                 f"unknown deck context {context_id!r}; "
-                f"registered: {', '.join(known_context_ids())}"
+                f"registered: {', '.join(sorted(self._contexts))}"
             )
         key = (context_id, cards.provenance().bundle_id)
         cached = self._cache.get(key)

@@ -77,3 +77,39 @@ def is_phyrexian(symbol: str) -> bool:
     """
     parts = symbol.upper().split("/")
     return "P" in parts
+
+
+def type_line_subtypes(type_line: str | None) -> tuple[str, ...]:
+    """Every subtype printed on a type line, across all its faces.
+
+    A type line is ``"<supertypes and card types> — <subtypes>"``. Everything
+    before the dash is what :data:`CARD_TYPES` already covers; everything after
+    it is the part nothing in the substrate could previously read, which is why
+    "non-Human creature" and "a land with the Island type" were both
+    inexpressible as filters.
+
+    Split on whitespace, which is correct for every creature, artifact,
+    enchantment and land subtype: ``"Urza's Mine"`` really is the two subtypes
+    ``Urza's`` and ``Mine``. Plane subtypes are multi-word and are therefore
+    over-split; no filter in this system selects a plane, and reporting a plane
+    as several tokens is preferable to silently dropping the whole field.
+
+    Args:
+        type_line: A printed type line, possibly with ``//`` faces. ``None``
+            and ``""`` are legal — ``mtg_v1`` publishes neither for some rows.
+
+    Returns:
+        Subtypes in first-seen order, deduplicated, with original casing.
+    """
+    if not type_line:
+        return ()
+    found: dict[str, None] = {}
+    for face in type_line.split("//"):
+        # Both dashes appear in the wild: Scryfall prints an em dash, and a
+        # hand-authored fixture is as likely to use a hyphen.
+        for separator in ("—", "–", " - "):
+            if separator in face:
+                for token in face.split(separator, 1)[1].split():
+                    found.setdefault(token.strip(), None)
+                break
+    return tuple(found)
