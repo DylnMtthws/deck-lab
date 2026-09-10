@@ -1,0 +1,367 @@
+# Hand-written R3 plans for the combo golden questions.
+#
+# There is no combo database. Dependency D4 is open and the IR refuses a
+# combo_lookup step outright, so nothing here can discover a line. What does
+# exist is the strategy pack, which *declares* its own assembly lines, and
+# deck_profile reads those declarations back as typed facts with the pack's own
+# converts_via prose attached. For six of these eight questions the pack's
+# declared pieces ARE the required id set, so the plan is a profile rather than
+# a search: a ranked retrieval over card text could only ever produce a
+# plausible line, and "plausible" is exactly what this category is written to
+# catch.
+#
+# Three consequences worth stating up front.
+#
+# * combo-007 asks which outlet the pack EXPLICITLY declares, and forbids a card
+#   that sits in a secondary package. The plan therefore reads
+#   primary_win_package alone. Both secondary_win_packages and roles would
+#   return the forbidden card, and would do so while looking like a correct
+#   answer, which is the trap the label exists to spring.
+# * combo-005 asks whether the list is one card from an UNDECLARED two-card
+#   combo. Nothing in the repository can establish that, so the plan runs no
+#   steps at all and states the D4 deferral rather than improvising a
+#   similarity search.
+# * combo-004 is the only plan here authored deck-scoped, and it is the only
+#   ask in the category whose subject is the contents of the list rather than
+#   what the pack declares about them. eligible_population will read 100 on the
+#   scorecard; that is the honest consequence of "in my list", not a shortcut.
+#
+# Both search texts here are short because the lexical stage caps a query at 32
+# word tokens and the IR refuses a longer one at authoring time. That is a real
+# constraint on this category: a mechanic written several ways has to be
+# compressed into one sentence or split across steps, and compression was the
+# better trade for the one query that needed it.
+#
+# field_absence is `not_a_field_query` throughout. No question in this category
+# asks for a rate, a count across lists or a trend, so the deck_profile default
+# of field_statistics_deferred_to_r5 would claim a deferral nobody asked for.
+#
+# No plan names a card the ask does not. combo-006 and combo-008 name their
+# subject only where the asker already did, and neither name reaches a search
+# text: both are answered by a profile facet or by a mechanic description.
+#
+# Every plan is review_status: draft. An authoritative G2 run refuses until
+# Dylan has verified each one.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: combo-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that the commander facet belongs in the answer. The pack's
+      primary_win_package lists only Basalt Monolith and Thrasios as pieces;
+      the question's required set adds Kinnan, who is the commander and not a
+      declared piece. If the intended reading is "the pack's declared pieces
+      alone" then the commander facet should come out and the label should lose
+      Kinnan. As written the label and the plan agree.
+    rationale: >-
+      The primary assembly line is a declared fact of the strategy pack, not a
+      retrieval result, and the pack states it in one place. Reading it back
+      through deck_profile returns the two declared pieces with the pack's own
+      converts_via sentence attached, and the commander facet supplies the
+      third required card without a search that could have found something
+      else.
+    plan:
+      intent: >-
+        Report the strategy pack's declared primary assembly line together with
+        the commander whose ability enables it.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: declared_line
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            commander first, then the declared pieces, so the enabler and the
+            line are distinguishable in the returned order
+          facets: [commander, primary_win_package]
+      answer_step: declared_line
+      stated_absences: []
+
+  - question_id: combo-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The ask wants a three-way split — commander, library engine piece,
+      outlet — and the envelope only carries two of those distinctions. The
+      commander facet separates Kinnan; nothing structurally separates Basalt
+      Monolith from Thrasios except the package's converts_via prose. Confirm
+      that a narrator reading converts_via is an acceptable way to name the
+      outlet, or the IR needs a per-piece role on ContextWinPackage.
+    rationale: >-
+      This is the same declared fact as combo-001 asked from the other side, so
+      it is the same query: the commander facet answers "which piece is my
+      commander" by returning exactly one card, and the package facet supplies
+      the two pieces the commander is being separated from.
+    plan:
+      intent: >-
+        Separate the commander from the declared pieces of the pack's primary
+        assembly line.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: line_and_commander
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            the commander facet is the discriminator; the package facet is the
+            set it is being distinguished from
+          facets: [commander, primary_win_package]
+      answer_step: line_and_commander
+      stated_absences: []
+
+  - question_id: combo-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The load-bearing evidence here is the pack's converts_via sentence, which
+      says the Monolith's untap cost is unlocked *by Kinnan's doubling*. Confirm
+      that is enough to answer "no". CardRow carries no oracle_text, so a
+      card_search would return Basalt Monolith without its printed tap-for-three
+      and untap-for-four numbers and could not establish the net-mana
+      arithmetic on its own. If the wanted answer is the arithmetic rather than
+      the declaration, the IR is missing a way to return card text.
+    rationale: >-
+      The question is whether the declared line still functions with one named
+      piece removed, and the pack states the dependency explicitly. The profile
+      returns the commander being hypothetically removed and the declared line
+      that depends on it, which is exactly the pair the answer contrasts.
+    plan:
+      intent: >-
+        Return the declared Basalt line and the commander it depends on, so the
+        dependency can be stated rather than inferred.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: line_dependency
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            converts_via on the primary package names Kinnan's doubling as what
+            unlocks the Monolith's own untap cost
+          facets: [commander, primary_win_package]
+      answer_step: line_dependency
+      stated_absences: []
+
+  - question_id: combo-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two things to check. First, deck scope: the ask says "in my list", so the
+      population is the 100 cards of the pack and the scorecard will show that.
+      Second, the required set looks under-inclusive. Finale of Devastation and
+      Nature's Rhythm are both "search your library for a creature card with
+      mana value X or less, put it onto the battlefield", which is the same
+      template as the required Chord of Calling and can find Kinnan at mana
+      value two. Invasion of Ikoria fetches a creature of mana value three or
+      less on its front face. None of the three is forbidden, so the plan still
+      passes, but if those are genuinely tutors for half the engine the label
+      should include them.
+    rationale: >-
+      The ask is about what this list contains, so the population is the deck
+      and not the corpus; a corpus search would answer a different question and
+      would return tutors the asker cannot play. One query carries all four
+      required cards because they are one mechanic written three ways — fetch
+      an artifact, fetch a creature onto the battlefield, and transmute for a
+      card of equal mana value — and the lexical stage's 32-token budget rules
+      out spelling each variant out at length anyway. The profile step supplies
+      the two engine halves so a narrator can say which tutor reaches which
+      half rather than asserting it.
+    plan:
+      intent: >-
+        Find the cards in this list that search out either declared half of the
+        Basalt engine.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: engine_halves
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            names the two halves a tutor has to reach, so the match is stated
+            against declared pieces rather than assumed
+          facets: [commander, primary_win_package]
+        - id: tutors
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: >-
+            one query over three printed tutoring templates; deck-scoped
+            because the ask is about this list
+          query:
+            text: >-
+              Search your library for an artifact or creature card, put it onto
+              the battlefield, or transmute for a card with the same mana value.
+            top_k: 50
+            filters:
+              commander_legal: true
+      answer_step: tutors
+      stated_absences: []
+
+  - question_id: combo-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that running no steps is the wanted behaviour. A similarity
+      search over the list would produce plausible pairs and would read as a
+      combo report, which is the specific failure this question is testing for.
+      There is no partial answer available: without a combo corpus there is
+      nothing to be one piece away from.
+    rationale: >-
+      "One card away from another two-card combo" is a comparison against a
+      catalogue of known lines, and no such catalogue is ingested. The strategy
+      pack declares its own lines and is explicitly not a combo corpus, so it
+      cannot establish an undeclared one. The honest plan is zero steps and a
+      named deferral.
+    plan:
+      intent: >-
+        State that no combo corpus exists, so no one-piece-away line can be
+        reported.
+      context_id: cedh:kinnan-basalt-fixture
+      stated_absences:
+        - reason: combo_corpus_deferred_to_d4
+          answers_expectation: 0
+          detail: >-
+            The Commander Spellbook corpus is not ingested and the IR carries
+            no combo_lookup step (dependency D4). The strategy pack declares
+            only its own lines, so nothing here can enumerate the undeclared
+            two-card combos this list is one piece short of.
+
+  - question_id: combo-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the absence reason. combo_corpus_deferred_to_d4 is chosen because
+      the expected absence says "no configured combo corpus can establish an
+      undeclared line", which is a statement about the missing corpus rather
+      than about card presence; card_presence_does_not_establish_sufficiency
+      would be the alternative and reads as a claim about these two cards
+      specifically. Also confirm the secondary_win_packages facet is the right
+      breadth: it returns the Emrakul package as well, which is declared and
+      true but is not what was asked about.
+    rationale: >-
+      The pack does declare a Copy Artifact plus Basalt Monolith package, and
+      its converts_via says in as many words that it rebuilds the engine and
+      does not itself close the game. That declaration is the whole affirmative
+      answer, and the facet's own note states that the pack is not a combo
+      corpus. The negative half — whether some other, undeclared terminating
+      line exists — is the D4 absence, and it has to be said out loud or the
+      declared package reads as a complete answer.
+    plan:
+      intent: >-
+        Report what the pack declares about the Copy Artifact package and state
+        that no undeclared line can be established.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: declared_secondary
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            the facet carries the pack's own warning that it is not a combo
+            corpus and cannot establish an undeclared line
+          facets: [secondary_win_packages]
+      answer_step: declared_secondary
+      stated_absences:
+        - reason: combo_corpus_deferred_to_d4
+          answers_expectation: 0
+          detail: >-
+            The pack declares this package and says it rebuilds the engine
+            rather than closing the game. Whether it also forms some other
+            terminating line is a question for a combo corpus, and none is
+            ingested (dependency D4); similarity to the declared line is not
+            evidence of one.
+
+  - question_id: combo-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      This is the precision question in the category, so check the facet
+      choice rather than the result. Only primary_win_package is read.
+      secondary_win_packages would return Finale of Devastation, which the
+      question forbids, and the roles facet would return every card the pack
+      tagged win_package including the same one. The plan also returns Basalt
+      Monolith, which is a declared piece of the same package and is not
+      forbidden; confirm that returning the whole declared package rather than
+      the outlet alone is acceptable, because no facet isolates one piece.
+    rationale: >-
+      "Explicitly declared" is the entire ask, so the answer is the pack's
+      authored objective and nothing else. The narrowest facet that carries it
+      is primary_win_package, whose converts_via names Thrasios as what
+      converts the unbounded colourless mana. Any broader facet would import a
+      plausible-but-undeclared outlet, which is precisely what the ask rules
+      out.
+    plan:
+      intent: >-
+        Return only the outlet named by the pack's authored primary objective.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: authored_objective
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            the narrowest facet that carries the declared outlet; broader
+            facets would return inferred outlets the ask excludes
+          facets: [primary_win_package]
+      answer_step: authored_objective
+      stated_absences: []
+
+  - question_id: combo-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm card_presence_does_not_establish_a_simulator_state is the right
+      reason: the expected absence is "a card's presence does not establish a
+      simulator terminal state", and that reason is a structural claim about
+      the simulator contract rather than a deferral. Also confirm the corpus
+      scope. The card is named in the ask, so a deck-scoped lookup would be
+      legal, but corpus scope makes the retrieval a real test and the card is
+      identified by its printed effect rather than by its name.
+    rationale: >-
+      Two independent facts answer this. The pack declares one assembly
+      objective and names it for the simulator pack, and the declared pieces do
+      not include this card. Separately, being in the list establishes nothing
+      about the simulator's terminal state at all — the simulator terminates on
+      a declared assembly pattern, not on a card resolving — so the card is
+      retrieved by its printed effect and the contract limit is stated rather
+      than argued from the pack alone.
+    plan:
+      intent: >-
+        Identify the card by its printed effect and contrast it with the pack's
+        one declared simulator assembly objective.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: declared_objective
+          kind: deck_profile
+          field_absence: not_a_field_query
+          note: >-
+            the pack names this package to match the simulator's assembly
+            objective; the card in question is not one of its pieces
+          facets: [primary_win_package]
+        - id: mass_untap
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the printed effect, described rather than looked up by name
+          query:
+            text: >-
+              Find a blue instant whose entire effect is to untap all nonland
+              permanents you control.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+      answer_step: mass_untap
+      stated_absences:
+        - reason: card_presence_does_not_establish_a_simulator_state
+          answers_expectation: 0
+          detail: >-
+            The simulator terminates on the assembly pattern its pack declares,
+            and this list declares one such objective, which this card is not a
+            piece of. A card being in the list is not a terminal state, and no
+            reading of the card's text can make it into one.

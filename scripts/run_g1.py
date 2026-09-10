@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 
 from sabermetrics.substrate.evaluation import (
+    PRODUCTION_CARD_VIEW,
     AuthoritativeRun,
     RetrievalObservation,
     authoritative_g1,
@@ -26,7 +27,6 @@ from sabermetrics.substrate.settings import load_research_settings
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LABELS = ROOT / "fixtures" / "research" / "g1_labels.yaml"
-PRODUCTION_CARD_VIEW = "mtg_v1.card_any_medium"
 
 
 def _write_atomic(path: Path, payload: dict[str, object]) -> None:

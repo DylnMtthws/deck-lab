@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Self
@@ -29,6 +30,7 @@ from sabermetrics.substrate.fusion import (
     weighted_reciprocal_rank_fusion,
 )
 from sabermetrics.substrate.models import (
+    CardFilters,
     CardSearchQuery,
     CardSearchResult,
     IndexProvenance,
@@ -136,6 +138,48 @@ class CardRetrievalFacade:
     def oracle_ids(self) -> tuple[str, ...]:
         """Return every indexed Oracle ID in canonical vector order."""
         return self._dense.oracle_ids
+
+    @property
+    def result_limit(self) -> int:
+        """Return the configured ceiling on ranked results per query.
+
+        A caller asking for more than this does not receive more; exposing the
+        true ceiling lets a caller refuse rather than silently under-return.
+        """
+        return self._settings.retrieval.result_limit
+
+    def records(
+        self,
+        filters: CardFilters | None = None,
+        *,
+        limit: int | None = None,
+    ) -> tuple[CatalogRecord, ...]:
+        """Return the structured eligible population in Oracle-ID order.
+
+        :meth:`search` is a ranked top-k and caps at ``result_limit``. A caller
+        that needs the whole eligible set — a mechanic-tag filter, or a deck
+        whose card count exceeds that cap — must not read a capped ranking as a
+        population, so the unbounded structured path is exposed separately.
+
+        Args:
+            filters: Predicates pushed into SQL. Defaults to no constraints.
+            limit: Optional maximum row count. ``None`` returns every match.
+
+        Returns:
+            Matching catalog records ordered by ``oracle_id``.
+        """
+        return self._catalog.records(filters, limit=limit)
+
+    def resolve_names(self, names: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        """Map exact card names to the Oracle ids that carry them.
+
+        Args:
+            names: Card names, as a curated list writes them.
+
+        Returns:
+            One entry per matched name, mapping to every Oracle id found.
+        """
+        return self._catalog.resolve_names(names)
 
     def search(self, query: CardSearchQuery) -> CardSearchResult:
         """Run one search and return only its bounded player-facing result."""

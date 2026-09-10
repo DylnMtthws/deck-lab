@@ -1,0 +1,701 @@
+# Hand-written R3 plans for the deck_local golden questions.
+#
+# This is the one category where `scope: deck` is the honest reading rather
+# than a shortcut. Every ask here says "in this list", "in my list" or "in this
+# version", and every question binds cedh:kinnan-basalt-fixture. A corpus-scoped
+# answer would be a different question: "which cards anywhere do this" is not
+# "which cards here do this", and answering the first when the second was asked
+# is the failure this category exists to catch.
+#
+# The consequence is stated rather than hidden. A deck-scoped ranked search
+# draws from ~100 cards, so a top_k of 50 would return half the deck and the
+# retrieval gate would be a weak test here. gates.retrieval.eligible_population
+# and gates.retrieval.answer_returned report the population and the answer size
+# per question, so the narrowing each plan actually achieved is visible on the
+# scorecard rather than assumed.
+#
+# Two rules follow from that, and both are applied throughout. First, a
+# deck-scoped search states a bound proportionate to its question: asking for
+# fifty of seventy-five eligible cards is not an answer to "which cards here do
+# this", so these plans ask for ten or twenty. Second, where the ask has a
+# genuine structured predicate — a mechanic tag, a card type, a fact the pack
+# itself declares — the plan uses `tag_filter`, `deck_profile` or a type filter
+# instead, which narrows the population honestly.
+#
+# The gate enforces the first rule directly: an unranked answer returning more
+# rows than the recall window is counted as a failure, because a set with no
+# best-first order cannot be truncated to a top k and returning the whole bound
+# deck would otherwise pass without retrieving anything.
+#
+# No plan names a card the ask does not. Only deck-local-012 names one at all,
+# because its ask does; everywhere else the query describes the printed
+# mechanic, including where naming would have been permitted.
+#
+# Several plans union two or three legs rather than asking one long question.
+# That is the 32-token lexical budget showing through: a query that names three
+# printed templates at once compiles to a disjunction over thirty diluted
+# tokens and ranks none of them well, while one template per leg ranks each
+# properly and the union keeps every member. Leg order is still written most-
+# discriminating-first for readability, but it no longer changes the answer: a
+# union orders each card by its BEST rank across every input, so a card found
+# 2nd by a precise leg is presented 2nd even when a broad leg is declared
+# first.
+#
+# Two plans are expected to be read closely. deck-local-010 is authored to its
+# clarified_ask and FAILS on a forbidden label the author believes is wrong;
+# the review note says why. deck-local-001 is scoreable by no gate at all and
+# says so.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: deck-local-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      This question is scoreable by no gate: it carries no required ids, no
+      forbidden ids and no expected absence, so gates.retrieval lists it under
+      not_applicable and the composite gate puts it under
+      no_applicable_criterion. It is here to be read, not counted. Three things
+      to check. First, that "am I light" is genuinely a field comparison and
+      therefore R5's — nothing in the substrate knows how many blue sources a
+      competitive list normally runs, so the plan states that absence rather
+      than answering from the pack's own land target. Second, that pairing the
+      search with the role_targets facet is the wanted shape: the facet returns
+      no cards, only the pack's authored targets and the standing notice that a
+      target is not a threshold. Third, and this is the one that matters: the
+      typed_blue_lands leg exists ONLY because the substrate cannot see the
+      most important blue sources in the list. Island, Tropical Island and
+      Breeding Pool tap for blue because of their land subtypes, and that
+      ability is never printed on the card, so they carry no oracle text, no
+      mana:produces_mana tag, and nothing a mechanic query can match — a
+      single printed-text leg puts Island at rank 50 and misses Tropical Island
+      entirely. The second leg recovers them through the indexed type line,
+      which is a workaround and not a predicate. A produced-mana field, or a
+      tag that fires on intrinsic land-type mana abilities, is the real fix.
+    rationale: >-
+      The clarified ask asks for a profile plus its assumptions, not a verdict.
+      Two search legs enumerate the sources the list actually contains, split
+      because they are found two different ways: one by printed mana text, one
+      by land subtype through the type line, since an intrinsic land-type mana
+      ability appears in no rules text. The profile supplies the pack's own
+      land target with the notice that no configured threshold makes a count
+      below a target a deficit. The stated absence carries the word the ask
+      leans on, which is "light" — nothing here can say light relative to what.
+    plan:
+      intent: Profile the turn-one blue sources this list contains, and state what "light" would need.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: typed_blue_lands
+          kind: card_search
+          scope: deck
+          field_absence: field_statistics_deferred_to_r5
+          note: lands whose blue mana comes from a land subtype and is never printed
+          query:
+            text: >-
+              A land with the Island or Forest Island land type that taps to add
+              blue mana without entering tapped.
+            top_k: 50
+            filters:
+              required_types: [Land]
+              commander_legal: true
+        - id: printed_blue_sources
+          kind: card_search
+          scope: deck
+          field_absence: field_statistics_deferred_to_r5
+          note: sources whose blue mana ability is actually written on the card
+          query:
+            text: >-
+              Find lands that tap to add blue mana and do not enter the
+              battlefield tapped, and one-mana permanents that tap to add blue.
+            top_k: 50
+            filters:
+              commander_legal: true
+        - id: turn_one_blue
+          kind: union
+          inputs: [typed_blue_lands, printed_blue_sources]
+        - id: pack_shape
+          kind: deck_profile
+          facets: [role_targets]
+          field_absence: field_statistics_deferred_to_r5
+          note: the pack's authored role targets, which are targets and not thresholds
+      answer_step: turn_one_blue
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "Light" is a comparison, and there is no cohort to compare against:
+            no field statistic over competitive lists is available until R5, and
+            the pack's own land target is an authored number rather than a
+            measured norm. The sources present can be listed; whether they are
+            too few cannot.
+
+  - question_id: deck-local-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The ask names Basalt Monolith, so naming it would have been permitted; it
+      is left out anyway because the mechanic — an artifact with mana value
+      three — is the whole predicate, and a name in the query would just rank
+      the card itself, which is not what was asked for. The precision limit to
+      check is Dizzy Spell, which also has transmute {1}{U}{U} but has mana
+      value one, so under its printed restriction it can only fetch a one-mana
+      card and cannot reach a three-mana artifact. The label excludes it and
+      this query does not, because the only structural way to exclude it — a
+      mana-value bound of exactly three — would also exclude Transmute Artifact
+      at mana value two. Dizzy Spell does come back, at rank 3 of the
+      fetch-to-hand leg; that is a real precision miss and not a labelling
+      error. A note on leg order, because it changed after this plan was
+      written: a union now takes each card's BEST rank across its inputs, so
+      leg order no longer affects the answer's ordering or its membership. The
+      stronger leg is still declared first, which now costs nothing and reads
+      more clearly. Under the previous first-appearance rule the legs the other
+      way round put Drift of Phantasms at rank 43 instead of 2, which is what
+      prompted the change.
+    rationale: >-
+      Two printed mechanisms reach the same card, and a 32-token lexical budget
+      will not carry both in one query without diluting each. The first leg is
+      the pair of templates that fetch a three-mana artifact to hand, transmute
+      and an enters-the-battlefield search; the second is the sacrifice-and-
+      search that puts an artifact straight onto the battlefield. Neither names
+      a card, and the union is the answer.
+    plan:
+      intent: Find cards in this list that can search out a three-mana artifact.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: fetch_to_hand
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: transmute and enters-the-battlefield searches that fetch to hand
+          query:
+            text: >-
+              Transmute or an enters-the-battlefield search that finds an
+              artifact card with mana value three and puts it into your hand.
+            top_k: 50
+            filters:
+              commander_legal: true
+        - id: sacrifice_search
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: search that puts the found artifact straight onto the battlefield
+          query:
+            text: >-
+              Sacrifice an artifact, then search your library for an artifact
+              card with mana value three and put it onto the battlefield.
+            top_k: 50
+            filters:
+              commander_legal: true
+        - id: finders
+          kind: union
+          inputs: [fetch_to_hand, sacrifice_search]
+      answer_step: finders
+      stated_absences: []
+
+  - question_id: deck-local-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two absences, and only the first answers the question's own expectation.
+      Check that the second is wanted. The clarified ask says "report modeled,
+      inert and unauthored counts", and those counts do exist in a saved
+      cedh-simulation-result.v3 document — but R3 has no step that may read one.
+      DeckFacet deliberately carries no simulator facet, because reading a saved
+      result without going through the simulator client loses the deck-identity
+      check and the fixture marker, and sim_study belongs to R6. So the counts
+      are unavailable for a different reason than the identities are, and
+      collapsing the two into one refusal would tell Dylan the contract lacks
+      something it actually has.
+    rationale: >-
+      Zero steps, because there is no query that could answer this. The per-card
+      identities are absent from the published contract, which is permanent
+      until D3; the counts are absent from R3, which is a deferral with a named
+      owner. Both are stated, and neither is guessed at by parsing warning prose.
+    plan:
+      intent: State that per-card simulator identities are outside the result contract and the counts are R6's.
+      context_id: cedh:kinnan-basalt-fixture
+      stated_absences:
+        - reason: simulator_contract_has_no_per_card_identity
+          answers_expectation: 0
+          detail: >-
+            cedh-simulation-result.v3 publishes inert and unauthored counts and
+            no structured per-card list, so which cards those counts refer to
+            cannot be recovered without guessing from free-text warnings. This
+            is dependency D3.
+        - reason: simulator_study_deferred_to_r6
+          detail: >-
+            Reporting the counts themselves needs a simulator study, which is
+            R6. R3 has no sim_study step and no deck facet reads a saved result
+            document, because reading one directly would lose the deck-identity
+            check and the fixture marker.
+
+  - question_id: deck-local-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Same three-template shape as mechanic-001, applied to this list. The tag
+      leg is exact where the tag fires; the two search legs exist because
+      cost:free_alternative_cost does NOT fire on Fierce Guardianship's
+      control-your-commander wording and Pact of Negation carries a printed {0}
+      cost rather than an alternative cost, so neither carries any cost tag at
+      all. Confirm that is a tag-library gap worth logging rather than a
+      deliberate scope decision for the cost family. Also confirm the extra
+      alternate-cost cards the tag leg returns — Mindbreak Trap, Misdirection,
+      Disrupting Shoal, Commandeer, Snapback — are wanted: all five are
+      castable with no mana available, so under the clarified ask they belong,
+      and none is forbidden.
+    rationale: >-
+      "Tapped out" is not a printed word. The mechanic behind it is a cost that
+      does not need mana, and this list writes that three ways: exile a blue
+      card instead of paying, cast free while you control a commander, and a
+      printed zero cost with a deferred payment. The shipped cost tags cover
+      only the first, so the union is a tag population plus the two templates
+      the library misses.
+    plan:
+      intent: Find interaction in this list castable with no mana available.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: tagged_alt_cost
+          kind: tag_filter
+          scope: deck
+          field_absence: not_a_field_query
+          limit: 200
+          note: the alternate-cost family the shipped tags do cover
+          filters:
+            any_tags: [cost:free_alternative_cost, cost:alternative_cast_cost]
+            excluded_types: [Land]
+            commander_legal: true
+        - id: commander_free
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: the conditional free cast that keys off controlling a commander
+          query:
+            text: >-
+              Counter target noncreature spell, and if you control a commander
+              you may cast this spell without paying its mana cost.
+            top_k: 20
+            filters:
+              excluded_types: [Land]
+              commander_legal: true
+        - id: pay_later
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: a printed zero cost with a deferred payment or a loss condition
+          query:
+            text: >-
+              Counter target spell for no mana, then at the beginning of your
+              next upkeep pay a cost or you lose the game.
+            top_k: 20
+            filters:
+              excluded_types: [Land]
+              commander_legal: true
+        - id: free_interaction
+          kind: union
+          inputs: [tagged_alt_cost, commander_free, pay_later]
+      answer_step: free_interaction
+      stated_absences: []
+
+  - question_id: deck-local-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Check the division of labour. The pack itself declares the line, so the
+      outlet is read off primary_win_package rather than guessed at by a query;
+      the search leg exists so the answer is "here is every repeatable sink in
+      the list", not just "here is the one the pack wrote down". The absence is
+      the part that matters: "enough" is a sufficiency claim, and no count of
+      cards present is evidence for it. Confirm that stating that beats quoting
+      the pack's role_targets as if a target were a threshold. Note that the
+      absence stated is the structural one rather than a deferral — nothing
+      scheduled is promised to answer it either, so naming a future phase here
+      would be a promise the plan cannot keep.
+    rationale: >-
+      Two deterministic facts and one refusal. The declared package names the
+      Basalt Monolith into Thrasios line; the search enumerates the other
+      repeatable mana sinks the list contains; and neither establishes how many
+      outlets a list ought to run. Instants and sorceries are excluded because
+      an ability that can be activated again for more mana lives on a permanent;
+      without that exclusion the fetchlands and tutors crowd the ranking.
+    plan:
+      intent: List the outlets present for the declared Basalt line and refuse the sufficiency claim.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: declared_line
+          kind: deck_profile
+          facets: [primary_win_package]
+          note: the assembly line the strategy pack declares, and how it converts
+        - id: repeatable_sinks
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: other repeatable ways this list turns colourless mana into cards
+          query:
+            text: >-
+              A repeatable activated ability paying generic mana to scry, reveal
+              the top card of your library, and draw a card.
+            top_k: 10
+            filters:
+              excluded_types: [Instant, Sorcery]
+              commander_legal: true
+        - id: outlets
+          kind: union
+          inputs: [declared_line, repeatable_sinks]
+      answer_step: outlets
+      stated_absences:
+        - reason: card_presence_does_not_establish_sufficiency
+          answers_expectation: 0
+          detail: >-
+            The list can be enumerated; "enough" cannot be read off it. No
+            corpus fact and no pack target establishes an optimal outlet count
+            for this line, and the pack's role_targets are authored targets with
+            no configured threshold behind them.
+
+  - question_id: deck-local-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The profile leg is doing the work, and it is worth checking that it is
+      the right instrument. Basalt Monolith's own text never mentions a
+      commander — its dependence on Kinnan is a fact the strategy pack states,
+      in the primary package's converts_via, and not a fact any query over
+      oracle text could find. The search leg covers the other, textual sense of
+      the ask: cards that check whether you control a commander or a legendary
+      creature. Confirm both senses are wanted; a plan with only the search leg
+      would miss the engine, and a plan with only the profile leg would miss
+      Fierce Guardianship and Mox Amber.
+    rationale: >-
+      "Relying on the commander being in play" is two different things at once.
+      One is declared: the pack's primary line converts through Kinnan's
+      activated ability. The other is printed: a card whose text reads "if you
+      control a commander" or counts legendary permanents. The union answers
+      both without asserting that either is the whole answer.
+    plan:
+      intent: Identify what in this list depends on Kinnan remaining on the battlefield.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: declared_engine
+          kind: deck_profile
+          facets: [commander, primary_win_package]
+          note: the commander and the line the pack declares it converts
+        - id: commander_text
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: cards whose printed text checks for a commander or a legendary permanent
+          query:
+            text: >-
+              Rules text that checks whether you control a commander, or counts
+              the legendary creatures you control, to cast free or to add mana.
+            top_k: 10
+            filters:
+              commander_legal: true
+        - id: commander_dependent
+          kind: union
+          inputs: [declared_engine, commander_text]
+      answer_step: commander_dependent
+      stated_absences: []
+
+  - question_id: deck-local-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The label requires the commander itself, which reads as "Kinnan's own
+      activation is one of the competing demands" rather than "Kinnan competes
+      with itself". The plan takes it that way: the commander facet supplies the
+      reference point the clarified ask presupposes, and the search finds the
+      other repeatable mana-costed abilities. Confirm that reading. If the
+      intent was only "other cards", the commander facet should come out and the
+      required label should lose Kinnan. Also confirm that the untap costs on
+      Basalt Monolith, Grim Monolith and Mana Vault count as competing: they
+      consume mana on the same turns, but they return more than they cost, so
+      they are arguably the opposite of competition.
+    rationale: >-
+      Competition for mana is a property of repeatable activated abilities with
+      a mana cost, so the query describes that shape rather than any card, and
+      excludes instants and sorceries because neither has an activated ability
+      to compete with. The commander is named structurally, through the facet,
+      because the ask is explicitly relative to Kinnan's activation.
+    plan:
+      intent: Find repeatable mana-costed activated abilities that compete with Kinnan's activation.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: the_commander
+          kind: deck_profile
+          facets: [commander]
+          note: the activation everything else is being compared against
+        - id: mana_sinks
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: repeatable activated abilities whose activation cost includes mana
+          query:
+            text: >-
+              A repeatable activated ability whose cost includes mana, paid each
+              time to draw, to look at cards, to untap, or to copy a permanent.
+            top_k: 50
+            filters:
+              excluded_types: [Instant, Sorcery]
+              commander_legal: true
+        - id: competing_sinks
+          kind: union
+          inputs: [the_commander, mana_sinks]
+      answer_step: competing_sinks
+      stated_absences: []
+
+  - question_id: deck-local-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Read this one sceptically. The exclusion of Talisman of Curiosity is a
+      HAPPY COINCIDENCE of two tags, not a produced-colour predicate. The
+      substrate carries no produced_mana column and no tag for which colours a
+      mana ability adds, so "cannot produce blue or green" is not expressible.
+      What the plan actually asks is "a mana rock that adds two or more from one
+      instruction", and in this list those two questions happen to select the
+      same four cards: Talisman of Curiosity adds one mana at a time and drops
+      out on the second tag, not on its colours. The moment a rock that adds two
+      or more coloured mana enters a list, this plan is wrong and will not say
+      so. That is the gap to log — it is the strongest argument in the category
+      for a produced-colour field.
+    rationale: >-
+      Two shipped mana tags, intersected, and both populations left visible.
+      An intersection rather than one filter with two required tags because the
+      envelope then publishes each population and its count separately, which is
+      what makes the coincidence auditable instead of buried in a conjunction.
+      Both legs are unranked, so the answer is scored as a whole set rather than
+      through a ranked window.
+    plan:
+      intent: Find this list's artifact mana sources that add two or more mana from one instruction.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: rocks
+          kind: tag_filter
+          scope: deck
+          field_absence: not_a_field_query
+          limit: 200
+          note: every noncreature artifact in the list whose own text produces mana
+          filters:
+            required_tags: [mana:mana_rock]
+            commander_legal: true
+        - id: bulk_producers
+          kind: tag_filter
+          scope: deck
+          field_absence: not_a_field_query
+          limit: 200
+          note: every card in the list with one instruction that adds at least two mana
+          filters:
+            required_tags: [mana:adds_two_or_more]
+            commander_legal: true
+        - id: colourless_rocks
+          kind: intersect
+          inputs: [rocks, bulk_producers]
+          note: the proxy for "makes no coloured mana"; see the review note
+      answer_step: colourless_rocks
+      stated_absences: []
+
+  - question_id: deck-local-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two printed templates, one leg each: search the library and put a creature
+      onto the battlefield, and look at the top cards and put a creature from
+      among them onto the battlefield. The second is what reaches the commander,
+      whose activated ability is a top-of-library hit rather than a search.
+      Confirm the commander belongs in the required set on that reading. Expect
+      Nature's Rhythm and Invasion of Ikoria to come back too — both put a
+      creature onto the battlefield from the library and neither is forbidden,
+      but if the label meant to name them, it is short.
+    rationale: >-
+      The mechanic is "creature card from library to battlefield, skipping the
+      hand", and this list prints it two ways: a tutor with a mana-value bound,
+      and a look-at-the-top-five activation. One leg each, because the lexical
+      stage takes 32 tokens and a merged query would dilute both templates. The
+      union covers all three required cards without naming any of them.
+    plan:
+      intent: Find cards in this list that put a creature from the library straight onto the battlefield.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: tutor_to_battlefield
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: the search-and-put template, bounded by mana value
+          query:
+            text: >-
+              Search your library for a creature card with mana value X or less
+              and put it onto the battlefield, then shuffle.
+            top_k: 50
+            filters:
+              commander_legal: true
+        - id: top_of_library
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: the look-at-the-top-and-put template, which is the commander's ability
+          query:
+            text: >-
+              Look at the top five cards of your library and put a creature card
+              from among them onto the battlefield.
+            top_k: 50
+            filters:
+              commander_legal: true
+        - id: onto_battlefield
+          kind: union
+          inputs: [tutor_to_battlefield, top_of_library]
+      answer_step: onto_battlefield
+      stated_absences: []
+
+  - question_id: deck-local-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      DISPUTED LABEL — this plan is expected to FAIL and Dylan must adjudicate.
+      The clarified ask is "non-Human creature mana sources in the fixture that
+      Kinnan's activated ability may put onto the battlefield". Delighted
+      Halfling is forbidden, but it is a Creature — Halfling Citizen with
+      "{T}: Add {C}", so it is a non-Human creature mana source and Kinnan's
+      ability may put it onto the battlefield. Every mechanical predicate that
+      keeps the four required elves and birds also keeps it. No predicate was
+      invented to exclude it, because inventing one would be authoring to the
+      answer key rather than to the ask. Two further things to check. Enduring
+      Vitality and Gene Pollinator satisfy the clarified ask on the same reading
+      and are not in the required set, so the label may be short as well as
+      wrong. And "non-Human" is not expressible in the IR at all: the catalog's
+      types carry card types only, not creature subtypes, so excluded_types
+      cannot say "not Human". Here that restriction is vacuous — every mana dork
+      in this list is non-Human — but it is a real expressiveness gap.
+    rationale: >-
+      A shipped tag carries this exactly: mana:mana_dork is "a creature with a
+      printed tap ability that adds mana", which is the mechanical content of
+      "creature mana source". A tag filter rather than a ranked search because
+      the answer is a population, not a ranking, and an unranked set makes the
+      disputed member unambiguous rather than an artifact of where it ranked.
+    plan:
+      intent: Find creature mana sources in this list that Kinnan's ability could put onto the battlefield.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: creature_mana_sources
+          kind: tag_filter
+          scope: deck
+          field_absence: not_a_field_query
+          limit: 200
+          note: creatures in the list with a printed tap-for-mana ability
+          filters:
+            required_types: [Creature]
+            required_tags: [mana:mana_dork]
+            commander_legal: true
+      answer_step: creature_mana_sources
+      stated_absences: []
+
+  - question_id: deck-local-011
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The required Land type is what makes this honest and also what makes the
+      gate easy: it narrows the population to the list's land slots, which is
+      exactly what "occupies a land slot" means, and the returned set is then
+      small enough that every land comes back and the ranking is invisible to
+      the gate. Read the ranking rather than the pass. Two things to check.
+      Sink into Stupor is reached because its combined type line carries both
+      Instant and Land, which is the modal double-faced case the ask names.
+      Colossal Skyturtle is NOT reached: the pack gives it a land role, but it
+      is an Enchantment Creature with channel abilities and no land type, so
+      the type filter drops it. If the ask meant "anything the pack counts as a
+      land", the filter is wrong; if it meant "occupies a land slot on the
+      battlefield", dropping it is right.
+    rationale: >-
+      One structured predicate and two mechanic descriptions. The Land type
+      filter carries "occupies a land slot"; the two legs carry "the nonland
+      mode is interaction", written as the two printed templates this list uses
+      — a channel ability discarded from hand, and a modal front face that
+      bounces. Separate legs because 32 lexical tokens will not carry both.
+    plan:
+      intent: Find cards in this list that occupy a land slot and also provide interaction.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: channel_lands
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: the channel template, discarded from hand for a removal effect
+          query:
+            text: >-
+              Channel, discard this card to destroy an artifact, enchantment or
+              nonbasic land, or to return a permanent to its owner's hand.
+            top_k: 50
+            filters:
+              required_types: [Land]
+              commander_legal: true
+        - id: modal_faces
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: the modal double-faced template, an instant front and a land back
+          query:
+            text: >-
+              A modal double-faced instant that returns a spell or nonland
+              permanent to its owner's hand, whose back face is a land.
+            top_k: 50
+            filters:
+              required_types: [Land]
+              commander_legal: true
+        - id: interactive_lands
+          kind: union
+          inputs: [channel_lands, modal_faces]
+      answer_step: interactive_lands
+      stated_absences: []
+
+  - question_id: deck-local-012
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Naming the card is legitimate here and only here: the asker wrote
+      "Hullbreaker Horror" in the ask, so this is a lookup rather than a query
+      pretending to be one, and gates should read it that way. top_k is
+      deliberately small for the same reason — the ask names one card, so a
+      fifty-card neighbourhood would be a dragnet wearing an answer's clothes.
+      What the row actually carries is the useful part: the pack's authored role
+      for the card, which is win_package. Check the absence. The clarified ask
+      invites the simulator's "known inability or misclassification if
+      applicable", and result v3 cannot say which card was misclassified — it
+      publishes counts only. Reading the misclassification back onto this
+      specific card would be a guess presented as a contract field.
+    rationale: >-
+      A named card resolved against the list, plus the refusal the clarified ask
+      invites. The mechanical role comes from the pack's own role assignment on
+      the returned row, not from a model's reading of the card.
+    plan:
+      intent: Resolve the named card in this list and refuse to attribute a simulator misclassification to it.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: named_card
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          note: a name lookup; the asker supplied the name
+          query:
+            text: Hullbreaker Horror
+            top_k: 5
+            filters:
+              commander_legal: true
+      answer_step: named_card
+      stated_absences:
+        - reason: simulator_contract_has_no_per_card_identity
+          answers_expectation: 0
+          detail: >-
+            cedh-simulation-result.v3 reports inert and unauthored counts with
+            no structured per-card list, so it cannot establish that this card
+            is the one the simulator misclassified. Inferring that from the
+            warning prose would present a guess as a contract field.

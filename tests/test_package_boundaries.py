@@ -38,6 +38,29 @@ VENDOR_SDKS = (
     "mtgsdk",
 )
 
+#: ADR-030's borrow list, as an executable allowlist. ``assistant/`` may reach
+#: the deterministic substrate, the pure mechanic predicates, three named
+#: ``cedh`` modules, deck documents and the reference layer — and nothing else
+#: under ``sabermetrics``. Notably absent and absent on purpose:
+#: ``sabermetrics.db`` and ``sabermetrics.config`` (the assistant needs
+#: neither), ``cedh.packs`` (``assistant/context.py`` reads the pack YAML as
+#: data instead), and ``cedh.builder`` (ADR-030: "Ask has no deck-generation
+#: tool", and that one is a correctness rule rather than a scope choice).
+ASSISTANT_BORROWS = (
+    "sabermetrics.assistant",
+    "sabermetrics.mechanics",
+    "sabermetrics.substrate",
+    "sabermetrics.cedh.model_gateway",
+    "sabermetrics.cedh.cost_ledger",
+    "sabermetrics.cedh.simulator",
+    "sabermetrics.deck_documents",
+    "sabermetrics.reference_layer",
+    "sabermetrics.errors",
+    "pydantic",
+    "yaml",
+    "numpy",
+)
+
 
 #: ``mechanics/`` may import itself. R0 shipped the package as four independent
 #: modules, so "imports nothing from ``sabermetrics``" and "imports nothing from
@@ -139,6 +162,34 @@ class TestAssistantBoundary:
 
     def test_assistant_does_not_import_a_vendor_sdk(self):
         found = violations("assistant", banned=VENDOR_SDKS)
+        assert not found, "\n".join(found)
+
+    def test_assistant_imports_only_its_documented_borrow_list(self):
+        """ADR-030's borrow list is a rule, not a docstring.
+
+        ``assistant/__init__.py`` states what the package may import. Until
+        this test existed that statement was prose: the two denylists above
+        would have allowed ``sabermetrics.db``, ``sabermetrics.config`` or
+        ``cedh.builder`` without complaint, and R3 is the cheapest moment to
+        close it because the package imports nothing outside the list today.
+        """
+        found = violations(
+            "assistant", allowed=ASSISTANT_BORROWS, exempt=("sabermetrics.assistant",)
+        )
+        assert not found, "\n".join(found)
+
+    def test_assistant_does_not_reach_the_legacy_reference_evidence_module(self):
+        """``reference_layer`` is on the borrow list; one module of it is not.
+
+        ``reference_layer/evidence.py`` imports ``sabermetrics.db`` at module
+        level and ``analytics`` and ``ingestion`` lazily. The package
+        ``__init__`` is empty, so importing ``reference_layer.retriever``
+        does not pull it in — but nothing stopped a future edit from importing
+        it directly, and the walker does not follow transitive imports.
+        """
+        found = violations(
+            "assistant", banned=("sabermetrics.reference_layer.evidence",)
+        )
         assert not found, "\n".join(found)
 
 

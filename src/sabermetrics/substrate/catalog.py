@@ -34,7 +34,7 @@ from sabermetrics.substrate.tagging import CARD_TYPES, TagBuild
 CATALOG_SCHEMA_VERSION = "retrieval-catalog.v1"
 _COLOR_BITS = {"W": 1, "U": 2, "B": 4, "R": 8, "G": 16}
 _TOKEN_RE = re.compile(r"[^\W_]+", flags=re.UNICODE)
-_MAX_QUERY_TOKENS = 32
+MAX_QUERY_TOKENS = 32
 _MAX_TOKEN_LENGTH = 64
 _STOPWORDS = frozenset(
     {
@@ -233,8 +233,25 @@ class CatalogBuildResult:
     tag_content_sha256: str
 
 
+def query_token_count(text: str) -> int:
+    """Count the word tokens a query would compile to.
+
+    Exposed so a caller can refuse an over-long query when the query is
+    *written* rather than when it is run. A plan that only fails at execution
+    time fails inside a step handler, where the honest options are a crash or
+    a typed absence that says nothing useful to whoever wrote it.
+
+    Args:
+        text: Plain-text search input.
+
+    Returns:
+        The number of word tokens, before stopword removal.
+    """
+    return len(_TOKEN_RE.findall(unicodedata.normalize("NFKC", text)))
+
+
 def compile_fts_query(text: str) -> str | None:
-    """Compile plain user text into a safe FTS5 conjunction.
+    """Compile plain user text into a safe FTS5 disjunction.
 
     Only normalized Unicode word tokens survive.  Operators, quotes,
     parentheses, column selectors, wildcards, and punctuation are never copied
@@ -254,8 +271,8 @@ def compile_fts_query(text: str) -> str | None:
     """
     normalized = unicodedata.normalize("NFKC", text)
     tokens = _TOKEN_RE.findall(normalized)
-    if len(tokens) > _MAX_QUERY_TOKENS:
-        raise ValueError(f"search query has more than {_MAX_QUERY_TOKENS} tokens")
+    if len(tokens) > MAX_QUERY_TOKENS:
+        raise ValueError(f"search query has more than {MAX_QUERY_TOKENS} tokens")
     if any(len(token) > _MAX_TOKEN_LENGTH for token in tokens):
         raise ValueError(
             f"search query contains a token longer than {_MAX_TOKEN_LENGTH} characters"
@@ -404,6 +421,48 @@ class Catalog:
         return tuple(
             _record_from_row(row, relations[str(row["oracle_id"])]) for row in rows
         )
+
+    def resolve_names(self, names: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        """Map exact card names to the Oracle ids that carry them.
+
+        A curated deck names its cards; retrieval identifies them by Oracle id.
+        This is the only bridge between the two, and it is deliberately exact
+        rather than ranked: a fuzzy match would resolve a misspelled deck entry
+        to a different card and shorten the list silently.
+
+        The one accepted inexactness is the joined-face form. ``mtg_v1`` and
+        Scryfall publish a modal or split card under ``"Front // Back"``, while
+        a deck names the front face, so a front-face name also matches
+        ``"<name> // %"``.
+
+        Args:
+            names: Card names to resolve. Case and surrounding space are
+                normalized; nothing else is.
+
+        Returns:
+            One entry per requested name that matched, mapping to every Oracle
+            id found for it in ``oracle_id`` order. A name with more than one
+            id is ambiguous and is reported as such rather than resolved.
+        """
+        wanted = tuple(dict.fromkeys(name.strip() for name in names if name.strip()))
+        if not wanted:
+            return {}
+        folded = {name.casefold(): name for name in wanted}
+        encoded = json.dumps(sorted(folded))
+        found: dict[str, list[str]] = defaultdict(list)
+        for row in self._connection.execute(
+            """
+            SELECT d.oracle_id AS oracle_id, w.value AS wanted
+            FROM json_each(?) AS w
+            JOIN card_document AS d
+              ON lower(d.name) = w.value
+              OR lower(d.name) LIKE w.value || ' // %'
+            ORDER BY w.value, d.oracle_id
+            """,
+            (encoded,),
+        ):
+            found[folded[str(row["wanted"])]].append(str(row["oracle_id"]))
+        return {name: tuple(ids) for name, ids in found.items()}
 
     def search(
         self,

@@ -1,0 +1,272 @@
+# Hand-written R3 plans for the ambiguous golden questions.
+#
+# Every plan here has zero steps and sets clarification_required. That is the
+# whole category: each ask is missing an operand, a metric, or both, and any
+# query written over it would resolve the ambiguity silently by ranking. A
+# ranked list is a very convincing way to answer a question nobody asked.
+#
+# No plan states an absence. The questions declare no expected_absences, so a
+# stated absence here would answer an expectation that does not exist and would
+# make the absence gate look busier than the labels are. Several review notes
+# below flag the questions where a deferral (R5 field statistics, R6 simulator
+# studies, D4 combos) would also be true after clarification: if that is the
+# wanted behaviour, the label needs the expectation before the plan states it.
+#
+# The work in this category is the `intent` field. It has to say what the
+# assistant would ask, drawn from the question's own clarified_ask, without
+# quietly deciding the answer on the way past. ambiguous-004 is the one that
+# punishes a slip: its intent names no card at all.
+#
+# Every plan is review_status: draft. An authoritative G2 run refuses until
+# Dylan has verified each one.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: ambiguous-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm all three unknowns belong in one question rather than the
+      assistant guessing a deck and searching. Separately: the ask says "this
+      deck" but the golden question binds no context_id, so there is genuinely
+      no list to read. Verify that is deliberate rather than a missing binding,
+      because it changes what the first clarifying question is.
+    rationale: >-
+      Three independent unknowns, and each one changes the query: which deck,
+      which kind of interaction, and which threat it has to answer. A search on
+      "interaction" alone would return a ranked list weighted toward whichever
+      of the three the substrate happened to favour, and the asker could not
+      tell which one they got.
+    plan:
+      intent: >-
+        Ask which deck the request is about, which kind of interaction is
+        wanted, and which threats it has to answer, before any search runs. No
+        deck context is bound, "interaction" spans counterspells, targeted
+        removal and taxing permanents, and "better" names no objective to be
+        better at.
+      clarification_required: true
+
+  - question_id: ambiguous-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm both card identities and the objective should be asked for in one
+      turn rather than the cards first and the objective afterwards. Also
+      confirm "better" must be pinned to a stated objective rather than
+      defaulted to a house metric: the engine carries no quality score, and
+      inventing one here would be the same failure as inventing a price.
+    rationale: >-
+      Every operand of the comparison is missing: both cards and the metric.
+      There is nothing to retrieve, so a zero-step plan is not a refusal to do
+      the work, it is the whole of the work.
+    plan:
+      intent: >-
+        Ask which two cards are being compared and what "better" is being
+        measured against: a deck, a role, or a stated objective. Neither card is
+        named, no deck context is bound, and a comparison with no objective has
+        no answer that could be right or wrong.
+      clarification_required: true
+
+  - question_id: ambiguous-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The hardest call in the category, because a deck IS bound here and a land
+      count is trivially readable off it. The judgement is that returning a
+      number answers a question the player did not ask. Confirm that, rather
+      than "report the count, then ask about the rest". Also confirm the second
+      half of the intent: the pack declares role targets, not thresholds, so
+      even a readable count has no configured pass mark to be judged against.
+    rationale: >-
+      Four different measurements share the word "mana" and they disagree with
+      each other: a list can be long on total sources and short on coloured ones
+      at the turn it needs them. The pack's role_targets are targets rather than
+      thresholds, which the deck context reports structurally, so there is no
+      pass mark to compare a count to even once a count is chosen.
+    plan:
+      intent: >-
+        Ask what "enough mana" should be counted as: land count, coloured-source
+        timing against the deck's costs, total mana sources including rocks and
+        dorks, or a simulator objective measured over turns. Ask what the chosen
+        count should be judged against, since the bound pack declares role
+        targets rather than thresholds.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      This is the trap question and it deserves the closest read of the ten.
+      Verify the intent names no card: it asks which card called Force is meant
+      and stops there. Two things make the trap easy to fall into, and both are
+      worth checking against the plan. First, the bound pack's auto_include list
+      already contains a card whose printed name begins with "Force", so an
+      assistant that peeked at the deck could "confirm" its own guess and read
+      as grounded. Second, "cut for X" presumes a criterion for cutting that the
+      ask never states, which is why the intent asks for the revision to be
+      measured against as well as the card. If either half looks like
+      over-asking, say so, but note that dropping the first half is exactly the
+      inference the clarified_ask forbids.
+    rationale: >-
+      "Force" is one word that several printed cards share, and the bound list
+      is one revision among however many the player is holding. The clarified
+      ask explicitly forbids inferring a particular card, so this plan runs
+      nothing at all: a card_search on the word "Force" would resolve the
+      ambiguity silently by ranking, which is the precise failure this question
+      exists to catch.
+    plan:
+      intent: >-
+        Ask which card called Force the player means, and which revision of the
+        bound list a cut should be measured against. The ask supplies one word
+        of a card name and no criterion for cutting, and nothing here
+        substitutes a specific card for it.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that clarification alone is the wanted answer, rather than
+      clarification plus a note that the simulator study itself is deferred to
+      R6. The question states no expected_absences, so this plan states none. If
+      the intended behaviour is "ask, and also say the study cannot run yet",
+      the label needs an expected_absences entry of
+      simulator_study_deferred_to_r6 and this plan needs a matching absence.
+    rationale: >-
+      A goldfish study measures turns until a declared objective is assembled,
+      so the objective is an input rather than something the word "fast"
+      implies. Choosing one silently would publish a number whose definition the
+      reader never saw, which is worse than publishing nothing.
+    plan:
+      intent: >-
+        Ask which measurable objective defines "fast" (an assembled state, a
+        mana threshold, a first-win turn), over what turn horizon, and for which
+        revision of the bound list, before proposing any study. Speed is not a
+        property the corpus records about a list; it is the output of a
+        measurement someone has to specify first.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm both halves are wanted. If the intended behaviour is only "which
+      card?", with similarity defaulting to mechanical text, the plan stays
+      zero-step but the intent should ask one thing rather than two. Worth
+      deciding now, because R4's planner will copy whichever shape is verified.
+    rationale: >-
+      The missing referent is only half the problem: "like" is the other half,
+      and two cards can share a type line while doing unrelated things. Asking
+      both is what keeps the eventual search text derived from the player rather
+      than invented here.
+    plan:
+      intent: >-
+        Ask which card "this one" refers to, and which mechanical property
+        should define similarity: type and cost, the effect produced, or the
+        role filled. No card is named and no deck context is bound, so there is
+        no referent to resolve from.
+      clarification_required: true
+
+  - question_id: ambiguous-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Verify the count in the intent: config/cedh_packs/kinnan_basalt.yaml
+      declares one primary_win_package and two secondary_win_packages, which is
+      what makes "the combo" genuinely ambiguous rather than merely terse. Also
+      confirm clarification is right here rather than a stated absence about the
+      combo corpus: a pack's declared lines are not a combo database, D4 owns
+      that, and the question states no expected_absences.
+    rationale: >-
+      Neither operand is determined. The bound list carries several declared
+      assembly lines, and "works through" depends entirely on which answer
+      arrives and at what point. Picking a pair would produce a confident yes or
+      no about a matchup nobody specified.
+    plan:
+      intent: >-
+        Ask which assembly line the player means and which opposing interaction,
+        arriving at which point, it is supposed to survive. The bound pack
+        declares one primary line and two secondary ones, and "interaction"
+        ranges from a counterspell to a permanent that stops an activated
+        ability.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm clarification comes before the deferral. Even fully specified,
+      this comparison is a field statistic and R5 owns those; this plan states
+      no absence because the question states none. If the wanted behaviour is
+      "ask, and also say field statistics are not available yet", the label
+      needs an expected_absences entry of field_statistics_deferred_to_r5.
+    rationale: >-
+      "The field" is a cohort, and a cohort means nothing without its window,
+      its denominator and its event-size floor. Asking for those is the same
+      discipline the engine already applies whenever it displays an inclusion
+      rate, so the clarification is the charter rule in question form.
+    plan:
+      intent: >-
+        Ask which revision of the list should be compared, which cohort "the
+        field" names, over which event window, and on which property: a card, a
+        role count, a curve. None of the four is stated, and a cohort with no
+        window and no denominator is not a comparison anyone could check.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the assistant should not treat an iteration count as sufficient
+      instruction to run something. As with ambiguous-005, decide whether
+      clarification alone is wanted or clarification plus the R6 deferral; the
+      question states no expected_absences, so this plan states none.
+    rationale: >-
+      The simulator takes a complete list and a declared objective. The ask
+      supplies a trial count and nothing else. Running with a guessed objective
+      would return a real, precise, well-founded number that answers a question
+      nobody asked, and thirty thousand iterations would make it look certain.
+    plan:
+      intent: >-
+        Ask which complete deck revision the thirty thousand iterations should
+        run over, and which authored simulator objective they should measure.
+        "It" names neither, and an iteration count is a precision setting rather
+        than a question.
+      context_id: cedh:kinnan-basalt-fixture
+      clarification_required: true
+
+  - question_id: ambiguous-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that asking for the cohort and window up front is right, rather
+      than answering the mechanical half once the card is named and asking only
+      about the field half. Both readings are defensible and they produce
+      noticeably different assistants, so this one is a product decision rather
+      than a correctness one.
+    rationale: >-
+      Two different answers hide inside one ask: what the card does, which is a
+      card fact, and why a cohort plays it, which is field evidence. They need
+      different clarifications, and neither can start before the card has an
+      identity.
+    plan:
+      intent: >-
+        Ask which card "that card" refers to, which commander cohort "people"
+        means, and over which event window, before retrieving either card facts
+        or field evidence. An inclusion rate has to arrive with its cohort,
+        window and denominator, and none of the three is stated.
+      clarification_required: true

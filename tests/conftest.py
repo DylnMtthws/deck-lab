@@ -188,3 +188,34 @@ def _offline_cedh_env(monkeypatch):
     # configuration back after this fixture cleared it. Deleting the variables
     # is not enough; the loader has to be told to stay out.
     monkeypatch.setenv("SABER_SKIP_DOTENV", "1")
+
+
+@pytest.fixture(scope="session")
+def research_settings(tmp_path_factory):
+    """Build the portable 100-card retrieval bundle once per session.
+
+    Returns:
+        Settings whose active bundle covers every real Kinnan card name, so
+        deck-context resolution needs neither a local model nor a skip.
+    """
+    from tests._research_bundle import build_research_bundle
+
+    return build_research_bundle(tmp_path_factory.mktemp("research_indexes"))
+
+
+@pytest.fixture(scope="session")
+def research_facade(research_settings):
+    """An open retrieval facade over the portable bundle."""
+    from sabermetrics.substrate.retrieval import CardRetrievalFacade
+    from tests._research_bundle import HashingEncoder, OverlapScorer
+
+    facade = CardRetrievalFacade(
+        research_settings,
+        encoder=HashingEncoder(),
+        scorer=OverlapScorer(),
+        verify_model_files=False,
+    )
+    try:
+        yield facade
+    finally:
+        facade.close()

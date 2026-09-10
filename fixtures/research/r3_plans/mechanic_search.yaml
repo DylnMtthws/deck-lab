@@ -1,0 +1,462 @@
+# Hand-written R3 plans for the mechanic_search golden questions.
+#
+# These are the questions R3 exists to answer: describe a mechanic, get the
+# cards that do it. Where fixtures/research/g1_labels.yaml already hand-wrote
+# and measured a CardSearchQuery for the same question, that query is reused
+# verbatim so R2's tuning evidence and R3's gate are measuring the same thing.
+#
+# Scope is `corpus` for eleven of the twelve, including for the asks that say
+# "in this list". Deck scope would narrow the population to 100 cards, and
+# recall@50 over 100 cards is half the deck for free — it would inflate G2
+# rather than test the substrate. The scorecard reports eligible_population per
+# question so the choice is visible rather than assumed.
+#
+# mechanic-012 is the exception, and it is instructive. Its ask is "in this
+# pack" and its answer is one specific included permanent, so the deck IS the
+# population. But a deck-scoped search must then also bound its results: asking
+# for 50 of 73 eligible cards returns most of the deck, which is not an answer
+# to "which permanent does this" and sweeps in unrelated card draw no matter
+# how well the query discriminates. Deck scope and a wide top_k do not belong
+# together.
+#
+# No plan names a card. Where a single query does not reach every required
+# card, the plan unions several *mechanic descriptions* — text a player could
+# plausibly type — rather than adding a name.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: mechanic-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Three legs, because free counterspells are written three different ways
+      and no shipped tag covers all three. cost:free_alternative_cost fires on
+      the exile-a-blue-card wording but not on the control-your-commander
+      wording, and not on a printed {0} cost. Confirm the Swan Song negative is
+      right: Swan Song costs {U} and is not free.
+    rationale: >-
+      One query reaches the alternate-cost pair. The conditional-free wording
+      and the pay-later wording are different mechanics wearing the same
+      strategic hat, so each gets its own leg and the union is the answer.
+    plan:
+      intent: Find counterspells castable for no mana in Simic colours.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: alt_cost
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the exile-a-blue-card alternate cost
+          query:
+            text: >-
+              Find blue instants that counter a spell and may be cast by
+              exiling a blue card from your hand rather than paying their mana
+              cost.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: commander_free
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the conditional free cast that depends on controlling a commander
+          query:
+            text: >-
+              Counter target noncreature spell, and if you control a commander
+              you may cast this spell without paying its mana cost.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: pay_later
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: zero printed cost with a delayed payment or a loss condition
+          query:
+            text: >-
+              Counter target spell for no mana, then at the beginning of your
+              next upkeep pay a cost or you lose the game.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: free_counters
+          kind: union
+          inputs: [alt_cost, commander_free, pay_later]
+      answer_step: free_counters
+      stated_absences: []
+
+  - question_id: mechanic-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query for mechanic-002 verbatim. Confirm that the
+      Ancient Tomb negative is about it being a land rather than about how much
+      mana it makes.
+    rationale: >-
+      Two shipped mana tags carry this exactly: a rock that adds two or more.
+      The excluded Land type is what keeps Ancient Tomb out.
+    plan:
+      intent: Find nonland mana artifacts Kinnan's doubling would amplify.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: rocks
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find nonland artifacts that tap to add mana, including artifacts
+              that do not untap normally and require a separate untap payment.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Artifact]
+              excluded_types: [Land]
+              required_tags: [mana:mana_rock, mana:adds_two_or_more]
+              commander_legal: true
+      answer_step: rocks
+      stated_absences: []
+
+  - question_id: mechanic-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. Confirm that "doubles as interaction"
+      means channel-style abilities rather than any land with an activated
+      ability.
+    rationale: >-
+      Channel lands are the only lands in these colours with printed non-mana
+      interaction, and the text describes the ability rather than the cards.
+    plan:
+      intent: Find Simic lands carrying printed interaction.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: channel_lands
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic-legal lands with channel abilities that discard the
+              land to destroy an artifact, enchantment, or land, or return a
+              nonland permanent.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Land]
+              commander_legal: true
+      answer_step: channel_lands
+      stated_absences: []
+
+  - question_id: mechanic-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. The Clever Impersonator negative is a
+      creature, and the required Enchantment type is what excludes it; confirm
+      that is the intended distinction rather than a copy-timing one.
+    rationale: >-
+      No tag family covers copying. The enchantment type plus the enters-as-a-
+      copy wording is the whole predicate.
+    plan:
+      intent: Find enchantments that enter as a copy of an artifact.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: copies
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic enchantments that enter as a copy of an artifact or
+              another artifact or enchantment.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Enchantment]
+              commander_legal: true
+      answer_step: copies
+      stated_absences: []
+
+  - question_id: mechanic-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. The Finale of Devastation negative is a
+      sorcery, so the required Instant type is what makes instant speed the
+      discriminator; confirm that is the intent.
+    rationale: >-
+      Instant-speed creature tutoring onto the battlefield is one printed
+      mechanic and the instant type carries the timing requirement.
+    plan:
+      intent: Find an instant that searches out a creature onto the battlefield.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: instant_tutor
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find a Simic instant with convoke that searches the library for a
+              creature card and puts it onto the battlefield.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+      answer_step: instant_tutor
+      stated_absences: []
+
+  - question_id: mechanic-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. Both the required and the forbidden card
+      have transmute; the discriminator is transmute cost three versus one, and
+      the mana-value bound carries it. Confirm that is the intended reading of
+      "directly for Basalt Monolith".
+    rationale: >-
+      Transmute searches for a card of the same mana value, so the question is
+      really "which transmute card has mana value three".
+    plan:
+      intent: Find transmute cards that can fetch a three-mana artifact.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: transmute_three
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find cards with mana value three and transmute for three mana
+              that search for another card with mana value three.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              mana_value_min: 3.0
+              mana_value_max: 3.0
+              commander_legal: true
+      answer_step: transmute_three
+      stated_absences: []
+
+  - question_id: mechanic-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. mana:mana_dork plus a mana-value bound of
+      exactly one is the whole predicate; the Arcane Signet negative is an
+      artifact rather than a creature.
+    rationale: >-
+      A shipped tag carries this one directly, so the text is corroboration
+      rather than the mechanism.
+    plan:
+      intent: Find one-mana creatures with a mana ability.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: dorks
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: Find one-mana Simic-legal creatures that tap to add mana of a color.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Creature]
+              required_tags: [mana:mana_dork]
+              mana_value_min: 1.0
+              mana_value_max: 1.0
+              commander_legal: true
+      answer_step: dorks
+      stated_absences: []
+
+  - question_id: mechanic-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. The any_tags disjunction is doing the work
+      and the Dispel negative has an ordinary mana cost. Confirm Endurance
+      belongs here on evoke rather than on a free-cast alternate cost.
+    rationale: >-
+      Two shipped cost tags cover the alternate-cost family and evoke; the
+      disjunction is exactly the question's "non-mana alternate cost".
+    plan:
+      intent: Find interaction with a non-mana alternate cost.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: alt_interaction
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic interaction cast without paying its mana cost by
+              exiling a card from hand, returning a permanent, or controlling
+              your commander.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              excluded_types: [Land]
+              any_tags: [cost:free_alternative_cost, cost:evoke]
+              commander_legal: true
+      answer_step: alt_interaction
+      stated_absences: []
+
+  - question_id: mechanic-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. No draw tag family ships yet, so this is
+      carried entirely by text. The One Ring negative is an artifact, which the
+      required Enchantment type excludes.
+    rationale: >-
+      Persistent enchantment draw is three distinct printed templates, and the
+      query names all three rather than any card.
+    plan:
+      intent: Find enchantments that draw repeatedly over several turns.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: draw_enchantments
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic enchantments that draw when opponents cast noncreature
+              spells unless they pay, draw cards with cumulative upkeep, or
+              look at two additional cards when drawing the first card each
+              turn.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Enchantment]
+              commander_legal: true
+      answer_step: draw_enchantments
+      stated_absences: []
+
+  - question_id: mechanic-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. Note the required set mixes a mass-untap
+      spell with a self-untapping artifact; confirm both are wanted, since they
+      are different mechanics that serve the same purpose.
+    rationale: >-
+      Untapping nonland mana sources is printed two ways, and the query names
+      both templates.
+    plan:
+      intent: Find cards that untap nonland mana sources.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: untappers
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic nonland cards that untap all nonland permanents, or
+              artifacts that do not untap during the untap step and have an
+              activated ability to untap.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              excluded_types: [Land]
+              commander_legal: true
+      answer_step: untappers
+      stated_absences: []
+
+  - question_id: mechanic-011
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Reuses the measured G1 query. Confirm that granting flash to only some
+      nonland cards still counts, since one required card grants it to
+      noncreature spells only.
+    rationale: >-
+      Flash-granting is a printed template and no tag family covers it yet.
+    plan:
+      intent: Find cards that grant flash timing to nonland cards.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: flash_grants
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Find Simic cards that let their controller cast spells or
+              noncreature spells this turn as though they had flash.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              excluded_types: [Land]
+              commander_legal: true
+      answer_step: flash_grants
+      stated_absences: []
+
+  - question_id: mechanic-012
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The only mechanic question authored deck-scoped, because the ask says
+      "in this pack" and the answer is a specific included permanent rather
+      than any card that does this. Confirm that reading; a corpus-scoped
+      version would be a different question. Confirm also that top_k 6 is
+      right: the ask is singular, and a deck-scoped search returning 50 of 73
+      eligible cards would return most of the deck and sweep in unrelated
+      card draw regardless of how well the query discriminates.
+    rationale: >-
+      The ask is about what the pack contains, so the population is the deck.
+      That makes the bound part of the query rather than an afterthought: 50
+      results out of 73 eligible is not an answer to "which permanent does
+      this", so the plan asks for the best six and lets the ranking do the
+      discriminating.
+    plan:
+      intent: Find the included permanent that converts colourless mana into cards.
+      context_id: cedh:kinnan-basalt-fixture
+      steps:
+        - id: outlet
+          kind: card_search
+          scope: deck
+          field_absence: not_a_field_query
+          query:
+            text: >-
+              Repeatable activated ability that scries, then reveals the top
+              card of your library and draws a card if it is not a land.
+            top_k: 6
+            filters:
+              excluded_types: [Instant, Sorcery]
+              commander_legal: true
+      answer_step: outlet
+      stated_absences: []

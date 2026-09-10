@@ -24,6 +24,9 @@ from sabermetrics.substrate.settings import ResearchSettings
 G1_LABEL_SCHEMA = "research-g1-labels.v1"
 G1_SCORECARD_SCHEMA = "research-g1-scorecard.v1"
 MINIMUM_FULL_CORPUS_ROWS = 30_000
+#: The only card view a production claim may be made over (ADR-020). Defined
+#: here rather than in a script so the G1 and G2 gates cannot drift apart.
+PRODUCTION_CARD_VIEW = "mtg_v1.card_any_medium"
 G1_TARGET_RECALL = 0.90
 G1_STOP_RECALL = 0.80
 RankedChannel = Literal["lexical", "dense", "rrf", "fused"]

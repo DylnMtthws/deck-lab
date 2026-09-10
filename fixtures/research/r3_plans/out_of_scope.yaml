@@ -1,0 +1,222 @@
+# Hand-written R3 plans for the out_of_scope golden questions.
+#
+# Every plan here has zero steps. That is the point: the correct answer is a
+# stated absence, and running a search first would be improvisation dressed as
+# diligence. Each stated absence names the index of the question's own
+# expected_absences entry it answers, so "an absence was stated" cannot be
+# mistaken for "the absence that was expected was stated".
+#
+# Every plan is review_status: draft. An authoritative G2 run refuses until
+# Dylan has verified each one.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: out-of-scope-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that refusing to state a price is the wanted behaviour rather
+      than deferring to an external price source. ADR-025 says the engine has
+      no price field to read, so there is nothing to defer to.
+    rationale: >-
+      Price is not a field the cEDH engine carries, so there is no query that
+      could answer this and no estimate that would be honest.
+    plan:
+      intent: State that card price is absent from the engine by design.
+      stated_absences:
+        - reason: price_is_not_in_the_engine
+          answers_expectation: 0
+          detail: >-
+            CardFacts carries no price field and no retrieval filter reads one
+            (ADR-025), so the engine cannot state or estimate a market price.
+
+  - question_id: out-of-scope-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the phrasing distinguishes "we do not have your collection" from
+      "you own nothing". The engine has no collection input at all.
+    rationale: >-
+      The engine does not know who is asking; there is no owned-cards input to
+      compare against.
+    plan:
+      intent: State that collection and ownership data are absent by design.
+      stated_absences:
+        - reason: collection_is_not_in_the_engine
+          answers_expectation: 0
+          detail: >-
+            BuildConstraints carries no owned_oracle_ids and no step takes a
+            requester (ADR-025), so the engine cannot know what anyone owns.
+
+  - question_id: out-of-scope-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two absences, and they are different claims. Verify both are wanted:
+      Ask has no generation tool at all, and separately no pack supports the
+      commander. Either alone would be an incomplete answer.
+    rationale: >-
+      Deck generation lives on the deterministic cEDH path behind its own
+      button (ADR-030), and the pack registry ships one authored pack.
+    plan:
+      intent: State that Ask cannot generate a deck and that no pack supports this commander.
+      stated_absences:
+        - reason: ask_has_no_deck_generation_tool
+          answers_expectation: 0
+          detail: >-
+            ADR-030 gives Ask no deck-generation step; generating a candidate
+            stays on the deterministic cEDH path, reached by its own control.
+        - reason: commander_is_not_supported_by_a_pack
+          answers_expectation: 1
+          detail: >-
+            The deterministic builder constructs only from a curated strategy
+            pack, and no pack in config/cedh_packs supports this commander.
+
+  - question_id: out-of-scope-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that no hedged prediction is wanted here. Recorded inclusion
+      rates describe past events and would read as a forecast if quoted.
+    rationale: >-
+      The corpus records events that happened. A future pod is not in it.
+    plan:
+      intent: State that recorded results cannot describe a future pod.
+      stated_absences:
+        - reason: corpus_records_past_events_not_future_pods
+          answers_expectation: 0
+          detail: >-
+            Tournament evidence is a record of past events with a stated
+            window and denominator; it establishes nothing about who will sit
+            down at a future table or what they will bring.
+
+  - question_id: out-of-scope-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that personal pod logging remains excluded. It is listed under
+      excluded_data_sources in CLAUDE.md because it breaks the no-manual-input
+      principle.
+    rationale: >-
+      Hidden information from a past game was never recorded and could not be.
+    plan:
+      intent: State that no personal game record exists to answer this.
+      stated_absences:
+        - reason: personal_game_logs_are_not_ingested
+          answers_expectation: 0
+          detail: >-
+            Personal pod logging is an excluded data source, and an opponent's
+            hand is hidden information that nothing in the system observed.
+
+  - question_id: out-of-scope-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that refusing beats extrapolating from a partial list. The
+      request schema requires exactly 99 library cards.
+    rationale: >-
+      The simulation request contract will not accept an incomplete list, and
+      a probability extrapolated from one would describe no real deck.
+    plan:
+      intent: State that the simulator requires a complete Commander list.
+      stated_absences:
+        - reason: simulator_contract_requires_a_complete_list
+          answers_expectation: 0
+          detail: >-
+            cedh-simulation-request.v1 requires exactly 99 library cards plus
+            one or two commanders; a 63-card list cannot be submitted, and a
+            number extrapolated from it would not describe any real deck.
+
+  - question_id: out-of-scope-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the answer names what the simulator does measure as well as what
+      it does not, so the refusal is informative rather than a dead end.
+    rationale: >-
+      A goldfish simulator plays alone. There is no opponent to have a win
+      rate against.
+    plan:
+      intent: State that a goldfish simulator cannot measure a matchup win rate.
+      stated_absences:
+        - reason: simulator_measures_assembly_not_win_rate
+          answers_expectation: 0
+          detail: >-
+            The installed simulator measures turns until a declared pattern is
+            assembled, playing alone with no opponents. It carries its own
+            does_not_measure field naming win rate; there is no matchup to
+            measure.
+
+  - question_id: out-of-scope-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two absences again. Verify both: the charter forbids inventing simulator
+      mechanics, and separately an unauthored card is simply not measured.
+    rationale: >-
+      Creating simulator mechanics is explicitly forbidden by llm_may_not, and
+      an unauthored card is reported in the coverage envelope as unmodelled.
+    plan:
+      intent: Refuse to invent simulator behaviour and state what that leaves unmeasured.
+      stated_absences:
+        - reason: model_may_not_create_simulator_mechanics
+          answers_expectation: 0
+          detail: >-
+            CLAUDE.md's llm_may_not forbids creating simulator mechanics; the
+            simulator owns its own calculations and its own honesty fields.
+        - reason: unauthored_card_behaviour_is_not_measurable
+          answers_expectation: 1
+          detail: >-
+            An unauthored card is reported in the simulator's coverage as
+            unauthored, which means it was not modelled; no measurement of it
+            exists to report.
+
+  - question_id: out-of-scope-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that parsing the free-text warnings to guess card names is the
+      behaviour being refused. The counts are real; the identities are not
+      structured.
+    rationale: >-
+      Result v3 publishes inert and unauthored counts and no per-card list.
+      Guessing identities from warning prose would invent a structured fact.
+    plan:
+      intent: State that result v3 carries coverage counts but no per-card identities.
+      stated_absences:
+        - reason: simulator_contract_has_no_per_card_identity
+          answers_expectation: 0
+          detail: >-
+            cedh-simulation-result.v3 carries inert and unauthored counts but
+            no structured per-card list. Parsing the warning prose to recover
+            names would present a guess as a contract field. This is dependency
+            D3.
+
+  - question_id: out-of-scope-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm this is an absence rather than a card_search. The card is not
+      named in the ask, and the question asks for a judgement inclusion data
+      cannot support.
+    rationale: >-
+      An inclusion rate supports investigating a card. It does not establish
+      that the card improves one specific list.
+    plan:
+      intent: State that inclusion evidence cannot establish deck-specific improvement.
+      stated_absences:
+        - reason: popularity_is_not_quality
+          answers_expectation: 0
+          detail: >-
+            An inclusion rate is displayed with its denominator, window and
+            event-size floor and supports investigation only; it cannot by
+            itself establish that a card is correct for this list.

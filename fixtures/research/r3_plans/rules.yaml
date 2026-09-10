@@ -1,0 +1,571 @@
+# Hand-written R3 plans for the rules golden questions.
+#
+# A rules question names a card and then asks about a rule. Those are two
+# different retrievals, so every plan here has the same two-step shape:
+#
+#   1. a card_search that finds the card the asker named, which is the answer
+#      step and carries the recall label; and
+#   2. a rules_lookup that asks the actual rules question in plain language,
+#      with no card name in it at all.
+#
+# In this deployment the second step returns reference_index_absent: the
+# Comprehensive Rules corpus has not been encoded under the pinned embedding
+# model. That is not a failure to route around. Every plan therefore also
+# states rules_index_not_built, so the honest shape of the answer is "here is
+# the card and its printed text; I cannot yet cite the rule that governs it"
+# rather than a card row presented as a ruling. These questions declare no
+# expected_absences, so answers_expectation is omitted throughout.
+#
+# Every card the asker named is already in that question's ask or
+# clarified_ask, so naming it in query.text is a lookup the asker requested
+# rather than the plan supplying its own answer. rules-007 is the exception
+# worth knowing about: the ask says "Kinnan" and never the full printed name,
+# so that query says "Kinnan" and describes the ability instead.
+#
+# Scope is corpus everywhere, and not by preference — none of these ten
+# questions binds a deck context, so there is no deck to narrow to.
+#
+# Structured filters are deliberately shallow: colour identity and card type,
+# which are the two things a reader can check against the ask, and one mechanic
+# tag on rules-008. An earlier draft also filtered on cost:phyrexian_mana,
+# cost:alternative_cast_cost, cost:evoke and mana value zero. Each of those is
+# defensible as a reading of the ask, and each was removed anyway, because they
+# cut the eligible population to 1, 19, 5 and 2 cards respectively. A search
+# whose haystack is one card has not retrieved anything, and G2 publishes
+# eligible_population precisely so that cannot hide inside a pass. The
+# populations these plans actually search run from 377 to 3,595 cards, and the
+# ranked stage puts the named card first in every one of them.
+#
+# Every plan is review_status: draft. An authoritative G2 run refuses until
+# Dylan has verified each one — and separately refuses any run containing a
+# rules_lookup with no reference index, which is all ten of these.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: rules-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the split is what you want: the card_search answers "which card"
+      and the rules_lookup would answer "what does paying life do". The filters
+      are only blue and Instant: a cost:phyrexian_mana filter is a fair reading
+      of the ask's "pay life" and was dropped anyway, because it left exactly
+      one eligible card and a search over one card proves nothing. Check that
+      the stated absence reads as "the rule is not citable yet" rather than as
+      a refusal to identify the card.
+    rationale: >-
+      The asker named the card, so finding it is a name lookup they requested.
+      The substance is a rules question about whether an alternative payment
+      inside a printed mana cost changes mana value or cast status, and that
+      needs the Comprehensive Rules, which are not indexed here.
+    plan:
+      intent: >-
+        Show the Phyrexian-mana counterspell the asker named, and ask the rules
+        layer whether paying life changes mana value or cast status.
+      steps:
+        - id: misstep
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            no cost:phyrexian_mana filter on purpose; it leaves one eligible
+            card and a one-card haystack measures nothing
+          query:
+            text: >-
+              Mental Misstep, the blue instant whose printed cost is a
+              Phyrexian mana symbol payable with two life, countering target
+              spell with mana value 1.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: phyrexian_rule
+          kind: rules_lookup
+          limit: 6
+          note: the actual question; deliberately names no card
+          question: >-
+            Does paying a Phyrexian mana symbol with life instead of mana
+            change the mana value of the spell on the stack, and is the spell
+            still cast?
+      answer_step: misstep
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The Comprehensive Rules corpus has not been encoded under the
+            pinned embedding model, so no rule about Phyrexian mana or mana
+            value can be cited. The card and its printed text are shown; the
+            governing rule is not.
+
+  - question_id: rules-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      A cost:alternative_cast_cost filter follows from the ask's "exiling a
+      blue card to", but it cut the population to nineteen cards, so it is not
+      here: the alternative cost is described in the query text instead and the
+      haystack stays every blue instant. Confirm you want the rules question
+      phrased about alternative costs generally rather than about this card.
+    rationale: >-
+      The card is named in the ask; the rule is not about the card but about
+      what an alternative cost does and does not change, which is exactly what
+      the unbuilt reference layer would answer.
+    plan:
+      intent: >-
+        Show the free counterspell the asker named, and ask the rules layer
+        what an alternative cost changes about a spell on the stack.
+      steps:
+        - id: fow
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            the alternative cost is carried in the text rather than as a tag
+            filter, which would have left nineteen eligible cards
+          query:
+            text: >-
+              Force of Will, the blue instant cast by paying 1 life and
+              exiling a blue card from your hand rather than its mana cost,
+              countering target spell.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: alternative_cost_rule
+          kind: rules_lookup
+          limit: 6
+          note: what an alternative cost does to mana value and to cast status
+          question: >-
+            When a spell is cast for an alternative cost instead of its printed
+            mana cost, what is its mana value on the stack, and is it still a
+            cast spell?
+      answer_step: fow
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            No reference index is bound in this deployment, so the rule that
+            mana value is computed from the printed mana cost regardless of
+            what was actually paid cannot be quoted or cited here.
+
+  - question_id: rules-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      A mana_value_max of zero follows from the ask — the payment comes next
+      upkeep, so nothing was paid now — and left two eligible cards, so it is
+      not here. Confirm the rules question is the right one: the interesting
+      part is the delayed trigger and losing the game, not the counter.
+    rationale: >-
+      The card is named. The substance is how a delayed triggered ability
+      created on resolution behaves, when it triggers, and what happens on
+      non-payment, none of which the card row states in rules terms.
+    plan:
+      intent: >-
+        Show the zero-cost counterspell the asker named, and ask the rules
+        layer how its delayed upkeep trigger and its non-payment consequence
+        work.
+      steps:
+        - id: pact
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            no mana-value bound; zero-cost instants are a two-card population
+            and the name plus the upkeep wording is enough to rank this first
+          query:
+            text: >-
+              Pact of Negation, the blue instant with no mana cost that
+              counters target spell, then makes you pay at the beginning of
+              your next upkeep or lose the game.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: delayed_trigger_rule
+          kind: rules_lookup
+          limit: 6
+          note: delayed triggered abilities and losing the game as a consequence
+          question: >-
+            How does a delayed triggered ability created by a spell's
+            resolution work, when does it trigger at the beginning of the next
+            upkeep, and what happens if the player does not or cannot pay the
+            cost it demands?
+      answer_step: pact
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The rules on delayed triggered abilities and on losing the game are
+            not retrievable: the Comprehensive Rules corpus is not encoded, so
+            the consequence can only be read off the card's own printed text.
+
+  - question_id: rules-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The full printed name appears in the clarified_ask, so using it in the
+      query is the asker's own wording rather than the plan supplying an
+      answer. Confirm the rules question covers both halves of the ask —
+      whether channel is casting, and what may respond to it.
+    rationale: >-
+      Finding the land is trivial once the asker names it. The real question is
+      the category of a channel activation, which is a rules classification and
+      not something a card row can assert.
+    plan:
+      intent: >-
+        Show the channel land the asker named, and ask the rules layer whether
+        a channel activation is a cast spell and what may respond to it.
+      steps:
+        - id: boseiju
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the land the ask names; the Land type is what the ask's "channeling" implies
+          query:
+            text: >-
+              Boseiju, Who Endures, the legendary green land with a channel
+              ability activated by discarding it to destroy target artifact,
+              enchantment, or nonbasic land an opponent controls.
+            top_k: 50
+            filters:
+              color_identity: [G]
+              color_mode: subset
+              required_types: [Land]
+              commander_legal: true
+        - id: channel_rule
+          kind: rules_lookup
+          limit: 6
+          note: is an activated ability from hand a cast spell, and can it be responded to
+          question: >-
+            Is activating a channel ability by discarding a card from your hand
+            the same as casting a spell, and can players respond to an
+            activated ability while it is on the stack?
+      answer_step: boseiju
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            Whether a channel activation counts as casting is a rules
+            classification, and no reference index is bound here, so the
+            distinction between an activated ability and a cast spell cannot be
+            cited.
+
+  - question_id: rules-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      This card carries no oracle text in the catalog because it is a modal
+      double-faced card, so the search leans on the name and the type line
+      alone. Check that it still lands inside the window; if it does not, the
+      finding is about how the bundle stores split and modal faces, not about
+      this plan. required_types is Land because the ask says "its land face".
+    rationale: >-
+      The asker named the card and asked what its characteristics are in a
+      specific zone. Characteristics-by-zone for a modal double-faced card is a
+      rules question; the card row can show the faces but cannot assert the
+      rule.
+    plan:
+      intent: >-
+        Show the modal double-faced card the asker named, and ask the rules
+        layer what characteristics a back land face has on the battlefield.
+      steps:
+        - id: sink
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: name and type line carry this one; the catalog holds no oracle text for it
+          query:
+            text: >-
+              Sink into Stupor, the blue modal double-faced card whose front
+              face is an instant and whose back face is a land that enters
+              tapped.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Land]
+              commander_legal: true
+        - id: mdfc_rule
+          kind: rules_lookup
+          limit: 6
+          note: characteristics and mana value of a back face in a public zone
+          question: >-
+            What are the characteristics and the mana value of a modal
+            double-faced card while its back land face is on the battlefield,
+            and how do they differ from the front face on the stack?
+      answer_step: sink
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The rules that fix a modal double-faced card's characteristics to
+            the face it was played as are not indexed here, so the answer
+            cannot be grounded in a rule and would be an unsourced assertion.
+
+  - question_id: rules-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the rules question is aimed correctly: the ask is about timing —
+      when the copy choice is made relative to a simultaneous entry — rather
+      than about what may be copied. Phrased as a replacement-effect timing
+      question so the reference layer would return the right chunks.
+    rationale: >-
+      The card is named and easy to find. The substance is when a
+      copy-on-entry replacement effect makes its choice, and whether a
+      simultaneously entering permanent already exists to be chosen.
+    plan:
+      intent: >-
+        Show the copy enchantment the asker named, and ask the rules layer when
+        a copy-on-entry choice is made and what is available to choose.
+      steps:
+        - id: copy_artifact
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the enchantment the ask names, described by its printed copy clause
+          query:
+            text: >-
+              Copy Artifact, the blue enchantment that may enter as a copy of
+              any artifact on the battlefield, except it is also an
+              enchantment.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Enchantment]
+              commander_legal: true
+        - id: copy_timing_rule
+          kind: rules_lookup
+          limit: 6
+          note: when a copy-on-entry replacement effect chooses, and what exists to choose
+          question: >-
+            When does a replacement effect that has a permanent enter the
+            battlefield as a copy of another permanent choose what to copy, and
+            are permanents entering the battlefield simultaneously available to
+            be chosen?
+      answer_step: copy_artifact
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            Copy timing depends on when a replacement effect applies relative
+            to simultaneous entry, and the rules text describing that ordering
+            is not encoded in this deployment, so it cannot be cited.
+
+  - question_id: rules-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Deliberately says "Kinnan" and never the full printed name, because the
+      ask says only "Kinnan": supplying the rest would be the plan naming a
+      card the asker did not. The query therefore leans on the ability wording
+      plus a Simic two-drop creature narrowing. Confirm that still finds it,
+      and that the rules question is the classification you wanted.
+    rationale: >-
+      Triggered mana ability versus replacement effect is a rules
+      classification with a real consequence — whether it uses the stack — and
+      the card row shows the wording without settling the category.
+    plan:
+      intent: >-
+        Show the Simic commander the asker named by first name, and ask the
+        rules layer how its extra-mana ability is classified.
+      steps:
+        - id: kinnan
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            only the first name, because that is all the ask supplies; the
+            ability wording does the rest of the work
+          query:
+            text: >-
+              Kinnan, a two-mana green and blue legendary Human Druid that
+              adds an extra mana whenever you tap a nonland permanent for
+              mana.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Creature]
+              mana_value_max: 2.0
+              commander_legal: true
+        - id: mana_ability_class_rule
+          kind: rules_lookup
+          limit: 6
+          note: triggered mana ability versus replacement effect, and use of the stack
+          question: >-
+            Is an ability that adds extra mana whenever a permanent is tapped
+            for mana a triggered mana ability or a replacement effect, and does
+            such an ability use the stack?
+      answer_step: kinnan
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            Classifying an ability as a triggered mana ability rather than a
+            replacement effect is a rules judgement, and the rules defining
+            both categories are not indexed here, so no citation is available.
+
+  - question_id: rules-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The one mechanic-tag filter that survived. mana:mana_rock is read off the
+      ask's own premise that this card has a mana ability at all, and it still
+      leaves 377 eligible cards, which is a real haystack rather than a
+      restatement of the answer. No colour filter, because the ask gives none.
+      Confirm the rules question covers both halves — whether the untap
+      activation is a mana ability, and when a mana ability may be activated.
+    rationale: >-
+      The distinction matters because a mana ability does not use the stack and
+      can be activated where a normal ability cannot. That is a rules
+      definition, not a property the card row carries.
+    plan:
+      intent: >-
+        Show the mana rock the asker named, and ask the rules layer whether its
+        untap activation qualifies as a mana ability.
+      steps:
+        - id: monolith
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            mana_rock follows from the ask's own premise and still leaves 377
+            eligible cards
+          query:
+            text: >-
+              Basalt Monolith, the artifact that doesn't untap during your
+              untap step, taps to add three colorless mana, and pays three
+              generic mana to untap.
+            top_k: 50
+            filters:
+              required_types: [Artifact]
+              required_tags: [mana:mana_rock]
+              commander_legal: true
+        - id: mana_ability_rule
+          kind: rules_lookup
+          limit: 6
+          note: the definition of a mana ability and when one may be activated
+          question: >-
+            Is an activated ability whose only effect is untapping a permanent
+            a mana ability, and when during a turn or during the resolution of
+            a spell may a mana ability be activated?
+      answer_step: monolith
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The definition of a mana ability and the timing permissions that
+            follow from it live in the Comprehensive Rules, which are not
+            encoded here, so the classification cannot be cited.
+
+  - question_id: rules-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      A cost:evoke filter is the ask's own verb and left five eligible cards,
+      so evoke is described in the query text instead and the haystack is every
+      green creature. The rules question is phrased about simultaneous triggers
+      controlled by one player rather than about this card, because that is the
+      rule the answer turns on. Confirm you want the targeting-timing half too.
+    rationale: >-
+      Two triggers controlled by the same player go on the stack in an order
+      that player chooses, and targets are chosen as each is put on the stack.
+      That ordering rule is the answer; the card only supplies the two
+      triggers.
+    plan:
+      intent: >-
+        Show the evoke creature the asker named, and ask the rules layer who
+        orders simultaneous triggers and when their targets are chosen.
+      steps:
+        - id: endurance
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: >-
+            evoke is in the text, not in a tag filter, which would have left a
+            five-card population
+          query:
+            text: >-
+              Endurance, the green Elemental Incarnation creature with flash
+              and reach whose evoke cost exiles a green card from your hand.
+            top_k: 50
+            filters:
+              color_identity: [G]
+              color_mode: subset
+              required_types: [Creature]
+              commander_legal: true
+        - id: trigger_order_rule
+          kind: rules_lookup
+          limit: 6
+          note: ordering of simultaneous triggers and when targets are chosen
+          question: >-
+            When two abilities controlled by the same player trigger at the
+            same time, who decides the order they are put on the stack, and at
+            what point are their targets chosen?
+      answer_step: endurance
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The rule that a player orders their own simultaneous triggers, and
+            the rule fixing when targets are chosen, are not retrievable
+            because the reference layer has no index built in this deployment.
+
+  - question_id: rules-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm the two halves of the clarified_ask are both served: the target
+      restriction is printed on the card and will show in the card row, while
+      what changing control of a spell does and does not change is a rules
+      question the lookup would answer. Check the noncreature wording is not
+      over-narrowing the search.
+    rationale: >-
+      The printed restriction answers "what kinds of spells" directly. The
+      second half — that gaining control does not change the spell's controller
+      for costs already paid or make it yours on resolution in every respect —
+      is a rules matter.
+    plan:
+      intent: >-
+        Show the control-a-spell instant the asker named, and ask the rules
+        layer what gaining control of a spell changes.
+      steps:
+        - id: commandeer
+          kind: card_search
+          scope: corpus
+          field_absence: not_a_field_query
+          note: the instant the ask names, described by its printed control clause
+          query:
+            text: >-
+              Commandeer, the blue instant cast by exiling two blue cards from
+              your hand, gaining control of target noncreature spell.
+            top_k: 50
+            filters:
+              color_identity: [U]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: control_of_spell_rule
+          kind: rules_lookup
+          limit: 6
+          note: what changing control of a spell on the stack does and does not change
+          question: >-
+            What does gaining control of a spell on the stack change about that
+            spell, who controls the permanent or effect it produces, and what
+            restrictions apply when an effect targets a noncreature spell?
+      answer_step: commandeer
+      stated_absences:
+        - reason: rules_index_not_built
+          detail: >-
+            The rules governing control of a spell on the stack and the
+            resulting permanent's controller are not encoded here, so the
+            second half of this question cannot be answered with a citation.

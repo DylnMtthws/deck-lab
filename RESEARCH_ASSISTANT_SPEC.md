@@ -1030,6 +1030,183 @@ and zero `forbidden_oracle_ids`, by hand-written plans and **no model**.
 **Below 70%: stop — the tool vocabulary is wrong, and a planner would only
 obscure that.**
 
+#### R3 implementation contract
+
+**The plan is the interface, and it may not name its own answer.**
+`assistant/ir.py` defines `ResearchPlan` as a frozen, `extra="forbid"`,
+`schema_version`-pinned DAG over exactly seven step kinds. A kind the design
+names but R3 does not implement raises `DeferredStepKindError` naming the phase
+that owns it (`field_stats` → R5, `sim_study` → R6, `combo_lookup` → D4,
+`deck_diff` → R5); a kind that does not exist raises `UnknownStepKindError`
+naming the closed set. Those are two different refusals because they mean two
+different things.
+
+Set-operation inputs must name a step **declared earlier in the tuple**, so
+dangling references and cycles are impossible by position rather than by a
+graph walk. A zero-step plan is legal — 26 of the 80 golden questions need one —
+but only if it declares `clarification_required` or at least one
+`stated_absences` entry, so an accidentally empty plan can never read as an
+answer.
+
+The load-bearing rule is that **a plan may not contain an Oracle id anywhere**,
+and `filters.allowed_oracle_ids` must be empty. Restricting a search to a deck
+is `scope: "deck"`, and the executor materializes the ids from the resolved
+context. Without that rule a hand-written plan could score perfect recall by
+naming the answer, and G2 would measure the plan author's access to the answer
+key. The complementary hazard — a card *name* in free-text query text — cannot
+be refused structurally, because describing a mechanic is exactly what query
+text is for; it is measured instead, and the scorecard publishes every plan
+that supplies a required card name its own question does not.
+
+**Every result envelope carries its provenance as required fields with no
+defaults**, so a result cannot be constructed, and therefore cannot be
+rendered, without them. `StepResult` requires `CorpusProvenance` (bundle,
+corpus view, row count, corpus hash, document version, retrieval-config hash,
+tag library/content hashes and tag row count), `Coverage`, a typed
+`FieldEvidence`, the `RetrievalAvailability` the ranking stages reported, an
+`AssertionTier`, and a `ResultOrdering`. Absence is the second arm of a union:
+`StepNotRun` carries a reason from a closed set, and a set operation over a
+step that did not run returns `StepNotRun` naming it rather than a set over the
+survivors.
+
+Two coverage flags are deliberately **not** merged. `truncated` means this
+step's own bound dropped rows, which is normal for any ranked top-k;
+`set_input_incomplete` means an input to a set operation was cut off, which is
+the one that can make a set result wrong. Merging them would leave the
+dangerous flag permanently on and therefore ignored. A narrowing operation
+drops nothing: `intersect` returning 4 of 13 is the operation working, not
+truncation, and reports `dropped = 0`.
+
+`ordering` exists because a recall-at-k window is only meaningful over a
+ranking. A `tag_filter` returns Oracle-id order, and slicing that at fifty
+measures the alphabet, so the scorer evaluates a non-ranked answer over its
+whole returned set and records which window each question used.
+
+**There is no simulator facet on `deck_profile`.** Reading a saved
+`cedh-simulation-result.v3` document without going through the simulator client
+loses the deck-identity check and the `fixture:` version marker, so a
+development fixture would render as a measurement of the deck in front of it.
+`sim_study` is R6's, with the honesty envelope attached.
+
+**Deck context.** `cedh:kinnan-basalt-fixture` and `cedh:kinnan-healthy-baseline`
+resolved to nothing before R3. `assistant/context.py` resolves both by reading
+`config/cedh_packs/*.yaml` as data — `cedh.packs` is not on ADR-030's borrow
+list, and the duplication is cross-checked by a test that imports both readers
+and asserts they agree. The healthy baseline is a **declared alias** of the same
+pack, carrying `baseline_of`, because the Kinnan pack is the only authored list
+and inventing a second one would not make the no-finding measurement real.
+The context publishes `pack_sha256`, which identifies the *configuration*; it
+deliberately publishes no deck hash, because `deck_sha256` is a cross-repository
+contract pinned by golden vectors in three implementations and a fourth would
+re-create the bug that contract replaced. That the two aliases name the same
+100 cards is asserted directly on the sorted Oracle ids.
+
+#### G2 and the R3 gate
+
+The golden questions label their answers with the cEDH fixture's uuid5 ids; a
+full corpus carries canonical Oracle ids. `scripts/map_deck_context_ids.py`
+writes the bijection to `fixtures/research/deck_context_id_map.json` with
+`status: awaiting_owner_review`, mirroring `g1_label_review.json`. Translation
+back into label space is **positional**: an unmapped corpus card becomes a
+`corpus:<id>` sentinel and keeps its rank, because filtering unmapped ids out
+would let a card ranked 200th survive into a top-50 window and inflate recall.
+
+`correctness_scorecard` reports the **mean** of per-question recall, which is a
+different number from the one G2 asks for: a run finding three of every four
+required cards scores 0.75 and answers zero questions. `assistant/eval/g2.py`
+computes the count, and embeds the R0 scorecard unchanged beside it rather than
+editing an R0 contract. Required and forbidden ids are checked over the **same**
+window, with `forbidden_hit_anywhere` reported alongside so the fix cannot read
+as a loosening.
+
+The gate denominator is named on the scorecard, not assumed: 47 of the 80
+questions carry `required_oracle_ids`, and the other 33 are listed under
+`not_applicable_ids` rather than counted as free passes (`set() <= anything` is
+true) or as failures (an undefined metric is not a failure). Three further
+gates are reported with an explicit measurement status — `absence` and
+`clarification` as `declared_not_measured`, because with no planner both read a
+hand-authored declaration back out of a hand-authored artefact, and `no_finding`
+as `not_measured`, because with no narrator `finding_count` is structurally zero
+and 0/6 manufactured findings is arithmetic rather than evidence. Every key of
+the embedded quality block carries the same status, so one document cannot
+report a gate as passing and unmeasured at once.
+
+`authoritative_g2` refuses to make a production claim on: a contested golden
+set, a draft plan, an unreviewed id map, an observation set that is not exactly
+one per question, a corpus that is not `mtg_v1.card_any_medium`, a corpus below
+the 30,000-card floor, an unpinned local model, a label that does not resolve in
+the corpus, or a `rules_lookup` with no reference index. `scripts/run_g2.py`
+mirrors `run_g1.py`'s exit discipline: 0 pass, 1 measured below target, 2
+refused to measure.
+
+#### R3 definition of done
+
+- [x] Versioned `ResearchPlan` IR with a validator that refuses unknown and
+      deferred step kinds by name, dangling and forward input references, empty
+      plans that declare nothing, unshipped mechanic tags, over-long queries,
+      and any Oracle-id literal or `allowed_oracle_ids` entry.
+- [x] Provenance-bearing envelopes whose honesty fields have no defaults;
+      typed absence as the second arm of a union; truncation and
+      set-input-incompleteness carried separately.
+- [x] One handler per R3 step kind — `card_search`, `tag_filter`,
+      `rules_lookup`, `deck_profile`, `union`, `intersect`, `difference` — with
+      deck scope injected by the executor and never authored by the plan.
+- [x] Both golden context ids resolve; the healthy baseline is a declared alias
+      cross-checked against the pack registry.
+- [x] A hand-written plan for every one of the 80 golden questions, each
+      carrying author, date, `review_status`, a review note, and a rationale.
+- [x] G2 metric, its named denominator, the three declared-or-unmeasured gates,
+      the deferred map, and all nine authoritative refusals, with tests.
+- [ ] Every hand-written plan and the id map are owner-verified, and the golden
+      set is no longer `contested`.
+- [ ] The reference index is built, so `rules_lookup` returns rules rather than
+      a typed absence.
+- [ ] `python scripts/check_r3.py` passes in authoritative mode against an
+      `mtg_v1.card_any_medium` bundle, and this section records the measured
+      hashes, counts, pass rate, and completion date.
+
+**Implementation checkpoint, 2026-09-10.** `python scripts/check_r3.py
+--portable --skip-r2` passes: lint, format, types, package boundaries, the 185
+R3 tests, and the full suite at 1,733 passed / 31 skipped. All 80 hand-written
+plans load, cover the golden set exactly, and name no card their question does
+not.
+
+A **development-bundle** run measured **46/47 = 0.9787** on the retrieval gate —
+the questions carrying `required_oracle_ids` — against bundle
+`cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff`
+(`scryfall:oracle_cards`, 34,551 rows, corpus `62a6198c…`), plans `6f31cfdc…`,
+id map `46ed17e6…`, under the pinned `bge-small-en-v1.5` and
+`bge-reranker-base` revisions. That clears the 0.80 target and is far above the
+0.70 stop line. **It is explicitly not G2**, exactly as R2's development-bundle
+0.9583 was explicitly not G1: `authoritative_g2` refuses this run on three
+independent grounds — all 80 golden questions are still `contested`, all 80
+plans are `draft`, the id map is `awaiting_owner_review`, and the bundle is not
+`mtg_v1.card_any_medium`.
+
+Four things about that number are published on the scorecard rather than left
+to be discovered:
+
+- **The single failure is a disputed label.** `deck-local-010` forbids
+  Delighted Halfling while its own `clarified_ask` asks for non-Human creature
+  mana sources, which Delighted Halfling is. The plan is authored to the ask as
+  written and fails; two independent reviewers reached the same reading. It
+  needs owner adjudication, not a workaround.
+- **17 of the 47 passes are name lookups**, reported under
+  `subsets_name_lookup`: the ask itself prints every required card's name, so
+  finding them is a lookup the asker requested rather than evidence the
+  substrate can find a card nobody named. All 17 pass. A headline rate over a
+  denominator containing them overstates the tool vocabulary.
+- **An unranked answer larger than the recall window counts as a failure.** A
+  set with no best-first order cannot be truncated to a top k, so scoring one
+  whole would let a plan pass every deck-bound question by returning all 100
+  cards and never searching. Three plans initially failed this and were
+  narrowed rather than the rule relaxed.
+- **Three gates are not the measurement they appear to be.** `absence` and
+  `clarification` are `declared_not_measured` — a person authored both sides —
+  and `no_finding` is `not_measured`, because R3 has no narrator and a
+  manufactured-finding rate of zero over zero findings is arithmetic.
+  `rules_lookup` reports `step_availability: false` throughout.
+
 ### R4 — UI pilot · ~1.5 weeks · **first LLM · GATES G3 + G4 · FIRST RELEASE**
 
 **Audience, resolved (2026-09-08): the owner plus up to three testers**, behind

@@ -1,0 +1,514 @@
+{
+  "bundle_id": "cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "corpus_source_view": "scryfall:oracle_cards",
+  "entries": [
+    {
+      "canonical_oracle_id": "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+      "fixture_oracle_id": "23e74987-574f-5021-8f1d-42adcc32a0d4",
+      "name": "An Offer You Can't Refuse"
+    },
+    {
+      "canonical_oracle_id": "23467047-6dba-4498-b783-1ebc4f74b8c2",
+      "fixture_oracle_id": "69076e9d-5549-571e-85f7-b408e11aba63",
+      "name": "Ancient Tomb"
+    },
+    {
+      "canonical_oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838",
+      "fixture_oracle_id": "05306eaa-0a5a-501f-9b1c-ec672c1fddde",
+      "name": "Arcane Signet"
+    },
+    {
+      "canonical_oracle_id": "6b8cf2a0-b045-4d91-9d91-c602d40c6237",
+      "fixture_oracle_id": "0efb9f5d-56a1-53a3-9357-9b244761b075",
+      "name": "Basalt Monolith"
+    },
+    {
+      "canonical_oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+      "fixture_oracle_id": "90748a1e-5fc6-5996-84eb-afdd8ff2e50d",
+      "name": "Birds of Paradise"
+    },
+    {
+      "canonical_oracle_id": "ce19962d-94f9-4b2b-b668-963c0acce308",
+      "fixture_oracle_id": "87bfe91a-5ef3-5b12-85ab-cb147b6646dc",
+      "name": "Borne Upon a Wind"
+    },
+    {
+      "canonical_oracle_id": "bf1341dd-41a3-49f6-87ec-63170dde4324",
+      "fixture_oracle_id": "78318e5e-a4c9-53f4-86a2-e2ced0a9cd77",
+      "name": "Boseiju, Who Endures"
+    },
+    {
+      "canonical_oracle_id": "88f8f683-738e-48f3-afff-c8f73f1033a2",
+      "fixture_oracle_id": "5e6f3663-bc6d-5408-b409-8b574ee31cdf",
+      "name": "Botanical Sanctum"
+    },
+    {
+      "canonical_oracle_id": "20283c4a-f1f0-42f0-bc08-6da87474426b",
+      "fixture_oracle_id": "94b6d21c-3f83-5219-a7b9-2544430da3ed",
+      "name": "Breeding Pool"
+    },
+    {
+      "canonical_oracle_id": "2167ac25-d042-4b48-b770-8b94acc1a965",
+      "fixture_oracle_id": "bc9f135e-cbc6-5097-8701-f4c32e83ada9",
+      "name": "Chain of Vapor"
+    },
+    {
+      "canonical_oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410",
+      "fixture_oracle_id": "425fa23d-c8d6-5599-b019-42f8a9807b87",
+      "name": "Chord of Calling"
+    },
+    {
+      "canonical_oracle_id": "ec3d4466-547c-4e02-b1b5-a156ec4637e9",
+      "fixture_oracle_id": "95d18e34-a715-5e4d-968f-9337add992c3",
+      "name": "Chrome Mox"
+    },
+    {
+      "canonical_oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722",
+      "fixture_oracle_id": "b869b0ad-dbb6-57c9-93d5-2f3a961573d8",
+      "name": "City of Brass"
+    },
+    {
+      "canonical_oracle_id": "d4ec0df9-a4a3-48cf-a0aa-b1aea5c49142",
+      "fixture_oracle_id": "01948542-44b0-5f59-8d77-bef275e35557",
+      "name": "Clever Impersonator"
+    },
+    {
+      "canonical_oracle_id": "871e4c4e-8105-4cb9-b1cd-53c5f8e64494",
+      "fixture_oracle_id": "1d980841-1994-5d48-9280-7e10d6b8c597",
+      "name": "Colossal Skyturtle"
+    },
+    {
+      "canonical_oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25",
+      "fixture_oracle_id": "5f60f71d-8bf3-51f9-8bf2-96f8b31aac6f",
+      "name": "Command Tower"
+    },
+    {
+      "canonical_oracle_id": "ad7d854b-d303-40eb-acd6-03a8023e05e7",
+      "fixture_oracle_id": "61204fc6-b20f-5e68-8fb0-2cb141e3d885",
+      "name": "Commandeer"
+    },
+    {
+      "canonical_oracle_id": "311a449d-dc74-46e6-9a47-6a597931f736",
+      "fixture_oracle_id": "e4cbbb90-d472-5518-a14d-219830d8f1f2",
+      "name": "Consecrated Sphinx"
+    },
+    {
+      "canonical_oracle_id": "80bc56a9-40e0-48da-ae86-190e39c8a4a3",
+      "fixture_oracle_id": "ccc250da-3ef9-5759-b589-4eabe1bbcbbe",
+      "name": "Copy Artifact"
+    },
+    {
+      "canonical_oracle_id": "87bc0b1f-49ef-4c06-9049-2c148b467882",
+      "fixture_oracle_id": "cd84df19-9876-58a9-8474-393d8c5a255f",
+      "name": "Copy Enchantment"
+    },
+    {
+      "canonical_oracle_id": "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+      "fixture_oracle_id": "2dec0954-d0e2-56e4-9de7-dcbec32353c5",
+      "name": "Delighted Halfling"
+    },
+    {
+      "canonical_oracle_id": "6d7be242-a072-40ce-b540-95880506cccd",
+      "fixture_oracle_id": "fda47a59-3437-53f0-a7d7-3c9c07559257",
+      "name": "Dispel"
+    },
+    {
+      "canonical_oracle_id": "2912d93d-ed51-41ef-b64f-3cb6581c09e5",
+      "fixture_oracle_id": "ab6ff18c-ba2f-56df-8c09-aea5d1357dae",
+      "name": "Disrupting Shoal"
+    },
+    {
+      "canonical_oracle_id": "7de04284-dcaa-4b63-a734-fcfe2698f83c",
+      "fixture_oracle_id": "f4e1c1db-2da8-538a-a3e5-00d697822566",
+      "name": "Dizzy Spell"
+    },
+    {
+      "canonical_oracle_id": "da46904c-8fb8-44c2-b2ab-775a1cc12ec3",
+      "fixture_oracle_id": "29d11c2e-7f16-576f-adab-dd9955f4a7f2",
+      "name": "Dramatic Reversal"
+    },
+    {
+      "canonical_oracle_id": "6ee51134-c4ad-4101-8ce2-23dde9359cd4",
+      "fixture_oracle_id": "39c9c537-f46a-54dc-99b1-0861953f8187",
+      "name": "Drift of Phantasms"
+    },
+    {
+      "canonical_oracle_id": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+      "fixture_oracle_id": "6f7be947-5fef-5510-a94a-469839eb31f2",
+      "name": "Elvish Mystic"
+    },
+    {
+      "canonical_oracle_id": "6b0e23cf-7d68-4329-86db-7adc26abd86b",
+      "fixture_oracle_id": "850360bd-dd76-5adc-a559-0a53f7e43b2d",
+      "name": "Elvish Spirit Guide"
+    },
+    {
+      "canonical_oracle_id": "4e7a8817-1a66-45c3-ade9-eac79b40b89f",
+      "fixture_oracle_id": "01dda41f-89d9-5bfd-811b-6806fcea9804",
+      "name": "Emrakul, the Promised End"
+    },
+    {
+      "canonical_oracle_id": "c85d824b-c190-4d04-ab99-918ad0e6516c",
+      "fixture_oracle_id": "f10d2704-4b90-5bdd-a953-4f4f9e46d808",
+      "name": "Endurance"
+    },
+    {
+      "canonical_oracle_id": "3577c47e-76d3-4659-b922-31c4b74be3a0",
+      "fixture_oracle_id": "31b22550-50fc-5fd6-92a6-0aeb30886560",
+      "name": "Enduring Vitality"
+    },
+    {
+      "canonical_oracle_id": "27b047e3-0d41-45e2-98e9-9391d7923a1e",
+      "fixture_oracle_id": "cc475d46-34d0-54ae-9a30-2b51b25effe0",
+      "name": "Exotic Orchard"
+    },
+    {
+      "canonical_oracle_id": "a984db23-40ea-428d-829f-e944267280f8",
+      "fixture_oracle_id": "0aa7c571-9d1b-51fa-be87-5de1195b7023",
+      "name": "Faerie Mastermind"
+    },
+    {
+      "canonical_oracle_id": "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
+      "fixture_oracle_id": "1a94dcde-b1bf-5f0b-8dc1-60d12bbc9346",
+      "name": "Fellwar Stone"
+    },
+    {
+      "canonical_oracle_id": "d09c9cba-fdd2-479b-ad5d-d05181c3e3f9",
+      "fixture_oracle_id": "8d61ab14-627e-520c-83fc-e2aadac40133",
+      "name": "Fierce Guardianship"
+    },
+    {
+      "canonical_oracle_id": "69872a9a-fe54-4e58-940c-89395af71acd",
+      "fixture_oracle_id": "b3a21c5e-26bf-5fd0-976a-ef8630fbbdd4",
+      "name": "Finale of Devastation"
+    },
+    {
+      "canonical_oracle_id": "a92ae7b0-cbbb-44a8-bfd8-2a68f4c1ce1a",
+      "fixture_oracle_id": "5ff57642-cb4c-54b3-b0aa-dd349705ba5d",
+      "name": "Flash Photography"
+    },
+    {
+      "canonical_oracle_id": "1869eb1e-7786-4fea-8a92-2bd839de47df",
+      "fixture_oracle_id": "13d9a0fa-5156-5a24-ae26-fe47f2eca219",
+      "name": "Flesh Duplicate"
+    },
+    {
+      "canonical_oracle_id": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+      "fixture_oracle_id": "8188c05e-cd8a-5728-82be-4de76c9c7e2a",
+      "name": "Flooded Strand"
+    },
+    {
+      "canonical_oracle_id": "86bf58f2-7f25-4e10-b797-25e0e8e67769",
+      "fixture_oracle_id": "ad41b972-744d-5672-9070-3f61f9484089",
+      "name": "Flusterstorm"
+    },
+    {
+      "canonical_oracle_id": "ac2173f9-f223-440a-9231-fd98762bdc6f",
+      "fixture_oracle_id": "ea86f7b9-a5ba-591a-aa51-b0db15061055",
+      "name": "Force of Negation"
+    },
+    {
+      "canonical_oracle_id": "956381ba-6d37-4a8a-846c-bad79222dbee",
+      "fixture_oracle_id": "e272683f-a2cb-5599-85d4-90de2858e45f",
+      "name": "Force of Will"
+    },
+    {
+      "canonical_oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+      "fixture_oracle_id": "f3f7e450-fa7c-5d18-83cb-d2db9791850f",
+      "name": "Forest"
+    },
+    {
+      "canonical_oracle_id": "df317532-7d36-40fd-938f-e972749c8792",
+      "fixture_oracle_id": "0fee529d-6515-5fe5-9b2b-36b3add47c61",
+      "name": "Fyndhorn Elves"
+    },
+    {
+      "canonical_oracle_id": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+      "fixture_oracle_id": "8f7ddbe6-34fd-5278-a19f-2778fecf91f3",
+      "name": "Gemstone Caverns"
+    },
+    {
+      "canonical_oracle_id": "0a356d04-2e86-435b-9766-27b93b468a61",
+      "fixture_oracle_id": "1c04ff69-7cce-50ea-bc60-21912b6fe59b",
+      "name": "Gene Pollinator"
+    },
+    {
+      "canonical_oracle_id": "229d6627-1292-4ae1-8849-b0f956fa6540",
+      "fixture_oracle_id": "e8f4f2dd-630c-5228-b16c-f61d172b06a3",
+      "name": "Grim Monolith"
+    },
+    {
+      "canonical_oracle_id": "a50737d7-dd2d-40da-817c-f913f76b5011",
+      "fixture_oracle_id": "00c4260d-5411-56e6-af96-4586a4275f41",
+      "name": "Hidden Strings"
+    },
+    {
+      "canonical_oracle_id": "28c1a4a0-f58c-4d07-a918-51ff8a74f050",
+      "fixture_oracle_id": "0ac75c1c-2f36-57e2-92b6-5703dce29637",
+      "name": "High Fae Trickster"
+    },
+    {
+      "canonical_oracle_id": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+      "fixture_oracle_id": "3a036bc8-aa47-58dc-a879-81712a932a7c",
+      "name": "Hullbreaker Horror"
+    },
+    {
+      "canonical_oracle_id": "f434e266-d9d6-4058-96ff-a1bd4029d8dc",
+      "fixture_oracle_id": "be25a48c-b8ef-5f71-a7ac-4d49e29614d3",
+      "name": "Imposter Mech"
+    },
+    {
+      "canonical_oracle_id": "21d90735-5e04-4a8c-a546-ff26d4d5998d",
+      "fixture_oracle_id": "f952546c-463e-57dd-ba22-e7cc4e988f72",
+      "name": "Invasion of Ikoria"
+    },
+    {
+      "canonical_oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373",
+      "fixture_oracle_id": "a0b98382-95fe-5a7b-b28a-702b5e05c769",
+      "name": "Island"
+    },
+    {
+      "canonical_oracle_id": "8d11aa49-d4cd-48b1-aa0f-8548fa733416",
+      "fixture_oracle_id": "38d25a87-dcc1-5cc2-a086-48796e7cdced",
+      "name": "Kinnan, Bonder Prodigy"
+    },
+    {
+      "canonical_oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+      "fixture_oracle_id": "c1b4fbbd-d3ed-5d0b-87f2-59679424ed87",
+      "name": "Llanowar Elves"
+    },
+    {
+      "canonical_oracle_id": "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
+      "fixture_oracle_id": "90e1eef5-4798-52d2-b6db-af1ca3f79702",
+      "name": "Lotus Petal"
+    },
+    {
+      "canonical_oracle_id": "d0ee5bdc-2b69-4b73-9a20-ffcc18783b29",
+      "fixture_oracle_id": "2dcd26cd-bea4-5044-8483-9e9fa4cf73c3",
+      "name": "Mana Confluence"
+    },
+    {
+      "canonical_oracle_id": "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+      "fixture_oracle_id": "1a9e5ed4-b8ab-5b87-b44c-e12f4717aaae",
+      "name": "Mana Vault"
+    },
+    {
+      "canonical_oracle_id": "1a0770e6-b093-4439-baff-6889a50ba12e",
+      "fixture_oracle_id": "dd0eb273-355e-5af9-aa43-81fd6c1d4040",
+      "name": "Mental Misstep"
+    },
+    {
+      "canonical_oracle_id": "48712d36-5c13-4ded-87a4-68106da4a5cd",
+      "fixture_oracle_id": "064e1c4d-119b-5b36-b36c-c2a4096bf93a",
+      "name": "Mindbreak Trap"
+    },
+    {
+      "canonical_oracle_id": "6a84eda1-7e72-4b5a-849f-b6e177565aeb",
+      "fixture_oracle_id": "940243e0-68a1-5a43-adc8-94c4643aff27",
+      "name": "Mirage Mirror"
+    },
+    {
+      "canonical_oracle_id": "79a71fe5-38ce-4bb5-aea0-c9b9a856d397",
+      "fixture_oracle_id": "8033461f-4f86-5477-b28f-bc897658e2f1",
+      "name": "Mirrormade"
+    },
+    {
+      "canonical_oracle_id": "c39e5fb0-6de3-4105-ad3c-0ecb8951a1d5",
+      "fixture_oracle_id": "f97e4e93-0642-544a-8864-7921493692ba",
+      "name": "Misdirection"
+    },
+    {
+      "canonical_oracle_id": "09dd85aa-47bc-4713-a9b9-8b52ff2285ed",
+      "fixture_oracle_id": "8ec554b9-8014-5e91-ad38-f2acde230d74",
+      "name": "Misty Rainforest"
+    },
+    {
+      "canonical_oracle_id": "b9df2cdf-397c-458d-89cf-911568737ffa",
+      "fixture_oracle_id": "3af61d27-3158-5526-a5b1-36986eec873d",
+      "name": "Mockingbird"
+    },
+    {
+      "canonical_oracle_id": "7a43bd27-fdd8-41f0-9bc4-92568f3408f1",
+      "fixture_oracle_id": "9468263e-f747-5b11-8bad-97cad0bc4a18",
+      "name": "Mox Amber"
+    },
+    {
+      "canonical_oracle_id": "f3c5978a-70fa-431f-933b-b954bd0db0ea",
+      "fixture_oracle_id": "89dcb7b8-931a-57a2-91c5-063dd3b1ca67",
+      "name": "Mox Diamond"
+    },
+    {
+      "canonical_oracle_id": "de2440de-e948-4811-903c-0bbe376ff64d",
+      "fixture_oracle_id": "9355acb2-fdee-5712-99e6-74a8bb96ade5",
+      "name": "Mox Opal"
+    },
+    {
+      "canonical_oracle_id": "8a52f3c0-2552-4425-b2e3-5496eb2232a7",
+      "fixture_oracle_id": "57e35965-1dea-5c00-9535-b6e9b6bdec6a",
+      "name": "Mystic Remora"
+    },
+    {
+      "canonical_oracle_id": "0259f063-3e3f-4e07-9066-f748d4819829",
+      "fixture_oracle_id": "ba9d9106-f97a-509f-b813-76a57c26412f",
+      "name": "Nature's Rhythm"
+    },
+    {
+      "canonical_oracle_id": "e9b6a394-691c-425a-9307-76d8edc7375e",
+      "fixture_oracle_id": "fe60fdd0-310c-5453-9800-4aede60cdd41",
+      "name": "Otawara, Soaring City"
+    },
+    {
+      "canonical_oracle_id": "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
+      "fixture_oracle_id": "0f3e82c7-d12f-50cd-9bfa-d17b6fdb4f94",
+      "name": "Pact of Negation"
+    },
+    {
+      "canonical_oracle_id": "ef86989d-ce80-4e55-aece-7d11710eeffa",
+      "fixture_oracle_id": "f65f4ada-5b43-56a2-a400-e8053443b0c0",
+      "name": "Polluted Delta"
+    },
+    {
+      "canonical_oracle_id": "d1620449-930a-4895-a143-fd2a0a3c8b17",
+      "fixture_oracle_id": "772ca0d0-826c-5d67-bc26-c06cddbbff4a",
+      "name": "Rejuvenating Springs"
+    },
+    {
+      "canonical_oracle_id": "53236dd7-845a-444c-96d5-f41ed7325d8f",
+      "fixture_oracle_id": "a1fb9375-c93b-57a2-953f-c75473fa5898",
+      "name": "Rhystic Study"
+    },
+    {
+      "canonical_oracle_id": "cb027150-848c-4a66-88ad-e20222304dd8",
+      "fixture_oracle_id": "dffd6b3d-129a-5164-b72c-5800985c346f",
+      "name": "Scalding Tarn"
+    },
+    {
+      "canonical_oracle_id": "bcc6eece-75ea-494c-b33a-d4477d504e0b",
+      "fixture_oracle_id": "f9278be2-7dd5-590f-af15-6aafa3962a9e",
+      "name": "Sink into Stupor"
+    },
+    {
+      "canonical_oracle_id": "e88de17c-086d-4e2a-b5b2-2f9f57ca7c0f",
+      "fixture_oracle_id": "ff03c84c-7131-56ec-939e-7c0d94da441b",
+      "name": "Snapback"
+    },
+    {
+      "canonical_oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+      "fixture_oracle_id": "7d556b35-62ab-5a43-bdb9-346c2dff694a",
+      "name": "Sol Ring"
+    },
+    {
+      "canonical_oracle_id": "bdeb440d-a714-40e8-9038-f651e6ae45fb",
+      "fixture_oracle_id": "12d0a193-a08c-5331-bd5b-f8e69ffce5bb",
+      "name": "Springleaf Drum"
+    },
+    {
+      "canonical_oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+      "fixture_oracle_id": "bf0b47d4-0624-5ddf-b225-0bdea0d73a10",
+      "name": "Sudden Substitution"
+    },
+    {
+      "canonical_oracle_id": "8ddfc283-c9b4-41a5-af88-cf0068e986cc",
+      "fixture_oracle_id": "9dc7fe8a-6908-552b-8078-333e54224f97",
+      "name": "Swan Song"
+    },
+    {
+      "canonical_oracle_id": "92eed395-62ca-4293-882b-8565c40daab5",
+      "fixture_oracle_id": "67f4f119-352d-540e-adda-f4e8d8b192b5",
+      "name": "Sylvan Library"
+    },
+    {
+      "canonical_oracle_id": "8c34b089-aad1-476e-958a-3077bf1bbb51",
+      "fixture_oracle_id": "d7ced5e3-3fcc-5df5-b6c8-7fb744248d1b",
+      "name": "Talisman of Curiosity"
+    },
+    {
+      "canonical_oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656",
+      "fixture_oracle_id": "32a5dd78-f857-5692-b5f9-10702bc367f3",
+      "name": "Tarnished Citadel"
+    },
+    {
+      "canonical_oracle_id": "e31808bb-fb6e-487b-a973-db44961c84ee",
+      "fixture_oracle_id": "044e3718-5bdb-5ccf-b506-4e7fca3b9840",
+      "name": "The Cabbage Merchant"
+    },
+    {
+      "canonical_oracle_id": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538",
+      "fixture_oracle_id": "f665b8df-e7ab-567c-89bd-ee5a60783da5",
+      "name": "The One Ring"
+    },
+    {
+      "canonical_oracle_id": "3d867016-2601-4a37-a73d-308898d3bd37",
+      "fixture_oracle_id": "210f06b9-fc4b-55fd-8fcc-7fe267e69a46",
+      "name": "Thrasios, Triton Hero"
+    },
+    {
+      "canonical_oracle_id": "dbe792f9-22be-4972-b418-99a6190c4421",
+      "fixture_oracle_id": "71e6dee3-514f-58f5-9b9e-4599139dca70",
+      "name": "Transmute Artifact"
+    },
+    {
+      "canonical_oracle_id": "08afc0d7-192f-4ab6-b6a0-c4265cf5e225",
+      "fixture_oracle_id": "d4a7ecca-504f-544c-9cf2-b011194b07b1",
+      "name": "Trophy Mage"
+    },
+    {
+      "canonical_oracle_id": "74b7fe23-5d3a-4092-8d78-7c0eba8f6f73",
+      "fixture_oracle_id": "6199841c-b35f-5e69-84fd-0fab6459f3b3",
+      "name": "Tropical Island"
+    },
+    {
+      "canonical_oracle_id": "8f878efc-850f-43d2-a6fe-5ea8d1dd5afb",
+      "fixture_oracle_id": "22138268-3680-5987-bbdb-80ee391e71c6",
+      "name": "Twincast"
+    },
+    {
+      "canonical_oracle_id": "4879c8f0-8832-4290-bc71-9838940f75cd",
+      "fixture_oracle_id": "1f202825-e3bb-542a-83ed-3cc9ab9f7dbb",
+      "name": "Valley Floodcaller"
+    },
+    {
+      "canonical_oracle_id": "67d60b24-d429-4ded-90d9-06e49f28c396",
+      "fixture_oracle_id": "3270ffb3-6688-5cdc-85f2-b03de163d6a0",
+      "name": "Verdant Catacombs"
+    },
+    {
+      "canonical_oracle_id": "08d64b16-9221-4532-890c-d5cdbf181e28",
+      "fixture_oracle_id": "9d01fd20-bdfc-5ed0-904f-c6d1109edc5e",
+      "name": "Volatile Stormdrake"
+    },
+    {
+      "canonical_oracle_id": "2bace3ea-7d28-4a1c-857a-d3c3a1c11b59",
+      "fixture_oracle_id": "bf96d409-6429-5b03-b78f-95b615b99ed4",
+      "name": "Wan Shi Tong, Librarian"
+    },
+    {
+      "canonical_oracle_id": "70fa2eba-565e-4fed-adc9-7f5d9fcbf1fa",
+      "fixture_oracle_id": "32c7d86a-0bdc-5bac-9dd9-0ba7ebc3097e",
+      "name": "Waterlogged Grove"
+    },
+    {
+      "canonical_oracle_id": "29737a60-3ebd-40d9-b935-c4f54b90d45d",
+      "fixture_oracle_id": "7fc6f169-36c0-50eb-ab1a-31633a6467e2",
+      "name": "Windswept Heath"
+    },
+    {
+      "canonical_oracle_id": "6587a463-a108-4854-b6d1-944e89b8c8a4",
+      "fixture_oracle_id": "18811d97-9021-594c-90df-5c94aeb478ac",
+      "name": "Wooded Foothills"
+    },
+    {
+      "canonical_oracle_id": "40b36bc6-c185-4bda-99e7-0118953c2c97",
+      "fixture_oracle_id": "ad9a96d9-c4f0-53a8-9851-9e298d85fea9",
+      "name": "Yavimaya Coast"
+    }
+  ],
+  "entry_count": 100,
+  "generated_on": "2026-09-09",
+  "mapping_source": "fixtures/cedh/cards.json",
+  "reviewer": null,
+  "schema_version": "research-deck-context-id-map.v1",
+  "status": "awaiting_owner_review"
+}

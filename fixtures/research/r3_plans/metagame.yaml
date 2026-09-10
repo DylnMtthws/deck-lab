@@ -1,0 +1,582 @@
+# Hand-written R3 plans for the metagame golden questions.
+#
+# Every question in this category asks for a FIELD STATISTIC: a rate, a
+# co-inclusion count, a median, a trend, or a cohort census. `field_stats` is
+# deferred to R5, so R3 can answer at most half of any of them, and several not
+# at all. That shape drives every plan here.
+#
+# Eight questions carry required_oracle_ids and in seven of those the required
+# cards are the ones the asker already named. Resolving a named card is real
+# work — the answer has to be about the right card — but it is a lookup, and a
+# lookup that stopped there would report a card where a rate was asked for.
+# So every plan with steps carries BOTH `field_absence:
+# field_statistics_deferred_to_r5` on each search AND a stated absence, and the
+# stated absence is the substantive half of the answer rather than a footnote.
+# `not_a_field_query` would be a lie here: these ARE field queries.
+#
+# metagame-010 is the one genuine retrieval question in the category. Its
+# required cards are not named in the ask, so identifying which lands are
+# "interactive" is real mechanic search; only the ranking by inclusion count is
+# deferred. It is authored as a two-leg union of mechanic descriptions.
+#
+# Four questions (003, 004, 008, 012) are field statistics end to end, with no
+# card identity to resolve at all. Those are zero-step: running a search first
+# would be improvisation dressed as diligence.
+#
+# No question in this category binds a deck context, so every plan is
+# corpus-scoped and binds none. No plan names a card the ask does not.
+#
+# NB for review: none of these questions declares expected_absences, so every
+# stated absence here leaves answers_expectation unset. The absence gate does
+# not score this category; the absences are still the honest answer.
+#
+# Every plan is review_status: draft. An authoritative G2 run refuses until
+# Dylan has verified each one.
+schema_version: research-r3-plans.v1
+plans:
+  - question_id: metagame-001
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that resolving the named card and then stating the rate absent is
+      the wanted answer, rather than a bare refusal with no card at all. The
+      asker named the card, so the lookup is not retrieval evidence; the
+      substantive answer is the stated absence.
+    rationale: >-
+      The ask names its own card, so the only deterministic work is resolving
+      that name to one Oracle identity. The thing actually asked for — how
+      often recorded lists play it, with a denominator, window and event-size
+      floor — is a field statistic and arrives with R5.
+    plan:
+      intent: Resolve the named artifact and state that its inclusion rate is unavailable.
+      steps:
+        - id: named_rock
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: a name lookup, not retrieval evidence; the asker supplied the name
+          query:
+            text: >-
+              Basalt Monolith, the colourless artifact that taps to add three
+              colourless mana, does not untap during its controller's untap
+              step, and has an activated ability to untap itself.
+            top_k: 50
+            filters:
+              required_types: [Artifact]
+              commander_legal: true
+      answer_step: named_rock
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "How often" is an inclusion rate over a recorded cohort. The
+            field_stats step is deferred to R5, so no denominator, date window
+            or event-size floor can be stated, and an inclusion rate without
+            all three would not be displayable anyway.
+
+  - question_id: metagame-002
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Two lookups unioned rather than one two-name query, so each named card is
+      resolved on its own evidence and a miss is attributable. Confirm that
+      returning the pair is useful at all when the count is unavailable, or
+      whether a zero-step refusal is preferred.
+    rationale: >-
+      Both cards are named in the ask, so the deterministic half is resolving
+      the pair. The question itself is a co-inclusion count over recorded
+      lists, which is field statistics.
+    plan:
+      intent: Resolve both named enchantments and state that the co-inclusion count is unavailable.
+      steps:
+        - id: rhystic
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: first named enchantment
+          query:
+            text: >-
+              Rhystic Study, the blue enchantment that lets you draw a card
+              whenever an opponent casts a spell unless that player pays one
+              generic mana.
+            top_k: 50
+            filters:
+              required_types: [Enchantment]
+              commander_legal: true
+        - id: remora
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: second named enchantment
+          query:
+            text: >-
+              Mystic Remora, the blue enchantment with cumulative upkeep that
+              lets you draw a card whenever an opponent casts a noncreature
+              spell unless that player pays four generic mana.
+            top_k: 50
+            filters:
+              required_types: [Enchantment]
+              commander_legal: true
+        - id: both_named
+          kind: union
+          inputs: [rhystic, remora]
+      answer_step: both_named
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "How many lists run both" is a co-inclusion count over an eligible
+            cohort. field_stats is deferred to R5, so neither the numerator nor
+            the eligible-list denominator nor the window can be stated.
+
+  - question_id: metagame-003
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that a trend question gets no search at all. Returning creature
+      and artifact mana sources here would answer "which cards do this", which
+      nobody asked, and would sit under a question about direction of travel.
+    rationale: >-
+      A trend is two cohort statistics compared across two windows. There is no
+      card identity in the ask to resolve, so there is nothing deterministic to
+      do and any returned card list would be answering a different question.
+    plan:
+      intent: State that a cross-window trend in recorded lists cannot be computed.
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            A direction of travel requires per-window creature-mana and
+            artifact-mana counts over complete recorded lists, with a
+            denominator for each window. field_stats is deferred to R5, so
+            neither window can be counted and no comparison exists to report.
+
+  - question_id: metagame-004
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that no proxy is wanted — in particular that the land count of
+      the one authored strategy pack must not be offered as a stand-in for a
+      field median. One list is not a cohort.
+    rationale: >-
+      A median land count is an order statistic over a cohort of complete
+      recorded lists. Nothing in the ask names a card, and the corpus this
+      phase can query is a card corpus, not a list corpus.
+    plan:
+      intent: State that a median land count over recorded lists cannot be computed.
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            A median needs the full distribution of land counts over complete
+            eligible lists plus its denominator, window and event-size floor.
+            field_stats is deferred to R5, so the distribution does not exist
+            to take a median of.
+
+  - question_id: metagame-005
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Same shape as metagame-001. Confirm additionally that "recent finishes"
+      must not be silently answered over an unstated window — the absence
+      covers the window as well as the rate.
+    rationale: >-
+      The ask names its own card, so the deterministic half is resolving the
+      name. "How common, in recent finishes" is an inclusion rate over a dated,
+      placement-filtered cohort, which is field statistics.
+    plan:
+      intent: Resolve the named free counterspell and state that its inclusion rate is unavailable.
+      steps:
+        - id: named_counter
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: a name lookup, not retrieval evidence; the asker supplied the name
+          query:
+            text: >-
+              Fierce Guardianship, the blue instant that counters target
+              noncreature spell and may be cast without paying its mana cost if
+              you control your commander.
+            top_k: 50
+            filters:
+              required_types: [Instant]
+              commander_legal: true
+      answer_step: named_counter
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "How common in recent finishes" is an inclusion rate over a dated
+            cohort with an event-size floor and a placement filter.
+            field_stats is deferred to R5, so neither the rate nor the window
+            that would make it readable can be stated.
+
+  - question_id: metagame-006
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      LABEL DISPUTE, please rule on it. The ask is "which zero-mana counters
+      co-occur WITH Force of Will", and the clarified_ask makes Force of Will
+      the cohort filter — "among eligible lists containing Force of Will" — yet
+      required_oracle_ids contains only Force of Will. The label therefore
+      names the filter rather than the answer. This plan is authored to the
+      question as written: it searches for zero-mana counterspells as a
+      mechanic. It happens to reach the labelled card because that card is
+      itself a zero-mana counterspell, so the pass is real but it is not
+      evidence that the label is right. If the intended answer is the
+      co-occurring counters, required_oracle_ids should name those instead.
+    rationale: >-
+      The deterministic half of this question is "which cards are zero-mana
+      counterspells", which is genuine mechanic retrieval: free counters are
+      printed four different ways and no shipped tag covers all four, so each
+      wording gets its own leg and the union is the population. The half that
+      is deferred is the co-inclusion count within a Force of Will cohort,
+      which is field statistics.
+    plan:
+      intent: Find zero-mana counterspells by mechanic and state that co-inclusion counts are unavailable.
+      steps:
+        - id: alt_cost
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: the exile-a-blue-card alternate cost
+          query:
+            text: >-
+              Counter target spell by exiling a blue card from your hand and
+              paying 1 life instead of its mana cost, including when it is not
+              your turn.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: commander_free
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: the conditional free cast that depends on controlling a commander
+          query:
+            text: >-
+              Counter target noncreature spell, and if you control a commander
+              you may cast this spell without paying its mana cost.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: pay_later
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: zero printed cost with a delayed payment or a loss condition
+          query:
+            text: >-
+              Counter target spell for no mana, then at the beginning of your
+              next upkeep pay a cost or you lose the game.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              commander_legal: true
+        - id: phyrexian
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: a Phyrexian blue cost payable entirely with life
+          query:
+            text: >-
+              Counter target spell with mana value one or less; its printed
+              cost is a single Phyrexian blue symbol that may be paid with two
+              life instead of mana.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Instant]
+              any_tags: [cost:phyrexian_mana, cost:free_alternative_cost]
+              commander_legal: true
+        - id: zero_mana_counters
+          kind: union
+          inputs: [alt_cost, commander_free, pay_later, phyrexian]
+      answer_step: zero_mana_counters
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "Co-occur with" is a co-inclusion count inside a cohort filtered to
+            lists containing one named card. field_stats is deferred to R5, so
+            neither the filtered cohort, its denominator, nor any per-card
+            co-inclusion count can be produced.
+
+  - question_id: metagame-007
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The ask writes the short name only, so the query does too; writing the
+      full printed name would supply a string the asker never did. Confirm the
+      two-window comparison is fully covered by the stated absence — "still"
+      implies a change over time, which is a trend and not just a rate.
+    rationale: >-
+      The ask names the card, so the deterministic half is resolving that name
+      to one legendary creature. Both halves that were actually asked for —
+      inclusion in eligible lists, and a comparison across two windows — are
+      field statistics.
+    plan:
+      intent: Resolve the named commander-partner outlet and state that its inclusion history is unavailable.
+      steps:
+        - id: named_outlet
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: a name lookup, not retrieval evidence; the asker supplied the name
+          query:
+            text: >-
+              Thrasios, the legendary Merfolk Wizard with partner whose
+              four-mana ability scries, then reveals the top card and puts a
+              land onto the battlefield tapped or draws it.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Creature]
+              commander_legal: true
+      answer_step: named_outlet
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "Do recent lists still use it" asks for an inclusion rate in one
+            window compared against an earlier window. field_stats is deferred
+            to R5, so neither window can be counted and the word "still" cannot
+            be supported by anything this phase can measure.
+
+  - question_id: metagame-008
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm this is a refusal rather than a partially answered question. The
+      completeness rule itself is describable in prose, but the counts the ask
+      wants are not available, and describing the rule while omitting the
+      counts risks reading as though the census had been done.
+    rationale: >-
+      This is a census of the cohort rather than a question about any card. It
+      needs a count of complete lists and a count of incomplete ones over an
+      eligible population, which is exactly what field_stats provides.
+    plan:
+      intent: State that the complete and incomplete recorded-list counts cannot be produced.
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            Counting complete versus incomplete eligible lists is a cohort
+            census. field_stats is deferred to R5, so neither count exists;
+            incomplete lists are excluded from mana-base statistics precisely
+            because a partial list understates every count taken from it.
+
+  - question_id: metagame-009
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that no comparative language survives into the answer. Both cards
+      are resolved, and every comparison the ask requests — inclusion,
+      co-inclusion, and any implied ordering — is unavailable, so the pair must
+      not be presented as ranked.
+    rationale: >-
+      Both cards are named in the ask, so the deterministic half is resolving
+      the pair. Everything comparative is a field statistic, and the ask itself
+      warns against reading popularity as quality, which is a second reason not
+      to improvise an ordering.
+    plan:
+      intent: Resolve both named card-advantage engines and state that the comparison is unavailable.
+      steps:
+        - id: ring
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: first named card
+          query:
+            text: >-
+              The One Ring, the legendary artifact that grants protection from
+              everything as it enters, gains a burden counter each upkeep, and
+              taps to draw a card for each burden counter on it.
+            top_k: 50
+            filters:
+              required_types: [Artifact]
+              commander_legal: true
+        - id: sphinx
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: second named card
+          query:
+            text: >-
+              Consecrated Sphinx, the blue legendary Sphinx creature with
+              flying that lets you draw two cards whenever an opponent draws a
+              card.
+            top_k: 50
+            filters:
+              required_types: [Creature]
+              commander_legal: true
+        - id: both_engines
+          kind: union
+          inputs: [ring, sphinx]
+      answer_step: both_engines
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            Comparing two cards "in the field" needs their inclusion counts and
+            their co-inclusion count over one stated cohort with one
+            denominator. field_stats is deferred to R5, so no count exists on
+            either side and no comparison can be made.
+
+  - question_id: metagame-010
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      The one question in this category where retrieval is genuinely being
+      tested: neither required card is named in the ask, so finding them is
+      real mechanic search rather than a lookup. Please check the reading of
+      "interactive lands" — this plan treats it as lands with printed
+      non-mana interaction, in two families (channel-discard effects, and
+      activated abilities that destroy a land) — and confirm that ranking by
+      inclusion count being unavailable is the whole of what is missing.
+    rationale: >-
+      "Which lands" is answerable deterministically and "most often" is not.
+      Interactive lands are printed in two unrelated ways, so each gets its own
+      leg and the union is the candidate population; the ordering the ask asks
+      for is an inclusion count and is deferred. The union is ordered by
+      retrieval rank, which is emphatically not a frequency ranking, and the
+      stated absence says so.
+    plan:
+      intent: Find lands carrying printed interaction and state that their inclusion ranking is unavailable.
+      steps:
+        - id: channel_lands
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: lands discarded from hand for a non-mana effect
+          query:
+            text: >-
+              Find legendary lands with channel abilities that discard the land
+              from hand to destroy an artifact, enchantment, or land, or return
+              a nonland permanent.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Land]
+              commander_legal: true
+        - id: land_denial
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: lands whose own activated ability removes a land
+          query:
+            text: >-
+              Find lands with an activated ability that sacrifices this land to
+              destroy target nonbasic land, or that makes its controller search
+              for a basic land instead.
+            top_k: 50
+            filters:
+              color_identity: [U, G]
+              color_mode: subset
+              required_types: [Land]
+              commander_legal: true
+        - id: interactive_lands
+          kind: union
+          inputs: [channel_lands, land_denial]
+      answer_step: interactive_lands
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "Appear most often" is an ordering by inclusion count over complete
+            eligible lists. field_stats is deferred to R5, so no count exists;
+            the order these cards are returned in is retrieval rank and must
+            not be read as a frequency ranking.
+
+  - question_id: metagame-011
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      Confirm that the answer refuses the comparison outright rather than
+      hedging it. "Is A more common than B" has a yes/no shape that invites an
+      improvised answer, and both counts are equally unavailable.
+    rationale: >-
+      Both cards are named in the ask, so the deterministic half is resolving
+      the pair. The comparison requires two inclusion counts over one cohort,
+      which is field statistics.
+    plan:
+      intent: Resolve both named zero-cost artifacts and state that the inclusion comparison is unavailable.
+      steps:
+        - id: diamond
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: first named card
+          query:
+            text: >-
+              Mox Diamond, the zero-cost artifact that is sacrificed unless you
+              discard a land card as it enters, and that taps to add one mana
+              of any colour.
+            top_k: 50
+            filters:
+              required_types: [Artifact]
+              commander_legal: true
+        - id: chrome
+          kind: card_search
+          scope: corpus
+          field_absence: field_statistics_deferred_to_r5
+          note: second named card
+          query:
+            text: >-
+              Chrome Mox, the zero-cost artifact that may exile a nonartifact,
+              nonland card from your hand as it enters and taps to add one mana
+              of a colour of the exiled card.
+            top_k: 50
+            filters:
+              required_types: [Artifact]
+              commander_legal: true
+        - id: both_moxen
+          kind: union
+          inputs: [diamond, chrome]
+      answer_step: both_moxen
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            "More common than" needs both cards' inclusion counts over one
+            eligible cohort with one stated denominator. field_stats is
+            deferred to R5, so neither count exists and the comparison cannot
+            be resolved in either direction.
+
+  - question_id: metagame-012
+    author: Claude agent draft
+    authored_on: 2026-09-09
+    review_status: draft
+    review_note: >-
+      A tag_filter over cost:free_alternative_cost was considered and rejected:
+      the shipped tag library carries the "free" half and has no interaction
+      family, so that population would be published under a question asking for
+      free INTERACTION and would silently include free non-interaction. Confirm
+      that refusing beats publishing an approximate definition. If a
+      free-interaction tag ships later, this question becomes half answerable.
+    rationale: >-
+      Both halves of this question are missing. The per-list threshold count is
+      field statistics, and the tag the ask asks us to define does not exist in
+      the shipped library — cost:free_alternative_cost describes the cost, not
+      whether the card interacts.
+    plan:
+      intent: State that neither a free-interaction tag nor a per-list threshold count is available.
+      stated_absences:
+        - reason: field_statistics_deferred_to_r5
+          detail: >-
+            A fraction of lists meeting a threshold of three needs a per-list
+            count over an eligible cohort, plus numerator, denominator, window
+            and event-size floor. field_stats is deferred to R5. Separately, no
+            shipped mechanic tag denotes free interaction, so the threshold has
+            nothing to count over.
