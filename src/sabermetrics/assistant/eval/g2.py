@@ -142,6 +142,7 @@ def g2_scorecard(
     leaked = plans_naming_the_answer(plans, question_set, id_map.names_by_label_id)
     unnamed = _unnamed_label_ids(question_set, id_map)
     name_leaked = _asks_that_name_their_own_answer(question_set, id_map)
+    discovery = _discovery_gate(by_id, retrieval, name_leaked)
     embedded = correctness_scorecard(
         question_set, observations, mode="substrate", recall_k=recall_k
     )
@@ -167,6 +168,7 @@ def g2_scorecard(
         "questions_evaluated": len(rows),
         "gates": {
             "retrieval": retrieval,
+            "discovery": discovery,
             "absence": absence,
             "clarification": clarification,
             "no_finding": no_finding,
@@ -435,6 +437,7 @@ def _retrieval_gate(
         # eligible_population this is the narrowing the plan achieved, which is
         # the thing a retrieval gate is supposed to be measuring.
         "answer_returned": answer_size,
+        "breadth": _breadth(applicable, answer_size),
         "unranked_over_window": sorted(unranked_over_window),
         "note": (
             "a question with no required_oracle_ids has no recall to measure; "
@@ -445,6 +448,88 @@ def _retrieval_gate(
             "otherwise pass without retrieving anything"
         ),
     }
+
+
+def _breadth(
+    applicable: Sequence[GoldenQuestion], answer_size: Mapping[str, int]
+) -> dict[str, Any]:
+    """Report how wide each answer was against how many cards were asked for.
+
+    A pass says the required cards were somewhere in the returned set. It does
+    not say the set was an answer: forty cards containing the right four passes
+    exactly as a well-aimed four does. No threshold is applied here, because
+    where "too wide" begins is a judgement — the ratios are published and the
+    widest are named so a reader makes it themselves.
+    """
+    ratios = {
+        question.id: round(
+            answer_size.get(question.id, 0) / len(question.required_oracle_ids), 2
+        )
+        for question in applicable
+        if question.required_oracle_ids
+    }
+    widest = sorted(ratios, key=lambda key: (-ratios[key], key))[:10]
+    return {
+        "returned_per_required": ratios,
+        "widest": [
+            {
+                "question_id": key,
+                "required": len(
+                    next(q for q in applicable if q.id == key).required_oracle_ids
+                ),
+                "returned": answer_size.get(key, 0),
+                "ratio": ratios[key],
+            }
+            for key in widest
+        ],
+        "note": (
+            "returned rows divided by required cards. a pass over a wide set is "
+            "a weaker result than a pass over a narrow one, and the gate cannot "
+            "tell them apart"
+        ),
+    }
+
+
+def _discovery_gate(
+    by_id: Mapping[str, GoldenQuestion],
+    retrieval: Mapping[str, Any],
+    name_leaked: Sequence[str],
+) -> dict[str, Any]:
+    """Score only the questions whose ask does not name its own answer.
+
+    The headline retrieval gate is the sentence the spec wrote, and it counts
+    name lookups as passes because they are passes. They are not evidence that
+    the substrate can find a card nobody named, which is the thing R4's planner
+    will have to do, so the discovery population is scored separately rather
+    than folded into one rate.
+    """
+    leaked = set(name_leaked)
+    scored = {
+        question.id for question in by_id.values() if question.required_oracle_ids
+    } & (set(retrieval["failed"]) | _passed_ids(retrieval))
+    applicable = sorted(scored - leaked)
+    failed = sorted(set(retrieval["failed"]) & set(applicable))
+    passed = [key for key in applicable if key not in set(failed)]
+    return {
+        "name": "retrieval over questions whose ask does not name its answer",
+        "status": retrieval["status"],
+        "denominator_name": "questions_requiring_discovery",
+        "applicable": len(applicable),
+        "passed": len(passed),
+        "failed": failed,
+        "pass_rate": len(passed) / len(applicable) if applicable else 0.0,
+        "excluded_name_lookups": sorted(leaked & scored),
+        "note": (
+            "a name lookup the asker requested is a legitimate pass and is "
+            "excluded here rather than discounted. this rate is the one that "
+            "speaks to whether the substrate finds cards nobody named"
+        ),
+    }
+
+
+def _passed_ids(retrieval: Mapping[str, Any]) -> set[str]:
+    """Recover the passing ids from a scored retrieval gate."""
+    return set(retrieval["windows"]) - set(retrieval["failed"])
 
 
 def _absence_gate(

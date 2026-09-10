@@ -606,3 +606,173 @@ def test_authoritative_g2_refuses_an_unreviewed_id_map():
             [_run("q-map", _result("s", ["a"]))],
             id_map=unreviewed,
         )
+
+
+def _named_map_for(questions):
+    return _named_id_map(questions)
+
+
+def test_discovery_excludes_questions_whose_ask_names_its_own_answer():
+    """A name lookup is a pass, and it is not discovery evidence."""
+    lookup = _question(
+        "q-lookup",
+        ask="does Card a still counter a spell?",
+        clarified_ask="explain what Card a does",
+        required_oracle_ids=["a"],
+    )
+    discovery = _question(
+        "q-discovery",
+        ask="find artifacts that tap for two colourless",
+        clarified_ask="artifacts with a printed tap-for-mana ability",
+        required_oracle_ids=["b"],
+    )
+    questions = [lookup, discovery]
+    card = _score(
+        questions,
+        [_observation("q-lookup", ["a"]), _observation("q-discovery", ["b"])],
+        [
+            _run("q-lookup", _result("s", ["a"])),
+            _run("q-discovery", _result("s", ["b"])),
+        ],
+        id_map=_named_map_for(questions),
+    )
+    retrieval, disc = card["gates"]["retrieval"], card["gates"]["discovery"]
+    assert retrieval["applicable"] == 2, "the headline gate counts both"
+    assert disc["applicable"] == 1, "discovery counts only the unnamed one"
+    assert disc["excluded_name_lookups"] == ["q-lookup"]
+
+
+def test_discovery_and_retrieval_can_disagree():
+    """The split is worth having only if the two rates can differ."""
+    lookup = _question(
+        "q-lookup",
+        ask="what does Card a do?",
+        clarified_ask="explain Card a",
+        required_oracle_ids=["a"],
+    )
+    discovery = _question(
+        "q-discovery",
+        ask="find a card that does the thing",
+        clarified_ask="a mechanic query naming nothing",
+        required_oracle_ids=["b"],
+    )
+    questions = [lookup, discovery]
+    card = _score(
+        questions,
+        [_observation("q-lookup", ["a"]), _observation("q-discovery", ["zzz"])],
+        [
+            _run("q-lookup", _result("s", ["a"])),
+            _run("q-discovery", _result("s", ["zzz"])),
+        ],
+        id_map=_named_map_for(questions),
+    )
+    assert card["gates"]["retrieval"]["pass_rate"] == 0.5
+    assert card["gates"]["discovery"]["pass_rate"] == 0.0, (
+        "the only discovery question failed, so discovery is 0 while the "
+        "headline is 0.5 — that gap is the reason the split exists"
+    )
+
+
+def test_breadth_reports_how_wide_each_answer_was():
+    """A pass over fifty rows and a pass over one score identically."""
+    question = _question("q-wide", required_oracle_ids=["a"])
+    returned = ["a", *(f"f{index}" for index in range(49))]
+    card = _score(
+        [question],
+        [_observation("q-wide", returned)],
+        [_run("q-wide", _result("s", returned))],
+    )
+    gate = card["gates"]["retrieval"]
+    assert gate["passed"] == 1
+    assert gate["breadth"]["returned_per_required"]["q-wide"] == 50.0
+    assert gate["breadth"]["widest"][0]["question_id"] == "q-wide"
+    assert gate["breadth"]["widest"][0]["returned"] == 50
+
+
+def _load_run_g2():
+    """Import ``scripts/run_g2.py`` as a module, the way test_automation does."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "run_g2.py"
+    spec = importlib.util.spec_from_file_location("run_g2_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _chunk_payload(bundle, corpus, question_ids):
+    return {
+        "bundle_id": bundle,
+        "corpus_sha256": corpus,
+        "rows": [
+            {
+                "observation": _observation(qid, ["a"]).model_dump(mode="json"),
+                "run": _run(qid, _result("s", ["a"])).model_dump(mode="json"),
+            }
+            for qid in question_ids
+        ],
+    }
+
+
+def test_chunks_reading_different_bundles_cannot_be_merged(monkeypatch):
+    """Two corpora produce two different results; merging them invents a third."""
+    module = _load_run_g2()
+    questions = GoldenQuestionSet(questions=[_question("q-one"), _question("q-two")])
+    payloads = [
+        _chunk_payload("bundle-a", "corpus-a", ["q-one"]),
+        _chunk_payload("bundle-b", "corpus-b", ["q-two"]),
+    ]
+    monkeypatch.setattr(module, "_spawn_chunk", lambda *a, **k: payloads.pop(0))
+    with pytest.raises(module.ChunkMismatchError, match="different bundles"):
+        module._run_chunks(
+            questions, _plan_set(["q-one", "q-two"]), identity_id_map(), 1, None
+        )
+
+
+def test_a_question_executed_by_two_chunks_is_refused(monkeypatch):
+    """A duplicate would be scored twice and quietly change the denominator."""
+    module = _load_run_g2()
+    questions = GoldenQuestionSet(questions=[_question("q-one"), _question("q-two")])
+    payloads = [
+        _chunk_payload("b", "c", ["q-one"]),
+        _chunk_payload("b", "c", ["q-one"]),
+    ]
+    monkeypatch.setattr(module, "_spawn_chunk", lambda *a, **k: payloads.pop(0))
+    with pytest.raises(module.ChunkMismatchError, match="two chunks"):
+        module._run_chunks(
+            questions, _plan_set(["q-one", "q-two"]), identity_id_map(), 1, None
+        )
+
+
+def test_an_incomplete_chunked_run_is_refused(monkeypatch):
+    """Scoring a partial run would report a rate over a silent subset."""
+    module = _load_run_g2()
+    questions = GoldenQuestionSet(questions=[_question("q-one"), _question("q-two")])
+    payloads = [
+        _chunk_payload("b", "c", ["q-one"]),
+        _chunk_payload("b", "c", []),
+    ]
+    monkeypatch.setattr(module, "_spawn_chunk", lambda *a, **k: payloads.pop(0))
+    with pytest.raises(module.ChunkMismatchError, match="does not cover"):
+        module._run_chunks(
+            questions, _plan_set(["q-one", "q-two"]), identity_id_map(), 1, None
+        )
+
+
+def test_a_complete_chunked_run_merges_in_golden_question_order(monkeypatch):
+    """The merge restores question order regardless of how it was chunked."""
+    module = _load_run_g2()
+    questions = GoldenQuestionSet(
+        questions=[_question("q-one"), _question("q-two"), _question("q-three")]
+    )
+    payloads = [
+        _chunk_payload("b", "c", ["q-two"]),
+        _chunk_payload("b", "c", ["q-three", "q-one"]),
+    ]
+    monkeypatch.setattr(module, "_spawn_chunk", lambda *a, **k: payloads.pop(0))
+    observations, runs = module._run_chunks(
+        questions, _plan_set(["q-one", "q-two", "q-three"]), identity_id_map(), 2, None
+    )
+    assert [row.question_id for row in observations] == ["q-one", "q-two", "q-three"]
+    assert [row.question_id for row in runs] == ["q-one", "q-two", "q-three"]

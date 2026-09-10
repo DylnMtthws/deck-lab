@@ -49,8 +49,27 @@ questions:
     id: metagame-006
     ask: Which zero-mana counters co-occur with Force of Will in Kinnan?
     clarified_ask: Among eligible Kinnan lists containing Force of Will, report co-inclusion counts for zero-mana counterspells with all denominators stated.
+    # Owner adjudication, 2026-09-10. The draft required Force of Will alone,
+    # which is the card that DEFINES the cohort rather than the answer to it:
+    # retrieving it establishes nothing about whether the co-occurring set was
+    # found. Required is now the zero-mana counterspells the question asks
+    # about, and Force of Will is dropped from the answer key because it is the
+    # filter. The question is now only PARTIALLY answerable, which is the honest
+    # state: the counterspells are retrievable, but the co-inclusion counts they
+    # must be "backed by" need cohort data that field_stats owns, and that is
+    # deferred to R5 — hence the expected absence.
+    # STILL OPEN: Mental Misstep costs {U/P}, so it is zero-MANA only if paying
+    # two life counts as paying no mana. Included on that reading; say so if the
+    # intended set is the three alternate-cost free counters alone.
     required_oracle_ids:
-      - e272683f-a2cb-5599-85d4-90de2858e45f
+      - ea86f7b9-a5ba-591a-aa51-b0db15061055
+      - 8d61ab14-627e-520c-83fc-e2aadac40133
+      - 0f3e82c7-d12f-50cd-9bfa-d17b6fdb4f94
+      - dd0eb273-355e-5af9-aa43-81fd6c1d4040
+    expected_absences:
+      - co-inclusion counts require cohort field statistics, which are deferred to R5
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
     difficulty: hard
 
   - <<: *defaults

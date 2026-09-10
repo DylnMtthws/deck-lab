@@ -1166,46 +1166,68 @@ refused to measure.
       hashes, counts, pass rate, and completion date.
 
 **Implementation checkpoint, 2026-09-10.** `python scripts/check_r3.py
---portable --skip-r2` passes: lint, format, types, package boundaries, the 185
-R3 tests, and the full suite at 1,733 passed / 31 skipped. All 80 hand-written
-plans load, cover the golden set exactly, and name no card their question does
-not.
+--portable --skip-r2` passes: lint, format, types, package boundaries, the R3
+tests, and the full suite. All 80 hand-written plans load, cover the golden set
+exactly, and name no card their question does not.
 
-A **development-bundle** run measured **46/47 = 0.9787** on the retrieval gate —
-the questions carrying `required_oracle_ids` — against bundle
-`cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff`
-(`scryfall:oracle_cards`, 34,551 rows, corpus `62a6198c…`), plans `6f31cfdc…`,
-id map `46ed17e6…`, under the pinned `bge-small-en-v1.5` and
-`bge-reranker-base` revisions. That clears the 0.80 target and is far above the
-0.70 stop line. **It is explicitly not G2**, exactly as R2's development-bundle
-0.9583 was explicitly not G1: `authoritative_g2` refuses this run on three
-independent grounds — all 80 golden questions are still `contested`, all 80
-plans are `draft`, the id map is `awaiting_owner_review`, and the bundle is not
-`mtg_v1.card_any_medium`.
+**Two golden labels were corrected on owner adjudication, and the plans did not
+change.** `deck-local-010` forbade Delighted Halfling while its own
+`clarified_ask` asks for non-Human creature mana sources, which it is; the
+exclusion is gone and re-enumerating the deck against the ask added Enduring
+Vitality and Gene Pollinator, which the draft had omitted. `metagame-006`
+required Force of Will, which *defines* its cohort rather than answering it;
+required is now the co-occurring zero-mana counterspells, and the question
+carries a new expected absence because the co-inclusion counts backing them need
+field statistics deferred to R5 — it is partially answerable, and says so. In
+both cases the label moved to the plan rather than the plan to the label, which
+is the only direction that keeps G2 measuring the substrate.
 
-Four things about that number are published on the scorecard rather than left
-to be discovered:
+A **development-bundle** run then measured **47/47** on the retrieval gate
+against bundle `cf24c1ef96c4174b68757203aeecdf4cf326c49382d3b00aacad779ffb7008ff`
+(`scryfall:oracle_cards`, 34,551 rows, corpus `62a6198c…`), plans `23b3992e…`,
+id map `46ed17e6…`, under the pinned `bge-small-en-v1.5` and `bge-reranker-base`
+revisions. **It is explicitly not G2**, exactly as R2's development-bundle
+0.9583 was explicitly not G1: `authoritative_g2` refuses on four independent
+grounds — the golden set is still `contested`, all 80 plans are `draft`, the id
+map is `awaiting_owner_review`, and the bundle is not `mtg_v1.card_any_medium`.
+A measured run never stamps a gate `status` at all; it reports
+`status: not_authoritative` and a separate `measured_pass_rate`.
 
-- **The single failure is a disputed label.** `deck-local-010` forbids
-  Delighted Halfling while its own `clarified_ask` asks for non-Human creature
-  mana sources, which Delighted Halfling is. The plan is authored to the ask as
-  written and fails; two independent reviewers reached the same reading. It
-  needs owner adjudication, not a workaround.
-- **17 of the 47 passes are name lookups**, reported under
-  `subsets_name_lookup`: the ask itself prints every required card's name, so
-  finding them is a lookup the asker requested rather than evidence the
-  substrate can find a card nobody named. All 17 pass. A headline rate over a
-  denominator containing them overstates the tool vocabulary.
+**A perfect rate is the least informative number on the scorecard, so four
+things are published beside it.**
+
+- **Discovery is scored separately.** 16 of the 47 questions print every
+  required card's name in their own ask, so finding them is a lookup the asker
+  requested. `gates.discovery` re-scores the remaining 31 — the questions that
+  actually require finding a card nobody named — and reports 31/31. The two
+  rates can diverge, and a test asserts they do when the underlying results
+  differ.
+- **Breadth is published per question.** `gates.retrieval.breadth` reports
+  returned rows per required card. Several answers sit at 50.0: fifty cards
+  returned to answer a one-card question. Those are passes, and the gate cannot
+  tell them apart from a well-aimed answer. No threshold is applied, because
+  where "too wide" begins is a judgement; the ratios are published and the
+  widest are named so a reader makes it.
 - **An unranked answer larger than the recall window counts as a failure.** A
   set with no best-first order cannot be truncated to a top k, so scoring one
-  whole would let a plan pass every deck-bound question by returning all 100
-  cards and never searching. Three plans initially failed this and were
-  narrowed rather than the rule relaxed.
+  whole let a deck-dump plan pass 14 of 47 questions without retrieving
+  anything. Three plans failed under the rule and were narrowed rather than the
+  rule relaxed.
 - **Three gates are not the measurement they appear to be.** `absence` and
   `clarification` are `declared_not_measured` — a person authored both sides —
   and `no_finding` is `not_measured`, because R3 has no narrator and a
   manufactured-finding rate of zero over zero findings is arithmetic.
-  `rules_lookup` reports `step_availability: false` throughout.
+  `rules_lookup` reports `step_availability: false` throughout, which
+  demonstrates fallback behaviour and not rules retrieval.
+
+`scripts/run_g2.py --chunk N` executes the plans in sequential subprocesses so
+the reranker's working set is released between chunks; the parent never opens a
+facade. The chunks are execution only. Every chunk must report the same bundle
+identity, the union of their question ids must be the whole set with no
+duplicate, and the scorecard is computed **once** over the merged observations —
+chunk scores are never averaged, because G2 counts questions and a mean of
+per-chunk rates is a different number. Verified equivalent to the unchunked
+merge on every correctness field.
 
 ### R4 — UI pilot · ~1.5 weeks · **first LLM · GATES G3 + G4 · FIRST RELEASE**
 

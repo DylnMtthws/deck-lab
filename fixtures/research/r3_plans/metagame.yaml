@@ -216,16 +216,17 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      LABEL DISPUTE, please rule on it. The ask is "which zero-mana counters
-      co-occur WITH Force of Will", and the clarified_ask makes Force of Will
-      the cohort filter — "among eligible lists containing Force of Will" — yet
-      required_oracle_ids contains only Force of Will. The label therefore
-      names the filter rather than the answer. This plan is authored to the
-      question as written: it searches for zero-mana counterspells as a
-      mechanic. It happens to reach the labelled card because that card is
-      itself a zero-mana counterspell, so the pass is real but it is not
-      evidence that the label is right. If the intended answer is the
-      co-occurring counters, required_oracle_ids should name those instead.
+      LABEL DISPUTE RESOLVED by the owner on 2026-09-10, and the plan did not
+      change: the draft required Force of Will, which defines the cohort rather
+      than answering the question, so required_oracle_ids now names the
+      co-occurring zero-mana counterspells instead. This plan already searched
+      for those by mechanic, which is why it needed no edit — but note that its
+      earlier "pass" was against the old label and was hollow, and only the
+      corrected label makes the same result mean anything. What still needs a
+      ruling is the population's edge: Mental Misstep is included on the reading
+      that a Phyrexian cost payable with two life is zero MANA. If the intended
+      set is the three alternate-cost free counters alone, drop the phyrexian
+      leg and the label entry together.
     rationale: >-
       The deterministic half of this question is "which cards are zero-mana
       counterspells", which is genuine mechanic retrieval: free counters are
@@ -305,11 +306,14 @@ plans:
       answer_step: zero_mana_counters
       stated_absences:
         - reason: field_statistics_deferred_to_r5
+          answers_expectation: 0
           detail: >-
             "Co-occur with" is a co-inclusion count inside a cohort filtered to
             lists containing one named card. field_stats is deferred to R5, so
             neither the filtered cohort, its denominator, nor any per-card
-            co-inclusion count can be produced.
+            co-inclusion count can be produced. This is what makes the question
+            partially answerable rather than answered: the counterspells are
+            retrievable, the counts backing them are not.
 
   - question_id: metagame-007
     author: Claude agent draft

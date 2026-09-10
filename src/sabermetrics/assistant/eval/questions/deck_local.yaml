@@ -94,13 +94,29 @@ questions:
     id: deck-local-010
     ask: Which cards are both mana sources and useful top-deck hits for Kinnan?
     clarified_ask: Find non-Human creature mana sources in the fixture that Kinnan's activated ability may put onto the battlefield.
+    # Owner adjudication, 2026-09-10. The draft label forbade Delighted Halfling,
+    # which contradicts this question's own clarified ask: it is a Halfling
+    # Citizen, it taps for mana, and Kinnan may put it onto the battlefield. The
+    # exclusion is removed rather than worked around with a predicate invented to
+    # exclude one card. Re-enumerating the deck against the clarified ask also
+    # found three qualifying cards the draft omitted, now required:
+    # Delighted Halfling, Enduring Vitality and Gene Pollinator.
+    # STILL OPEN: Elvish Spirit Guide is a non-Human creature that produces mana
+    # only from hand ("Exile this card from your hand: Add {G}"), so Kinnan may
+    # put it onto the battlefield but it makes no mana there. Whether it is a
+    # "mana source" for this ask is a judgement nobody has made; it is
+    # deliberately in neither list.
     required_oracle_ids:
       - 90748a1e-5fc6-5996-84eb-afdd8ff2e50d
       - 6f7be947-5fef-5510-a94a-469839eb31f2
       - c1b4fbbd-d3ed-5d0b-87f2-59679424ed87
       - 0fee529d-6515-5fe5-9b2b-36b3add47c61
-    forbidden_oracle_ids:
       - 2dec0954-d0e2-56e4-9de7-dcbec32353c5
+      - 31b22550-50fc-5fd6-92a6-0aeb30886560
+      - 1c04ff69-7cce-50ea-bc60-21912b6fe59b
+    forbidden_oracle_ids: []
+    labeller: Codex agent draft; owner-adjudicated
+    labelled_on: 2026-09-10
     difficulty: hard
 
   - <<: *defaults

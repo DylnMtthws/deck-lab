@@ -41,10 +41,12 @@
 # 2nd by a precise leg is presented 2nd even when a broad leg is declared
 # first.
 #
-# Two plans are expected to be read closely. deck-local-010 is authored to its
-# clarified_ask and FAILS on a forbidden label the author believes is wrong;
-# the review note says why. deck-local-001 is scoreable by no gate at all and
-# says so.
+# Two plans are worth reading closely. deck-local-010 was authored to its
+# clarified_ask against a label that contradicted it, and failed; the owner
+# ruled for the ask on 2026-09-10 and the label changed rather than the plan.
+# Its review note records what is still open, including that "non-Human" is not
+# expressible in the IR at all. deck-local-001 is scoreable by no gate and says
+# so.
 schema_version: research-r3-plans.v1
 plans:
   - question_id: deck-local-001
@@ -559,21 +561,25 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      DISPUTED LABEL — this plan is expected to FAIL and Dylan must adjudicate.
-      The clarified ask is "non-Human creature mana sources in the fixture that
-      Kinnan's activated ability may put onto the battlefield". Delighted
-      Halfling is forbidden, but it is a Creature — Halfling Citizen with
-      "{T}: Add {C}", so it is a non-Human creature mana source and Kinnan's
-      ability may put it onto the battlefield. Every mechanical predicate that
-      keeps the four required elves and birds also keeps it. No predicate was
-      invented to exclude it, because inventing one would be authoring to the
-      answer key rather than to the ask. Two further things to check. Enduring
-      Vitality and Gene Pollinator satisfy the clarified ask on the same reading
-      and are not in the required set, so the label may be short as well as
-      wrong. And "non-Human" is not expressible in the IR at all: the catalog's
-      types carry card types only, not creature subtypes, so excluded_types
-      cannot say "not Human". Here that restriction is vacuous — every mana dork
-      in this list is non-Human — but it is a real expressiveness gap.
+      LABEL DISPUTE RESOLVED by the owner on 2026-09-10, in the plan's favour,
+      and the plan did not change. The draft forbade Delighted Halfling while
+      the clarified ask asks for non-Human creature mana sources, which it is;
+      the exclusion is gone. Re-enumerating the deck against the ask also added
+      Enduring Vitality and Gene Pollinator, which the draft had omitted. The
+      required set is now exactly the seven cards mana:mana_dork returns on this
+      list — that is worth noticing rather than celebrating: the tag was a
+      correct reading of the ask all along and the label was not, which is the
+      case for authoring plans to the ask rather than to the answer key.
+      TWO THINGS STILL OPEN. Elvish Spirit Guide is a non-Human creature Kinnan
+      may put onto the battlefield, but it makes mana only from hand, so it
+      produces nothing once there; it carries mana:produces_mana and NOT
+      mana:mana_dork, so this plan excludes it and the label leaves it out of
+      both lists pending a ruling. And "non-Human" remains inexpressible: the
+      catalog's types carry card types only, never creature subtypes, so
+      excluded_types cannot say "not Human". The restriction is vacuous on this
+      list — every mana dork in it is non-Human — so the plan passes without
+      ever expressing the ask's central word. On a list containing a Human mana
+      dork it would silently return a wrong answer.
     rationale: >-
       A shipped tag carries this exactly: mana:mana_dork is "a creature with a
       printed tap ability that adds mana", which is the mechanical content of
