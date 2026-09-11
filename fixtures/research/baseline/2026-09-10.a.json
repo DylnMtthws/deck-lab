@@ -1,0 +1,41 @@
+{
+  "adjudication_set": "2026-09-10.a",
+  "alternative_coverage": {
+    "mechanic-005": {
+      "qualifying": 3,
+      "returned": 2
+    }
+  },
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "discovery_applicable": 31,
+  "discovery_passed": 30,
+  "embedding_model_id": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "frozen_on": "2026-09-10",
+  "inputs_sha256": "29f21fd1b826d93950f23287e74bf1aa4f48c946a0c55a9ddb19088c6fa35938",
+  "kind": "development_baseline",
+  "limitations": [
+    "A development measurement against a development bundle, not the G2 gate. The scorecard says authoritative: false and this file says development_baseline; neither number decides whether R4 gets built.",
+    "Not evidence of generalization. Several plans had their bounds chosen after inspecting where the then-labelled answers ranked, which is development tuning; deck-local-009 is the demonstration, failing because its fitted bound did not survive the label correction.",
+    "The golden set is contested, every plan is draft, and the label id map is awaiting_owner_review. The labels this was scored against have not been ratified.",
+    "16 of the 47 passes are name lookups whose ask prints every required card's name. Discovery over questions that do not name their own answer is 30/31 and is the number that speaks to retrieval.",
+    "metagame-010 left the denominator: it asks which lands appear most often, and no cohort counts exist to answer a frequency claim until R5. 48, not 49.",
+    "The absence and clarification gates are declared_not_measured and the no-finding and counterexample gates are not_measured, because R3 has no narrator. Their clean numbers are arithmetic, not evidence.",
+    "The Comprehensive Rules index was not built when this was measured, so rules_lookup was unavailable and all ten rules questions were answered by card retrieval and typed absence."
+  ],
+  "name_lookup_count": 16,
+  "plans_sha256": "1e23c45407e4ce0d35f635d026a4374020545cf3914457cf1ce672cda0472bce",
+  "reranker_model_id": "BAAI/bge-reranker-base",
+  "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+  "retrieval_applicable": 48,
+  "retrieval_failed": [
+    "deck-local-009"
+  ],
+  "retrieval_passed": 47,
+  "schema_version": "research-frozen-baseline.v1",
+  "unscored_pending": {
+    "metagame-010": "R5 (cohort counts for a field-frequency claim)"
+  }
+}

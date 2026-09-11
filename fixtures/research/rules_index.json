@@ -1,0 +1,39 @@
+{
+  "built_at": "2026-09-11T00:03:53+00:00",
+  "chunk_count": 547,
+  "chunk_ids_sha256": "be992b12fd111785d5f8d56e49ac7d54db694a66fc6371a84cdf5e4813b08414",
+  "configuration": {
+    "chars_per_token": 4.0,
+    "chunker": "sabermetrics.reference_layer.chunker.DocumentChunker",
+    "chunker_sha256": "9dc2826c3d09ce88d006f24c1beba7828ecf5879624e800a7002f3da24810f95",
+    "dimensions": 384,
+    "embedding_model_id": "BAAI/bge-small-en-v1.5",
+    "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "normalize": true,
+    "target_chunk_tokens": 500
+  },
+  "duplicate_chunks_collapsed": [
+    "CR 600: 'General'"
+  ],
+  "generation_id": "f7c15f2bcf9e5196bef04440dbe987724050d5ba7b3138c7da81e3396eb9997a",
+  "normalized_sha256": "047f8944fc1c1d18d9c2a3daa28bac99531e95b9133c066a6cfb05718775b85a",
+  "note": "an index is a prerequisite for answering a rules question, not an answer to one. whether a retrieved passage supports a claim is unlabelled and therefore unmeasured",
+  "reference_content_sha256": "2e0f23627fc78c063c73ccaa945bdd161d1ead9e4a0e42a6d8c97e953f6ef74d",
+  "row_count": 547,
+  "schema_version": "research-rules-index.v1",
+  "source": {
+    "byte_count": 977822,
+    "content_sha256": "4381ad1b39ab2c05f7d03633a20f711ed37277074d3266dcba5f38cbb527423f",
+    "document": "comprehensive_rules",
+    "effective_date": "2026-08-07",
+    "encoding": "utf-8-sig",
+    "http_status": 200,
+    "line_count": 9398,
+    "line_ending": "crlf",
+    "note": "content_sha256 is over the EXACT BYTES served, so it can be checked with: shasum -a 256 comprehensive_rules.txt. the effective date is read from the document's own text, not from the URL",
+    "requested_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260819.txt",
+    "retrieved_at": "2026-09-11T00:01:27+00:00",
+    "retrieved_from": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260819.txt",
+    "schema_version": "research-rules-source.v1"
+  }
+}

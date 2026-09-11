@@ -211,7 +211,7 @@ plans:
       is 10 because "find me a tutor" wants a handful of options, not because
       8 is where the answer happens to sit — but a reader should know it sits
       there. Also confirm the Finale of Devastation negative is about it being
-      a sorcery rather than about the effect.
+      a sorcery rather than about the effect. mechanic-013 is this plan with a wider bound and nothing else changed; see its note for what that pair does and does not establish.
     rationale: >-
       Instant-speed creature tutoring onto the battlefield is one printed
       mechanic and the instant type carries the timing requirement.
@@ -481,16 +481,21 @@ plans:
     authored_on: 2026-09-10
     review_status: draft
     review_note: >-
-      This question exists because mechanic-005 could not measure what it was
-      being asked to measure. That one is a singular request answered by any
-      one qualifying tutor, so scoring exhaustive coverage there would convert
-      an option into a mandate. Here completeness IS the ask, every member is
-      required, and a miss is a failure — which is the point, because March of
-      Burgeoning Life was never returned by mechanic-005's plan and nothing in
-      the gate could see that. Expect this question to FAIL until the query or
-      the substrate improves; that failure is the measurement. Confirm the
-      three-card truth set before ratifying: it was enumerated by template
-      match, not by an exhaustive catalog sweep, so it may itself be short.
+      READ THE CLAIM NARROWLY. This question was written AFTER March of
+      Burgeoning Life was known to be missing from mechanic-005's answer, so it
+      is informed by a development finding and its pass is not independent
+      evidence that the substrate generalizes. Independent evaluation needs
+      questions nobody has looked at the answers of. What the pass does
+      establish is mechanical and smaller: the answer window, not retrieval, is
+      what hides that card. That isolation holds only because this plan differs
+      from mechanic-005's in nothing but top_k, and because top_k slices the
+      final fusion rather than feeding the candidate pools — so a narrow result
+      is exactly a wide result's prefix. Both halves are asserted in
+      tests/test_research_answer_window.py rather than argued here, because a
+      prose claim about why a question passed is exactly the claim that rots.
+      Treat this as a regression test on the window. Confirm the three-card
+      truth set before ratifying: it was enumerated by template match, not by
+      an exhaustive catalog sweep, so it may itself be short.
     rationale: >-
       The same printed template as mechanic-005, asked as a population rather
       than as a request for one option, and bounded wide enough that a miss is

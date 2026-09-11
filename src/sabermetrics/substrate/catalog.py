@@ -200,12 +200,21 @@ class CatalogRecord:
     vector_offset: int
     name: str
     type_line: str
+    #: The PRINTED card-level text, exactly as the corpus row carries it. It is
+    #: absent for 1,243 of the 34,551 corpus rows, and for 891 of those the
+    #: text exists on the card's faces instead. Anything showing a card's text
+    #: to a reader wants ``canonical_oracle_text``; this field is here for code
+    #: that specifically means the card-level column.
     oracle_text: str | None
     mana_cost: str | None
     mana_value: float
     color_identity: tuple[str, ...]
     commander_legal: bool | None
     canonical_document: str
+    #: Card text with every face's text joined in, which is what the FTS index
+    #: and the reranker actually see. Use this wherever "the card's text" is
+    #: meant, so a two-faced card does not read as a blank one.
+    canonical_oracle_text: str
     types: tuple[str, ...]
     subtypes: tuple[str, ...]
     tags: tuple[str, ...]
@@ -224,12 +233,21 @@ class CatalogHit:
     vector_offset: int
     name: str
     type_line: str
+    #: The PRINTED card-level text, exactly as the corpus row carries it. It is
+    #: absent for 1,243 of the 34,551 corpus rows, and for 891 of those the
+    #: text exists on the card's faces instead. Anything showing a card's text
+    #: to a reader wants ``canonical_oracle_text``; this field is here for code
+    #: that specifically means the card-level column.
     oracle_text: str | None
     mana_cost: str | None
     mana_value: float
     color_identity: tuple[str, ...]
     commander_legal: bool | None
     canonical_document: str
+    #: Card text with every face's text joined in, which is what the FTS index
+    #: and the reranker actually see. Use this wherever "the card's text" is
+    #: meant, so a two-faced card does not read as a blank one.
+    canonical_oracle_text: str
     types: tuple[str, ...]
     subtypes: tuple[str, ...]
     tags: tuple[str, ...]
@@ -918,6 +936,7 @@ def _record_from_row(
         color_identity=tuple(json.loads(str(row["color_identity"]))),
         commander_legal=None if status is None else bool(status),
         canonical_document=str(row["canonical_document"]),
+        canonical_oracle_text=str(row["canonical_oracle_text"]),
         types=relations[0],
         subtypes=relations[1],
         tags=relations[2],
@@ -941,6 +960,7 @@ def _hit_from_row(
         color_identity=record.color_identity,
         commander_legal=record.commander_legal,
         canonical_document=record.canonical_document,
+        canonical_oracle_text=record.canonical_oracle_text,
         types=record.types,
         subtypes=record.subtypes,
         tags=record.tags,

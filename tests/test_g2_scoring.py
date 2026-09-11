@@ -776,3 +776,124 @@ def test_a_complete_chunked_run_merges_in_golden_question_order(monkeypatch):
     )
     assert [row.question_id for row in observations] == ["q-one", "q-two", "q-three"]
     assert [row.question_id for row in runs] == ["q-one", "q-two", "q-three"]
+
+
+def test_the_retrieval_denominator_partitions_every_question_exactly_once():
+    """Applicable + pending + nothing-to-score must be the whole set.
+
+    The earlier partition read only ``required_oracle_ids``, which put a
+    question scored through its alternatives in both lists and left an
+    unscored-pending question in neither. The two counts still summed to the
+    total, so the arithmetic looked right while describing the wrong sets.
+    """
+    questions = [
+        _question("q-required", required_oracle_ids=["a"]),
+        _question("q-alternatives", satisfied_by_any_of=["a", "b"]),
+        _question(
+            "q-pending", required_oracle_ids=["a"], unscored_pending="R5 (no cohort)"
+        ),
+        _question("q-nothing"),
+    ]
+    card = _score(
+        questions,
+        [_observation(question.id, ["a"]) for question in questions],
+        [_run(question.id, _result("s", ["a"])) for question in questions],
+    )
+    gate = card["gates"]["retrieval"]
+    assert gate["partition"]["sums"] is True
+    assert gate["partition"]["total"] == 4
+    assert gate["applicable"] == 2
+    assert gate["not_applicable_ids"] == ["q-nothing"]
+    assert list(gate["unscored_pending"]) == ["q-pending"]
+
+
+def test_an_alternatives_only_question_is_scored_rather_than_dropped():
+    """A singular request still has to return one of its qualifying cards."""
+    question = _question("q-any", satisfied_by_any_of=["a", "b"])
+    missed = _score(
+        [question],
+        [_observation("q-any", ["z"])],
+        [_run("q-any", _result("s", ["z"]))],
+    )
+    assert missed["gates"]["retrieval"]["failed"] == ["q-any"]
+    hit = _score(
+        [question],
+        [_observation("q-any", ["b"])],
+        [_run("q-any", _result("s", ["b"]))],
+    )
+    assert hit["gates"]["retrieval"]["passed"] == 1
+    assert hit["gates"]["retrieval"]["alternative_coverage"]["q-any"] == {
+        "returned": 1,
+        "qualifying": 2,
+    }
+
+
+def test_a_pending_question_is_not_a_composite_pass():
+    """An unscoreable criterion must not raise the composite rate."""
+    question = _question(
+        "q-pending", required_oracle_ids=["a"], unscored_pending="R5 (no cohort)"
+    )
+    card = _score(
+        [question],
+        [_observation("q-pending", ["a"])],
+        [_run("q-pending", _result("s", ["a"]))],
+    )
+    composite = card["gates"]["composite"]
+    assert composite["unscored_pending"] == ["q-pending"]
+    assert composite["applicable"] == 0
+    assert "q-pending" not in composite["failed"]
+
+
+def test_retrieving_a_counterexample_is_not_a_failure():
+    """A plan may return a trap; only an answer that offers one is wrong."""
+    question = _question(
+        "q-trap", required_oracle_ids=["a"], counterexample_oracle_ids=["trap"]
+    )
+    card = _score(
+        [question],
+        [_observation("q-trap", ["a", "trap"], recommended_oracle_ids=["a"])],
+        [_run("q-trap", _result("s", ["a", "trap"]))],
+    )
+    gate = card["gates"]["counterexample"]
+    assert gate["status"] == "measured"
+    assert gate["failed"] == []
+    assert gate["retrieved_not_a_failure"]["q-trap"] == 1
+    assert card["gates"]["retrieval"]["passed"] == 1
+
+
+def test_recommending_a_counterexample_fails_the_question():
+    """Full required recall plus a presented trap is still a wrong answer."""
+    question = _question(
+        "q-trap", required_oracle_ids=["a", "b"], counterexample_oracle_ids=["trap"]
+    )
+    card = _score(
+        [question],
+        [
+            _observation(
+                "q-trap", ["a", "b", "trap"], recommended_oracle_ids=["a", "b", "trap"]
+            )
+        ],
+        [_run("q-trap", _result("s", ["a", "b", "trap"]))],
+    )
+    assert card["gates"]["retrieval"]["passed"] == 1, "retrieval is not the criterion"
+    gate = card["gates"]["counterexample"]
+    assert gate["failed"] == ["q-trap"]
+    assert gate["presented"] == {"q-trap": ["trap"]}
+    assert "q-trap" in card["gates"]["composite"]["failed"]
+
+
+def test_a_counterexample_with_no_narrator_is_unmeasured_not_clean():
+    """R3 populates no recommendation, so zero presented traps proves nothing."""
+    question = _question(
+        "q-trap", required_oracle_ids=["a"], counterexample_oracle_ids=["trap"]
+    )
+    card = _score(
+        [question],
+        [_observation("q-trap", ["a", "trap"])],
+        [_run("q-trap", _result("s", ["a", "trap"]))],
+    )
+    gate = card["gates"]["counterexample"]
+    assert gate["status"] == "not_measured"
+    assert gate["unmeasured"] == ["q-trap"]
+    assert gate["applicable"] == 0
+    assert gate["applicable_ids"] == ["q-trap"]

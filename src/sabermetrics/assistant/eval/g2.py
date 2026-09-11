@@ -40,6 +40,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from sabermetrics.assistant.envelope import PlanRun, StepNotRun, StepResult
+from sabermetrics.assistant.eval.baseline import (
+    adjudication_set,
+    evaluation_inputs_sha256,
+)
 from sabermetrics.assistant.eval.models import (
     CorrectnessObservation,
     GoldenQuestion,
@@ -137,7 +141,10 @@ def g2_scorecard(
     absence = _absence_gate(by_id, runs_by_id)
     clarification = _clarification_gate(by_id, rows)
     no_finding = _no_finding_gate(by_id)
-    composite = _composite_gate(by_id, (retrieval, absence, clarification), no_finding)
+    counterexample = _counterexample_gate(by_id, rows)
+    composite = _composite_gate(
+        by_id, (retrieval, absence, clarification, counterexample), no_finding
+    )
 
     leaked = plans_naming_the_answer(plans, question_set, id_map.names_by_label_id)
     unnamed = _unnamed_label_ids(question_set, id_map)
@@ -172,6 +179,7 @@ def g2_scorecard(
             "absence": absence,
             "clarification": clarification,
             "no_finding": no_finding,
+            "counterexample": counterexample,
             "composite": composite,
         },
         "subsets": {
@@ -222,7 +230,11 @@ def g2_scorecard(
             "reranker_revision": run.reranker_revision,
             "plans_sha256": plans.sha256(),
             "plans_unverified": list(plans.unverified),
-            "adjudication_set": _adjudication_set(),
+            "adjudication_set": adjudication_set(),
+            # The hash a frozen baseline is checked against. Two scorecards
+            # sharing it were measured over the same labels and the same plans;
+            # two that do not are different measurements whatever their numbers.
+            "evaluation_inputs_sha256": evaluation_inputs_sha256(question_set, plans),
             "id_map_status": id_map.status,
             "id_map_sha256": id_map.sha256(),
         },
@@ -433,8 +445,15 @@ def _retrieval_gate(
             passed.append(question.id)
         else:
             failed.append(question.id)
+    # Applicability is "has something to score", which since the adjudications
+    # means required labels OR alternatives. Reading only required_oracle_ids
+    # put a question scored through its alternatives in BOTH lists and left an
+    # unscored-pending question in NEITHER, so the two happened to sum to the
+    # right total while describing the wrong partition.
     not_applicable = sorted(
-        question.id for question in by_id.values() if not question.required_oracle_ids
+        question.id
+        for question in by_id.values()
+        if not (question.required_oracle_ids or question.satisfied_by_any_of)
     )
     return {
         "name": "full required recall and zero forbidden",
@@ -446,6 +465,16 @@ def _retrieval_gate(
         "pass_rate": len(passed) / len(applicable) if applicable else 0.0,
         "not_applicable": len(not_applicable),
         "not_applicable_ids": not_applicable,
+        # Every question lands in exactly one of scored / pending / nothing to
+        # score, and the three add up to the whole set. Published so a reader
+        # can check the denominator arithmetic instead of trusting it.
+        "partition": {
+            "applicable": len(applicable),
+            "unscored_pending": len(unscored),
+            "not_applicable": len(not_applicable),
+            "total": len(by_id),
+            "sums": len(applicable) + len(unscored) + len(not_applicable) == len(by_id),
+        },
         # Questions whose answer cannot be scored yet. Named and removed from
         # the denominator rather than counted as a pass or a failure — the
         # denominator change is the point, so it is stated.
@@ -646,6 +675,82 @@ def _no_finding_gate(by_id: Mapping[str, GoldenQuestion]) -> dict[str, Any]:
     }
 
 
+def _counterexample_gate(
+    by_id: Mapping[str, GoldenQuestion],
+    rows: Mapping[str, CorrectnessObservation],
+) -> dict[str, Any]:
+    """Score whether an answer PRESENTED a card a restriction check must reject.
+
+    A counterexample is a card that survives the search a question describes
+    and fails a restriction the search cannot express — Invasion of Ikoria
+    searches for a non-Human creature and this commander is a Human Druid. So
+    retrieving one is acceptable and expected, and recommending one is the
+    defect. This gate therefore reads ``recommended_oracle_ids`` and never
+    ``returned_oracle_ids``, and reports the retrieved count separately so the
+    two can never be conflated.
+
+    R3 has no narrator, so nothing populates the recommendation and this gate
+    reports ``not_measured`` rather than a clean zero. The rule is implemented
+    now so that the first narrator is scored by a gate that already exists,
+    rather than by one written after seeing what it does.
+    """
+    applicable = sorted(
+        question.id
+        for question in by_id.values()
+        if question.counterexample_oracle_ids and question.id in rows
+    )
+    failed: list[str] = []
+    unmeasured: list[str] = []
+    presented: dict[str, list[str]] = {}
+    retrieved: dict[str, int] = {}
+    for question_id in applicable:
+        question = by_id[question_id]
+        row = rows[question_id]
+        traps = set(question.counterexample_oracle_ids)
+        retrieved[question_id] = len(traps & set(row.returned_oracle_ids))
+        if row.recommended_oracle_ids is None:
+            unmeasured.append(question_id)
+            continue
+        offered = sorted(traps & set(row.recommended_oracle_ids))
+        if offered:
+            presented[question_id] = offered
+            failed.append(question_id)
+    measured = [
+        question_id for question_id in applicable if question_id not in unmeasured
+    ]
+    if not applicable:
+        status = "not_applicable"
+    elif not measured:
+        status = "not_measured"
+    elif unmeasured:
+        status = "mixed"
+    else:
+        status = "measured"
+    return {
+        "name": "no answer presents a card a restriction check must reject",
+        "status": status,
+        "denominator_name": "questions_with_counterexample_labels",
+        "applicable": len(measured),
+        "applicable_ids": applicable,
+        "passed": len(measured) - len(failed),
+        "failed": sorted(failed),
+        "pass_rate": (
+            (len(measured) - len(failed)) / len(measured) if measured else 0.0
+        ),
+        "presented": {key: list(value) for key, value in sorted(presented.items())},
+        # Retrieval hits are reported and NOT failures: a plan is allowed to
+        # return a trap, and only an answer that puts one forward is wrong.
+        "retrieved_not_a_failure": retrieved,
+        "unmeasured": sorted(unmeasured),
+        "note": (
+            "scored over recommended_oracle_ids, never over returned. a "
+            "question whose observation carries no recommendation list is "
+            "listed under unmeasured rather than passed, because no narrator "
+            "ran and a clean zero would be arithmetic rather than evidence"
+        ),
+    }
+
+
 def _composite_gate(
     by_id: Mapping[str, GoldenQuestion],
     gates: Sequence[Mapping[str, Any]],
@@ -657,22 +762,34 @@ def _composite_gate(
         failed.update(gate["failed"])
     # Applicability comes from the questions, not from the gates: each gate
     # reports only its own population, and a question can belong to several.
+    # A question whose answer cannot be scored yet is not a composite pass.
+    # Counting it as one would let a criterion nobody can evaluate raise this
+    # rate, which is the opposite of what the pending list is for.
+    pending = {question.id for question in by_id.values() if question.unscored_pending}
     applicable = {
         question.id
         for question in by_id.values()
-        if question.required_oracle_ids
-        or question.expected_absences
-        or question.clarification_expected
+        if question.id not in pending
+        and (
+            question.required_oracle_ids
+            or question.satisfied_by_any_of
+            or question.expected_absences
+            or question.clarification_expected
+        )
     }
     unmeasurable = {
         question.id
         for question in by_id.values()
-        if question.id not in applicable and question.no_finding_expected
+        if question.id not in applicable
+        and question.id not in pending
+        and question.no_finding_expected
     }
     none_applicable = sorted(
         question.id
         for question in by_id.values()
-        if question.id not in applicable and question.id not in unmeasurable
+        if question.id not in applicable
+        and question.id not in unmeasurable
+        and question.id not in pending
     )
     passed = sorted(applicable - failed)
     # A component gate can fail a question this gate does not consider
@@ -690,6 +807,7 @@ def _composite_gate(
         "pass_rate": len(passed) / len(applicable) if applicable else 0.0,
         "not_measurable": sorted(unmeasurable),
         "no_applicable_criterion": none_applicable,
+        "unscored_pending": sorted(pending),
         "failed_outside_this_denominator": outside,
         "note": (
             "two of the three component gates are declared rather than "
@@ -753,29 +871,6 @@ def _asks_that_name_their_own_answer(
         if all(mentions_card_name(asked, name) for name in names if name):
             out.append(question.id)
     return sorted(out)
-
-
-def _adjudication_set() -> str:
-    """Return the versioned owner-adjudication set the labels reflect.
-
-    A scorecard measured before and after a label ruling are different
-    measurements. Naming the set makes that legible instead of leaving two
-    numbers to be compared as though they came from one question set.
-    """
-    from pathlib import Path
-
-    import yaml
-
-    path = (
-        Path(__file__).resolve().parents[4]
-        / "fixtures"
-        / "research"
-        / "adjudications.yaml"
-    )
-    if not path.is_file():
-        return "none"
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return str(raw.get("adjudication_set") or "none")
 
 
 def _unnamed_label_ids(

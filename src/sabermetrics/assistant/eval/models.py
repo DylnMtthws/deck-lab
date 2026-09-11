@@ -148,6 +148,14 @@ class CorrectnessObservation(_StrictModel):
     returned_oracle_ids: list[str] = Field(default_factory=list)
     result_set_oracle_ids: list[str] = Field(default_factory=list)
     named_oracle_ids: list[str] = Field(default_factory=list)
+    #: The cards the answer actually PUT FORWARD, as distinct from the cards
+    #: retrieval returned. ``None`` means nothing populated it — R3 has no
+    #: narrator, so no answer recommends anything — and is deliberately
+    #: distinct from ``[]``, which means an answer was produced and recommended
+    #: no card. The distinction is the whole point: a counterexample is
+    #: acceptable in ``returned_oracle_ids`` and a defect here, and collapsing
+    #: the two states would score "nobody checked" as "checked and clean".
+    recommended_oracle_ids: list[str] | None = None
     assertion_count: int = Field(default=0, ge=0)
     cited_assertion_count: int = Field(default=0, ge=0)
     bare_rate_count: int = Field(default=0, ge=0)
@@ -161,6 +169,10 @@ class CorrectnessObservation(_StrictModel):
     def cited_assertions_cannot_exceed_assertions(self) -> CorrectnessObservation:
         if self.cited_assertion_count > self.assertion_count:
             raise ValueError("cited_assertion_count cannot exceed assertion_count")
+        if self.recommended_oracle_ids is not None and len(
+            set(self.recommended_oracle_ids)
+        ) != len(self.recommended_oracle_ids):
+            raise ValueError("recommended_oracle_ids contains duplicates")
         return self
 
 

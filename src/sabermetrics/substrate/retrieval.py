@@ -387,7 +387,10 @@ def _retrieval_hit(
         mana_cost=record.mana_cost,
         mana_value=record.mana_value,
         type_line=record.type_line,
-        oracle_text=record.oracle_text or "",
+        # Face-aware on purpose: the card-level column is null for 1,243 rows
+        # and 891 of those carry their text on the faces, so reading it here
+        # would hand a reader a blank card the ranker had just matched on.
+        oracle_text=record.canonical_oracle_text,
         color_identity=record.color_identity,  # type: ignore[arg-type]
         matched_tags=record.tags,
         stages=stages,

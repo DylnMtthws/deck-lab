@@ -1,8 +1,10 @@
 """Face-only cards reach retrieval and tagging; ``oracle_text`` alone does not.
 
-891 of the 34,551 corpus rows publish no card-level ``oracle_text`` — split
-cards, adventures, transform and modal double-faced cards put their text on
-faces. A consumer that reads ``oracle_text`` directly is blind to all of them.
+1,243 of the 34,551 corpus rows publish no card-level ``oracle_text``, and for
+891 of them the text is there on the faces — split cards, adventures, transform
+and modal double-faced cards. (The other 352 are genuinely textless: vanilla
+creatures and basic lands.) A consumer that reads ``oracle_text`` directly
+reads a blank card for all 891.
 
 That asymmetry is pinned here rather than rediscovered, because it has already
 caught two readers: an audit dump that printed blank text for Invasion of
@@ -20,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from sabermetrics.mechanics.tags.predicates import CardView, FaceView
-from sabermetrics.substrate.models import CardFilters
+from sabermetrics.substrate.models import CardFilters, CardSearchQuery
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -102,3 +104,21 @@ def test_the_face_only_population_is_material_and_recorded():
         assert any(
             (face.get("oracle_text") or "").strip() for face in card["faces"]
         ), f"{card['name']} has neither card-level nor face text"
+
+
+def test_a_retrieval_hit_carries_face_text_rather_than_a_blank(research_facade):
+    """The one Ask-path consumer of the card-level column now reads the faces.
+
+    ``RetrievalHit.oracle_text`` is what a reader — and later a narrator — sees
+    for a card the ranker just matched. It used to be the card-level column,
+    so the ranker could match a modal double-faced card on its face text and
+    then hand back a card with no text at all.
+    """
+    query = CardSearchQuery(
+        text="Add {U}. Draw a card and discard a card.",
+        filters=CardFilters(),
+        top_k=50,
+    )
+    hits = {hit.name: hit for hit in research_facade.search(query).hits}
+    assert FACE_ONLY in hits, "the control card must be reachable by its face text"
+    assert "Add {U}" in hits[FACE_ONLY].oracle_text
