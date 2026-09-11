@@ -1424,15 +1424,14 @@ then passed, on card recall, and the pass read as though the rules half had
 been checked.
 
 `fixtures/research/rules_support_labels.yaml` is the answer key that closes it.
-It is `proposed`, and **seven of its ten labels survived three adversarial
-lenses while three did not** — the panel ran out of session budget mid-review,
-so `rules-008`, `rules-009` and `rules-010` carry
-`verification: proposed_unreviewed`. That is recorded per label rather than per
-set, because a set is only as reviewed as its least reviewed member and
-averaging that away is how "adversarially verified" comes to cover a label
-nobody checked. The verification found real problems: **59 of 66 lens verdicts
-were `needs_change`**, and one reconciliation left `616.1c` listed as both an
-answer and a trap, which the schema refused. Per question the key records:
+It is `proposed`. Ten labellers wrote it, three adversarial lenses attacked each
+label, and a completeness critic read the finished set — 51 agents. The
+verification earned its cost: **59 of 66 lens verdicts were `needs_change`**,
+and one reconciliation left `616.1c` listed as both an answer and a trap, which
+the schema refused. `verification` is recorded per label rather than per set,
+because a set is only as reviewed as its least reviewed member and averaging
+that away is how "adversarially verified" comes to cover a label nobody checked.
+Per question the key records:
 per question, the rules that are **jointly necessary**, the rules where there is
 a genuine **choice of citation**, what the passage set must **establish** as
 checkable propositions, and the **near misses** — rules a keyword search
@@ -1510,6 +1509,42 @@ changes what a rules question *means*, so it changes
 `evaluation_inputs_sha256` (now `research-evaluation-inputs.v2`) and produces a
 **separately identified** frozen baseline. The earlier two are preserved
 unchanged; none of their numbers is silently reinterpreted.
+
+#### What the critic found, and why it is now a check
+
+The panel's completeness critic — `docs/r3-rules-support-critique.md`, preserved
+verbatim including where it is unflattering about the schema it was reviewing —
+attacked the finished set and could not flip a single answer. All 61 quotes are
+verbatim, all clear the length floor, and no fabricated rule number survives.
+What it found instead was a **defect in the schema**:
+
+**`sufficient_any_of` is a single flat disjunction**, and four labels pack two
+independent either/or groups into it, with "one from each group" stated in prose
+no code reads. Satisfying the easy group twice passes the label while a
+proposition the label itself calls mandatory goes unestablished.
+
+Worse, and this is the part that qualifies the headline number: **retrieval
+returns chunks, so a scored rule sharing a chunk with another scored rule cannot
+independently fail.** It is then not a requirement, and a verdict reporting it
+under `required_covered` overstates what was measured. An alternative
+co-located with a required rule makes the whole disjunction unfailable, so
+whatever it was chosen to establish is never tested.
+
+`scripts/audit_rules_support_labels.py` computes this rather than arguing it,
+and reproduces the critic's reading exactly:
+
+| | |
+|---|---|
+| required rules that cannot independently fail | `rules-005/202.3`, `rules-008/605.3a` |
+| inert disjunctions | `rules-003`, `rules-008`, `rules-009`, `rules-010` |
+| effective bar | **2 to 4 distinct chunks**, a twofold spread |
+
+**Any aggregate over these ten mixes bars that differ by a factor of two**, which
+is the first thing to say about a headline "n of 10". None of it is fixable by
+a script: each case needs a decision about what the question demands, which is
+the owner's. A test does assert the one case that is never a judgement call — a
+scored rule whose quote lands in no chunk at all, which would fail its question
+forever for a reason nobody could see.
 
 #### The blockers, with owners
 

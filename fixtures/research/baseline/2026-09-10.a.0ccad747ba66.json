@@ -1,0 +1,61 @@
+{
+  "adjudication_set": "2026-09-10.a",
+  "alternative_coverage": {
+    "mechanic-005": {
+      "qualifying": 3,
+      "returned": 2
+    }
+  },
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "discovery_applicable": 31,
+  "discovery_passed": 30,
+  "embedding_model_id": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "frozen_on": "2026-09-11",
+  "inputs_sha256": "0ccad747ba660c28b503a8812e3f06048156477ba97e675ff5f173ebdd7eaa68",
+  "kind": "development_baseline",
+  "limitations": [
+    "READ THIS FIRST: retrieval and discovery are UNCHANGED at 47/48 and 30/31; rules-answer support is 1/10. The unchanged card numbers are the absence of an effect, not a validation. The 1/10 is the first measurement of a criterion that previously did not exist, so it is not a regression \u2014 it is the hole becoming visible.",
+    "THE 1/10 MIXES BARS THAT DIFFER BY A FACTOR OF TWO. scripts/audit_rules_support_labels.py shows a passing answer needs between 2 and 4 distinct chunks depending on the question, so the aggregate is less meaningful than it looks.",
+    "Two scored rules cannot independently fail, because they share a chunk with another scored rule: rules-005/202.3 and rules-008/605.3a. A rule that cannot fail is not a requirement, and the verdict reports it as covered when what came back was its chunk-mate.",
+    "Four disjunctions are inert \u2014 rules-003, rules-008, rules-009, rules-010 \u2014 because an alternative shares a chunk with a required rule. The proposition those alternatives were chosen to establish is never tested, and in each case the label's own prose calls it mandatory.",
+    "sufficient_any_of is a single flat disjunction, and four labels pack two independent either/or groups into it with 'one from each group' stated only in prose no code reads. That is a schema defect, found by the panel's completeness critic, not yet fixed.",
+    "The rules-support labels are PROPOSED, not ratified. All ten are adversarially reconciled and all 61 quotes are verbatim, but a failure scored against an unratified key is a lead, not a verdict.",
+    "Nothing was tuned in response to this number. The rules plans, queries and bounds are byte-identical to the run that scored 47/48 with rules support unmeasured.",
+    "A development measurement against a development bundle, not the G2 gate. Five blockers are registered in fixtures/research/g2_blockers.yaml, four open, every one a ratification rather than an engineering task.",
+    "Not evidence of generalization. deck-local-009 still fails because a bound fitted to an earlier answer key did not survive the key being corrected, and it was left failing rather than re-tuned.",
+    "16 of the 47 card-retrieval passes are name lookups whose ask prints every required card's name; discovery over questions that do not name their own answer is 30/31. metagame-010 is unscored pending R5, so the retrieval denominator is 48, not 49.",
+    "Near-miss detection reports not_evaluable for all ten: this round's near misses are prose annotations with no quote, so the matcher could not look. That is distinct from having looked and found none."
+  ],
+  "name_lookup_count": 16,
+  "plans_sha256": "63f0e62a6d3abbb9d6d0da133dd9adde7e917400014c889f762b2a174171fc7c",
+  "reranker_model_id": "BAAI/bge-reranker-base",
+  "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+  "retrieval_applicable": 48,
+  "retrieval_failed": [
+    "deck-local-009"
+  ],
+  "retrieval_passed": 47,
+  "rules_support_applicable": 10,
+  "rules_support_failed": [
+    "rules-002",
+    "rules-003",
+    "rules-004",
+    "rules-005",
+    "rules-006",
+    "rules-007",
+    "rules-008",
+    "rules-009",
+    "rules-010"
+  ],
+  "rules_support_passed": 1,
+  "rules_support_set": "rules-support.2026-09-11.b",
+  "rules_support_status": "measured",
+  "rules_support_unlabelled": [],
+  "schema_version": "research-frozen-baseline.v1",
+  "unscored_pending": {
+    "metagame-010": "R5 (cohort counts for a field-frequency claim)"
+  }
+}

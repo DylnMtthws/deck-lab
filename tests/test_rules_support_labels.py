@@ -31,6 +31,7 @@ from sabermetrics.assistant.eval.rules_support import (
     quote_problems,
     quote_variants,
     rule_covered,
+    strictness_report,
     support_verdict,
 )
 from sabermetrics.reference_layer.chunker import DocumentChunker
@@ -346,3 +347,102 @@ def test_a_quote_that_includes_its_rule_number_still_matches():
     assert rule_covered(label, "605.1a", [body_without_number])
     assert quote_variants(f"605.1a {QUOTE}") == (f"605.1a {QUOTE}", QUOTE)
     assert quote_variants(QUOTE) == (QUOTE,)
+
+
+def test_no_scored_rule_is_unreachable_in_any_chunk():
+    """A rule nothing can match fails its question forever, invisibly.
+
+    Not a judgement call like an inert disjunction — a scored rule whose quote
+    lands in no chunk is always a defect, so it is asserted rather than
+    reported.
+    """
+    labels = load_rules_support_labels()
+    if labels is None:
+        pytest.skip("no rules-support labels checked in")
+    source = _pinned_source()
+    if source is None:
+        pytest.skip("the pinned rules document is not provisioned on this machine")
+    bodies = [
+        normalize(chunk.content)
+        for chunk in DocumentChunker().chunk_comprehensive_rules(source)
+    ]
+    unreachable = {
+        label.question_id: strictness_report(label, bodies)["rules_in_no_chunk"]
+        for label in labels.labels
+    }
+    offenders = {key: value for key, value in unreachable.items() if value}
+    assert not offenders, f"scored rules that no passage can ever contain: {offenders}"
+
+
+def test_a_rule_sharing_a_chunk_with_a_required_rule_is_reported_as_inert():
+    """The critic's finding, as a check rather than a paragraph.
+
+    Two required rules in one chunk means the second cannot independently fail,
+    so the conjunction is shorter than it looks — and an alternative sharing a
+    chunk with a required rule makes the whole disjunction unfailable.
+    """
+    label = _label(
+        required_rules=["605.1a", "605.5b"],
+        sufficient_any_of=["605.2"],
+        quoted_evidence=[
+            {"rule": "605.1a", "quote": QUOTE, "why": "defines a mana ability"},
+            {"rule": "605.5b", "quote": OTHER, "why": "when it may be activated"},
+            {
+                "rule": "605.2",
+                "quote": f"{OTHER} remains a mana ability",
+                "why": "a co-located alternative",
+            },
+        ],
+    )
+    one_chunk = [normalize(f"{QUOTE} ... {OTHER} remains a mana ability")]
+    report = strictness_report(label, one_chunk)
+    assert report["required_rules_that_cannot_independently_fail"] == ["605.5b"]
+    assert report["disjunction_satisfied_by_a_required_rule"] == ["605.2"]
+    assert report["disjunction_is_inert"] is True
+    assert report["minimum_distinct_chunks"] == 1
+
+    separate = [normalize(QUOTE), normalize(f"{OTHER} remains a mana ability")]
+    spread = strictness_report(label, separate)
+    assert spread["required_rules_that_cannot_independently_fail"] == []
+    assert spread["minimum_distinct_chunks"] == 2
+
+
+def test_a_near_miss_quote_is_checked_against_the_document_too():
+    """A mistranscribed trap quote reports "not retrieved" for a check that
+    could never have matched anything."""
+    label_set = RulesSupportLabelSet.model_validate(
+        {
+            "label_set": "test",
+            "status": "proposed",
+            "derived_from": {
+                "document": "comprehensive_rules",
+                "effective_date": "2026-08-07",
+                "content_sha256": "c" * 64,
+            },
+            "labelled_by": "test",
+            "labelled_on": "2026-09-11",
+            "independence": (
+                "derived from the question and the pinned document only, with "
+                "every retrieval artefact withheld"
+            ),
+            "labels": [
+                json.loads(
+                    _label(
+                        near_miss_rules=[
+                            {
+                                "rule": "605.5b",
+                                "why": "adjacent and quoted, but paraphrased",
+                                "quote": (
+                                    "a sentence that is definitely not present "
+                                    "anywhere in the pinned rules document"
+                                ),
+                            }
+                        ]
+                    ).model_dump_json()
+                )
+            ],
+        }
+    )
+    problems = quote_problems(label_set, f"preamble {QUOTE} criteria")
+    assert len(problems) == 1
+    assert "near miss" in problems[0]

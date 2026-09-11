@@ -9,10 +9,10 @@ survive the key being corrected — which is not hypothetical, it is what
 happened to `deck-local-009`. Use this to decide which QUESTIONS deserve
 investigation, not to pick a number.
 
-- **11** missing rules sit at rank 20 or better: the plan's
+- **8** missing rules sit at rank 20 or better: the plan's
   bound is what excluded them.
-- **3** sit deeper than 20: retrieval reaches them, barely.
-- **3** never appear within 60: a genuine gap
+- **2** sit deeper than 20: retrieval reaches them, barely.
+- **4** never appear within 60: a genuine gap
   between the query and the corpus, and the only group where a wider
   window would not have helped.
 
@@ -25,13 +25,10 @@ investigation, not to pick a number.
 | rules-004 | `117.7` | 6 | 54 | reachable only very wide |
 | rules-005 | `202.3` | 6 | 7 | excluded by the bound |
 | rules-005 | `202.3a` | 6 | 7 | excluded by the bound |
-| rules-006 | `400.6` | 6 | — | never within 60 — retrieval gap |
-| rules-007 | `603.1` | 6 | 8 | excluded by the bound |
+| rules-006 | `707.5` | 6 | — | never within 60 — retrieval gap |
 | rules-008 | `117.1b` | 6 | 19 | excluded by the bound |
-| rules-009 | `601.2c` | 6 | 7 | excluded by the bound |
 | rules-009 | `603.3b` | 6 | 15 | excluded by the bound |
-| rules-009 | `603.3d` | 6 | 8 | excluded by the bound |
 | rules-009 | `702.74a` | 6 | — | never within 60 — retrieval gap |
-| rules-010 | `110.2b` | 6 | 53 | reachable only very wide |
+| rules-010 | `109.2b` | 6 | — | never within 60 — retrieval gap |
 | rules-010 | `115.2` | 6 | 19 | excluded by the bound |
 | rules-010 | `608.2n` | 6 | 7 | excluded by the bound |

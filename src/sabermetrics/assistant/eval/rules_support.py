@@ -365,6 +365,86 @@ def support_verdict(
     }
 
 
+def _chunks_containing(quotes: Sequence[str], bodies: Sequence[str]) -> set[int]:
+    """Indices of the chunks whose text contains any of these quote variants."""
+    return {
+        index
+        for index, body in enumerate(bodies)
+        if any(quote in body for quote in quotes)
+    }
+
+
+def strictness_report(
+    label: RulesSupportLabel, chunk_bodies: Sequence[str]
+) -> dict[str, Any]:
+    """How demanding a label ACTUALLY is, given how the corpus is chunked.
+
+    A conjunction of four rules sounds twice as strict as one of two. It is not,
+    if three of the four live in the same chunk: retrieval returns chunks, so a
+    rule sharing a chunk with another scored rule CANNOT INDEPENDENTLY FAIL. It
+    is then not a requirement, and a verdict reporting it under
+    ``required_covered`` overstates what was measured.
+
+    The same collapse can neuter a disjunction outright. When an alternative
+    shares a chunk with a required rule, covering the required rule always
+    covers the alternative, the disjunction is satisfied automatically, and
+    whatever proposition it was meant to carry is never tested.
+
+    The panel's completeness critic found both in five of the first ten labels,
+    which is why this is a function and not a paragraph. Both are properties of
+    the label crossed with the chunker rather than of the Magic, so they are
+    checkable — and a bar that varies twofold across a set makes any aggregate
+    over that set mean less than it appears to.
+
+    Args:
+        label: The label to measure.
+        chunk_bodies: Normalized text of every chunk of the pinned document.
+
+    Returns:
+        A report naming the rules that cannot independently fail and the
+        minimum number of distinct chunks a passing answer must contain.
+    """
+    quotes: dict[str, list[str]] = {}
+    for entry in label.quoted_evidence:
+        quotes.setdefault(entry.rule, []).extend(quote_variants(entry.quote))
+    located = {
+        rule: _chunks_containing(values, chunk_bodies)
+        for rule, values in quotes.items()
+    }
+    unlocatable = sorted(rule for rule, found in located.items() if not found)
+
+    required_chunks: set[int] = set()
+    collapsed: list[str] = []
+    for rule in label.required_rules:
+        found = located.get(rule, set())
+        if found and found & required_chunks:
+            collapsed.append(rule)
+        required_chunks |= found
+    auto = sorted(
+        rule
+        for rule in label.sufficient_any_of
+        if located.get(rule, set()) & required_chunks
+    )
+    minimum = len(
+        {min(located[rule]) for rule in label.required_rules if located.get(rule)}
+    )
+    if label.sufficient_any_of and not auto:
+        minimum += 1
+    return {
+        "minimum_distinct_chunks": minimum,
+        # Required rules sharing a chunk with an earlier required rule. Each
+        # adds nothing a passing answer must do, so the conjunction is shorter
+        # than it looks.
+        "required_rules_that_cannot_independently_fail": sorted(collapsed),
+        # Alternatives co-located with a required rule. The disjunction is then
+        # always satisfied and carries no constraint at all.
+        "disjunction_satisfied_by_a_required_rule": auto,
+        "disjunction_is_inert": bool(label.sufficient_any_of) and bool(auto),
+        # A quote in the document but in no chunk can never be matched.
+        "rules_in_no_chunk": unlocatable,
+    }
+
+
 def quote_problems(label_set: RulesSupportLabelSet, document_text: str) -> list[str]:
     """Return every quote that is not a verbatim substring of the document.
 
@@ -382,10 +462,21 @@ def quote_problems(label_set: RulesSupportLabelSet, document_text: str) -> list[
     haystack = normalize(document_text)
     problems: list[str] = []
     for label in label_set.labels:
-        for entry in label.quoted_evidence:
-            if not any(variant in haystack for variant in quote_variants(entry.quote)):
+        quoted: list[tuple[str, str, str]] = [
+            ("answer", entry.rule, entry.quote) for entry in label.quoted_evidence
+        ]
+        # Near-miss quotes are checked too. A mistranscribed one would report
+        # `near_misses_absent` — "the matcher looked and the trap did not come
+        # back" — for a check that could never have matched anything.
+        quoted += [
+            ("near miss", entry.rule, entry.quote)
+            for entry in label.near_miss_rules
+            if entry.quote is not None
+        ]
+        for kind, rule, quote in quoted:
+            if not any(variant in haystack for variant in quote_variants(quote)):
                 problems.append(
-                    f"{label.question_id}/{entry.rule}: quote is not in the "
-                    f"document: {entry.quote[:70]!r}"
+                    f"{label.question_id}/{rule} ({kind}): quote is not in the "
+                    f"document: {quote[:70]!r}"
                 )
     return problems
