@@ -88,6 +88,7 @@ def main() -> int:
 
     retrieval = card["gates"]["retrieval"]
     discovery = card["gates"]["discovery"]
+    support = card["gates"].get("rules_support") or {}
     baseline = FrozenBaseline(
         kind=(
             "authoritative_gate"
@@ -117,6 +118,12 @@ def main() -> int:
         alternative_coverage={
             key: dict(value) for key, value in retrieval["alternative_coverage"].items()
         },
+        rules_support_set=support.get("label_set"),
+        rules_support_status=support.get("status"),
+        rules_support_passed=support.get("passed"),
+        rules_support_applicable=support.get("applicable"),
+        rules_support_failed=list(support.get("failed") or ()),
+        rules_support_unlabelled=list(support.get("unlabelled") or ()),
         limitations=list(args.limitation),
     )
     output = args.output or (BASELINE_DIR / baseline_filename(baseline))

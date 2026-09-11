@@ -1316,8 +1316,13 @@ the answer a second time, and the failure is more informative than the pass
 would be: **bounds chosen after looking at answer ranks are development tuning,
 and only questions written before their answers are known can show whether they
 generalise.** `mechanic-013` is the first such question, and it passes with
-March of Burgeoning Life at rank 29 — which also shows that `mechanic-005`'s
-bound of 10, not the substrate, is what hides that card.
+March of Burgeoning Life at rank 29. That isolates the effect of final-fusion
+`top_k` **for this pair specifically** — the two plans differ in nothing else,
+and `top_k` slices the final fusion rather than feeding the candidate pools, so
+the narrow result is the wide result's prefix. It is a local conclusion about
+these two plans, not a general claim about answer windows, and the question was
+written after March was known to be missing, so its pass is not independent
+evidence of generalization either.
 
 `combo-004` gained a second kind of label: `counterexample_oracle_ids`. Invasion
 of Ikoria and Dizzy Spell are plausible traps that a restriction check must
@@ -1326,7 +1331,11 @@ Druid; Dizzy Spell's transmute searches at its own mana value of one. They are
 recorded rather than forbidden, because retrieving a trap is acceptable and only
 presenting one as an answer is not. No R3 step performs that check:
 `CardFilters` cannot express a second-order fetch restriction, so it is
-narration work and R3 does not do it.
+narration work and R3 does not do it. The gate semantics are now implemented and
+tested — including the case that matters most, an explanation that names a trap
+in order to rule it out, which must not be scored as presenting it — but
+**recommendation behaviour itself is unmeasured in R3**, because nothing
+populates a recommendation.
 
 A **face-text regression check** (`tests/test_research_face_text.py`) now pins a
 substrate asymmetry that has already misled two readers. 1,243 of the 34,551
@@ -1357,7 +1366,8 @@ indexing it would make the corpus depend on the day the build ran.
 
 `scripts/build_rules_index.py` builds offline from that artefact and refuses
 unless the bytes still hash to what was fetched. Three defects surfaced while
-building, each of which would have produced an index nobody could reproduce:
+building, undermining **source integrity**, **corpus correctness** and **rebuild
+determinism** respectively:
 
 - **The archive did not match its own hash.** Writing a decoded string in text
   mode keeps the document's CRLFs; reading it back through universal newlines
@@ -1378,7 +1388,10 @@ building, each of which would have produced an index nobody could reproduce:
   emitting them.
 
 Rebuilding now reproduces the generation id, the chunk ids and the manifest
-byte-for-byte. The manifest is checked in at `fixtures/research/rules_index.json`
+byte-for-byte. **Existing retrieval and discovery scores are unchanged, and
+rules-support quality remains unmeasured** — the index does not participate in
+card recall, so an unchanged 47/48 and 30/31 is the absence of an effect rather
+than a validation of the index. The manifest is checked in at `fixtures/research/rules_index.json`
 so the repository states which rules document the Ask path answers from, and the
 scorecard names it by effective date and source hash. `run_g2.py` refuses if the
 active generation is not the one the manifest describes, chunked runs refuse if
@@ -1400,6 +1413,119 @@ reports `not_measured` for the thing that actually matters: no question labels
 which rules sections answer it, so whether a returned passage *supports* the
 answer is a judgement nobody has made. An index is a prerequisite for answering
 a rules question, not an answer to one.
+
+#### Rules support: the hole a card-retrieval pass was covering
+
+A rules question asks two things — find the card the asker named, then explain
+the rule that governs it — and R3 was only ever scoring the first. The plan
+found the card, the lookup returned six well-cited passages, and **nothing
+anywhere asked whether those passages answered the question.** The question
+then passed, on card recall, and the pass read as though the rules half had
+been checked.
+
+`fixtures/research/rules_support_labels.yaml` is the answer key that closes it.
+It is `proposed`, and **seven of its ten labels survived three adversarial
+lenses while three did not** — the panel ran out of session budget mid-review,
+so `rules-008`, `rules-009` and `rules-010` carry
+`verification: proposed_unreviewed`. That is recorded per label rather than per
+set, because a set is only as reviewed as its least reviewed member and
+averaging that away is how "adversarially verified" comes to cover a label
+nobody checked. The verification found real problems: **59 of 66 lens verdicts
+were `needs_change`**, and one reconciliation left `616.1c` listed as both an
+answer and a trap, which the schema refused. Per question the key records:
+per question, the rules that are **jointly necessary**, the rules where there is
+a genuine **choice of citation**, what the passage set must **establish** as
+checkable propositions, and the **near misses** — rules a keyword search
+surfaces that do not answer the question.
+
+**The labels were derived from the questions and the pinned document, never
+from what retrieval returned.** Every labeller was denied `.research-dev/`, the
+review packet, the index database and the index manifest, because an answer key
+read off the system it scores measures the system against itself. The
+independence claim is recorded in the file rather than assumed.
+
+**Matching is by the rule's TEXT, not its number**, and that is forced rather
+than chosen. When a chunk's section label is a letter-suffixed rule like
+`605.1a`, the chunker has already removed that number from the chunk body in
+order to use it as the label — so the text of 605.1a can sit in a returned
+passage with the string "605.1a" nowhere in it, and a number-matching gate would
+report the rule missing. Each labelled rule therefore carries a verbatim quote,
+checked against the pinned document and checked to fall inside a single chunk of
+it; a quote straddling a chunk boundary could never be matched and would fail
+its question forever.
+
+**Near misses have three states, not two.** "The matcher looked and found
+nothing" and "the matcher had nothing to look with" are different facts, and
+reporting them as one zero reports a check that never ran as a clean result. A
+near miss carrying a quote is `detected` or `absent`; one carrying only prose is
+`unevaluable`, preserved as an annotation because the reasoning is the valuable
+part — *"605.3b reaches the right conclusion via the wrong branch"* is what a
+reviewer needs whether or not a machine can act on it. New label sets must quote
+their near misses (`near_miss_quotes_required`); this first round predates the
+requirement and says so, so its verdicts read `not_evaluable` rather than a
+clean zero. Near misses are never scored against an answer either way:
+retrieving a trap is fine, and nothing here can see what an answer rests on.
+
+**The matcher strips a leading rule number.** Three quotes were transcribed
+faithfully as *"608.2n As the final part of an instant or sorcery spell's
+resolution…"* — present in the document and in no chunk, because the chunker
+removes that number to use it as the chunk's section label. The rules they stand
+for could never have been covered. Fixed in the matcher rather than by editing
+the answer key, which stays a faithful transcription.
+
+The two claims are now two gates, because running them together is how the first
+came to imply the second:
+
+| gate | measures | does not measure |
+|---|---|---|
+| `rules_passages` | provenance and completeness — every row carries its document, section and citation | anything about the answer |
+| `rules_support` | whether the passages contain the rules the answer rests on | whether the narrator uses them correctly |
+
+**A rules question with no support label leaves the composite denominator.** It
+is reported under `not_measurable_rules_unlabelled` rather than passed, so a
+card-retrieval pass can no longer stand in for a rules answer.
+
+#### The first rules-support baseline: 1 of 10
+
+**Retrieval and discovery are unchanged at 47/48 and 30/31. Rules-answer
+support, measured for the first time, is 1/10.** Only `rules-001` retrieves the
+rules its answer rests on. The other nine return six well-cited, fully
+attributed passages that do not contain what the question needs — which is
+precisely the state that read as a pass while only card recall was scored. The
+composite gate moves 69/70 → 60/70 for the same reason, and the movement is the
+measurement rather than a regression: a criterion that did not exist cannot have
+got worse.
+
+**Nothing was tuned in response.** The rules plans, queries and bounds are
+byte-identical to the run that scored 47/48 with support unmeasured.
+`scripts/diagnose_rules_support.py` separates the causes — 11 of the 18 missing
+rules sit at rank 20 or better and were excluded by the plan's bound of six,
+three sit at 44–54, and three (`104.3e`, `400.6`, `702.74a`) never appear within
+60 and are a genuine gap between query and corpus. **Those ranks were obtained
+by asking where a known answer sits, so a bound chosen from them is fitted to
+this answer key**, which is the mistake `deck-local-009` exists to demonstrate.
+The table decides which questions deserve investigation; it does not pick a
+number. Adding the labels
+changes what a rules question *means*, so it changes
+`evaluation_inputs_sha256` (now `research-evaluation-inputs.v2`) and produces a
+**separately identified** frozen baseline. The earlier two are preserved
+unchanged; none of their numbers is silently reinterpreted.
+
+#### The blockers, with owners
+
+`fixtures/research/g2_blockers.yaml` registers every refusal
+`preflight_refusals` can emit, with an owner, a closure criterion written so
+that whether it happened is checkable, and where to look for the evidence. A
+test asserts the registry and `PREFLIGHT_BLOCKER_IDS` match exactly in both
+directions — an unregistered blocker is a refusal nobody is accountable for
+closing, and a registered blocker nothing can emit is a promise about a wall
+that is not there. The review packet renders the table from the refusals the
+code emits *right now*, so a blocker that closes stops being listed as shut
+without anyone editing prose.
+
+**Every blocker is a ratification, not an engineering task.** None is waiting on
+code. That is deliberate: these labels are what the system is measured against,
+and a system that could ratify its own answer key would measure nothing.
 
 #### Frozen baselines
 

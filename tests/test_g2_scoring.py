@@ -189,6 +189,50 @@ def _score(questions, observations, runs, **overrides):
     )
 
 
+def _ratified_rules_labels(question_id):
+    """A minimal owner-verified rules-support set, for refusal tests."""
+    from sabermetrics.assistant.eval.rules_support import RulesSupportLabelSet
+
+    return RulesSupportLabelSet.model_validate(
+        {
+            "schema_version": "research-rules-support-labels.v1",
+            "label_set": "test-set",
+            "status": "owner_verified",
+            "derived_from": {
+                "document": "comprehensive_rules",
+                "effective_date": "2026-08-07",
+                "content_sha256": "b" * 64,
+            },
+            "labelled_by": "test",
+            "labelled_on": "2026-09-10",
+            "independence": (
+                "derived from the question text and the pinned document only, "
+                "with every retrieval artefact withheld"
+            ),
+            "labels": [
+                {
+                    "question_id": question_id,
+                    "required_rules": ["100.1"],
+                    "sufficient_any_of": [],
+                    "sufficient_support": "a synthetic proposition to establish",
+                    "near_miss_rules": [],
+                    "quoted_evidence": [
+                        {
+                            "rule": "100.1",
+                            "quote": "these Magic rules apply to any Magic game "
+                            "with two or more players",
+                            "why": "a synthetic reason",
+                        }
+                    ],
+                    "rationale": "a synthetic rationale long enough to validate",
+                    "confidence": "high",
+                    "verification": "adversarially_reconciled",
+                }
+            ],
+        }
+    )
+
+
 def test_a_question_passes_only_with_full_required_recall():
     question = _question("q-full", required_oracle_ids=["a", "b"])
     partial = _score(
@@ -586,7 +630,23 @@ def test_authoritative_g2_refuses_a_rules_lookup_with_no_reference_index():
         elapsed_ms=1.0,
     )
     with pytest.raises(G2InputError, match="no reference index"):
-        _authoritative([question], [_observation("q-rules", ["a"])], [run])
+        _authoritative(
+            [question],
+            [_observation("q-rules", ["a"])],
+            [run],
+            rules_support=_ratified_rules_labels("q-rules"),
+        )
+
+
+def test_authoritative_g2_refuses_an_unratified_rules_support_label_set():
+    """Without ratified labels a rules question passes on card recall alone."""
+    question = _question("q-rules", required_oracle_ids=["a"], category="rules")
+    with pytest.raises(G2InputError, match="ratified rules-support label set"):
+        _authoritative(
+            [question],
+            [_observation("q-rules", ["a"])],
+            [_run("q-rules", _result("s", ["a"]))],
+        )
 
 
 def test_authoritative_g2_refuses_an_unreviewed_id_map():
@@ -950,9 +1010,9 @@ def test_preflight_names_every_artefact_refusal_before_anything_runs():
         ),
     )
     refusals = preflight_refusals(questions, plans=drafts, id_map=identity_id_map())
-    assert any("contested" in refusal for refusal in refusals)
-    assert any("owner-verified" in refusal for refusal in refusals)
-    assert len(refusals) == 2, refusals
+    ids = [refusal.blocker_id for refusal in refusals]
+    assert ids == ["golden_set_contested", "plans_not_owner_verified"], ids
+    assert all(refusal.detail for refusal in refusals)
 
 
 def test_preflight_is_silent_when_nothing_blocks():
@@ -966,3 +1026,185 @@ def test_preflight_is_silent_when_nothing_blocks():
         )
         == []
     )
+
+
+def test_preflight_refuses_an_unratified_rules_support_label_set():
+    """The blocker that stops card recall standing in for a rules answer."""
+    from sabermetrics.assistant.eval.g2 import preflight_refusals
+
+    questions = GoldenQuestionSet(questions=[_question("q-rules", category="rules")])
+    plans = _plan_set(["q-rules"])
+    absent = preflight_refusals(questions, plans=plans, id_map=identity_id_map())
+    assert [r.blocker_id for r in absent] == ["rules_support_labels_unratified"]
+    assert "absent" in absent[0].detail
+
+    proposed = preflight_refusals(
+        questions,
+        plans=plans,
+        id_map=identity_id_map(),
+        rules_support=_ratified_rules_labels("q-rules").model_copy(
+            update={"status": "awaiting_owner_review"}
+        ),
+    )
+    assert [r.blocker_id for r in proposed] == ["rules_support_labels_unratified"]
+
+    ratified = preflight_refusals(
+        questions,
+        plans=plans,
+        id_map=identity_id_map(),
+        rules_support=_ratified_rules_labels("q-rules"),
+    )
+    assert ratified == []
+
+
+def test_every_preflight_blocker_has_an_owner_and_a_closure_criterion():
+    """A refusal the code can emit with nobody accountable for closing it.
+
+    The registry is the only place an owner and a closure criterion live, so a
+    blocker id that can be emitted and is not registered is a wall with no door.
+    """
+    from sabermetrics.assistant.eval.blockers import load_blockers
+    from sabermetrics.assistant.eval.g2 import PREFLIGHT_BLOCKER_IDS
+
+    registry = load_blockers()
+    registered = {blocker.id for blocker in registry.blockers}
+    assert set(PREFLIGHT_BLOCKER_IDS) == registered, (
+        "registry and code disagree: "
+        f"unregistered={sorted(set(PREFLIGHT_BLOCKER_IDS) - registered)}, "
+        f"unreachable={sorted(registered - set(PREFLIGHT_BLOCKER_IDS))}"
+    )
+    for blocker in registry.blockers:
+        assert blocker.owner, blocker.id
+        assert blocker.closure_criterion, blocker.id
+        assert blocker.evidence_of_closure, blocker.id
+
+
+def _rules_run(question_id, passages):
+    """A plan run that finds the named card AND looks the rule up.
+
+    Two steps, because that is the shape every rules plan has and the shape the
+    hole lived in: the card step passes on recall while the rules step decides
+    nothing.
+    """
+    from sabermetrics.assistant.envelope import RulesRow
+
+    rows = tuple(
+        RulesRow(
+            citation=f"rules:CR {index}",
+            document="comprehensive_rules",
+            section=f"CR {index}",
+            tier=1,
+            content=text,
+            similarity=0.9,
+            rank=index,
+        )
+        for index, text in enumerate(passages, 1)
+    )
+    lookup = StepResult(
+        step_id="cr",
+        kind="rules_lookup",
+        tier="fact",
+        ordering="ranked",
+        provenance=PROVENANCE,
+        coverage=Coverage(
+            eligible=len(rows),
+            eligible_is_exact=True,
+            examined=len(rows),
+            returned=len(rows),
+            dropped=0,
+            truncated=False,
+            set_input_incomplete=False,
+        ),
+        field=NoFieldEvidence(reason="not_a_field_query"),
+        availability=RetrievalAvailability(lexical=True, dense=True, reranked=True),
+        rules=rows,
+        elapsed_ms=1.0,
+    )
+    return PlanRun(
+        plan_sha256=HEX,
+        question_id=question_id,
+        intent="a synthetic plan intent",
+        steps=(_result("cards", ["a"]), lookup),
+        answer_step="cards",
+        elapsed_ms=1.0,
+    )
+
+
+def test_an_unlabelled_rules_question_is_not_a_composite_pass():
+    """The hole this closes: card recall standing in for a rules answer.
+
+    Full required recall, six well-cited passages, and nothing anywhere asking
+    whether those passages answer the question. Before the support gate this
+    read as a pass.
+    """
+    question = _question("rules-x", required_oracle_ids=["a"], category="rules")
+    card = _score(
+        [question],
+        [_observation("rules-x", ["a"])],
+        [_rules_run("rules-x", ["some rules text"])],
+    )
+    assert card["gates"]["retrieval"]["passed"] == 1, "card recall still passes"
+    support = card["gates"]["rules_support"]
+    assert support["status"] == "not_measured"
+    assert support["unlabelled"] == ["rules-x"]
+    composite = card["gates"]["composite"]
+    assert composite["applicable"] == 0, "it must not count as answered"
+    assert composite["not_measurable_rules_unlabelled"] == ["rules-x"]
+
+
+def test_a_labelled_rules_question_fails_when_a_required_rule_is_missing():
+    labels = _ratified_rules_labels("rules-x")
+    question = _question("rules-x", required_oracle_ids=["a"], category="rules")
+    card = _score(
+        [question],
+        [_observation("rules-x", ["a"])],
+        [_rules_run("rules-x", ["a passage about something else entirely"])],
+        rules_support=labels,
+    )
+    assert card["gates"]["retrieval"]["passed"] == 1
+    support = card["gates"]["rules_support"]
+    assert support["status"] == "measured"
+    assert support["failed"] == ["rules-x"]
+    assert support["verdicts"]["rules-x"]["required_missing"] == ["100.1"]
+    assert "rules-x" in card["gates"]["composite"]["failed"]
+
+
+def test_a_labelled_rules_question_passes_when_the_passages_carry_the_rule():
+    labels = _ratified_rules_labels("rules-x")
+    quote = labels.labels[0].quoted_evidence[0].quote
+    question = _question("rules-x", required_oracle_ids=["a"], category="rules")
+    card = _score(
+        [question],
+        [_observation("rules-x", ["a"])],
+        [_rules_run("rules-x", [f"100.1. {quote}, including two-player games."])],
+        rules_support=labels,
+    )
+    support = card["gates"]["rules_support"]
+    assert support["passed"] == 1
+    assert support["failed"] == []
+    assert card["gates"]["composite"]["failed"] == []
+    assert card["gates"]["composite"]["applicable"] == 1
+
+
+def test_passage_provenance_and_answer_support_are_separate_gates():
+    """Six well-cited passages and a wrong answer must not read the same.
+
+    ``rules_passages`` says the index returned rows that carry their source.
+    ``rules_support`` says whether those rows contain what the answer needs.
+    Reporting them as one number is how the first came to imply the second.
+    """
+    labels = _ratified_rules_labels("rules-x")
+    question = _question("rules-x", required_oracle_ids=["a"], category="rules")
+    card = _score(
+        [question],
+        [_observation("rules-x", ["a"])],
+        [_rules_run("rules-x", ["well cited, fully attributed, and off topic"])],
+        rules_support=labels,
+    )
+    passages = card["gates"]["rules_passages"]
+    assert passages["missing_provenance"] == []
+    assert passages["returned_nothing"] == []
+    assert passages["passages_returned"]["rules-x"] == 1
+    assert card["gates"]["rules_support"]["failed"] == ["rules-x"]
+    assert "NOT answer support" in passages["measures"]
+    assert "NOT passage provenance" in card["gates"]["rules_support"]["measures"]

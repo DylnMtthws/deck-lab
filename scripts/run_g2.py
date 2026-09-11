@@ -54,6 +54,7 @@ from sabermetrics.assistant.eval.plans import (
     check_plan_coverage,
     load_hand_written_plans,
 )
+from sabermetrics.assistant.eval.rules_support import load_rules_support_labels
 from sabermetrics.assistant.eval.runner import (
     LabelIdMap,
     load_label_id_map,
@@ -378,13 +379,21 @@ def main() -> int:
     # spending a quarter of an hour to be told something that was knowable
     # before the first query.
     if not (args.measured or args.only or args.emit_chunk):
-        refusals = preflight_refusals(questions, plans=plans, id_map=id_map)
+        refusals = preflight_refusals(
+            questions,
+            plans=plans,
+            id_map=id_map,
+            rules_support=load_rules_support_labels(),
+        )
         if refusals:
             raise RuntimeError(
                 "authoritative G2 cannot be claimed:\n  - "
-                + "\n  - ".join(refusals)
-                + "\nRun with --measured for development evidence, which is "
-                "explicitly not the gate."
+                + "\n  - ".join(
+                    f"[{item.blocker_id}] {item.detail}" for item in refusals
+                )
+                + "\nEach blocker's owner and closure criterion are in "
+                "fixtures/research/g2_blockers.yaml.\nRun with --measured for "
+                "development evidence, which is explicitly not the gate."
             )
 
     if args.emit_chunk is not None:
@@ -485,6 +494,7 @@ def _finish(
             plans=plans,
             id_map=id_map,
             run=run,
+            rules_support=load_rules_support_labels(),
         )
     else:
         scorecard = authoritative_g2(
@@ -496,6 +506,7 @@ def _finish(
             run=run,
             settings=settings,
             corpus_oracle_ids=_corpus_oracle_ids(settings),
+            rules_support=load_rules_support_labels(),
         )
 
     print(json.dumps(scorecard, indent=2, sort_keys=True))

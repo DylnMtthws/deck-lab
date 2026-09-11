@@ -29,8 +29,15 @@ from sabermetrics.assistant.eval.baseline import (
     evaluation_inputs_sha256,
     load_adjudications,
 )
-from sabermetrics.assistant.eval.models import GoldenQuestion, load_questions
+from sabermetrics.assistant.eval.blockers import load_blockers
+from sabermetrics.assistant.eval.g2 import preflight_refusals
+from sabermetrics.assistant.eval.models import (
+    GoldenQuestion,
+    GoldenQuestionSet,
+    load_questions,
+)
 from sabermetrics.assistant.eval.plans import HandWrittenPlan, load_hand_written_plans
+from sabermetrics.assistant.eval.rules_support import load_rules_support_labels
 from sabermetrics.assistant.eval.runner import LabelIdMap, load_label_id_map
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -92,6 +99,93 @@ def _steps(plan: HandWrittenPlan) -> list[str]:
     return lines
 
 
+def _rules_support_block(
+    question: GoldenQuestion, labels: Any, scorecard: dict[str, Any] | None
+) -> list[str]:
+    """Render the proposed rules-support label, for a reviewer to adjudicate.
+
+    This is the second answer key on the page and it is a different kind of
+    judgement from the card labels: not "is this the right card" but "does this
+    rule settle this question". The quotes are printed because that is what is
+    actually being asked — whether the sentence says what the label claims it
+    says.
+    """
+    if question.category != "rules":
+        return []
+    if labels is None or question.id not in labels.by_question_id:
+        return [
+            "",
+            "**Rules support** — _no label. Until one exists this question is "
+            "not measurable: the card was found, passages came back, and "
+            "nothing asks whether they answer the ask._",
+        ]
+    label = labels.by_question_id[question.id]
+    quotes = {entry.rule: entry for entry in label.quoted_evidence}
+    lines = [
+        "",
+        f"**Rules support** (`{labels.label_set}`, set status {labels.status}, "
+        f"label {label.verification.replace('_', ' ')}, "
+        f"confidence {label.confidence})",
+        "",
+        f"_Must establish._ {label.sufficient_support.strip()}",
+        "",
+        "Required — every one, or the question is not answered:",
+        "",
+    ]
+    for rule in label.required_rules:
+        entry = quotes.get(rule)
+        lines.append(f"- **{rule}** — {entry.why.strip() if entry else ''}")
+        if entry:
+            lines.append(f"  > {entry.quote.strip()}")
+    if label.sufficient_any_of:
+        lines += ["", "Any one of these also needed:", ""]
+        for rule in label.sufficient_any_of:
+            entry = quotes.get(rule)
+            lines.append(f"- **{rule}** — {entry.why.strip() if entry else ''}")
+            if entry:
+                lines.append(f"  > {entry.quote.strip()}")
+    if label.near_miss_rules:
+        evaluable = sum(1 for miss in label.near_miss_rules if miss.evaluable)
+        lines += [
+            "",
+            "Near misses — retrieving one is fine, resting the answer on one is "
+            "not. Never scored against an answer. "
+            f"{evaluable} of {len(label.near_miss_rules)} carry a quote the "
+            "matcher can look for; the rest are annotations and are reported "
+            "as unevaluable rather than as absent:",
+            "",
+        ]
+        for miss in label.near_miss_rules:
+            mark = "" if miss.evaluable else " _(annotation — not machine-checkable)_"
+            lines.append(f"- **{miss.rule}**{mark} — {miss.why.strip()}")
+            if miss.quote:
+                lines.append(f"  > {miss.quote.strip()}")
+    lines += ["", f"_Labeller's rationale._ {label.rationale.strip()}"]
+    verdict = (
+        ((scorecard or {}).get("gates", {}).get("rules_support", {}) or {})
+        .get("verdicts", {})
+        .get(question.id)
+    )
+    if verdict:
+        state = "SUPPORTED" if verdict["supported"] else "NOT SUPPORTED"
+        lines += ["", f"_Result._ {state}."]
+        if verdict["required_missing"]:
+            lines.append(
+                "Missing: " + ", ".join(f"`{r}`" for r in verdict["required_missing"])
+            )
+        if verdict["near_misses_detected"]:
+            lines.append(
+                "Traps that came back (not a failure): "
+                + ", ".join(f"`{r}`" for r in verdict["near_misses_detected"])
+            )
+        if verdict["near_misses_unevaluable"]:
+            lines.append(
+                "Traps nothing could check for: "
+                + ", ".join(f"`{r}`" for r in verdict["near_misses_unevaluable"])
+            )
+    return lines
+
+
 def _outcome(
     question: GoldenQuestion,
     scorecard: dict[str, Any] | None,
@@ -146,8 +240,60 @@ def _outcome(
     return lines
 
 
+def _blockers(
+    questions: GoldenQuestionSet, plans_set: Any, id_map: LabelIdMap
+) -> list[str]:
+    """Render every authoritative-G2 blocker with its owner and closure test.
+
+    Generated from the registry and from the live refusals, so a blocker that
+    has actually closed stops being listed as shut without anyone editing prose.
+    """
+    registry = load_blockers()
+    open_now = {
+        refusal.blocker_id
+        for refusal in preflight_refusals(
+            questions,
+            plans=plans_set,
+            id_map=id_map,
+            rules_support=load_rules_support_labels(),
+        )
+    }
+    lines = [
+        "### What is blocking an authoritative G2 claim",
+        "",
+        "Generated from the refusals the code actually emits right now, joined",
+        "to the registry in `fixtures/research/g2_blockers.yaml`. Every one is a",
+        "**ratification**, not an engineering task — none is waiting on code.",
+        "That is deliberate: these labels are what the system is measured",
+        "against, and a system that could ratify its own answer key would",
+        "measure nothing.",
+        "",
+    ]
+    for blocker in registry.blockers:
+        shut = blocker.id in open_now
+        lines += [
+            f"#### `{blocker.id}` — {'OPEN (blocking)' if shut else 'satisfied'}",
+            "",
+            blocker.statement.strip(),
+            "",
+            f"- **Owner:** {blocker.owner}",
+            f"- **Closes when:** {blocker.closure_criterion.strip()}",
+            f"- **Evidence:** {blocker.evidence_of_closure.strip()}",
+        ]
+        if blocker.depends_on:
+            lines.append(
+                "- **Do first:** " + ", ".join(f"`{d}`" for d in blocker.depends_on)
+            )
+        lines.append("")
+    return lines
+
+
 def _header(
-    scorecard: dict[str, Any] | None, inputs_hash: str, id_map: LabelIdMap
+    scorecard: dict[str, Any] | None,
+    inputs_hash: str,
+    id_map: LabelIdMap,
+    questions: GoldenQuestionSet,
+    plans_set: Any,
 ) -> list[str]:
     rulings = load_adjudications()
     baseline = current_baseline(inputs_hash)
@@ -171,21 +317,7 @@ def _header(
         "3. **Is the plan expressing the ask, or fitting the answer?** A bound",
         "   chosen after seeing where the answer ranked is tuning, not retrieval.",
         "",
-        "### Two decisions the artefacts cannot make",
-        "",
-        "- **Should rules questions label their expected sections?** The index",
-        "  retrieves passages and preserves their provenance, and that is all",
-        "  that is measured. Whether `CR 605.3b` actually answers \"is Kinnan's",
-        '  ability a mana ability" is a judgement nobody has recorded, so the',
-        "  rules questions currently pass on card retrieval alone. Labelling the",
-        "  sections each question needs is what would make rule support",
-        "  measurable — and it is labelling work, not code.",
-        "- **Should the label id map be marked reviewed?** It is the bijection",
-        "  from fixture ids to corpus ids and it is `awaiting_owner_review`.",
-        "  Authoritative G2 refuses until it is reviewed, which is deliberate: an",
-        "  unreviewed map means the cards being scored may not be the cards",
-        "  intended.",
-        "",
+        *_blockers(questions, plans_set, id_map),
         f"- adjudication set: `{adjudication_set()}`",
         f"- ratifies the golden set: "
         f"`{bool(rulings.get('ratifies_golden_set', False))}`",
@@ -240,6 +372,7 @@ def main() -> int:
     questions = load_questions()
     plans = {plan.question_id: plan for plan in load_hand_written_plans().plans}
     id_map = load_label_id_map()
+    rules_labels = load_rules_support_labels()
     inputs_hash = evaluation_inputs_sha256(questions, load_hand_written_plans())
     scorecard = (
         json.loads(args.scorecard.read_text(encoding="utf-8"))
@@ -262,7 +395,9 @@ def main() -> int:
                 "re-run G2 with --observations"
             )
 
-    lines = _header(scorecard, inputs_hash, id_map)
+    lines = _header(
+        scorecard, inputs_hash, id_map, questions, load_hand_written_plans()
+    )
     by_category: dict[str, list[GoldenQuestion]] = {}
     for question in questions.questions:
         by_category.setdefault(question.category, []).append(question)
@@ -319,6 +454,7 @@ def main() -> int:
                 lines += ["", f"_Rationale._ {plan.rationale.strip()}"]
                 if plan.review_note:
                     lines += ["", f"_Author's note._ {plan.review_note.strip()}"]
+            lines += _rules_support_block(question, rules_labels, scorecard)
             lines += ["", "**What happened**", ""]
             lines += _outcome(
                 question, scorecard, returned_by_question.get(question.id, []), id_map

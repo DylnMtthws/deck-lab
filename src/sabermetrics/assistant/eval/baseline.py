@@ -31,10 +31,24 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sabermetrics.assistant.eval.models import GoldenQuestion, GoldenQuestionSet
 from sabermetrics.assistant.eval.plans import HandWrittenPlanSet
-
-EVALUATION_INPUTS_VERSION: Literal["research-evaluation-inputs.v1"] = (
-    "research-evaluation-inputs.v1"
+from sabermetrics.assistant.eval.rules_support import (
+    RulesSupportLabelSet,
+    load_rules_support_labels,
 )
+
+#: Bumped because the hash now covers the rules-support labels. A digest whose
+#: inputs changed while its version did not is a digest that lies about what it
+#: compared.
+EVALUATION_INPUTS_VERSION: Literal["research-evaluation-inputs.v2"] = (
+    "research-evaluation-inputs.v2"
+)
+
+
+class _Unset:
+    """Sentinel distinguishing "load the checked-in set" from "there is none"."""
+
+
+_UNSET = _Unset()
 FROZEN_BASELINE_SCHEMA: Literal["research-frozen-baseline.v1"] = (
     "research-frozen-baseline.v1"
 )
@@ -78,17 +92,32 @@ def evaluation_inputs_sha256(
     plans: HandWrittenPlanSet,
     *,
     adjudications: Path = ADJUDICATIONS_PATH,
+    rules_support: RulesSupportLabelSet | None | _Unset = _UNSET,
 ) -> str:
     """Hash every input that can move a G2 number, and nothing that cannot.
+
+    The rules-support labels are in here because adding them CHANGES WHAT A
+    RULES QUESTION MEANS: before them a rules question was answered by finding
+    the card the asker named, and after them it must also retrieve the rules the
+    answer rests on. That is a different evaluation, and it gets a different
+    hash so its result is separately identified rather than quietly replacing
+    the meaning of an earlier score.
 
     Args:
         question_set: The merged golden questions.
         plans: The hand-written plan set.
         adjudications: Path to the owner-adjudication file.
+        rules_support: The rules-support label set. Omit to load the checked-in
+            one; pass ``None`` explicitly to hash as though none existed.
 
     Returns:
-        A hex digest over the score-determining content of all three.
+        A hex digest over the score-determining content of all four.
     """
+    labels = (
+        load_rules_support_labels()
+        if isinstance(rules_support, _Unset)
+        else rules_support
+    )
     rulings = load_adjudications(adjudications)
     payload = {
         "version": EVALUATION_INPUTS_VERSION,
@@ -120,6 +149,11 @@ def evaluation_inputs_sha256(
             ),
             key=lambda entry: (entry["question_id"], entry["ruling"]),
         ),
+        # The whole set, status included: promoting these labels from proposed
+        # to owner_verified changes whether authoritative G2 is even reachable,
+        # so it is not a cosmetic edit and must not hash the same.
+        "rules_support": labels.sha256() if labels is not None else None,
+        "rules_support_set": labels.label_set if labels is not None else None,
     }
     canonical = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
@@ -158,6 +192,16 @@ class FrozenBaseline(BaseModel):
     name_lookup_count: int = Field(ge=0)
     unscored_pending: dict[str, str]
     alternative_coverage: dict[str, dict[str, int]]
+    #: Rules-answer support. Optional so that baselines frozen before these
+    #: labels existed still load — and absent rather than zero, because "no
+    #: label set was bound" and "every rules question failed" are opposite
+    #: states that a zero would render identically.
+    rules_support_set: str | None = None
+    rules_support_status: str | None = None
+    rules_support_passed: int | None = None
+    rules_support_applicable: int | None = None
+    rules_support_failed: list[str] = Field(default_factory=list)
+    rules_support_unlabelled: list[str] = Field(default_factory=list)
     #: What this measurement does NOT establish. Free text, required, and read
     #: by a human rather than by code.
     limitations: list[str] = Field(min_length=1)

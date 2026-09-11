@@ -35,6 +35,7 @@ and the honest reading cannot diverge inside one document.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,6 +54,10 @@ from sabermetrics.assistant.eval.plans import (
     HandWrittenPlanSet,
     mentions_card_name,
     plans_naming_the_answer,
+)
+from sabermetrics.assistant.eval.rules_support import (
+    RulesSupportLabelSet,
+    support_verdict,
 )
 from sabermetrics.assistant.eval.runner import LabelIdMap, step_availability
 from sabermetrics.assistant.eval.scoring import correctness_scorecard
@@ -129,6 +134,7 @@ def g2_scorecard(
     plans: HandWrittenPlanSet,
     id_map: LabelIdMap,
     run: G2Run,
+    rules_support: RulesSupportLabelSet | None = None,
     authoritative: bool = False,
     recall_k: int = 50,
 ) -> dict[str, Any]:
@@ -163,8 +169,13 @@ def g2_scorecard(
     clarification = _clarification_gate(by_id, rows)
     no_finding = _no_finding_gate(by_id)
     counterexample = _counterexample_gate(by_id, rows)
+    rules_passages = _rules_passages(by_id, runs_by_id, run.rules_index)
+    rules_answer_support = _rules_support(by_id, runs_by_id, rules_support)
     composite = _composite_gate(
-        by_id, (retrieval, absence, clarification, counterexample), no_finding
+        by_id,
+        (retrieval, absence, clarification, counterexample, rules_answer_support),
+        no_finding,
+        unsupported_rules=set(rules_answer_support["unlabelled"]),
     )
 
     leaked = plans_naming_the_answer(plans, question_set, id_map.names_by_label_id)
@@ -201,7 +212,8 @@ def g2_scorecard(
             "clarification": clarification,
             "no_finding": no_finding,
             "counterexample": counterexample,
-            "rules_support": _rules_support(by_id, runs_by_id, run.rules_index),
+            "rules_passages": rules_passages,
+            "rules_support": rules_answer_support,
             "composite": composite,
         },
         "subsets": {
@@ -282,20 +294,48 @@ def g2_scorecard(
     }
 
 
+@dataclass(frozen=True)
+class Refusal:
+    """One reason authoritative G2 cannot be claimed, and which blocker it is.
+
+    Carrying the blocker id rather than prose is what lets the registry in
+    ``fixtures/research/g2_blockers.yaml`` be checked against the code: a
+    refusal the code can emit with no owner and no closure criterion is a
+    blocker nobody is accountable for closing.
+    """
+
+    blocker_id: str
+    detail: str
+
+
+#: Every blocker id :func:`preflight_refusals` can emit. The registry must
+#: cover all of them, and a test asserts each is reachable — an id listed here
+#: that nothing can produce is as misleading as one produced but unlisted.
+PREFLIGHT_BLOCKER_IDS: tuple[str, ...] = (
+    "golden_set_contested",
+    "plans_not_owner_verified",
+    "id_map_unreviewed",
+    "unnamed_label_ids",
+    "rules_support_labels_unratified",
+)
+
+
 def preflight_refusals(
     question_set: GoldenQuestionSet,
     *,
     plans: HandWrittenPlanSet,
     id_map: LabelIdMap,
-) -> list[str]:
+    rules_support: RulesSupportLabelSet | None = None,
+) -> list[Refusal]:
     """Return the authoritative-G2 refusals knowable before anything executes.
 
-    Four of the preconditions depend only on checked-in artefacts: whether the
-    golden set is still contested, whether any plan is unverified, whether the
-    id map has been reviewed, and whether it can name every labelled card.
-    Checking them at the end meant running eighty-two plans for a quarter of an
-    hour to be told something that was true before the first query — and a
-    refusal nobody waits around for is a refusal nobody reads.
+    These preconditions depend only on checked-in artefacts: whether the golden
+    set is still contested, whether any plan is unverified, whether the id map
+    has been reviewed and can name every labelled card, and whether the
+    rules-support labels have been ratified. Checking them at the end meant
+    running eighty-two plans for a quarter of an hour to be told something that
+    was true before the first query — and a refusal nobody waits around for is
+    a refusal nobody reads.
 
     This does NOT replace the checks in :func:`authoritative_g2`. Those run
     against the executed evidence and stay where they are; a precondition
@@ -306,35 +346,67 @@ def preflight_refusals(
         question_set: The golden questions.
         plans: The hand-written plan artefact.
         id_map: The id-space translation.
+        rules_support: The rules-support label set, when one exists.
 
     Returns:
-        Human-readable refusals, empty when none apply.
+        Refusals, empty when none apply.
     """
-    refusals: list[str] = []
+    refusals: list[Refusal] = []
     contested = sorted(
         question.id for question in question_set.questions if question.contested
     )
     if contested:
         refusals.append(
-            f"the golden set is still contested ({len(contested)} questions), "
-            "and an unreviewed label is not a target"
+            Refusal(
+                "golden_set_contested",
+                f"the golden set is still contested ({len(contested)} questions), "
+                "and an unreviewed label is not a target",
+            )
         )
     unverified = list(plans.unverified)
     if unverified:
         refusals.append(
-            f"{len(unverified)} plans are not owner-verified, and a draft plan "
-            "measures what its author guessed rather than what the ask needs"
+            Refusal(
+                "plans_not_owner_verified",
+                f"{len(unverified)} plans are not owner-verified, and a draft "
+                "plan measures what its author guessed rather than what the "
+                "ask needs",
+            )
         )
     if id_map.status not in {"owner_verified", "identity"}:
         refusals.append(
-            f"the label id map is {id_map.status!r}; the cards being scored may "
-            "not be the cards intended"
+            Refusal(
+                "id_map_unreviewed",
+                f"the label id map is {id_map.status!r}; the cards being scored "
+                "may not be the cards intended",
+            )
         )
     unnamed = _unnamed_label_ids(question_set, id_map)
     if unnamed:
         refusals.append(
-            f"{len(unnamed)} labelled ids have no name in the id map, so the "
-            "plan-naming check would silently pass"
+            Refusal(
+                "unnamed_label_ids",
+                f"{len(unnamed)} labelled ids have no name in the id map, so "
+                "the plan-naming check would silently pass",
+            )
+        )
+    rules_questions = [
+        question.id
+        for question in question_set.questions
+        if question.category == "rules"
+    ]
+    if rules_questions and (
+        rules_support is None or rules_support.status != "owner_verified"
+    ):
+        state = "absent" if rules_support is None else repr(rules_support.status)
+        refusals.append(
+            Refusal(
+                "rules_support_labels_unratified",
+                f"the rules-support label set is {state}, so for "
+                f"{len(rules_questions)} rules questions nothing establishes "
+                "that a retrieved passage answers the ask; a card-retrieval "
+                "pass would stand in for one",
+            )
         )
     return refusals
 
@@ -349,6 +421,7 @@ def authoritative_g2(
     run: G2Run,
     settings: ResearchSettings,
     corpus_oracle_ids: set[str],
+    rules_support: RulesSupportLabelSet | None = None,
     recall_k: int = 50,
 ) -> dict[str, Any]:
     """Validate production evidence, then score it as G2.
@@ -404,6 +477,21 @@ def authoritative_g2(
         raise G2InputError(
             "authoritative G2 requires an id map that names every labelled "
             "card, or the plan-naming check silently passes: " + ", ".join(unnamed)
+        )
+    rules_questions = sorted(
+        question.id
+        for question in question_set.questions
+        if question.category == "rules"
+    )
+    if rules_questions and (
+        rules_support is None or rules_support.status != "owner_verified"
+    ):
+        state = "absent" if rules_support is None else repr(rules_support.status)
+        raise G2InputError(
+            "authoritative G2 requires a ratified rules-support label set; it "
+            f"is {state}. Without one, nothing establishes that a retrieved "
+            f"passage answers the ask for {', '.join(rules_questions)}, and a "
+            "card-retrieval pass would stand in for a rules answer"
         )
     wants_rules = sorted(
         plan.question_id
@@ -466,6 +554,7 @@ def authoritative_g2(
         plans=plans,
         id_map=id_map,
         run=run,
+        rules_support=rules_support,
         authoritative=True,
         recall_k=recall_k,
     )
@@ -770,19 +859,18 @@ def _no_finding_gate(by_id: Mapping[str, GoldenQuestion]) -> dict[str, Any]:
     }
 
 
-def _rules_support(
+def _rules_passages(
     by_id: Mapping[str, GoldenQuestion],
     runs: Mapping[str, PlanRun],
     index: RulesIndexIdentity | None,
 ) -> dict[str, Any]:
-    """Report what the rules index actually returned, and what that is not.
+    """Report PROVENANCE AND COMPLETENESS of the retrieved passages, only.
 
-    Two claims are easy to run together and only one of them is measured here.
-    That a ``rules_lookup`` returned passages carrying a document, a section
-    and a citation is observable, and it is what this reports. That a returned
-    passage SUPPORTS the answer to the question is a judgement about rules
-    content, nobody has labelled which sections each question needs, and so it
-    is not measured and is not implied by anything below.
+    Deliberately separate from ``gates.rules_support``, which scores whether
+    those passages answer anything. Six well-cited passages establish that the
+    index works and that every row carries its document, section and citation.
+    They establish nothing about the answer, and running the two together is
+    exactly how a card-retrieval pass comes to stand in for a rules answer.
     """
     applicable = sorted(
         question.id for question in by_id.values() if question.category == "rules"
@@ -811,6 +899,7 @@ def _rules_support(
         "name": "rules questions retrieve passages that carry their source",
         "status": "measured" if index is not None else "not_measured",
         "denominator_name": "questions_in_the_rules_category",
+        "measures": "provenance and completeness, NOT answer support",
         "applicable": len(applicable),
         "applicable_ids": applicable,
         "index": (
@@ -824,9 +913,89 @@ def _rules_support(
         "missing_provenance": sorted(without_provenance),
         "note": (
             "retrieving a passage is a prerequisite for answering a rules "
-            "question, not an answer to one. no question labels which sections "
-            "it needs, so whether a returned passage supports the answer is "
-            "UNMEASURED here and is not implied by these counts"
+            "question, not an answer to one. whether a returned passage "
+            "SUPPORTS the answer is scored separately in gates.rules_support "
+            "and is not implied by any count here"
+        ),
+    }
+
+
+def _rules_support(
+    by_id: Mapping[str, GoldenQuestion],
+    runs: Mapping[str, PlanRun],
+    labels: RulesSupportLabelSet | None,
+) -> dict[str, Any]:
+    """Score whether the retrieved passages contain what the answer needs.
+
+    This is the criterion that stops a card-retrieval pass standing in for a
+    rules answer. A rules question with no support label is UNMEASURABLE here
+    and is reported as such rather than passed — which is the whole point, and
+    the reason the composite gate stops counting it.
+
+    Matching is by the rule's TEXT rather than its number, because the chunker
+    strips a letter-suffixed rule number out of the chunk body when it uses
+    that number as the chunk's section label; ``605.1a`` can be present in a
+    returned passage and undetectable in it. The labels therefore carry the
+    verbatim sentence, which is chunking-independent and states exactly what is
+    meant: the passages contain what settles the point.
+    """
+    applicable = sorted(
+        question.id for question in by_id.values() if question.category == "rules"
+    )
+    by_question = labels.by_question_id if labels is not None else {}
+    verdicts: dict[str, dict[str, Any]] = {}
+    passed: list[str] = []
+    failed: list[str] = []
+    unlabelled: list[str] = []
+    for question_id in applicable:
+        label = by_question.get(question_id)
+        plan_run = runs.get(question_id)
+        if label is None or plan_run is None:
+            unlabelled.append(question_id)
+            continue
+        rows = tuple(
+            row
+            for step in plan_run.steps
+            if isinstance(step, StepResult)
+            for row in step.rules
+        )
+        verdict = support_verdict(label, rows)
+        verdicts[question_id] = verdict
+        (passed if verdict["supported"] else failed).append(question_id)
+    measured = sorted(verdicts)
+    if not applicable:
+        status = "not_applicable"
+    elif not measured:
+        status = "not_measured"
+    elif unlabelled:
+        status = "mixed"
+    else:
+        status = "measured"
+    return {
+        "name": "retrieved passages contain the rules the answer needs",
+        "status": status,
+        "denominator_name": "rules_questions_with_a_support_label",
+        "measures": "answer support, NOT passage provenance",
+        "applicable": len(measured),
+        "applicable_ids": applicable,
+        "passed": len(passed),
+        "failed": sorted(failed),
+        "pass_rate": len(passed) / len(measured) if measured else 0.0,
+        # Named and removed rather than passed. A rules question nobody has
+        # labelled cannot be answered correctly OR incorrectly as far as this
+        # gate is concerned, and counting it as a pass is the hole this closes.
+        "unlabelled": sorted(unlabelled),
+        "label_set": labels.label_set if labels is not None else None,
+        "label_set_status": labels.status if labels is not None else "absent",
+        "derived_from": (
+            labels.derived_from.model_dump(mode="json") if labels is not None else None
+        ),
+        "verdicts": verdicts,
+        "note": (
+            "scored by matching each labelled rule's verbatim text against the "
+            "retrieved passages. an unlabelled rules question is listed under "
+            "unlabelled and is NOT a pass; a card-retrieval pass does not "
+            "imply that the rules question was answered"
         ),
     }
 
@@ -911,6 +1080,8 @@ def _composite_gate(
     by_id: Mapping[str, GoldenQuestion],
     gates: Sequence[Mapping[str, Any]],
     no_finding: Mapping[str, Any],
+    *,
+    unsupported_rules: set[str] | None = None,
 ) -> dict[str, Any]:
     """Score every question against whichever criteria apply to it."""
     failed: set[str] = set()
@@ -922,10 +1093,16 @@ def _composite_gate(
     # Counting it as one would let a criterion nobody can evaluate raise this
     # rate, which is the opposite of what the pending list is for.
     pending = {question.id for question in by_id.values() if question.unscored_pending}
+    # A rules question with no support label has a criterion nobody can
+    # evaluate, so its card recall is not a verdict on the question. Leaving it
+    # in this denominator is exactly how "the plan found the card the asker
+    # named" came to read as "the rules question was answered".
+    unlabelled_rules = set(unsupported_rules or ())
     applicable = {
         question.id
         for question in by_id.values()
         if question.id not in pending
+        and question.id not in unlabelled_rules
         and (
             question.required_oracle_ids
             or question.satisfied_by_any_of
@@ -938,7 +1115,7 @@ def _composite_gate(
         for question in by_id.values()
         if question.id not in applicable
         and question.id not in pending
-        and question.no_finding_expected
+        and (question.no_finding_expected or question.id in unlabelled_rules)
     }
     none_applicable = sorted(
         question.id
@@ -962,14 +1139,17 @@ def _composite_gate(
         "failed": sorted(applicable & failed),
         "pass_rate": len(passed) / len(applicable) if applicable else 0.0,
         "not_measurable": sorted(unmeasurable),
+        "not_measurable_rules_unlabelled": sorted(unlabelled_rules & unmeasurable),
         "no_applicable_criterion": none_applicable,
         "unscored_pending": sorted(pending),
         "failed_outside_this_denominator": outside,
         "note": (
-            "two of the three component gates are declared rather than "
-            f"observed, and {len(unmeasurable)} questions are scoreable only "
-            "by the not_measured no-finding gate; this number is context for "
-            "the retrieval gate, not a substitute for it. a component-gate "
+            "two of the component gates are declared rather than observed, and "
+            f"{len(unmeasurable)} questions are not measurable at all — the "
+            "healthy-deck ones need a narrator, and any rules question in "
+            "not_measurable_rules_unlabelled has no support label, so its card "
+            "recall is not a verdict on the question. this number is context "
+            "for the retrieval gate, not a substitute for it. a component-gate "
             "failure on a question outside this denominator is listed under "
             "failed_outside_this_denominator rather than dropped"
         ),

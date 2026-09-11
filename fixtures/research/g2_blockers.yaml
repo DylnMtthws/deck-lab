@@ -1,0 +1,107 @@
+# What stands between the current development measurement and an authoritative
+# G2 claim.
+#
+# Every entry corresponds to a refusal the code can actually emit
+# (assistant/eval/g2.py: PREFLIGHT_BLOCKER_IDS), and a test asserts the two
+# lists match exactly. That is the point of the file: a refusal with no owner
+# and no closure criterion is a wall with no door, and after enough of them the
+# gate stops reading as "not yet" and starts reading as "never".
+#
+# EVERY BLOCKER HERE IS A RATIFICATION, not an engineering task. None of them is
+# waiting on code. They are waiting on someone deciding that a label is right,
+# which is deliberate: the labels are what the system is measured against, and a
+# system that could ratify its own answer key would measure nothing.
+schema_version: research-g2-blockers.v1
+
+blockers:
+  - id: golden_set_contested
+    statement: >-
+      All 82 golden questions carry contested: true. A question's required,
+      forbidden, alternative and counterexample cards are a judgement about what
+      the ask means, and until that judgement is made the pass rate is measured
+      against a guess.
+    owner: Dylan Matthews
+    closure_criterion: >-
+      Every question's wording and card labels reviewed, and contested set to
+      false on each one that survives review. An adjudication set recording the
+      review must carry ratifies_golden_set: true.
+    evidence_of_closure: >-
+      src/sabermetrics/assistant/eval/questions/*.yaml with no contested: true,
+      and fixtures/research/adjudications.yaml with ratifies_golden_set: true.
+    depends_on: []
+    currently_blocking: true
+
+  - id: plans_not_owner_verified
+    statement: >-
+      All 82 hand-written plans carry review_status: draft. A draft plan
+      measures what its author guessed the ask needs. Several carry bounds that
+      were chosen after inspecting where the labelled answers ranked, which is
+      development tuning and is recorded as such in their review notes.
+    owner: Dylan Matthews
+    closure_criterion: >-
+      Each plan read against its question's clarified ask and promoted to
+      owner_verified, or sent back. A plan whose bound was fitted to an answer
+      key should not be promoted without a fresh question, written before its
+      answer was known, showing the bound generalises.
+    evidence_of_closure: >-
+      fixtures/research/r3_plans/*.yaml with no review_status: draft, and an
+      empty plans_unverified list on the scorecard.
+    depends_on:
+      - golden_set_contested
+    currently_blocking: true
+
+  - id: id_map_unreviewed
+    statement: >-
+      fixtures/research/deck_context_id_map.json is awaiting_owner_review. It is
+      the bijection from the fixture's synthetic Oracle ids to the corpus ids,
+      so if one entry is wrong the cards being scored are not the cards the
+      label intended, and every number downstream is about different cards.
+    owner: Dylan Matthews
+    closure_criterion: >-
+      All 104 name-to-id mappings checked and status set to owner_verified with
+      a named reviewer. The script refuses any name that does not resolve or
+      resolves to more than one card, so what needs human judgement is whether
+      each printed name is the card the label meant.
+    evidence_of_closure: >-
+      fixtures/research/deck_context_id_map.json with status owner_verified and
+      a non-null reviewer.
+    depends_on: []
+    currently_blocking: true
+
+  - id: unnamed_label_ids
+    statement: >-
+      A labelled Oracle id the id map cannot resolve to a card name cannot be
+      checked by the plan-naming anti-cheat, which would then report a clean
+      zero over a check that never ran.
+    owner: Dylan Matthews
+    closure_criterion: >-
+      Every id in required_oracle_ids, forbidden_oracle_ids, satisfied_by_any_of
+      and counterexample_oracle_ids resolves to a name. Adding a card to a label
+      that the Kinnan deck does not contain means adding it to
+      fixtures/research/label_cards.json first.
+    evidence_of_closure: >-
+      An empty unnamed_label_ids list on the scorecard's
+      subsets.plans_naming_a_card_the_ask_does_not block.
+    depends_on: []
+    currently_blocking: false
+
+  - id: rules_support_labels_unratified
+    statement: >-
+      The ten rules questions have no ratified answer key for what a retrieved
+      passage must contain. Without one, a rules question passes on card
+      retrieval alone: the plan finds the card the asker named, the lookup
+      returns six well-cited passages, and nothing asks whether those passages
+      answer the question.
+    owner: Dylan Matthews
+    closure_criterion: >-
+      fixtures/research/rules_support_labels.yaml reviewed and promoted to
+      status owner_verified. Review means checking the required rules are
+      jointly necessary and not over-specified, and that the quoted sentences
+      say what the label claims — the quotes are checked against the pinned
+      document mechanically, but whether a rule ANSWERS the ask is a judgement.
+    evidence_of_closure: >-
+      fixtures/research/rules_support_labels.yaml with status owner_verified,
+      and gates.rules_support reporting status measured with an empty
+      unlabelled list.
+    depends_on: []
+    currently_blocking: true

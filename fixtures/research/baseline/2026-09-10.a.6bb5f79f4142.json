@@ -1,0 +1,60 @@
+{
+  "adjudication_set": "2026-09-10.a",
+  "alternative_coverage": {
+    "mechanic-005": {
+      "qualifying": 3,
+      "returned": 2
+    }
+  },
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "discovery_applicable": 31,
+  "discovery_passed": 30,
+  "embedding_model_id": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "frozen_on": "2026-09-11",
+  "inputs_sha256": "6bb5f79f4142393fbfca6f4aca846311959f359dd266e5e7244a8aff96c026fb",
+  "kind": "development_baseline",
+  "limitations": [
+    "READ THIS FIRST: retrieval and discovery are UNCHANGED at 47/48 and 30/31, and rules-answer support is newly measured at 1/10. The unchanged card numbers are the absence of an effect, not a validation; the 1/10 is the first measurement of a criterion that previously did not exist, not a regression.",
+    "The rules-support labels are PROPOSED, not ratified, and 3 of the 10 (rules-008, rules-009, rules-010) carry verification: proposed_unreviewed because the adversarial panel ran out of session budget before reconciling them. A failure scored against an unratified label is a lead, not a verdict.",
+    "Nothing was tuned in response to this number. The rules plans, their queries and their bounds are byte-identical to the run that scored 47/48 with rules support unmeasured. Investigating why a required rule did not come back is the next step and has not been done.",
+    "A development measurement against a development bundle, not the G2 gate. Five blockers are registered in fixtures/research/g2_blockers.yaml, four of them open, and every one is a ratification rather than an engineering task.",
+    "Not evidence of generalization. Several plans had their bounds chosen after inspecting where the then-labelled answers ranked. deck-local-009 is the demonstration, failing because its fitted bound did not survive the label correction, and it was left failing rather than re-tuned.",
+    "16 of the 47 card-retrieval passes are name lookups whose ask prints every required card's name. Discovery over questions that do not name their own answer is 30/31.",
+    "metagame-010 left the retrieval denominator: it asks which lands appear most often, and no cohort counts exist to answer a frequency claim until R5. The denominator is 48, not 49.",
+    "The absence and clarification gates are declared_not_measured, and the no-finding and counterexample gates are not_measured, because R3 has no narrator. For combo-004 specifically: the counterexample gate semantics are tested, but recommendation behaviour is unmeasured in R3.",
+    "Near-miss detection reports not_evaluable for all ten questions. This round's near misses are prose annotations with no quote, so the matcher could not look for them; that is distinct from having looked and found none.",
+    "mechanic-013's pass isolates the effect of final-fusion top_k FOR THAT PAIR. The conclusion is local to those two plans and is not a general claim about answer windows."
+  ],
+  "name_lookup_count": 16,
+  "plans_sha256": "63f0e62a6d3abbb9d6d0da133dd9adde7e917400014c889f762b2a174171fc7c",
+  "reranker_model_id": "BAAI/bge-reranker-base",
+  "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+  "retrieval_applicable": 48,
+  "retrieval_failed": [
+    "deck-local-009"
+  ],
+  "retrieval_passed": 47,
+  "rules_support_applicable": 10,
+  "rules_support_failed": [
+    "rules-002",
+    "rules-003",
+    "rules-004",
+    "rules-005",
+    "rules-006",
+    "rules-007",
+    "rules-008",
+    "rules-009",
+    "rules-010"
+  ],
+  "rules_support_passed": 1,
+  "rules_support_set": "rules-support.2026-09-11.a",
+  "rules_support_status": "measured",
+  "rules_support_unlabelled": [],
+  "schema_version": "research-frozen-baseline.v1",
+  "unscored_pending": {
+    "metagame-010": "R5 (cohort counts for a field-frequency claim)"
+  }
+}

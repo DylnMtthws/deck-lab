@@ -17,13 +17,15 @@
   "inputs_sha256": "af0be67d4289577d68687a62dc170399e53abf74ddbc6c7ff8ce5b0f39708d6b",
   "kind": "development_baseline",
   "limitations": [
-    "A development measurement against a development bundle, not the G2 gate. Identical on every field to an independent earlier run of the same inputs, so the number is reproducible; reproducible is not the same as general.",
+    "READ THIS FIRST: existing retrieval and discovery scores are unchanged from the pre-index measurement, and rules-support quality remains unmeasured. An unchanged score is not validation of the new index \u2014 it is the absence of any effect, because the index does not participate in card recall.",
+    "A development measurement against a development bundle, not the G2 gate. Identical on every field to an independent earlier run of the same inputs, so the number is reproducible; reproducible is not general.",
     "Not evidence of generalization. Several plans had their bounds chosen after inspecting where the then-labelled answers ranked. deck-local-009 is the demonstration, failing because its fitted bound did not survive the label correction, and it was left failing rather than re-tuned.",
     "The golden set is contested, every plan is draft, and the label id map is awaiting_owner_review. Nothing here has been ratified.",
     "16 of the 47 passes are name lookups whose ask prints every required card's name. Discovery over questions that do not name their own answer is 30/31, and that is the number that speaks to retrieval.",
     "metagame-010 left the denominator: it asks which lands appear most often, and no cohort counts exist to answer a frequency claim until R5. The denominator is 48, not 49.",
-    "The absence and clarification gates are declared_not_measured, and the no-finding and counterexample gates are not_measured, because R3 has no narrator. Their clean numbers are arithmetic, not evidence.",
-    "The rules index was bound for this run and all ten rules questions retrieved six passages each with full provenance. That establishes the index works, NOT that the rules questions are answered: no question labels which sections answer it, so rule support is unmeasured and those questions still pass on card retrieval alone."
+    "The absence and clarification gates are declared_not_measured, and the no-finding and counterexample gates are not_measured, because R3 has no narrator. Their clean numbers are arithmetic, not evidence. For combo-004 specifically: the counterexample gate semantics are now tested, but recommendation behaviour is unmeasured in R3.",
+    "All ten rules questions retrieved six passages each with full provenance. That establishes passage provenance and completeness, NOT answer support: no question labelled which sections answer it at the time of this run, so these questions passed on card retrieval alone.",
+    "mechanic-013's pass isolates the effect of final-fusion top_k FOR THAT CASE. The paired plans differ in nothing else and top_k does not feed the candidate pools, so the conclusion is local to this pair and is not a general claim about answer windows."
   ],
   "name_lookup_count": 16,
   "plans_sha256": "f65d3bf466dd85a07d166bc1191df6bf0e8ecef66191a239af8c78210e2c5244",
