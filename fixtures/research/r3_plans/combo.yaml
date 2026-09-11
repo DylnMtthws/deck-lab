@@ -148,16 +148,21 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      Two things to check. First, deck scope: the ask says "in my list", so the
-      population is the 100 cards of the pack and the scorecard will show that.
-      Second, the required set looks under-inclusive. Finale of Devastation and
-      Nature's Rhythm are both "search your library for a creature card with
-      mana value X or less, put it onto the battlefield", which is the same
-      template as the required Chord of Calling and can find Kinnan at mana
-      value two. Invasion of Ikoria fetches a creature of mana value three or
-      less on its front face. None of the three is forbidden, so the plan still
-      passes, but if those are genuinely tutors for half the engine the label
-      should include them.
+      ADJUDICATED 2026-09-10. The required set was under-inclusive and is now
+      six: the owner accepted Finale of Devastation and Nature's Rhythm, and
+      REJECTED Invasion of Ikoria — it searches for a non-Human creature and
+      Kinnan is a Human Druid. Dizzy Spell was rejected for the parallel
+      reason, transmuting at its own mana value of one. Both are recorded as
+      counterexample_oracle_ids rather than forbidden, because retrieving a
+      plausible trap is acceptable and only presenting one as an answer is not.
+      NOTHING IN R3 PERFORMS THAT CHECK: CardFilters cannot express a
+      second-order restriction on what a fetch may find, so the rejection is
+      narration work and the counterexample gate reports not_measured until
+      there is a narrator to measure. Six was confirmed by re-enumerating the
+      fixture independently rather than by reading what retrieval returned —
+      the seven fetchlands search land types only, and Boseiju makes the
+      OPPONENT search. Still to check: deck scope. The ask says "in my list",
+      so the population is the 100 cards of the pack.
     rationale: >-
       The ask is about what this list contains, so the population is the deck
       and not the corpus; a corpus search would answer a different question and

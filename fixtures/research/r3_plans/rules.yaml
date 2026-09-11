@@ -8,13 +8,19 @@
 #   2. a rules_lookup that asks the actual rules question in plain language,
 #      with no card name in it at all.
 #
-# In this deployment the second step returns reference_index_absent: the
-# Comprehensive Rules corpus has not been encoded under the pinned embedding
-# model. That is not a failure to route around. Every plan therefore also
-# states rules_index_not_built, so the honest shape of the answer is "here is
-# the card and its printed text; I cannot yet cite the rule that governs it"
-# rather than a card row presented as a ruling. These questions declare no
-# expected_absences, so answers_expectation is omitted throughout.
+# The second step now reaches a real index, built from a dated and hashed
+# Comprehensive Rules document by scripts/build_rules_index.py. Every plan here
+# used to ALSO state rules_index_not_built, which was true and is no longer:
+# the runner grants a stated absence only to a plan whose run actually failed
+# that way, so leaving the declaration in place made a false claim and was
+# refused. The declarations are gone; on a machine with no index the executor
+# still surfaces the typed absence from the run itself, which is where it
+# belongs. These questions declare no expected_absences, so answers_expectation
+# is omitted throughout.
+#
+# What a returned passage does NOT establish: no question labels which rules
+# sections answer it, so "the lookup returned six passages carrying CR 903" is
+# measured and "those passages support the answer" is not.
 #
 # Every card the asker named is already in that question's ask or
 # clarified_ask, so naming it in query.text is a lookup the asker requested
@@ -90,14 +96,7 @@ plans:
             change the mana value of the spell on the stack, and is the spell
             still cast?
       answer_step: misstep
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The Comprehensive Rules corpus has not been encoded under the
-            pinned embedding model, so no rule about Phyrexian mana or mana
-            value can be cited. The card and its printed text are shown; the
-            governing rule is not.
-
+      stated_absences: []
   - question_id: rules-002
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -144,13 +143,7 @@ plans:
             mana cost, what is its mana value on the stack, and is it still a
             cast spell?
       answer_step: fow
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            No reference index is bound in this deployment, so the rule that
-            mana value is computed from the printed mana cost regardless of
-            what was actually paid cannot be quoted or cited here.
-
+      stated_absences: []
   - question_id: rules-003
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -198,13 +191,7 @@ plans:
             upkeep, and what happens if the player does not or cannot pay the
             cost it demands?
       answer_step: pact
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The rules on delayed triggered abilities and on losing the game are
-            not retrievable: the Comprehensive Rules corpus is not encoded, so
-            the consequence can only be read off the card's own printed text.
-
+      stated_absences: []
   - question_id: rules-004
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -248,14 +235,7 @@ plans:
             the same as casting a spell, and can players respond to an
             activated ability while it is on the stack?
       answer_step: boseiju
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            Whether a channel activation counts as casting is a rules
-            classification, and no reference index is bound here, so the
-            distinction between an activated ability and a cast spell cannot be
-            cited.
-
+      stated_absences: []
   - question_id: rules-005
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -301,13 +281,7 @@ plans:
             double-faced card while its back land face is on the battlefield,
             and how do they differ from the front face on the stack?
       answer_step: sink
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The rules that fix a modal double-faced card's characteristics to
-            the face it was played as are not indexed here, so the answer
-            cannot be grounded in a rule and would be an unsourced assertion.
-
+      stated_absences: []
   - question_id: rules-006
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -352,13 +326,7 @@ plans:
             are permanents entering the battlefield simultaneously available to
             be chosen?
       answer_step: copy_artifact
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            Copy timing depends on when a replacement effect applies relative
-            to simultaneous entry, and the rules text describing that ordering
-            is not encoded in this deployment, so it cannot be cited.
-
+      stated_absences: []
   - question_id: rules-007
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -406,13 +374,7 @@ plans:
             for mana a triggered mana ability or a replacement effect, and does
             such an ability use the stack?
       answer_step: kinnan
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            Classifying an ability as a triggered mana ability rather than a
-            replacement effect is a rules judgement, and the rules defining
-            both categories are not indexed here, so no citation is available.
-
+      stated_absences: []
   - question_id: rules-008
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -459,13 +421,7 @@ plans:
             a mana ability, and when during a turn or during the resolution of
             a spell may a mana ability be activated?
       answer_step: monolith
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The definition of a mana ability and the timing permissions that
-            follow from it live in the Comprehensive Rules, which are not
-            encoded here, so the classification cannot be cited.
-
+      stated_absences: []
   - question_id: rules-009
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -512,13 +468,7 @@ plans:
             same time, who decides the order they are put on the stack, and at
             what point are their targets chosen?
       answer_step: endurance
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The rule that a player orders their own simultaneous triggers, and
-            the rule fixing when targets are chosen, are not retrievable
-            because the reference layer has no index built in this deployment.
-
+      stated_absences: []
   - question_id: rules-010
     author: Claude agent draft
     authored_on: 2026-09-09
@@ -563,9 +513,4 @@ plans:
             spell, who controls the permanent or effect it produces, and what
             restrictions apply when an effect targets a noncreature spell?
       answer_step: commandeer
-      stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The rules governing control of a spell on the stack and the
-            resulting permanent's controller are not encoded here, so the
-            second half of this question cannot be answered with a citation.
+      stated_absences: []

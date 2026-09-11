@@ -16,6 +16,8 @@ import pytest
 from sabermetrics.assistant.eval.baseline import (
     BASELINE_DIR,
     adjudication_set,
+    baseline_filename,
+    current_baseline,
     evaluation_inputs_sha256,
     frozen_baselines,
 )
@@ -134,30 +136,35 @@ def test_the_hash_moves_when_a_plan_bound_moves(questions, plans):
     )
 
 
-def test_every_frozen_baseline_still_describes_the_checked_in_inputs(questions, plans):
-    """The staleness guard. A mismatch means the number outlived its inputs."""
-    baselines = frozen_baselines()
-    if not baselines:
+def test_the_checked_in_inputs_have_a_frozen_result(questions, plans):
+    """The staleness guard, stated as presence rather than as absence.
+
+    Older baselines are kept, not invalidated: each is a true record of what
+    was measured over the inputs it names, and the day the rules index landed
+    ten plans changed without any label moving. What must not happen is the
+    current tree having NO frozen result, because then the most recent number
+    anyone can quote describes a system that no longer exists.
+    """
+    if not frozen_baselines():
         pytest.skip("no frozen baseline yet")
     current = evaluation_inputs_sha256(questions, plans)
-    stale = sorted(
-        key for key, value in baselines.items() if value.inputs_sha256 != current
-    )
-    assert not stale, (
-        f"frozen baseline(s) {stale} were measured over questions or plans that "
-        "have since changed. Re-run G2 and re-freeze rather than quoting the "
-        f"old number; see {BASELINE_DIR}"
+    assert current_baseline(current) is not None, (
+        "the questions or plans have changed since the last freeze. Re-run G2 "
+        "and freeze the result rather than quoting the previous number; see "
+        f"{BASELINE_DIR}"
     )
 
 
-def test_a_frozen_baseline_names_its_adjudication_set_and_its_limits():
+def test_every_frozen_baseline_is_named_for_what_it_contains():
+    """A file whose name and content disagree is a mislabelled measurement."""
     baselines = frozen_baselines()
     if not baselines:
         pytest.skip("no frozen baseline yet")
-    assert adjudication_set() in baselines, (
-        "the current adjudication set has no frozen baseline; a ruling that "
-        "changed a label needs its own preserved result"
-    )
-    for baseline in baselines.values():
+    for baseline in baselines:
+        path = BASELINE_DIR / baseline_filename(baseline)
+        assert path.is_file(), f"{path.name} does not match its own contents"
         assert baseline.limitations, "a preserved number must state what it is not"
         assert baseline.kind in {"development_baseline", "authoritative_gate"}
+    assert any(
+        baseline.adjudication_set == adjudication_set() for baseline in baselines
+    ), "the current adjudication set has no frozen result"

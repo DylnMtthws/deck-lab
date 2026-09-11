@@ -23,7 +23,7 @@ PY = sys.executable
 #: Measured on a clean tree after R3's tests landed. Passed is a FLOOR, so
 #: adding tests is progress; skipped is EXACT, because a test that starts
 #: skipping is a test that stopped running.
-BASELINE_PASSED = 1775
+BASELINE_PASSED = 1786
 BASELINE_SKIPPED = 31
 G2_OUTPUT = ROOT / ".research-dev" / "g2-scorecard.json"
 R3_TESTS = (
@@ -36,6 +36,7 @@ R3_TESTS = (
     "tests/test_research_face_text.py",
     "tests/test_research_answer_window.py",
     "tests/test_research_baseline_freeze.py",
+    "tests/test_rules_index_build.py",
 )
 R3_SCRIPTS = (
     "scripts/check_r3.py",
@@ -44,6 +45,7 @@ R3_SCRIPTS = (
     "scripts/freeze_baseline.py",
     "scripts/provision_rules_source.py",
     "scripts/build_rules_index.py",
+    "scripts/build_review_packet.py",
 )
 
 

@@ -231,7 +231,18 @@ def test_a_deferred_capability_is_named_rather_than_silently_skipped(questions, 
         )
 
 
-def test_a_rules_plan_states_that_the_rules_index_is_absent(questions, plans):
+def test_a_rules_plan_asks_the_rules_layer_rather_than_declaring_it_absent(
+    questions, plans
+):
+    """A rules question must attempt a lookup, and must not pre-announce failure.
+
+    These plans used to ALSO state ``rules_index_not_built``, which was true
+    while no index existed. Now one does, and the runner grants a stated
+    absence only to a plan whose run actually failed that way — so the
+    declaration became a claim the run contradicts, and was refused. The
+    typed absence still reaches the envelope on a machine with no index; it
+    comes from the run, which is the only thing that can know.
+    """
     planned = plans.by_question_id
     for question in questions.questions:
         if question.category != "rules":
@@ -240,9 +251,12 @@ def test_a_rules_plan_states_that_the_rules_index_is_absent(questions, plans):
         assert any(
             isinstance(step, RulesLookupStep) for step in plan.steps
         ), f"{question.id}: a rules question should attempt a rules lookup"
-        assert "rules_index_not_built" in {
+        assert "rules_index_not_built" not in {
             absence.reason for absence in plan.stated_absences
-        }, f"{question.id}: the plan must state that the rules corpus is not built"
+        }, (
+            f"{question.id}: a plan cannot declare the rules index missing. "
+            "Whether it is missing is a fact about the run, not about the plan"
+        )
 
 
 def test_search_text_stays_within_the_declared_bound(plans):

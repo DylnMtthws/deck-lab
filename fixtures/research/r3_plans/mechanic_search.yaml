@@ -242,10 +242,16 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      Reuses the measured G1 query. Both the required and the forbidden card
-      have transmute; the discriminator is transmute cost three versus one, and
-      the mana-value bound carries it. Confirm that is the intended reading of
-      "directly for Basalt Monolith".
+      SCOPE SET BY OWNER RULING, 2026-09-10: catalog-wide, restricted to what
+      is legal in a Simic Kinnan deck, and NOT pack-scoped. A category default
+      may supply the commander context; only an ask that says "in my list"
+      narrows membership to the fixture. Under that scope Drift of Phantasms
+      stands alone. The discriminator was corrected too — transmute searches
+      for a card of the SAME MANA VALUE as the transmuting card, so what
+      matters is the card's own mana value of three rather than a "transmute
+      cost" — and the mana-value bound carries it. mechanic-014 is the
+      unrestricted variant, where dropping the colour filter is the only change
+      and Perplex and Dimir Machinations join the answer.
     rationale: >-
       Transmute searches for a card of the same mana value, so the question is
       really "which transmute card has mana value three".

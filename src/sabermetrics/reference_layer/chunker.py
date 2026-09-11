@@ -52,6 +52,57 @@ def chunk_id(document: str, section: str | None, content: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
+#: A numbered rule, e.g. "100.1." or "702.21a". The table of contents lists
+#: section titles only, so it contains none of these.
+_RULE_LINE = re.compile(r"^\d{3}\.\d")
+#: A section heading, e.g. "100. General".
+_SECTION_LINE = re.compile(r"^\d{3}\.\s")
+
+
+def strip_table_of_contents(text: str) -> str:
+    """Drop the Comprehensive Rules' contents listing.
+
+    The contents lists every section by title, in the same ``NNN. Title`` form
+    the body uses for its headings. The section splitter cannot tell the two
+    apart, so it produced a chunk per listed title whose entire content was the
+    title — "Commander", "General" — and those chunks then competed with the
+    real rules text for the same queries and won, because a one-word chunk is a
+    dense match for a one-word topic.
+
+    They were also the source of the only content-addressed id collision in the
+    corpus: "CR 600" titled "General" appears once in the contents and once in
+    the body.
+
+    The boundary is structural rather than a length threshold. The contents
+    contains no numbered rule line and the body begins with one, so the body
+    starts at the section heading that precedes the first numbered rule.
+
+    Args:
+        text: The full rules text.
+
+    Returns:
+        The text from the body's first section heading onward, or the text
+        unchanged if the expected structure is absent.
+    """
+    lines = text.split("\n")
+    first_rule = next(
+        (index for index, line in enumerate(lines) if _RULE_LINE.match(line)), None
+    )
+    if first_rule is None:
+        return text
+    heading = next(
+        (
+            index
+            for index in range(first_rule, -1, -1)
+            if _SECTION_LINE.match(lines[index])
+        ),
+        None,
+    )
+    if heading is None:
+        return text
+    return "\n".join(lines[heading:])
+
+
 class DocumentChunker:
     """Splits reference documents into semantically coherent chunks."""
 
@@ -76,7 +127,9 @@ class DocumentChunker:
             logger.warning("Rules file not found: %s", rules_path)
             return []
 
-        text = rules_path.read_text(encoding="utf-8", errors="replace")
+        text = strip_table_of_contents(
+            rules_path.read_text(encoding="utf-8", errors="replace")
+        )
         chunks: list[Chunk] = []
 
         # Split by top-level section numbers (e.g., "100. General", "702. Keyword Abilities")

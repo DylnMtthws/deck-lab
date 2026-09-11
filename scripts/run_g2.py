@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -36,7 +37,13 @@ from pathlib import Path
 from typing import Any
 
 from sabermetrics.assistant.envelope import PlanRun
-from sabermetrics.assistant.eval.g2 import G2Run, authoritative_g2, g2_scorecard
+from sabermetrics.assistant.eval.g2 import (
+    G2Run,
+    RulesIndexIdentity,
+    authoritative_g2,
+    g2_scorecard,
+    preflight_refusals,
+)
 from sabermetrics.assistant.eval.models import (
     CorrectnessObservation,
     GoldenQuestionSet,
@@ -53,7 +60,7 @@ from sabermetrics.assistant.eval.runner import (
     run_all,
 )
 from sabermetrics.assistant.executor import ResearchExecutor
-from sabermetrics.assistant.sources import BundleCardSource
+from sabermetrics.assistant.sources import BundleCardSource, ReferenceRulesSource
 from sabermetrics.substrate.artifacts import resolve_active_bundle
 from sabermetrics.substrate.retrieval import CardRetrievalFacade
 from sabermetrics.substrate.settings import load_research_settings
@@ -91,13 +98,19 @@ def _execute_chunk(
 ) -> dict[str, Any]:
     """Execute one chunk in this process and return its portable payload."""
     settings = load_research_settings(settings_path)
+    rules, rules_identity = _rules_binding(settings)
     with CardRetrievalFacade(settings) as facade:
         manifest = facade.manifest
-        executor = ResearchExecutor(BundleCardSource(facade))
+        executor = ResearchExecutor(BundleCardSource(facade), rules=rules)
         observations, runs = run_all(questions, plans, executor, id_map)
     return {
         "bundle_id": manifest.bundle_id,
         "corpus_sha256": manifest.corpus.content_sha256,
+        # Carried so the merge can refuse chunks that consulted different
+        # rules texts, for the same reason it refuses different bundles.
+        "rules_generation_id": (
+            rules_identity.generation_id if rules_identity is not None else ""
+        ),
         "rows": [
             {
                 "observation": observation.model_dump(mode="json"),
@@ -106,6 +119,65 @@ def _execute_chunk(
             for observation, run in zip(observations, runs, strict=True)
         ],
     }
+
+
+#: Checked in by ``scripts/build_rules_index.py``. The repository states which
+#: rules document the Ask path answers from; the database only holds it.
+RULES_MANIFEST = (
+    Path(__file__).resolve().parent.parent
+    / "fixtures"
+    / "research"
+    / ("rules_index.json")
+)
+
+
+def _rules_binding(
+    settings: Any,
+) -> tuple[ReferenceRulesSource | None, RulesIndexIdentity | None]:
+    """Bind the rules index, or return the typed absence of one.
+
+    Both halves have to agree. The manifest says which document was indexed and
+    the database says which generation is active, and a run that consulted a
+    generation the manifest does not describe would cite an effective date it
+    never read. So a mismatch refuses rather than quietly preferring one.
+
+    Args:
+        settings: Loaded research settings, for the artifacts root.
+
+    Returns:
+        The source and its identity, or ``(None, None)`` when no index exists.
+
+    Raises:
+        RuntimeError: If the built index and the checked-in manifest disagree.
+    """
+    db_path = Path(settings.artifacts.root) / "reference.db"
+    if not RULES_MANIFEST.is_file() or not db_path.is_file():
+        return None, None
+    manifest = json.loads(RULES_MANIFEST.read_text(encoding="utf-8"))
+    with sqlite3.connect(db_path) as connection:
+        row = connection.execute(
+            "SELECT generation_id FROM active_reference_embedding_generation "
+            "WHERE singleton = 1"
+        ).fetchone()
+    if row is None:
+        return None, None
+    active = str(row[0])
+    if active != manifest["generation_id"]:
+        raise RuntimeError(
+            "the active reference generation is not the one the checked-in "
+            f"manifest describes: active={active}, "
+            f"manifest={manifest['generation_id']}. Rebuild with "
+            "scripts/build_rules_index.py"
+        )
+    identity = RulesIndexIdentity(
+        document=manifest["source"]["document"],
+        effective_date=manifest["source"]["effective_date"],
+        source_sha256=manifest["source"]["content_sha256"],
+        generation_id=active,
+        chunk_count=int(manifest["chunk_count"]),
+        chunker_sha256=manifest["configuration"]["chunker_sha256"],
+    )
+    return ReferenceRulesSource.open(db_path), identity
 
 
 def _spawn_chunk(start: int, size: int, args: argparse.Namespace) -> dict[str, Any]:
@@ -197,6 +269,12 @@ def _run_chunks(
             "chunks read different bundles, so their results describe different "
             f"corpora and cannot be merged: {sorted(identities)}"
         )
+    rules_identities = {p.get("rules_generation_id", "") for p in payloads}
+    if len(rules_identities) != 1:
+        raise ChunkMismatchError(
+            "chunks consulted different rules generations, so their rules "
+            f"answers came from different documents: {sorted(rules_identities)}"
+        )
 
     seen: dict[str, tuple[CorrectnessObservation, PlanRun]] = {}
     for payload in payloads:
@@ -227,6 +305,13 @@ def main() -> int:
     parser.add_argument("--plans", type=Path, default=None, help="plan directory")
     parser.add_argument("--id-map", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument(
+        "--observations",
+        type=Path,
+        default=None,
+        help="also write the merged observations and runs, which the owner "
+        "review packet needs to show a reviewer which cards came back",
+    )
     parser.add_argument(
         "--measured",
         action="store_true",
@@ -287,6 +372,21 @@ def main() -> int:
     check_plan_coverage(plans, questions)
     id_map = load_label_id_map(args.id_map) if args.id_map else load_label_id_map()
 
+    # Refuse BEFORE executing anything, on the preconditions that depend only
+    # on the checked-in artefacts. The same checks run again inside
+    # authoritative_g2 against the executed evidence; what this avoids is
+    # spending a quarter of an hour to be told something that was knowable
+    # before the first query.
+    if not (args.measured or args.only or args.emit_chunk):
+        refusals = preflight_refusals(questions, plans=plans, id_map=id_map)
+        if refusals:
+            raise RuntimeError(
+                "authoritative G2 cannot be claimed:\n  - "
+                + "\n  - ".join(refusals)
+                + "\nRun with --measured for development evidence, which is "
+                "explicitly not the gate."
+            )
+
     if args.emit_chunk is not None:
         window = questions.questions[
             args.chunk_start : args.chunk_start + args.chunk_size
@@ -320,9 +420,10 @@ def main() -> int:
         )
 
     settings = load_research_settings(args.config)
+    rules, _ = _rules_binding(settings)
     with CardRetrievalFacade(settings) as facade:
         manifest = facade.manifest
-        executor = ResearchExecutor(BundleCardSource(facade))
+        executor = ResearchExecutor(BundleCardSource(facade), rules=rules)
         observations, runs = run_all(questions, plans, executor, id_map)
 
     return _finish(
@@ -363,7 +464,9 @@ def _finish(
     reranker = manifest.reranker
     if embedding is None or reranker is None:
         raise RuntimeError("the active bundle names no ranking models")
+    _, rules_identity = _rules_binding(settings)
     run = G2Run(
+        rules_index=rules_identity,
         bundle_id=manifest.bundle_id,
         corpus_source_view=manifest.corpus.source_view,
         corpus_row_count=manifest.corpus.row_count,
@@ -398,6 +501,24 @@ def _finish(
     print(json.dumps(scorecard, indent=2, sort_keys=True))
     if args.output:
         _write_atomic(args.output, scorecard)
+    if args.observations:
+        _write_atomic(
+            args.observations,
+            {
+                "schema_version": "research-g2-observations.v1",
+                "bundle_id": run.bundle_id,
+                "evaluation_inputs_sha256": scorecard["provenance"][
+                    "evaluation_inputs_sha256"
+                ],
+                "rows": [
+                    {
+                        "observation": observation.model_dump(mode="json"),
+                        "run": plan_run.model_dump(mode="json"),
+                    }
+                    for observation, plan_run in zip(observations, runs, strict=True)
+                ],
+            },
+        )
     # Exit 0 means "the G2 gate passed". A measured run is explicitly not the
     # gate, so it never returns 0 however good its number is.
     return 0 if scorecard["status"] == "pass" else 1

@@ -897,3 +897,72 @@ def test_a_counterexample_with_no_narrator_is_unmeasured_not_clean():
     assert gate["unmeasured"] == ["q-trap"]
     assert gate["applicable"] == 0
     assert gate["applicable_ids"] == ["q-trap"]
+
+
+def test_naming_a_counterexample_as_an_exclusion_is_not_presenting_it():
+    """An explanation may say "not Ikoria, because ..." and still be correct.
+
+    This is the case the gate exists to get right. A narrator that names a trap
+    in order to rule it out is doing the restriction check, which is the
+    behaviour we want; scoring it as a failure would punish the correct answer
+    and reward one that silently omitted the card. So the gate reads only what
+    an answer PUT FORWARD, and a card that appears in the explanation without
+    being recommended is not a presentation.
+    """
+    question = _question(
+        "q-trap", required_oracle_ids=["a"], counterexample_oracle_ids=["trap"]
+    )
+    card = _score(
+        [question],
+        [
+            _observation(
+                "q-trap",
+                ["a", "trap"],
+                named_oracle_ids=["a", "trap"],
+                recommended_oracle_ids=["a"],
+            )
+        ],
+        [_run("q-trap", _result("s", ["a", "trap"]))],
+    )
+    gate = card["gates"]["counterexample"]
+    assert gate["failed"] == []
+    assert gate["passed"] == 1
+    assert gate["presented"] == {}
+
+
+def test_preflight_names_every_artefact_refusal_before_anything_runs():
+    """The refusals knowable from the checked-in files, without executing."""
+    from sabermetrics.assistant.eval.g2 import preflight_refusals
+
+    questions = GoldenQuestionSet(
+        questions=[_question("q-one", contested=True), _question("q-two")]
+    )
+    drafts = HandWrittenPlanSet(
+        schema_version="research-r3-plans.v1",
+        plans=(
+            _hand("q-one").model_copy(
+                update={
+                    "review_status": "draft",
+                    "review_note": "a synthetic note naming what to check",
+                }
+            ),
+            _hand("q-two"),
+        ),
+    )
+    refusals = preflight_refusals(questions, plans=drafts, id_map=identity_id_map())
+    assert any("contested" in refusal for refusal in refusals)
+    assert any("owner-verified" in refusal for refusal in refusals)
+    assert len(refusals) == 2, refusals
+
+
+def test_preflight_is_silent_when_nothing_blocks():
+    """It must not invent a reason; a clean set has to produce an empty list."""
+    from sabermetrics.assistant.eval.g2 import preflight_refusals
+
+    questions = GoldenQuestionSet(questions=[_question("q-one")])
+    assert (
+        preflight_refusals(
+            questions, plans=_plan_set(["q-one"]), id_map=identity_id_map()
+        )
+        == []
+    )

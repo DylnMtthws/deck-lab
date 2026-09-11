@@ -124,12 +124,6 @@ plans:
             that including both is a rules error rather than a choice?
       answer_step: list_and_roles
       stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The clarified ask allows a wrong card only on a cited conflict.
-            This deployment binds no reference layer, so the Comprehensive
-            Rules are not retrievable and no rules-grounded conflict between
-            two of these cards can be cited.
         - reason: field_statistics_deferred_to_r5
           detail: >-
             The other permitted ground is a measurable gap. Measuring a gap
@@ -314,12 +308,6 @@ plans:
             under the rules so that one must be replaced?
       answer_step: declared_engine
       stated_absences:
-        - reason: rules_index_not_built
-          detail: >-
-            The clarified ask permits a replacement on a cited mechanical
-            conflict. No reference layer is bound in this deployment, so the
-            Comprehensive Rules cannot be retrieved and no conflict between
-            declared pieces can be cited.
         - reason: simulator_study_deferred_to_r6
           detail: >-
             The other permitted ground is comparative measurement. Testing this

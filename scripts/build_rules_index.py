@@ -225,6 +225,45 @@ def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
             os.unlink(temporary)
 
 
+DOCUMENT = "comprehensive_rules"
+
+
+def _prune_superseded(db_path: Path, keep: set[str]) -> int:
+    """Delete chunks of this document that the current build no longer produces.
+
+    ``index_chunks`` merges into the standing corpus and never deletes, because
+    the reference layer is designed to hold several documents at once. That is
+    right for adding an article and wrong for REBUILDING one: a chunker change
+    leaves every superseded chunk live, embedded into the new generation and
+    competing in every search. The table-of-contents chunks survived exactly
+    this way and kept winning rules queries after the parser stopped emitting
+    them.
+
+    This script owns one document, so it removes that document's orphans.
+
+    Args:
+        db_path: The reference database.
+        keep: Chunk ids the current build produced.
+
+    Returns:
+        How many superseded rows were deleted.
+    """
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        rows = [
+            str(row[0])
+            for row in connection.execute(
+                "SELECT id FROM reference_chunks WHERE document = ?", (DOCUMENT,)
+            )
+        ]
+        superseded = [chunk_id for chunk_id in rows if chunk_id not in keep]
+        connection.executemany(
+            "DELETE FROM reference_chunks WHERE id = ?",
+            ((chunk_id,) for chunk_id in superseded),
+        )
+    return len(superseded)
+
+
 def _ensure_schema(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as connection:
@@ -273,6 +312,9 @@ def main() -> int:
         return 0
 
     _ensure_schema(args.db_path)
+    pruned = _prune_superseded(args.db_path, {chunk.id for chunk in chunks})
+    if pruned:
+        print(f"pruned     {pruned} superseded chunk(s) from a previous build")
     indexer = EmbeddingIndexer(args.db_path)
     row_count = indexer.index_chunks(list(chunks))
     with sqlite3.connect(args.db_path) as connection:
@@ -283,12 +325,15 @@ def main() -> int:
             ).fetchone()[0]
         )
         stored_chunks = int(
-            connection.execute("SELECT COUNT(*) FROM reference_chunks").fetchone()[0]
+            connection.execute(
+                "SELECT COUNT(*) FROM reference_chunks WHERE document = ?",
+                (DOCUMENT,),
+            ).fetchone()[0]
         )
     if stored_chunks != len(chunks):
         raise RulesIndexError(
-            f"{stored_chunks} chunk rows for {len(chunks)} chunks; a rebuild "
-            "duplicated the corpus instead of upserting it"
+            f"{stored_chunks} stored rows for {len(chunks)} chunks of "
+            f"{DOCUMENT}; the corpus does not match what was just built"
         )
 
     _write_atomic(
@@ -302,6 +347,7 @@ def main() -> int:
             "configuration": configuration,
             "chunk_count": len(chunks),
             "duplicate_chunks_collapsed": collapsed,
+            "superseded_chunks_pruned": pruned,
             "chunk_ids_sha256": chunk_ids_sha256(chunks),
             "reference_content_sha256": content_hash,
             "generation_id": generation_id,

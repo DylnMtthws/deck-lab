@@ -1,0 +1,41 @@
+{
+  "adjudication_set": "2026-09-10.a",
+  "alternative_coverage": {
+    "mechanic-005": {
+      "qualifying": 3,
+      "returned": 2
+    }
+  },
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "discovery_applicable": 31,
+  "discovery_passed": 30,
+  "embedding_model_id": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "frozen_on": "2026-09-10",
+  "inputs_sha256": "af0be67d4289577d68687a62dc170399e53abf74ddbc6c7ff8ce5b0f39708d6b",
+  "kind": "development_baseline",
+  "limitations": [
+    "A development measurement against a development bundle, not the G2 gate. Identical on every field to an independent earlier run of the same inputs, so the number is reproducible; reproducible is not the same as general.",
+    "Not evidence of generalization. Several plans had their bounds chosen after inspecting where the then-labelled answers ranked. deck-local-009 is the demonstration, failing because its fitted bound did not survive the label correction, and it was left failing rather than re-tuned.",
+    "The golden set is contested, every plan is draft, and the label id map is awaiting_owner_review. Nothing here has been ratified.",
+    "16 of the 47 passes are name lookups whose ask prints every required card's name. Discovery over questions that do not name their own answer is 30/31, and that is the number that speaks to retrieval.",
+    "metagame-010 left the denominator: it asks which lands appear most often, and no cohort counts exist to answer a frequency claim until R5. The denominator is 48, not 49.",
+    "The absence and clarification gates are declared_not_measured, and the no-finding and counterexample gates are not_measured, because R3 has no narrator. Their clean numbers are arithmetic, not evidence.",
+    "The rules index was bound for this run and all ten rules questions retrieved six passages each with full provenance. That establishes the index works, NOT that the rules questions are answered: no question labels which sections answer it, so rule support is unmeasured and those questions still pass on card retrieval alone."
+  ],
+  "name_lookup_count": 16,
+  "plans_sha256": "f65d3bf466dd85a07d166bc1191df6bf0e8ecef66191a239af8c78210e2c5244",
+  "reranker_model_id": "BAAI/bge-reranker-base",
+  "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+  "retrieval_applicable": 48,
+  "retrieval_failed": [
+    "deck-local-009"
+  ],
+  "retrieval_passed": 47,
+  "schema_version": "research-frozen-baseline.v1",
+  "unscored_pending": {
+    "metagame-010": "R5 (cohort counts for a field-frequency claim)"
+  }
+}

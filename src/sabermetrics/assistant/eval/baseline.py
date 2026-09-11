@@ -175,13 +175,43 @@ def load_frozen_baseline(path: Path) -> FrozenBaseline:
     return FrozenBaseline.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
-def frozen_baselines(directory: Path = BASELINE_DIR) -> dict[str, FrozenBaseline]:
-    """Load every frozen baseline, keyed by adjudication set."""
+def baseline_filename(baseline: FrozenBaseline) -> str:
+    """Return the canonical filename for one frozen result.
+
+    Keyed by adjudication set AND input hash, because those are two different
+    axes. A ruling can change a label without anything else moving, and the
+    plans can change without any ruling — as they did the day the rules index
+    was built and ten plans stopped declaring an absence that had become false.
+    One file per set would have overwritten the earlier measurement with the
+    later one and left no record that the earlier number described a different
+    system.
+    """
+    return f"{baseline.adjudication_set}.{baseline.inputs_sha256[:12]}.json"
+
+
+def frozen_baselines(directory: Path = BASELINE_DIR) -> tuple[FrozenBaseline, ...]:
+    """Load every frozen baseline, oldest file first."""
     if not directory.is_dir():
-        return {}
-    return {
-        baseline.adjudication_set: baseline
-        for baseline in (
-            load_frozen_baseline(path) for path in sorted(directory.glob("*.json"))
-        )
-    }
+        return ()
+    return tuple(
+        load_frozen_baseline(path) for path in sorted(directory.glob("*.json"))
+    )
+
+
+def current_baseline(
+    inputs_sha256: str, directory: Path = BASELINE_DIR
+) -> FrozenBaseline | None:
+    """Return the frozen result measured over exactly these inputs, if any.
+
+    Args:
+        inputs_sha256: The hash the working tree currently produces.
+        directory: Where frozen baselines live.
+
+    Returns:
+        The matching baseline, or ``None`` when the current inputs have never
+        been measured — which is not an error, only an absence of evidence.
+    """
+    for baseline in frozen_baselines(directory):
+        if baseline.inputs_sha256 == inputs_sha256:
+            return baseline
+    return None

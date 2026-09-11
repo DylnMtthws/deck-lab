@@ -80,6 +80,24 @@ class G2InputError(RuntimeError):
     """The requested evaluation is not eligible to be called G2."""
 
 
+class RulesIndexIdentity(BaseModel):
+    """Which Comprehensive Rules document a run could consult.
+
+    A rules answer is only as traceable as the text behind it, so a run that
+    consults the index names the document by its stated effective date and by
+    the hash of the bytes the publisher served — not by "the rules".
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    document: str = Field(min_length=1)
+    effective_date: str = Field(min_length=1)
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    generation_id: str = Field(min_length=1)
+    chunk_count: int = Field(ge=1)
+    chunker_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class G2Run(BaseModel):
     """Identity of the corpus and models one G2 run executed against."""
 
@@ -93,6 +111,9 @@ class G2Run(BaseModel):
     embedding_revision: str = Field(min_length=1)
     reranker_model_id: str = Field(min_length=1)
     reranker_revision: str = Field(min_length=1)
+    #: ``None`` when no reference index was bound, which is a different state
+    #: from an index that returned nothing.
+    rules_index: RulesIndexIdentity | None = None
 
     @property
     def full_corpus(self) -> bool:
@@ -180,6 +201,7 @@ def g2_scorecard(
             "clarification": clarification,
             "no_finding": no_finding,
             "counterexample": counterexample,
+            "rules_support": _rules_support(by_id, runs_by_id, run.rules_index),
             "composite": composite,
         },
         "subsets": {
@@ -230,6 +252,11 @@ def g2_scorecard(
             "reranker_revision": run.reranker_revision,
             "plans_sha256": plans.sha256(),
             "plans_unverified": list(plans.unverified),
+            "rules_index": (
+                run.rules_index.model_dump(mode="json")
+                if run.rules_index is not None
+                else {"status": "not_built"}
+            ),
             "adjudication_set": adjudication_set(),
             # The hash a frozen baseline is checked against. Two scorecards
             # sharing it were measured over the same labels and the same plans;
@@ -253,6 +280,63 @@ def g2_scorecard(
             ),
         },
     }
+
+
+def preflight_refusals(
+    question_set: GoldenQuestionSet,
+    *,
+    plans: HandWrittenPlanSet,
+    id_map: LabelIdMap,
+) -> list[str]:
+    """Return the authoritative-G2 refusals knowable before anything executes.
+
+    Four of the preconditions depend only on checked-in artefacts: whether the
+    golden set is still contested, whether any plan is unverified, whether the
+    id map has been reviewed, and whether it can name every labelled card.
+    Checking them at the end meant running eighty-two plans for a quarter of an
+    hour to be told something that was true before the first query — and a
+    refusal nobody waits around for is a refusal nobody reads.
+
+    This does NOT replace the checks in :func:`authoritative_g2`. Those run
+    against the executed evidence and stay where they are; a precondition
+    checked twice is cheap, and a precondition checked only early could be
+    bypassed by a caller that skips this.
+
+    Args:
+        question_set: The golden questions.
+        plans: The hand-written plan artefact.
+        id_map: The id-space translation.
+
+    Returns:
+        Human-readable refusals, empty when none apply.
+    """
+    refusals: list[str] = []
+    contested = sorted(
+        question.id for question in question_set.questions if question.contested
+    )
+    if contested:
+        refusals.append(
+            f"the golden set is still contested ({len(contested)} questions), "
+            "and an unreviewed label is not a target"
+        )
+    unverified = list(plans.unverified)
+    if unverified:
+        refusals.append(
+            f"{len(unverified)} plans are not owner-verified, and a draft plan "
+            "measures what its author guessed rather than what the ask needs"
+        )
+    if id_map.status not in {"owner_verified", "identity"}:
+        refusals.append(
+            f"the label id map is {id_map.status!r}; the cards being scored may "
+            "not be the cards intended"
+        )
+    unnamed = _unnamed_label_ids(question_set, id_map)
+    if unnamed:
+        refusals.append(
+            f"{len(unnamed)} labelled ids have no name in the id map, so the "
+            "plan-naming check would silently pass"
+        )
+    return refusals
 
 
 def authoritative_g2(
@@ -320,6 +404,17 @@ def authoritative_g2(
         raise G2InputError(
             "authoritative G2 requires an id map that names every labelled "
             "card, or the plan-naming check silently passes: " + ", ".join(unnamed)
+        )
+    wants_rules = sorted(
+        plan.question_id
+        for plan in plans.plans
+        if any(step.kind == "rules_lookup" for step in plan.plan.steps)
+    )
+    if wants_rules and run.rules_index is None:
+        raise G2InputError(
+            "authoritative G2 requires the reference index when a plan asks "
+            "for it; without one these questions measure fallback behaviour "
+            "rather than the plan: " + ", ".join(wants_rules)
         )
     if run.corpus_source_view != PRODUCTION_CARD_VIEW:
         raise G2InputError(
@@ -671,6 +766,67 @@ def _no_finding_gate(by_id: Mapping[str, GoldenQuestion]) -> dict[str, Any]:
             "0 manufactured findings is arithmetic rather than evidence. This "
             "gate is measured at R4, with the narrator that could manufacture "
             "one"
+        ),
+    }
+
+
+def _rules_support(
+    by_id: Mapping[str, GoldenQuestion],
+    runs: Mapping[str, PlanRun],
+    index: RulesIndexIdentity | None,
+) -> dict[str, Any]:
+    """Report what the rules index actually returned, and what that is not.
+
+    Two claims are easy to run together and only one of them is measured here.
+    That a ``rules_lookup`` returned passages carrying a document, a section
+    and a citation is observable, and it is what this reports. That a returned
+    passage SUPPORTS the answer to the question is a judgement about rules
+    content, nobody has labelled which sections each question needs, and so it
+    is not measured and is not implied by anything below.
+    """
+    applicable = sorted(
+        question.id for question in by_id.values() if question.category == "rules"
+    )
+    passages: dict[str, int] = {}
+    sections: dict[str, list[str]] = {}
+    without_provenance: list[str] = []
+    without_passages: list[str] = []
+    for question_id in applicable:
+        plan_run = runs.get(question_id)
+        if plan_run is None:
+            continue
+        rows = tuple(
+            row
+            for step in plan_run.steps
+            if isinstance(step, StepResult)
+            for row in step.rules
+        )
+        passages[question_id] = len(rows)
+        sections[question_id] = sorted({row.section or row.document for row in rows})
+        if not rows:
+            without_passages.append(question_id)
+        elif any(not (row.citation and row.document) for row in rows):
+            without_provenance.append(question_id)
+    return {
+        "name": "rules questions retrieve passages that carry their source",
+        "status": "measured" if index is not None else "not_measured",
+        "denominator_name": "questions_in_the_rules_category",
+        "applicable": len(applicable),
+        "applicable_ids": applicable,
+        "index": (
+            index.model_dump(mode="json")
+            if index is not None
+            else {"status": "not_built"}
+        ),
+        "passages_returned": passages,
+        "sections_returned": sections,
+        "returned_nothing": sorted(without_passages),
+        "missing_provenance": sorted(without_provenance),
+        "note": (
+            "retrieving a passage is a prerequisite for answering a rules "
+            "question, not an answer to one. no question labels which sections "
+            "it needs, so whether a returned passage supports the answer is "
+            "UNMEASURED here and is not implied by these counts"
         ),
     }
 

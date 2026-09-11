@@ -514,22 +514,20 @@ plans:
       THIS PLAN NOW FAILS, and the failure is the measurement rather than a
       defect to tune away. The owner accepted Nature's Rhythm and Invasion of
       Ikoria into the label on 2026-09-10, so the truth set is five. Four come
-      back: Finale of Devastation at 1, Kinnan at 2, Nature's Rhythm at 3,
-      Chord of Calling at 6. Invasion of Ikoria does not.
-      .
-      The cause matters. Its bounds — ten and five — were chosen on 2026-09-10
-      after inspecting where the then-required cards ranked, and Ikoria sat at
-      rank 9 of a fifty-row answer at the time. A bound fitted to one answer key
-      does not generalise to a corrected one, which is exactly what happened
-      here, and widening it now to recover a card the label gained afterwards
-      would be fitting the plan to the answer a second time. It is left as it
-      is. A fresh question, written before its answer is known, is what would
-      establish whether these bounds generalise.
-      .
-      Retrieval fragility worth carrying separately: Invasion of Ikoria has no
-      card-level oracle_text at all — it is a transform card whose text lives on
-      its faces, one of 891 such rows in the corpus. Retrieval still sees that
-      text through canonical_document and the tag build still sees it through
+      back: Finale of Devastation at 1, Kinnan at 2, Nature's Rhythm at 3, and
+      Chord of Calling at 6. Invasion of Ikoria does not. The cause matters:
+      this plan's bounds — ten and five — were chosen on 2026-09-10 after
+      inspecting where the then-required cards ranked, and Ikoria sat at rank 9
+      of a fifty-row answer at the time. A bound fitted to one answer key does
+      not generalise to a corrected one, which is exactly what happened here,
+      and widening it now to recover a card the label gained afterwards would
+      be fitting the plan to the answer a second time. It is left as it is. A
+      fresh question, written before its answer is known, is what would
+      establish whether these bounds generalise. Retrieval fragility worth
+      carrying separately: Invasion of Ikoria has no card-level oracle_text at
+      all — it is a transform card whose text lives on its faces, one of the
+      891 corpus rows reachable only that way. Retrieval still sees that text
+      through canonical_document and the tag build still sees it through
       CardView.texts, both asserted in tests/test_research_face_text.py, so the
       miss here is a ranking outcome and not an ingestion gap. An earlier audit
       claimed it "ranked on name and type line alone"; that claim was wrong.

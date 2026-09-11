@@ -26,6 +26,7 @@ from typing import Any
 from sabermetrics.assistant.eval.baseline import (
     BASELINE_DIR,
     FrozenBaseline,
+    baseline_filename,
     evaluation_inputs_sha256,
 )
 from sabermetrics.assistant.eval.models import load_questions
@@ -118,7 +119,7 @@ def main() -> int:
         },
         limitations=list(args.limitation),
     )
-    output = args.output or (BASELINE_DIR / f"{baseline.adjudication_set}.json")
+    output = args.output or (BASELINE_DIR / baseline_filename(baseline))
     _write_atomic(output, baseline.model_dump(mode="json"))
     print(
         f"froze {baseline.kind} {baseline.retrieval_passed}"

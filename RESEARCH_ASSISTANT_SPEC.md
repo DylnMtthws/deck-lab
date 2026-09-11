@@ -1329,13 +1329,112 @@ presenting one as an answer is not. No R3 step performs that check:
 narration work and R3 does not do it.
 
 A **face-text regression check** (`tests/test_research_face_text.py`) now pins a
-substrate asymmetry that has already misled two readers. 891 of the 34,551
-corpus rows publish no card-level `oracle_text` — their text is on faces — so
-anything reading that column directly is blind to them. Retrieval is not: the
-canonical document carries face text, and so does the tag build. An earlier
+substrate asymmetry that has already misled two readers. 1,243 of the 34,551
+corpus rows publish no card-level `oracle_text`, and for **891** of them the
+text is there on the faces; the other 352 are genuinely textless. Anything
+reading that column directly reads a blank card for all 891. Retrieval does not:
+the canonical document carries face text, and so does the tag build. An earlier
 audit inferred from the blank column that Invasion of Ikoria "ranked on name and
 type line alone"; that inference was **wrong**, and both halves are now
-asserted so it cannot recur.
+asserted so it cannot recur. The asymmetry also had exactly one live consumer on
+the Ask path — `RetrievalHit.oracle_text`, which a reader and later a narrator
+see — and it now reads the face-aware `CatalogRecord.canonical_oracle_text`. The
+rest of the audit came back clean: `cedh/` reads no card text at all, and legacy
+ingestion flattens faces into its column at write time.
+
+#### The reference index, and what having one does not establish
+
+`scripts/provision_rules_source.py` fetches the Comprehensive Rules **once**, as
+a source artefact: one pinned URL rather than a fallback list, the exact bytes
+the publisher served, and a `source.json` recording the URL, the HTTP status,
+the retrieval timestamp, the byte count, the content hash, and the effective
+date **read from the document's own text**. That last distinction is not
+pedantry — the file named `MagicCompRules 20260819.txt` states an effective date
+of **2026-08-07**, so a version inferred from the URL would have been wrong. A
+`--check-current` flag reports whether the publisher lists a different file and
+deliberately does **not** follow it: discovering a new version and silently
+indexing it would make the corpus depend on the day the build ran.
+
+`scripts/build_rules_index.py` builds offline from that artefact and refuses
+unless the bytes still hash to what was fetched. Three defects surfaced while
+building, each of which would have produced an index nobody could reproduce:
+
+- **The archive did not match its own hash.** Writing a decoded string in text
+  mode keeps the document's CRLFs; reading it back through universal newlines
+  collapses them. The served bytes are now archived verbatim and the
+  normalisation the parser needs is an explicit derived file with its own hash,
+  so what was hashed and what was parsed are both recorded.
+- **The table of contents was being chunked.** It lists every section by title
+  in the same `NNN. Title` form the body uses, so the parser emitted 147 chunks
+  whose entire content was a section title — and a one-word chunk beats real
+  rules text on a one-word query. It was also the source of the corpus's only
+  content-addressed id collision. The boundary is now structural, not a length
+  threshold: the contents contains no numbered rule line and the body begins
+  with one.
+- **A rebuild left the superseded chunks live.** `index_chunks` merges into the
+  standing corpus and never deletes, which is right for adding a document and
+  wrong for rebuilding one — the stale table-of-contents chunks were re-embedded
+  into the new generation and kept winning queries after the parser stopped
+  emitting them.
+
+Rebuilding now reproduces the generation id, the chunk ids and the manifest
+byte-for-byte. The manifest is checked in at `fixtures/research/rules_index.json`
+so the repository states which rules document the Ask path answers from, and the
+scorecard names it by effective date and source hash. `run_g2.py` refuses if the
+active generation is not the one the manifest describes, chunked runs refuse if
+two chunks consulted different generations, and `authoritative_g2` refuses
+outright if a plan asks for a `rules_lookup` and no index is bound — without one
+those ten questions measure fallback behaviour rather than the plan.
+
+Binding the index immediately falsified something. Every rules plan also stated
+`rules_index_not_built`, which was true and stopped being true; the runner grants
+a stated absence only to a plan whose run actually failed that way, so the
+declaration was refused the moment the lookup succeeded. The declarations are
+gone. On a machine with no index the typed absence still reaches the envelope
+from the run, which is the only thing that can know.
+
+**What the index does not establish.** `gates.rules_support` reports what is
+observable — how many passages each rules question retrieved, which sections
+they came from, and whether every passage carried its citation and document. It
+reports `not_measured` for the thing that actually matters: no question labels
+which rules sections answer it, so whether a returned passage *supports* the
+answer is a judgement nobody has made. An index is a prerequisite for answering
+a rules question, not an answer to one.
+
+#### Frozen baselines
+
+`fixtures/research/baseline/` holds preserved results, each carrying an
+`evaluation_inputs_sha256` over everything that can move a number — required and
+alternative and counterexample labels, pending markers, the plan IR — and
+nothing that cannot. Review notes and rationales are excluded on purpose: a hash
+that broke on prose would be re-frozen reflexively and would stop meaning
+anything. A file is named for its adjudication set **and** its input hash,
+because those are different axes; the day the rules index landed, ten plans
+changed without any label moving, and one file per set would have overwritten
+the earlier measurement with no record that it described a different system.
+`tests/test_research_baseline_freeze.py` fails when the working tree has no
+frozen result, which is the honest form of the staleness check: older baselines
+stay true about the inputs they name, and what must not happen is the current
+tree having no preserved number at all.
+
+Freezing also exposed a **wrong denominator**. Applicability in both the
+retrieval and composite gates read only `required_oracle_ids`, which since the
+adjudications is the wrong question: `mechanic-005` is scored through
+`satisfied_by_any_of` and sat in *both* the applicable and not-applicable lists,
+while `metagame-010` is scoreable but pending and sat in *neither*. The two
+counts still summed to 82. Both gates now partition into scored / pending /
+nothing-to-score and publish the sum so the arithmetic can be checked rather
+than trusted, and `metagame-010` is no longer silently counted as a composite
+pass.
+
+The combo-004 ruling also became mechanical rather than documentary.
+`CorrectnessObservation` gained `recommended_oracle_ids`, and
+`gates.counterexample` scores **that** field and never `returned_oracle_ids` —
+retrieving Invasion of Ikoria is acceptable, recommending it is the defect, and
+the retrieved count is reported beside the gate so the two cannot be conflated.
+The field is `None` rather than empty in R3, because no narrator runs and a
+clean zero would be arithmetic; the gate reports `not_measured` and lists
+combo-004 as unmeasured rather than passed.
 
 `scripts/run_g2.py --chunk N` executes the plans in sequential subprocesses so
 the reranker's working set is released between chunks; the parent never opens a

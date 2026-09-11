@@ -444,13 +444,20 @@ plans:
     authored_on: 2026-09-09
     review_status: draft
     review_note: >-
-      The one question in this category where retrieval is genuinely being
-      tested: neither required card is named in the ask, so finding them is
-      real mechanic search rather than a lookup. Please check the reading of
-      "interactive lands" — this plan treats it as lands with printed
-      non-mana interaction, in two families (channel-discard effects, and
-      activated abilities that destroy a land) — and confirm that ranking by
-      inclusion count being unavailable is the whole of what is missing.
+      UNSCORED BY OWNER RULING, 2026-09-10, and the question was preserved
+      rather than rewritten. The ask says which lands "appear most often",
+      which is a frequency claim, and neither the pack's two lands nor the
+      wider list of mechanically qualifying lands establishes frequency.
+      Membership and frequency are separate evaluations: Wasteland and Strip
+      Mine belong in candidate discovery, and what share of the field plays
+      them needs cohort counts that do not exist until R5. So this question
+      LEAVES THE RETRIEVAL DENOMINATOR — 48 rather than 49 — and is reported
+      under unscored_pending with that change stated rather than counted
+      either way. It is otherwise the one question in this category where
+      retrieval is genuinely tested, since neither card is named in the ask.
+      Still to check: the reading of "interactive lands" as lands with printed
+      non-mana interaction, in two families — channel-discard effects, and
+      activated abilities that destroy a land.
     rationale: >-
       "Which lands" is answerable deterministically and "most often" is not.
       Interactive lands are printed in two unrelated ways, so each gets its own
