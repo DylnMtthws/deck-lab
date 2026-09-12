@@ -69,28 +69,16 @@ The ten rules questions have no ratified answer key for what a retrieved passage
 
 - adjudication set: `2026-09-10.a`
 - ratifies the golden set: `False`
-- evaluation inputs: `0ccad747ba660c28b503a8812e3f06048156477ba97e675ff5f173ebdd7eaa68`
+- evaluation inputs: `93e610bcfaa5e03c934d5b80ac7fbfd688fa735048974a4a992dd8cd57f8f33d`
 - label id map: `awaiting_owner_review`
-- frozen result: **47/48** retrieval, 30/31 discovery (development_baseline)
-
-### What that number is not
-
-- READ THIS FIRST: retrieval and discovery are UNCHANGED at 47/48 and 30/31; rules-answer support is 1/10. The unchanged card numbers are the absence of an effect, not a validation. The 1/10 is the first measurement of a criterion that previously did not exist, so it is not a regression — it is the hole becoming visible.
-- THE 1/10 MIXES BARS THAT DIFFER BY A FACTOR OF TWO. scripts/audit_rules_support_labels.py shows a passing answer needs between 2 and 4 distinct chunks depending on the question, so the aggregate is less meaningful than it looks.
-- Two scored rules cannot independently fail, because they share a chunk with another scored rule: rules-005/202.3 and rules-008/605.3a. A rule that cannot fail is not a requirement, and the verdict reports it as covered when what came back was its chunk-mate.
-- Four disjunctions are inert — rules-003, rules-008, rules-009, rules-010 — because an alternative shares a chunk with a required rule. The proposition those alternatives were chosen to establish is never tested, and in each case the label's own prose calls it mandatory.
-- sufficient_any_of is a single flat disjunction, and four labels pack two independent either/or groups into it with 'one from each group' stated only in prose no code reads. That is a schema defect, found by the panel's completeness critic, not yet fixed.
-- The rules-support labels are PROPOSED, not ratified. All ten are adversarially reconciled and all 61 quotes are verbatim, but a failure scored against an unratified key is a lead, not a verdict.
-- Nothing was tuned in response to this number. The rules plans, queries and bounds are byte-identical to the run that scored 47/48 with rules support unmeasured.
-- A development measurement against a development bundle, not the G2 gate. Five blockers are registered in fixtures/research/g2_blockers.yaml, four open, every one a ratification rather than an engineering task.
-- Not evidence of generalization. deck-local-009 still fails because a bound fitted to an earlier answer key did not survive the key being corrected, and it was left failing rather than re-tuned.
-- 16 of the 47 card-retrieval passes are name lookups whose ask prints every required card's name; discovery over questions that do not name their own answer is 30/31. metagame-010 is unscored pending R5, so the retrieval denominator is 48, not 49.
-- Near-miss detection reports not_evaluable for all ten: this round's near misses are prose annotations with no quote, so the matcher could not look. That is distinct from having looked and found none.
+- frozen result: **none for these inputs** — the questions or plans
+  have changed since the last freeze, so no preserved number
+  describes the current set.
 
 ### Sources the last run consulted
 
 - cards: `scryfall:oracle_cards`, 34551 rows, `62a6198cea96`
-- rules: comprehensive_rules effective 2026-08-07, 400 chunks, source `4381ad1b39ab`
+- rules: comprehensive_rules effective 2026-08-07, 871 chunks, source `4381ad1b39ab`
 
 ## ambiguous
 
@@ -2388,7 +2376,7 @@ _Rationale._ The asker named the card, so finding it is a name lookup they reque
 
 _Author's note._ Confirm the split is what you want: the card_search answers "which card" and the rules_lookup would answer "what does paying life do". The filters are only blue and Instant: a cost:phyrexian_mana filter is a fair reading of the ask's "pay life" and was dropped anyway, because it left exactly one eligible card and a search over one card proves nothing. Check that the stated absence reads as "the rule is not citable yet" rather than as a refusal to identify the card.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence high)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence high)
 
 _Must establish._ The clarified ask contains three propositions. A passage set must establish all three.
 
@@ -2489,7 +2477,7 @@ _Rationale._ The card is named in the ask; the rule is not about the card but ab
 
 _Author's note._ A cost:alternative_cast_cost filter follows from the ask's "exiling a blue card to", but it cut the population to nineteen cards, so it is not here: the alternative cost is described in the query text instead and the haystack stays every blue instant. Confirm you want the rules question phrased about alternative costs generally rather than about this card.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence high)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence high)
 
 _Must establish._ A passage set answers this only if it establishes all three of these checkable propositions. (1) MANA VALUE IS A FUNCTION OF THE MANA COST ALONE: mana value is the total amount of mana in the object's mana cost regardless of color, so Force of Will's printed {3}{U}{U} is mana value 5 — 202.3's own worked example on the next line is literally "A mana cost of {3}{U}{U} translates to a mana value of 5." (2) PAYING THE ALTERNATIVE COST DOES NOT TOUCH THE MANA COST: 118.9c says an alternative cost changes only what the controller has to pay, and that spells and abilities asking for that spell's mana cost still see the original value. Chained with (1), the mana value stays 5 on the stack, in the graveyard and everywhere else — Chalice of the Void on 5 still counters it, a cascade trigger from a mana value 6 spell can still hit it, and no effect reads it as mana value 0. Neither link alone closes this half: 202.3 alone leaves open the reading that declining to pay removes the cost, and 118.9c alone never mentions mana value. (3) IT IS STILL A CAST SPELL: paying costs is part of casting, so the spell completes the casting procedure and is cast, and abilities that trigger when a player casts a spell trigger. This has two equally valid citations — 601.2i states that once steps 601.2a–h are completed "the spell becomes cast" and cast triggers fire, and 601.2 states that "to cast a spell is to take it from where it is ... and pay its costs" and that "Casting a spell includes proposal of the spell (rules 601.2a–d) and determination and payment of costs (rules 601.2f–h)". Either carries the clause; 601.2i is the more specific and is the only line in the document that says "becomes cast", but a set holding 601.2 instead has genuinely answered the question and must not be scored a failure. NOT REQUIRED: the classification of "pay 1 life and exile a blue card ... rather than pay this spell's mana cost" as an alternative cost is stipulated by the clarified ask itself ("when its alternate cost is paid"), and the card's wording matches 118.9's template verbatim; a set that also carries 118.9, 601.2b or 601.2f is confirming something the question already grants, so none of them is load-bearing. A set proving only the mana cost is unchanged, without linking mana cost to mana value, has not answered the first half; a set proving only mana value 5 has not answered the cast-status half.
 
@@ -2575,7 +2563,7 @@ _Rationale._ The card is named. The substance is how a delayed triggered ability
 
 _Author's note._ A mana_value_max of zero follows from the ask — the payment comes next upkeep, so nothing was paid now — and left two eligible cards, so it is not here. Confirm the rules question is the right one: the interesting part is the delayed trigger and losing the game, not the counter.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence high)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence high)
 
 _Must establish._ A passage set answers this only if it establishes five checkable propositions.
 
@@ -2685,7 +2673,7 @@ _Rationale._ Finding the land is trivial once the asker names it. The real quest
 
 _Author's note._ The full printed name appears in the clarified_ask, so using it in the query is the asker's own wording rather than the plan supplying an answer. Confirm the rules question covers both halves of the ask — whether channel is casting, and what may respond to it.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence medium)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence medium)
 
 _Must establish._ A passage set answers this only if it establishes (1)+(2)+(3)+(4) below. Clause (5) is OPTIONAL enrichment and must NOT be demanded.
 
@@ -2713,7 +2701,7 @@ Required — every one, or the question is not answered:
 - **117.7** — Establishes the response window and the ordering: something may be cast or activated 'in response to' the channel ability sitting on the stack, and it resolves first. This is the property that separates channel from playing Boseiju as a land (305.1), which uses no stack. It presupposes rather than grants priority — 117.3c/117.3d/608.1 supply that mechanism — but it is the only line in the document that states the 'in response to' relationship.
   > If a player with priority casts a spell or activates an activated ability while another spell or ability is already on the stack, the new spell or ability has been cast or activated “in response to” the earlier spell or ability. The new spell or ability will resolve first.
 
-Any one of these also needed:
+Group 1 — any one of these also needed:
 
 - **405.1** — GROUP A and GROUP B in one sentence, and the single cleanest rule in the document for proposition 1: it contrasts casting (the card goes on the stack) with activating (no card goes on the stack) directly. A set containing 405.1 needs no other mechanism or definition rule.
   > When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
@@ -2723,12 +2711,19 @@ Any one of these also needed:
   > To activate an ability is to put it onto the stack and pay its costs, so that it will eventually resolve and have its effect.
 - **113.3b** — GROUP A alternative and the identification anchor: it is what lets a reader map the printed '{1}{G}, Discard Boseiju:' onto 'activated ability' once 207.2c has told them 'channel' has no rules meaning. Weaker than 405.1/602.2a because it does not itself say 'not a card', but with 113.9 and any group-B rule it reaches the same conclusion.
   > A player may activate such an ability whenever they have priority. Doing so puts it on the stack, where it remains until it’s countered, it resolves, or it otherwise leaves the stack.
+
+Group 2 — any one of these also needed:
+
+- **405.1** — GROUP A and GROUP B in one sentence, and the single cleanest rule in the document for proposition 1: it contrasts casting (the card goes on the stack) with activating (no card goes on the stack) directly. A set containing 405.1 needs no other mechanism or definition rule.
+  > When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
 - **112.1** — GROUP B alternative. Supplies the definition the mechanism is measured against: a spell is a card on the stack, and casting is what moves the card there. The channel card moves hand-to-graveyard, so it never becomes a spell.
   > A spell is a card on the stack. As the first step of being cast (see rule 601, “Casting Spells”), the card becomes a spell and is moved to the top of the stack from the zone it was in, which is usually its owner’s hand.
 - **701.5a** — GROUP B alternative. Casting is defined as putting the card itself on the stack, which channel demonstrably does not do.
   > To cast a spell is to take it from the zone it’s in (usually the hand), put it on the stack, and pay its costs, so that it will eventually resolve and have its effect. A player may cast a spell if they have priority.
 - **601.2** — GROUP B alternative, word-for-word equivalent to 701.5a's definition. Listed explicitly because the key flags 601.2a (the proposal STEP) as a trap, and a set must not be penalized for returning the preamble 601.2, which is a genuine statement of the definition.
   > To cast a spell is to take it from where it is (usually the hand), put it on the stack, and pay its costs, so that it will eventually resolve and have its effect.
+
+_A passing answer needs one rule from **every** group. These are separate propositions, not one choice._
 
 Near misses — retrieving one is fine, resting the answer on one is not. Never scored against an answer. 0 of 9 carry a quote the matcher can look for; the rest are annotations and are reported as unevaluable rather than as absent:
 
@@ -2765,6 +2760,8 @@ REJECTED — 117.7 IS OVER-SPECIFIED (reviewer 3). I went to the document and ke
 CONFIRMED, NOT CHANGED. Independently re-verified the two strongest claims in the original key. 113.9 is genuinely irreplaceable: "counters only spells" and "specifically counter abilities" appear nowhere else. And 207.2c is genuinely the only line containing "channel" (`grep -ic` returns exactly 1), so the negative-result framing stands. The 305.1 trap quote is exact and it really does assert the opposite of the truth for channel, so it stays at the head of the near-miss list. The 113.6j / 113.7a calibration (enrichment, not conjuncts) was right and is preserved in clause (3).
 
 TWO RESIDUAL ITEMS I COULD NOT FULLY RESOLVE, hence medium rather than high. (a) The schema's flat sufficient_any_of cannot express two either/or groups; I encoded the grouping in sufficient_support prose and any grader MUST read it, or a set with two group-B rules and no group-A rule could be over-credited. (b) Reviewer 1's format observation is real: the document writes top-level rules with a trailing period at line start ("113.9.", "117.7.", "112.1.", "405.1.", "601.2.", "602.2."), and I have written them without it, matching the prompt's own examples. Prefix-grep verification succeeds either way, but if a harness string-matches ids extracted from line starts, every top-level id here needs normalization. The substantive Magic content is now fully verified; the residual risk is scoring calibration, not correctness.
+
+DERIVATION NOTE: this label's sufficient_support prose states 2 independent either/or groups — (1) activating puts an ABILITY, not the card, on the stack: any one of 405.1, 602.2a, 602.2, 113.3b; (2) the definition of spell/casting that the first is measured against: any one of 405.1, 112.1, 701.5a, 601.2. The field was a flat list at the time and could not express that, so the prose governed and no code read it. The grouping here was TRANSCRIBED from that prose, not decided: the union of the groups equals the previous flat list exactly, checked mechanically, and nothing moved into or out of required_rules. A reviewer should confirm the split is what the label meant.
 
 _Result._ NOT SUPPORTED.
 Missing: `113.9`, `117.7`
@@ -2806,7 +2803,7 @@ _Rationale._ The asker named the card and asked what its characteristics are in 
 
 _Author's note._ This card carries no oracle text in the catalog because it is a modal double-faced card, so the search leans on the name and the type line alone. Check that it still lands inside the window; if it does not, the finding is about how the bundle stores split and modal faces, not about this plan. required_types is Land because the ask says "its land face".
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence high)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence high)
 
 _Must establish._ A passage set answers this only if it establishes all three of the following, for a MODAL double-faced card specifically.
 
@@ -2908,7 +2905,7 @@ _Rationale._ The card is named and easy to find. The substance is when a copy-on
 
 _Author's note._ Confirm the rules question is aimed correctly: the ask is about timing — when the copy choice is made relative to a simultaneous entry — rather than about what may be copied. Phrased as a replacement-effect timing question so the reference layer would return the right chunks.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence medium)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence medium)
 
 _Must establish._ The clarified ask has two halves — WHEN the copy is chosen, and WHETHER an artifact entering at the same time is available to choose. A passage set answers it only if it establishes all three propositions below. Propositions (1) and (3) each have several equally valid carriers, so `sufficient_any_of` contains TWO groups and the requirement is: at least one from Group A AND at least one from Group B, in addition to both required rules. It is NOT "any one entry from the flat list."
 
@@ -2929,7 +2926,7 @@ Required — every one, or the question is not answered:
 - **614.12a** — Pins the moment of the choice — the player names the artifact to copy BEFORE Copy Artifact enters the battlefield. This is the "when" half of the clarified ask, and no other rule in the document states it.
   > If a replacement effect that modifies how a permanent enters the battlefield requires a choice, that choice is made before the permanent enters the battlefield.
 
-Any one of these also needed:
+Group 1 — any one of these also needed:
 
 - **614.1c** — Group A. Classifies Copy Artifact's "enter as a copy of any artifact on the battlefield" clause as a replacement effect, which is what makes 614.12a applicable at all. (The stray opening curly quote before "are replacement effects" is a typo in the source document, reproduced faithfully so the quote matches mechanically.)
   > Effects that read “[This permanent] enters with . . . ,” “As [this permanent] enters . . . ,” or “[This permanent] enters as . . . “ are replacement effects.
@@ -2937,10 +2934,15 @@ Any one of these also needed:
   > Such text is a static ability—not a triggered ability—whose effect occurs as part of the event that puts the permanent onto the battlefield.
 - **616.1c** — Group A. Names this card's exact mechanic — an effect causing an object to become a copy of another object as it enters — as one of the replacement effects, which grounds proposition (1) for Copy Artifact's "You may have this enchantment enter as a copy" wording more directly than 614.1c's template match does.
   > If any of the replacement and/or prevention effects would cause an object to become a copy of another object as it enters the battlefield, one of them must be chosen.
+
+Group 2 — any one of these also needed:
+
 - **400.6** — Group B. Replacement effects are applied to the zone-change event and only afterwards does the event actually move the objects, so a permanent entering in that same event is not yet on the battlefield when Copy Artifact's effect is applied. The final step from this ordering to "the newcomer is absent from the battlefield" is a one-step inference, not a quotation — 400.6 is phrased in the singular about one object's move; a grader should accept the inference rather than demand a sentence stating it outright.
   > Then any appropriate replacement effects, whether they come from that object or from elsewhere, are applied to that event. If any effects or rules try to do two or more contradictory or mutually exclusive things to a particular object, that object’s controller—or its owner if it has no controller—chooses which effect to apply, and what that effect does. (Note that multiple instances of the same thing may be mutually exclusive; for example, two simultaneous “destroy” effects.) Then the event moves the object.
 - **614.13c** — Group B, the alternative carrier of proposition (3): the document states outright that an object which is "entering the battlefield" is still in its previous zone — and therefore not on the battlefield — while an enters-the-battlefield replacement effect is being applied. A reader with this plus 614.12a reaches the same conclusion as with 400.6.
   > While applying a replacement effect that modifies how a permanent enters the battlefield, another replacement effect may cause a player to mill cards or exile cards from the top of a library. In that case, any card that is entering the battlefield from that library won’t be included in that effect, even though those cards are in the library as the effect is applied.
+
+_A passing answer needs one rule from **every** group. These are separate propositions, not one choice._
 
 Near misses — retrieving one is fine, resting the answer on one is not. Never scored against an answer. 0 of 9 carry a quote the matcher can look for; the rest are annotations and are reported as unevaluable rather than as absent:
 
@@ -2980,8 +2982,9 @@ I also re-ran the attempt to flip the answer and found nothing: 603.6b confirms 
 
 INDEPENDENCE: I consulted only the question text and the pinned normalized.txt. I did not open .research-dev/, docs/r3-owner-review.md, data/research-indexes/, fixtures/research/rules_index.json, or any scorecard/observation/g2-* file.
 
+DERIVATION NOTE: this label's sufficient_support prose states 2 independent either/or groups — (1) 'enters as a copy' is a replacement effect, not a triggered ability: any one of 614.1c, 603.6d, 616.1c; (2) when the choice is applied the simultaneous entrant is not yet on the battlefield: any one of 400.6, 614.13c. The field was a flat list at the time and could not express that, so the prose governed and no code read it. The grouping here was TRANSCRIBED from that prose, not decided: the union of the groups equals the previous flat list exactly, checked mechanically, and nothing moved into or out of required_rules. A reviewer should confirm the split is what the label meant.
+
 _Result._ NOT SUPPORTED.
-Missing: `707.5`
 Traps nothing could check for: `603.6a`, `614.12`, `614.12b`, `614.13a`, `707.2`, `707.4`, `707.6`, `unnumbered`, `unnumbered`
 
 **What happened**
@@ -3020,7 +3023,7 @@ _Rationale._ Triggered mana ability versus replacement effect is a rules classif
 
 _Author's note._ Deliberately says "Kinnan" and never the full printed name, because the ask says only "Kinnan": supplying the rest would be the plan naming a card the asker did not. The query therefore leans on the ability wording plus a Simic two-drop creature narrowing. Confirm that still finds it, and that the rules question is the classification you wanted.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence medium)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence medium)
 
 _Must establish._ A passage set answers this only if it establishes all four propositions below. The clarified ask is two questions welded together — "classify Kinnan's nonland mana ability" and "explain whether it uses the stack" — and the classification has two layers, because "triggered ability" is the category while "triggered MANA ability" is the sub-category that determines the stack behaviour.
 
@@ -3085,6 +3088,7 @@ ONE NOTE ON SHAPE. This schema types near_miss_rules as plain strings, so I have
 WHY CONFIDENCE IS MEDIUM, NOT HIGH. The Magic is correct, the required set is minimal and each member is load-bearing, and every quote is verified. Two reviewer-surfaced items are documented but not closed. First, reviewer 1 correctly observed that whether the raw pre-clarification question named "replacement effect" is outside what either of us can see; I was given only the clarified ask, and it does not. If the owner finds that the raw question did name it, the contrast should be restored as a gate — but with 614.1 alone, never 614.1a, which is unsound in this edition regardless of what the question asked. Second, the active-vs-passive scoping of 106.12a is not resolved by the document; I have made the key insensitive to it rather than asserting an answer. Neither item destabilises required_rules, but neither is settled, and calling this "high" would misrepresent that.
 
 _Result._ NOT SUPPORTED.
+Missing: `106.12`
 Traps nothing could check for: `106.12a`, `106.12b`, `405.6c`, `603.2`, `603.3`, `604.2`, `605.1a`, `605.3b`, `605.5a`, `614.1`, `614.1a`
 
 **What happened**
@@ -3123,7 +3127,7 @@ _Rationale._ The distinction matters because a mana ability does not use the sta
 
 _Author's note._ The one mechanic-tag filter that survived. mana:mana_rock is read off the ask's own premise that this card has a mana ability at all, and it still leaves 377 eligible cards, which is a real haystack rather than a restatement of the answer. No colour filter, because the ask gives none. Confirm the rules question covers both halves — whether the untap activation is a mana ability, and when a mana ability may be activated.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence medium)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence medium)
 
 _Must establish._ A passage set answers this only if it establishes these four checkable propositions. Propositions (1)-(4) are what the label scores; the two notes at the end are deliberately NOT required.
 
@@ -3230,7 +3234,7 @@ _Rationale._ Two triggers controlled by the same player go on the stack in an or
 
 _Author's note._ A cost:evoke filter is the ask's own verb and left five eligible cards, so evoke is described in the query text instead and the haystack is every green creature. The rules question is phrased about simultaneous triggers controlled by one player rather than about this card, because that is the rule the answer turns on. Confirm you want the targeting-timing half too.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence high)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence high)
 
 _Must establish._ The clarified ask has exactly two demands: WHO orders the two triggers, and WHEN targets are selected. A passage set answers it only if it establishes all four propositions below. Note that sufficient_any_of is a flat list covering TWO DISTINCT GROUPS; the groups are not interchangeable with each other, and one member of EACH group is needed.
 
@@ -3251,18 +3255,23 @@ Required — every one, or the question is not answered:
 - **603.3b** — Settles the ordering: a player puts the simultaneously-triggered abilities they control on the stack in any order they choose, and both of Endurance's triggers are in this first batch because neither condition is 'another ability triggering.' This forecloses card-text order, the opponent's choice, and a forced APNAP order.
   > First, each player, in APNAP order, puts each triggered ability they control with a trigger condition that isn’t another ability triggering on the stack in any order they choose.
 
-Any one of these also needed:
+Group 1 — any one of these also needed:
 
 - **603.3a** — GROUP A. Supplies the 'who' that 603.3b leaves as 'they': both triggers are controlled by the Endurance controller, so one player alone picks the order and APNAP never applies. Equally carried by 405.4, so neither can be a required conjunct.
   > A triggered ability is controlled by the player who controlled its source at the time it triggered, unless it’s a delayed triggered ability.
 - **405.4** — GROUP A alternative. States the identical controller-identity proposition as 603.3a in the stack section, so a passage set that retrieves 405.4 instead of 603.3a is equally well grounded on 'who'.
   > The controller of a triggered ability is the player who controlled the ability’s source when it triggered, unless it’s a delayed triggered ability.
+
+Group 2 — any one of these also needed:
+
 - **115.1d** — GROUP B, most specific member. One self-contained sentence, scoped precisely to triggered abilities, stating that targets are chosen as the ability is put on the stack — so the targeted player for 'put target player's graveyard into their library' is named before either trigger resolves. No pointer chain required.
   > A triggered ability is targeted if it identifies something it will affect by using the phrase “target [something],” where the “something” is a phrase that describes an object and/or player. The target(s) are chosen as the ability is put on the stack; see rule 603.3d.
 - **115.1** — GROUP B alternative. Carries the same timing generally and additionally names the chooser as the ability's controller. A retrieval set holding the parent rule rather than the subrule is equally grounded on target timing.
   > Some spells and abilities require their controller to choose one or more targets for them. The targets are object(s) and/or player(s) the spell or ability will affect. These targets are declared as part of the process of putting the spell or ability on the stack.
 - **603.3d** — GROUP B alternative, and the rule 115.1d itself points to. Its second sentence independently locates the choice at put-on-stack time and covers the no-legal-target case; its first sentence imports 601.2c-d, the target-announcement steps.
   > The remainder of the process for putting a triggered ability on the stack is identical to the process for casting a spell listed in rules 601.2c–d. If a choice is required when the triggered ability goes on the stack but no legal choices can be made for it, or if a rule or a continuous effect otherwise makes the ability illegal, the ability is simply removed from the stack.
+
+_A passing answer needs one rule from **every** group. These are separate propositions, not one choice._
 
 Near misses — retrieving one is fine, resting the answer on one is not. Never scored against an answer. 0 of 13 carry a quote the matcher can look for; the rest are annotations and are reported as unevaluable rather than as absent:
 
@@ -3298,8 +3307,10 @@ VERIFICATION NOTE: the evoke glossary entry (line 7821) says only that evoke "ca
 
 INDEPENDENCE: derived only from the question text and the pinned rules file. I did not open .research-dev/, docs/r3-owner-review.md, data/research-indexes/, fixtures/research/rules_index.json, or any scorecard/observation/g2 file.
 
+DERIVATION NOTE: this label's sufficient_support prose states 2 independent either/or groups — (1) who controls, and therefore orders, the two triggered abilities: any one of 603.3a, 405.4; (2) targets are chosen as the ability is put on the stack, not on resolution: any one of 115.1d, 115.1, 603.3d. The field was a flat list at the time and could not express that, so the prose governed and no code read it. The grouping here was TRANSCRIBED from that prose, not decided: the union of the groups equals the previous flat list exactly, checked mechanically, and nothing moved into or out of required_rules. A reviewer should confirm the split is what the label meant.
+
 _Result._ NOT SUPPORTED.
-Missing: `603.3b`, `702.74a`
+Missing: `702.74a`
 Traps nothing could check for: `101.4`, `115.10`, `117.3b`, `405.3`, `601.2b`, `601.2c`, `601.2f`, `603.3c`, `603.4`, `603.6a`, `608.2b`, `unnumbered`, `unnumbered`
 
 **What happened**
@@ -3338,7 +3349,7 @@ _Rationale._ The printed restriction answers "what kinds of spells" directly. Th
 
 _Author's note._ Confirm the two halves of the clarified_ask are both served: the target restriction is printed on the card and will show in the card row, while what changing control of a spell does and does not change is a rules question the lookup would answer. Check the noncreature wording is not over-narrowing the search.
 
-**Rules support** (`rules-support.2026-09-11.b`, set status proposed, label adversarially reconciled, confidence medium)
+**Rules support** (`rules-support.2026-09-11.c`, set status proposed, label adversarially reconciled, confidence medium)
 
 _Must establish._ SCORING CONTRACT. Five propositions are mandatory (P1-P5). One further proposition (P6) is an enrichment a complete answer usually has, and is explicitly NOT required; nothing below may be read as requiring it.
 
@@ -3367,16 +3378,21 @@ Required — every one, or the question is not answered:
 - **608.2n** — P5(b). The checkable consequence that control is not ownership, and the only rule giving a resolving instant or sorcery's destination: the commandeered spell resolves for you but the card goes to its OWNER's graveyard, so you never keep it.
   > 608.2n As the final part of an instant or sorcery spell’s resolution, the spell is put into its owner’s graveyard.
 
-Any one of these also needed:
+Group 1 — any one of these also needed:
 
 - **608.2c** — P3, Group A. Because you are now the controller, you are the player who follows the spell's instructions on resolution, so its effect happens for you. Interchangeable with 109.5 for this proposition, and the broader of the two.
   > 608.2c The controller of the spell or ability follows its instructions in the order written.
 - **109.5** — P3, Group A. Alternative carrier of the same proposition: every 'you'/'your' in the stolen spell's text now refers to you as its controller, which is why you draw the cards or search the library.
   > 109.5. The words “you” and “your” on an object refer to the object’s controller, its would-be controller (if a player is attempting to play, cast, or activate it), or its owner (if it has no controller).
+
+Group 2 — any one of these also needed:
+
 - **110.2b** — P4, Group B. The on-point rule for Commandeer on a permanent spell: you control the permanent it becomes. Bonus content, not required: the permanent's DEFAULT controller remains the original caster, which matters only in multiplayer (800.4c).
   > 110.2b If an effect causes a player to gain control of another player’s permanent spell, the first player controls the permanent that spell becomes, but the permanent’s controller by default is the player who put that spell onto the stack.
 - **608.3a** — P4, Group B. Alternative carrier: once P3 has established that you are the spell's controller, an untargeted permanent spell enters under your control. Scoped to permanent spells with no targets; an Aura spell is 608.3c, which says the same thing with 'is put onto the battlefield under the control of the spell’s controller.'
   > 608.3a If the object that’s resolving has no targets, it becomes a permanent and enters the battlefield under the control of the spell’s controller.
+
+_A passing answer needs one rule from **every** group. These are separate propositions, not one choice._
 
 Near misses — retrieving one is fine, resting the answer on one is not. Never scored against an answer. 0 of 10 carry a quote the matcher can look for; the rest are annotations and are reported as unevaluable rather than as absent:
 
@@ -3398,6 +3414,8 @@ WHERE THE REVIEWERS AGREED AND I ADOPTED. (1) All three found the same real defe
 WHERE THE REVIEWERS DISAGREED AND I WENT TO THE DOCUMENT. 110.2b: reviewer 1 defended requiring it as strictly richer; reviewers 2 and 3 called it over-specified because 608.3a substitutes. I applied the stated test — can I name a clause of the clarified ask that 110.2b ALONE carries? Its unique residue is the default-controller caveat, whose only consequence is the 800.4c leaves-the-game case that this key's own near-miss list calls a downstream edge case. So the claim is adopted: {110.2b, 608.3a} is now a disjunctive group. 115.2: only reviewer 3 called it over-specified, arguing 109.2b + 115.1a + 608.2b answers the restriction. I checked 115.1–115.9 and 115.2 is the only rule anywhere stating "Only permanents are legal targets"; 115.1a merely says when an instant is targeted and when targets are chosen, so a set without 115.2 never establishes that targeting a spell is legal. The clause is nameable, so the claim is NOT adopted and 115.2 stays required alongside 109.2b — they carry different halves (permission vs. identity of the target). 608.2n: reviewer 3 called it over-specified because 112.2 states owner-vs-controller directly. I confirmed 608.2n is the only rule in the document giving a resolving instant or sorcery's destination, and that clause — you never keep the card — is the concrete "does not change" for the majority of Commandeer's legal targets. Claim not adopted; instead I adopted reviewers 2 and 3's separate point that the old required set left "owner" undefined, by requiring 112.2 as well. 112.2 is spell-scoped (108.3 is card-scoped, 110.2 permanent-scoped) and uniquely supplies the "by default" that makes a control-changing effect on a spell coherent, which the near-miss 405.4 conspicuously lacks.
 
 WHAT I COULD NOT FULLY RESOLVE. Reviewer 3 is right that the schema cannot express this question's actual shape: it needs two independent disjunctive groups, and sufficient_any_of is a flat list. I kept the flat list and stated the grouping explicitly at the top of sufficient_support (Group A = {608.2c, 109.5} for P3; Group B = {110.2b, 608.3a} for P4; one from EACH is needed), but a scorer that reads the flat list without the prose could credit two Group A members as satisfying both. That is a schema limitation worth escalating to the owner, not a defect I can fix inside the label. Confidence is medium for that reason only — the rules content itself I hold with high confidence.
+
+DERIVATION NOTE: this label's sufficient_support prose states 2 independent either/or groups — (1) what changing control of a spell changes: any one of 608.2c, 109.5; (2) who controls the permanent or effect the spell produces: any one of 110.2b, 608.3a. The field was a flat list at the time and could not express that, so the prose governed and no code read it. The grouping here was TRANSCRIBED from that prose, not decided: the union of the groups equals the previous flat list exactly, checked mechanically, and nothing moved into or out of required_rules. A reviewer should confirm the split is what the label meant.
 
 _Result._ NOT SUPPORTED.
 Missing: `109.2b`, `115.2`, `608.2n`

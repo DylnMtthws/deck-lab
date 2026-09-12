@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from sabermetrics.assistant.eval.plans import load_hand_written_plans
@@ -34,6 +35,60 @@ from sabermetrics.assistant.sources import ReferenceRulesSource
 from sabermetrics.substrate.settings import load_research_settings
 
 ROOT = Path(__file__).resolve().parent.parent
+#: Function words carry no topical signal, so counting them would flatter every
+#: pair equally and hide the gradient this measures.
+_STOPWORDS = frozenset(
+    [
+        "a",
+        "an",
+        "the",
+        "of",
+        "to",
+        "in",
+        "is",
+        "are",
+        "and",
+        "or",
+        "if",
+        "it",
+        "its",
+        "that",
+        "this",
+        "for",
+        "be",
+        "as",
+        "on",
+        "at",
+        "by",
+        "with",
+        "what",
+        "when",
+        "how",
+        "does",
+        "do",
+        "you",
+        "your",
+        "player",
+        "their",
+        "they",
+        "them",
+        "may",
+        "can",
+        "not",
+        "no",
+    ]
+)
+
+
+def _terms(text: str) -> set[str]:
+    """Content words, lowercased, for a crude topical-overlap measure."""
+    return {
+        word
+        for word in re.findall(r"[a-z]+", text.lower())
+        if word not in _STOPWORDS and len(word) > 2
+    }
+
+
 DEFAULT_SCORECARD = ROOT / ".research-dev" / "g2-scorecard.json"
 #: Deliberately far beyond any plan's bound. The question is where a rule sits,
 #: not whether it sits inside a window somebody already chose.
@@ -59,10 +114,40 @@ def main() -> int:
     database = Path(settings.artifacts.root) / "reference.db"
     source = ReferenceRulesSource.open(database)
 
-    rows: list[tuple[str, str, int, int | None]] = []
+    rows: list[tuple[str, str, int, int | None, float]] = []
+    #: Overlap for EVERY required rule, bucketed by what happened to it. The
+    #: comparison that matters is covered vs missed, so restricting it to the
+    #: missed ones would drop the only group that shows the gradient.
+    covered_overlap: list[float] = []
     for question_id in sorted(by_question):
         verdict = verdicts.get(question_id)
-        if verdict is None or not verdict["required_missing"]:
+        if verdict is None:
+            continue
+        label = by_question[question_id]
+        step_for_overlap = next(
+            step
+            for step in plans[question_id].plan.steps
+            if step.kind == "rules_lookup"
+        )
+        for rule in verdict["required_covered"]:
+            quote = next(
+                (entry.quote for entry in label.quoted_evidence if entry.rule == rule),
+                "",
+            )
+            rule_terms = _terms(quote)
+            if rule_terms:
+                covered_overlap.append(
+                    len(_terms(step_for_overlap.question) & rule_terms)
+                    / len(rule_terms)
+                )
+        # Unsatisfied ALTERNATIVE groups matter as much as missing required
+        # rules, and enumerating only the latter made this report silent about
+        # any question that failed on its disjunction alone — which rules-007
+        # did, with every required rule covered.
+        missing_rules = list(verdict["required_missing"])
+        for group in verdict.get("alternative_groups_unsatisfied", []):
+            missing_rules.extend(group)
+        if not missing_rules:
             continue
         step = next(
             step
@@ -72,7 +157,7 @@ def main() -> int:
         passages = source.lookup(step.question, top_k=args.depth)
         bodies = [normalize(passage.content) for passage in passages]
         label = by_question[question_id]
-        for rule in verdict["required_missing"]:
+        for rule in missing_rules:
             quotes = [
                 variant
                 for entry in label.quoted_evidence
@@ -87,11 +172,25 @@ def main() -> int:
                 ),
                 None,
             )
-            rows.append((question_id, rule, step.limit, rank))
+            quote = next(
+                (entry.quote for entry in label.quoted_evidence if entry.rule == rule),
+                "",
+            )
+            rule_terms = _terms(quote)
+            overlap = (
+                len(_terms(step.question) & rule_terms) / len(rule_terms)
+                if rule_terms
+                else 0.0
+            )
+            rows.append((question_id, rule, step.limit, rank, overlap))
 
     within = [row for row in rows if row[3] is not None and row[3] <= 20]
     deep = [row for row in rows if row[3] is not None and row[3] > 20]
     absent = [row for row in rows if row[3] is None]
+
+    def _mean(values: list[float]) -> float:
+        return sum(values) / len(values) if values else 0.0
+
     lines = [
         "# Why the required rules did not come back",
         "",
@@ -111,10 +210,35 @@ def main() -> int:
         "  between the query and the corpus, and the only group where a wider",
         "  window would not have helped.",
         "",
-        "| question | missing rule | plan bound | rank | reading |",
-        "|---|---|---:|---:|---|",
+        "",
+        "## Vocabulary overlap tracks retrievability",
+        "",
+        "The share of a rule's own content words that also appear in the plan's",
+        "query, across **every** required rule and bucketed by what became of it:",
+        "",
+        f"- covered: **{_mean(covered_overlap):.2f}** " f"(n={len(covered_overlap)})",
+        f"- ranked but outside the bound: "
+        f"**{_mean([row[4] for row in within + deep]):.2f}** "
+        f"(n={len(within) + len(deep)})",
+        f"- never within {args.depth}: "
+        f"**{_mean([row[4] for row in absent]):.2f}** (n={len(absent)})",
+        "",
+        "A question phrased in words the rule does not use tends not to reach it,",
+        "which is a statement about the QUERY and the LABEL rather than the bound",
+        "— no window is wide enough to fix the third group.",
+        "",
+        "**Treat this as a gradient, not a law.** The denominator varies: quote",
+        "lengths in this key run from ten to sixty-one words, so a short rule's",
+        "overlap is computed over far fewer terms than a long one's and the three",
+        "means are not comparing like with like. Counterexamples exist — any row",
+        "below with a high overlap and no rank is one — and the sample is small",
+        "enough that one matters. It is a reason to look at queries, not a",
+        "finding on its own.",
+        "",
+        "| question | missing rule | plan bound | rank | overlap | reading |",
+        "|---|---|---:|---:|---:|---|",
     ]
-    for question_id, rule, bound, rank in rows:
+    for question_id, rule, bound, rank, overlap in rows:
         if rank is None:
             reading = f"never within {args.depth} — retrieval gap"
         elif rank <= 20:
@@ -123,7 +247,7 @@ def main() -> int:
             reading = "reachable only very wide"
         lines.append(
             f"| {question_id} | `{rule}` | {bound} | "
-            f"{rank if rank is not None else '—'} | {reading} |"
+            f"{rank if rank is not None else '—'} | {overlap:.2f} | {reading} |"
         )
     report = "\n".join(lines) + "\n"
     if args.output:

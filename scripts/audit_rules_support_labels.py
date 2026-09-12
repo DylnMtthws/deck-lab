@@ -63,7 +63,7 @@ def main() -> int:
         if report["required_rules_that_cannot_independently_fail"]
     }
     inert_disjunctions = {
-        question_id: report["disjunction_satisfied_by_a_required_rule"]
+        question_id: report["inert_alternative_groups"]
         for question_id, report in reports.items()
         if report["disjunction_is_inert"]
     }
@@ -91,20 +91,24 @@ def main() -> int:
         '— including a headline "n of 10" — therefore mixes bars that differ by',
         f"a factor of {max(bars) / min(bars):.0f}.",
         "",
-        "| question | verification | min chunks | required | any-of | "
-        "required rules that cannot independently fail | disjunction inert |",
+        "| question | verification | min chunks | required | any-of "
+        "(groups/rules) | required rules that cannot independently fail | "
+        "inert groups |",
         "|---|---|---:|---:|---:|---|---|",
     ]
     for label in labels.labels:
         report = reports[label.question_id]
         cannot = report["required_rules_that_cannot_independently_fail"]
-        auto = report["disjunction_satisfied_by_a_required_rule"]
+        auto = [
+            " or ".join(f"`{rule}`" for rule in group)
+            for group in report["inert_alternative_groups"]
+        ]
         lines.append(
             f"| {label.question_id} | {label.verification} | "
             f"{report['minimum_distinct_chunks']} | {len(label.required_rules)} | "
-            f"{len(label.sufficient_any_of)} | "
+            f"{len(label.sufficient_any_of)}/{len(label.alternative_rules)} | "
             f"{', '.join(f'`{r}`' for r in cannot) if cannot else '—'} | "
-            f"{', '.join(f'`{r}`' for r in auto) if auto else '—'} |"
+            f"{'; '.join(auto) if auto else '—'} |"
         )
     lines += [
         "",

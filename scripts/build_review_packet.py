@@ -137,13 +137,24 @@ def _rules_support_block(
         lines.append(f"- **{rule}** — {entry.why.strip() if entry else ''}")
         if entry:
             lines.append(f"  > {entry.quote.strip()}")
-    if label.sufficient_any_of:
-        lines += ["", "Any one of these also needed:", ""]
-        for rule in label.sufficient_any_of:
+    for index, group in enumerate(label.sufficient_any_of, 1):
+        heading = (
+            "Any one of these also needed:"
+            if len(label.sufficient_any_of) == 1
+            else f"Group {index} — any one of these also needed:"
+        )
+        lines += ["", heading, ""]
+        for rule in group:
             entry = quotes.get(rule)
             lines.append(f"- **{rule}** — {entry.why.strip() if entry else ''}")
             if entry:
                 lines.append(f"  > {entry.quote.strip()}")
+    if len(label.sufficient_any_of) > 1:
+        lines += [
+            "",
+            "_A passing answer needs one rule from **every** group. These are "
+            "separate propositions, not one choice._",
+        ]
     if label.near_miss_rules:
         evaluable = sum(1 for miss in label.near_miss_rules if miss.evaluable)
         lines += [

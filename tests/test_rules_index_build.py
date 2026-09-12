@@ -33,6 +33,7 @@ from sabermetrics.reference_layer.chunker import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
+SOURCE_DIR = ROOT / "data" / "reference" / "comprehensive_rules"
 
 #: A miniature Comprehensive Rules with the same shape as the real document:
 #: front matter, a contents listing whose entries look exactly like body
@@ -68,6 +69,12 @@ def _load(name: str, path: Path):
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _pinned_normalized() -> Path | None:
+    """The normalized text the chunker reads, when it has been built."""
+    candidates = sorted(SOURCE_DIR.glob("*/normalized.txt"))
+    return candidates[-1] if candidates else None
 
 
 @pytest.fixture(scope="module")
@@ -197,3 +204,71 @@ def test_the_pinned_manifest_matches_the_checked_in_source_contract():
     assert manifest["chunk_count"] == manifest["row_count"]
     assert len(manifest["reference_content_sha256"]) == 64
     assert len(manifest["configuration"]["chunker_sha256"]) == 64
+
+
+def test_no_chunk_exceeds_the_embedding_window(build_module):
+    """Text past the encoder's window contributes nothing to the vector.
+
+    A chunk longer than the model reads is indexed, searchable by the lexical
+    stage, and INVISIBLE to the dense one — so a rule sitting in its tail can
+    never be retrieved by meaning, only by keyword luck. Before the ceiling,
+    144 of 400 Comprehensive Rules chunks were over the window, and the
+    Glossary formed a single 28,379-token chunk because it carries no rule
+    numbers for the sub-section splitter to cut on.
+
+    Asserted in TOKENS rather than characters because tokens are the actual
+    constraint, and the chunker's character bound is only a proxy for it: the
+    subtype lists in rule 205 run ~3.2 chars per token against ~4.1 for prose.
+    """
+    pytest.importorskip("sentence_transformers")
+    from sentence_transformers import SentenceTransformer
+
+    from sabermetrics.substrate.settings import load_research_settings
+
+    source = _pinned_normalized()
+    if source is None:
+        pytest.skip("the pinned rules document is not provisioned on this machine")
+    settings = load_research_settings()
+    if not Path(settings.embedding.local_dir).is_dir():
+        pytest.skip("the embedding model is not provisioned on this machine")
+
+    model = SentenceTransformer(str(settings.embedding.local_dir), device="cpu")
+    tokenizer = model.tokenizer
+    window = model.max_seq_length
+    oversized = [
+        (chunk.section, len(tokenizer.encode(chunk.content)))
+        for chunk in DocumentChunker().chunk_comprehensive_rules(source)
+        if len(tokenizer.encode(chunk.content)) > window
+    ]
+    assert (
+        not oversized
+    ), f"chunks whose tail the encoder never reads (window {window}): {oversized}"
+
+
+def test_the_ceiling_applies_on_every_path(tmp_path):
+    """A hard bound skipped on one path is not a bound.
+
+    The size splitter returns early for text under its soft target, and that
+    early return used to bypass the ceiling entirely — so a 1,900-character
+    chunk escaped a 1,500-character limit the class declares.
+    """
+    long_paragraph = ("word " * 350).strip()
+    path = tmp_path / "comprehensive_rules.txt"
+    path.write_text(f"100. General\n\n100.1. {long_paragraph}\n", encoding="utf-8")
+    chunks = DocumentChunker().chunk_comprehensive_rules(path)
+    assert chunks
+    assert all(
+        len(chunk.content) <= DocumentChunker.MAX_CHUNK_CHARS for chunk in chunks
+    ), [len(chunk.content) for chunk in chunks]
+
+
+def test_text_with_no_rule_numbers_is_still_bounded(tmp_path):
+    """The Glossary case: nothing for the sub-section splitter to cut on."""
+    glossary = "\n\n".join(f"Term {index}\nA definition." for index in range(400))
+    path = tmp_path / "comprehensive_rules.txt"
+    path.write_text(f"100. General\n\n100.1. A rule.\n\n{glossary}\n", encoding="utf-8")
+    chunks = DocumentChunker().chunk_comprehensive_rules(path)
+    assert len(chunks) > 1, "the glossary must not be swallowed into one chunk"
+    assert max(len(chunk.content) for chunk in chunks) <= (
+        DocumentChunker.MAX_CHUNK_CHARS
+    )

@@ -1,5 +1,5 @@
 schema_version: research-rules-support-labels.v1
-label_set: rules-support.2026-09-11.b
+label_set: rules-support.2026-09-11.c
 status: proposed
 derived_from:
   document: comprehensive_rules
@@ -19,10 +19,10 @@ labels:
   - 107.4f
   - 202.3g
   sufficient_any_of:
-  - 601.2b
-  - 118.13a
-  - 601.2i
-  - '601.2'
+  - - 601.2b
+    - 118.13a
+    - 601.2i
+    - '601.2'
   sufficient_support: 'The clarified ask contains three propositions. A passage set must establish
     all three.
 
@@ -259,8 +259,8 @@ labels:
   - '202.3'
   - 118.9c
   sufficient_any_of:
-  - 601.2i
-  - '601.2'
+  - - 601.2i
+    - '601.2'
   sufficient_support: 'A passage set answers this only if it establishes all three of these
     checkable propositions. (1) MANA VALUE IS A FUNCTION OF THE MANA COST ALONE: mana value
     is the total amount of mana in the object''s mana cost regardless of color, so Force of
@@ -479,9 +479,9 @@ labels:
   - '118.12'
   - 104.3e
   sufficient_any_of:
-  - '603.7'
-  - 603.7a
-  - '610.2'
+  - - '603.7'
+    - 603.7a
+    - '610.2'
   sufficient_support: 'A passage set answers this only if it establishes five checkable propositions.
 
 
@@ -757,13 +757,14 @@ labels:
   - '113.9'
   - '117.7'
   sufficient_any_of:
-  - '405.1'
-  - 602.2a
-  - '602.2'
-  - 113.3b
-  - '112.1'
-  - 701.5a
-  - '601.2'
+  - - '405.1'
+    - 602.2a
+    - '602.2'
+    - 113.3b
+  - - '405.1'
+    - '112.1'
+    - 701.5a
+    - '601.2'
   sufficient_support: "A passage set answers this only if it establishes (1)+(2)+(3)+(4) below.\
     \ Clause (5) is OPTIONAL enrichment and must NOT be demanded.\n\nHOW TO READ THE RULE\
     \ LISTS. required_rules (113.9, 117.7) are hard conjuncts. sufficient_any_of holds TWO\
@@ -1024,7 +1025,17 @@ labels:
     the prompt''s own examples. Prefix-grep verification succeeds either way, but if a harness
     string-matches ids extracted from line starts, every top-level id here needs normalization.
     The substantive Magic content is now fully verified; the residual risk is scoring calibration,
-    not correctness.'
+    not correctness.
+
+
+    DERIVATION NOTE: this label''s sufficient_support prose states 2 independent either/or
+    groups — (1) activating puts an ABILITY, not the card, on the stack: any one of 405.1,
+    602.2a, 602.2, 113.3b; (2) the definition of spell/casting that the first is measured
+    against: any one of 405.1, 112.1, 701.5a, 601.2. The field was a flat list at the time
+    and could not express that, so the prose governed and no code read it. The grouping here
+    was TRANSCRIBED from that prose, not decided: the union of the groups equals the previous
+    flat list exactly, checked mechanically, and nothing moved into or out of required_rules.
+    A reviewer should confirm the split is what the label meant.'
   confidence: medium
   verification: adversarially_reconciled
 - question_id: rules-005
@@ -1291,11 +1302,11 @@ labels:
   - '707.5'
   - 614.12a
   sufficient_any_of:
-  - 614.1c
-  - 603.6d
-  - 616.1c
-  - '400.6'
-  - 614.13c
+  - - 614.1c
+    - 603.6d
+    - 616.1c
+  - - '400.6'
+    - 614.13c
   sufficient_support: 'The clarified ask has two halves — WHEN the copy is chosen, and WHETHER
     an artifact entering at the same time is available to choose. A passage set answers it
     only if it establishes all three propositions below. Propositions (1) and (3) each have
@@ -1561,7 +1572,17 @@ labels:
 
     INDEPENDENCE: I consulted only the question text and the pinned normalized.txt. I did
     not open .research-dev/, docs/r3-owner-review.md, data/research-indexes/, fixtures/research/rules_index.json,
-    or any scorecard/observation/g2-* file.'
+    or any scorecard/observation/g2-* file.
+
+
+    DERIVATION NOTE: this label''s sufficient_support prose states 2 independent either/or
+    groups — (1) ''enters as a copy'' is a replacement effect, not a triggered ability: any
+    one of 614.1c, 603.6d, 616.1c; (2) when the choice is applied the simultaneous entrant
+    is not yet on the battlefield: any one of 400.6, 614.13c. The field was a flat list at
+    the time and could not express that, so the prose governed and no code read it. The grouping
+    here was TRANSCRIBED from that prose, not decided: the union of the groups equals the
+    previous flat list exactly, checked mechanically, and nothing moved into or out of required_rules.
+    A reviewer should confirm the split is what the label meant.'
   confidence: medium
   verification: adversarially_reconciled
 - question_id: rules-007
@@ -1570,8 +1591,8 @@ labels:
   - 605.1b
   - 605.4a
   sufficient_any_of:
-  - '603.1'
-  - 113.3c
+  - - '603.1'
+    - 113.3c
   sufficient_support: 'A passage set answers this only if it establishes all four propositions
     below. The clarified ask is two questions welded together — "classify Kinnan''s nonland
     mana ability" and "explain whether it uses the stack" — and the classification has two
@@ -1852,8 +1873,8 @@ labels:
   - 117.1b
   - 605.3a
   sufficient_any_of:
-  - '605.1'
-  - '605.5'
+  - - '605.1'
+    - '605.5'
   sufficient_support: 'A passage set answers this only if it establishes these four checkable
     propositions. Propositions (1)-(4) are what the label scores; the two notes at the end
     are deliberately NOT required.
@@ -2108,11 +2129,11 @@ labels:
   - 702.74a
   - 603.3b
   sufficient_any_of:
-  - 603.3a
-  - '405.4'
-  - 115.1d
-  - '115.1'
-  - 603.3d
+  - - 603.3a
+    - '405.4'
+  - - 115.1d
+    - '115.1'
+    - 603.3d
   sufficient_support: 'The clarified ask has exactly two demands: WHO orders the two triggers,
     and WHEN targets are selected. A passage set answers it only if it establishes all four
     propositions below. Note that sufficient_any_of is a flat list covering TWO DISTINCT GROUPS;
@@ -2373,7 +2394,17 @@ labels:
 
     INDEPENDENCE: derived only from the question text and the pinned rules file. I did not
     open .research-dev/, docs/r3-owner-review.md, data/research-indexes/, fixtures/research/rules_index.json,
-    or any scorecard/observation/g2 file.'
+    or any scorecard/observation/g2 file.
+
+
+    DERIVATION NOTE: this label''s sufficient_support prose states 2 independent either/or
+    groups — (1) who controls, and therefore orders, the two triggered abilities: any one
+    of 603.3a, 405.4; (2) targets are chosen as the ability is put on the stack, not on resolution:
+    any one of 115.1d, 115.1, 603.3d. The field was a flat list at the time and could not
+    express that, so the prose governed and no code read it. The grouping here was TRANSCRIBED
+    from that prose, not decided: the union of the groups equals the previous flat list exactly,
+    checked mechanically, and nothing moved into or out of required_rules. A reviewer should
+    confirm the split is what the label meant.'
   confidence: high
   verification: adversarially_reconciled
 - question_id: rules-010
@@ -2383,10 +2414,10 @@ labels:
   - '112.2'
   - 608.2n
   sufficient_any_of:
-  - 608.2c
-  - '109.5'
-  - 110.2b
-  - 608.3a
+  - - 608.2c
+    - '109.5'
+  - - 110.2b
+    - 608.3a
   sufficient_support: 'SCORING CONTRACT. Five propositions are mandatory (P1-P5). One further
     proposition (P6) is an enrichment a complete answer usually has, and is explicitly NOT
     required; nothing below may be read as requiring it.
@@ -2627,6 +2658,15 @@ labels:
     one from EACH is needed), but a scorer that reads the flat list without the prose could
     credit two Group A members as satisfying both. That is a schema limitation worth escalating
     to the owner, not a defect I can fix inside the label. Confidence is medium for that reason
-    only — the rules content itself I hold with high confidence.'
+    only — the rules content itself I hold with high confidence.
+
+
+    DERIVATION NOTE: this label''s sufficient_support prose states 2 independent either/or
+    groups — (1) what changing control of a spell changes: any one of 608.2c, 109.5; (2) who
+    controls the permanent or effect the spell produces: any one of 110.2b, 608.3a. The field
+    was a flat list at the time and could not express that, so the prose governed and no code
+    read it. The grouping here was TRANSCRIBED from that prose, not decided: the union of
+    the groups equals the previous flat list exactly, checked mechanically, and nothing moved
+    into or out of required_rules. A reviewer should confirm the split is what the label meant.'
   confidence: medium
   verification: adversarially_reconciled

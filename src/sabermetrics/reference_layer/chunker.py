@@ -110,6 +110,25 @@ class DocumentChunker:
     TARGET_CHUNK_TOKENS: int = 500
     # Approximate chars per token (conservative estimate)
     CHARS_PER_TOKEN: float = 4.0
+    #: A HARD ceiling, in characters, which no chunk may exceed.
+    #:
+    #: Not a preference. The embedding model reads 512 tokens and stops, so
+    #: every character past that point in a chunk contributes NOTHING to the
+    #: vector that retrieval scores — the text is indexed, searchable by the
+    #: lexical stage, and invisible to the dense one. Before this bound, 144 of
+    #: the 400 Comprehensive Rules chunks were over the window and one was
+    #: 28,379 tokens: the Glossary, which has no rule numbers for the
+    #: sub-section splitter to cut on and so was swallowed whole into the
+    #: chunk of the last numbered rule before it.
+    #:
+    #: 1,500 characters. The ratio is not uniform: prose runs ~4.1 chars per
+    #: token in this document, but the subtype lists in rule 205 are dense
+    #: proper nouns at ~3.2, and a ceiling set from the average left those two
+    #: chunks still over the window. 1,500 clears the densest text measured
+    #: with margin. The condition that actually matters is asserted in TOKENS
+    #: by the tests, which may load a tokenizer; this module may not, so the
+    #: bound it enforces is a proxy and the test is the check.
+    MAX_CHUNK_CHARS: int = 1500
 
     def chunk_comprehensive_rules(self, rules_path: Path) -> list[Chunk]:
         """Chunk Comprehensive Rules by section number.
@@ -506,7 +525,11 @@ class DocumentChunker:
         target_chars = int(self.TARGET_CHUNK_TOKENS * self.CHARS_PER_TOKEN)
 
         if len(text) <= target_chars:
-            return [(text, section_label)]
+            # Still through the ceiling: target_chars is a soft preference at
+            # 2,000 and MAX_CHUNK_CHARS is a hard bound at 1,500, so returning
+            # here unchecked would let a path out of the function that ignores
+            # the bound the class declares.
+            return [(piece, section_label) for piece in self._enforce_ceiling(text)]
 
         # Split by sub-section patterns (e.g., "100.1", "702.21a")
         sub_pattern = re.compile(r"^(\d{3}\.\d+\w?)\s", re.MULTILINE)
@@ -529,4 +552,48 @@ class DocumentChunker:
         if current_text.strip():
             result.append((current_text, current_section))
 
-        return result if result else [(text, section_label)]
+        if not result:
+            result = [(text, section_label)]
+        # The sub-section pattern only cuts on numbered rules. Anything with
+        # none — the Glossary, the credits, a long rule with no lettered
+        # subdivisions — arrives here whole and must still be bounded.
+        return [
+            (piece, section)
+            for content, section in result
+            for piece in self._enforce_ceiling(content)
+        ]
+
+    def _enforce_ceiling(self, text: str) -> list[str]:
+        """Split text on paragraph boundaries until every piece fits the window.
+
+        Args:
+            text: One chunk's content.
+
+        Returns:
+            Pieces, each within ``MAX_CHUNK_CHARS``. A single paragraph longer
+            than the ceiling is cut on whitespace rather than left oversized,
+            because half a paragraph that the encoder reads beats a whole one
+            it does not.
+        """
+        if len(text) <= self.MAX_CHUNK_CHARS:
+            return [text]
+        pieces: list[str] = []
+        current = ""
+        for paragraph in text.split("\n\n"):
+            candidate = f"{current}\n\n{paragraph}" if current else paragraph
+            if len(candidate) <= self.MAX_CHUNK_CHARS:
+                current = candidate
+                continue
+            if current:
+                pieces.append(current)
+                current = ""
+            while len(paragraph) > self.MAX_CHUNK_CHARS:
+                cut = paragraph.rfind(" ", 0, self.MAX_CHUNK_CHARS)
+                if cut <= 0:
+                    cut = self.MAX_CHUNK_CHARS
+                pieces.append(paragraph[:cut])
+                paragraph = paragraph[cut:].lstrip()
+            current = paragraph
+        if current.strip():
+            pieces.append(current)
+        return [piece for piece in pieces if piece.strip()]

@@ -23,7 +23,7 @@ PY = sys.executable
 #: Measured on a clean tree after R3's tests landed. Passed is a FLOOR, so
 #: adding tests is progress; skipped is EXACT, because a test that starts
 #: skipping is a test that stopped running.
-BASELINE_PASSED = 1813
+BASELINE_PASSED = 1819
 BASELINE_SKIPPED = 31
 G2_OUTPUT = ROOT / ".research-dev" / "g2-scorecard.json"
 R3_TESTS = (

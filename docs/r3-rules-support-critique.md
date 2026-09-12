@@ -7,7 +7,13 @@ review packet, the index database and the index manifest, like every other
 agent in the panel.
 
 **It is preserved verbatim, including where it is unflattering about the
-schema it was reviewing.** Its central finding — that `sufficient_any_of` is a
+schema it was reviewing — and including one place where it contradicts
+itself.** It reports different rules as having had two-of-three reviewer
+support in two passages, and no per-reviewer report survives anywhere in the
+repository, so neither version can be adjudicated. Treat any claim here about
+what a particular reviewer said as UNVERIFIABLE and do not rest a decision on
+it. The claims it checks against the document itself — quotes, rule numbers,
+chunk membership — were independently reproduced and hold. Its central finding — that `sufficient_any_of` is a
 single flat disjunction and that several scored rules cannot independently fail
 because they share a chunk with another scored rule — is now a mechanical check
 (`scripts/audit_rules_support_labels.py`), not a paragraph somebody has to

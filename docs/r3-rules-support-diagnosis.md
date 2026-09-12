@@ -9,26 +9,63 @@ survive the key being corrected — which is not hypothetical, it is what
 happened to `deck-local-009`. Use this to decide which QUESTIONS deserve
 investigation, not to pick a number.
 
-- **8** missing rules sit at rank 20 or better: the plan's
+- **9** missing rules sit at rank 20 or better: the plan's
   bound is what excluded them.
-- **2** sit deeper than 20: retrieval reaches them, barely.
-- **4** never appear within 60: a genuine gap
+- **12** sit deeper than 20: retrieval reaches them, barely.
+- **8** never appear within 60: a genuine gap
   between the query and the corpus, and the only group where a wider
   window would not have helped.
 
-| question | missing rule | plan bound | rank | reading |
-|---|---|---:|---:|---|
-| rules-002 | `202.3` | 6 | 11 | excluded by the bound |
-| rules-003 | `104.3e` | 6 | — | never within 60 — retrieval gap |
-| rules-003 | `118.12` | 6 | 44 | reachable only very wide |
-| rules-004 | `113.9` | 6 | 12 | excluded by the bound |
-| rules-004 | `117.7` | 6 | 54 | reachable only very wide |
-| rules-005 | `202.3` | 6 | 7 | excluded by the bound |
-| rules-005 | `202.3a` | 6 | 7 | excluded by the bound |
-| rules-006 | `707.5` | 6 | — | never within 60 — retrieval gap |
-| rules-008 | `117.1b` | 6 | 19 | excluded by the bound |
-| rules-009 | `603.3b` | 6 | 15 | excluded by the bound |
-| rules-009 | `702.74a` | 6 | — | never within 60 — retrieval gap |
-| rules-010 | `109.2b` | 6 | — | never within 60 — retrieval gap |
-| rules-010 | `115.2` | 6 | 19 | excluded by the bound |
-| rules-010 | `608.2n` | 6 | 7 | excluded by the bound |
+
+## Vocabulary overlap tracks retrievability
+
+The share of a rule's own content words that also appear in the plan's
+query, across **every** required rule and bucketed by what became of it:
+
+- covered: **0.34** (n=14)
+- ranked but outside the bound: **0.24** (n=21)
+- never within 60: **0.14** (n=8)
+
+A question phrased in words the rule does not use tends not to reach it,
+which is a statement about the QUERY and the LABEL rather than the bound
+— no window is wide enough to fix the third group.
+
+**Treat this as a gradient, not a law.** The denominator varies: quote
+lengths in this key run from ten to sixty-one words, so a short rule's
+overlap is computed over far fewer terms than a long one's and the three
+means are not comparing like with like. Counterexamples exist — any row
+below with a high overlap and no rank is one — and the sample is small
+enough that one matters. It is a reason to look at queries, not a
+finding on its own.
+
+| question | missing rule | plan bound | rank | overlap | reading |
+|---|---|---:|---:|---:|---|
+| rules-002 | `202.3` | 6 | 32 | 0.30 | reachable only very wide |
+| rules-002 | `601.2` | 6 | 38 | 0.14 | reachable only very wide |
+| rules-002 | `601.2i` | 6 | 25 | 0.16 | reachable only very wide |
+| rules-003 | `104.3e` | 6 | — | 0.00 | never within 60 — retrieval gap |
+| rules-003 | `118.12` | 6 | 9 | 0.43 | excluded by the bound |
+| rules-004 | `113.9` | 6 | 54 | 0.14 | reachable only very wide |
+| rules-004 | `117.7` | 6 | — | 0.26 | never within 60 — retrieval gap |
+| rules-005 | `202.3` | 6 | 11 | 0.20 | excluded by the bound |
+| rules-005 | `202.3a` | 6 | 11 | 0.46 | excluded by the bound |
+| rules-006 | `603.6d` | 6 | 40 | 0.21 | reachable only very wide |
+| rules-006 | `614.1c` | 6 | 14 | 0.40 | excluded by the bound |
+| rules-006 | `616.1c` | 6 | 12 | 0.33 | excluded by the bound |
+| rules-006 | `400.6` | 6 | 44 | 0.08 | reachable only very wide |
+| rules-006 | `614.13c` | 6 | 23 | 0.23 | reachable only very wide |
+| rules-007 | `106.12` | 6 | 7 | 0.33 | excluded by the bound |
+| rules-007 | `113.3c` | 6 | 16 | 0.25 | excluded by the bound |
+| rules-007 | `603.1` | 6 | 38 | 0.33 | reachable only very wide |
+| rules-008 | `117.1b` | 6 | 26 | 0.29 | reachable only very wide |
+| rules-009 | `702.74a` | 6 | — | 0.00 | never within 60 — retrieval gap |
+| rules-009 | `115.1` | 6 | 22 | 0.15 | reachable only very wide |
+| rules-009 | `115.1d` | 6 | 59 | 0.17 | reachable only very wide |
+| rules-009 | `603.3d` | 6 | 44 | 0.04 | reachable only very wide |
+| rules-010 | `109.2b` | 6 | — | 0.20 | never within 60 — retrieval gap |
+| rules-010 | `115.2` | 6 | — | 0.12 | never within 60 — retrieval gap |
+| rules-010 | `608.2n` | 6 | 17 | 0.10 | excluded by the bound |
+| rules-010 | `109.5` | 6 | — | 0.00 | never within 60 — retrieval gap |
+| rules-010 | `608.2c` | 6 | — | 0.14 | never within 60 — retrieval gap |
+| rules-010 | `110.2b` | 6 | — | 0.41 | never within 60 — retrieval gap |
+| rules-010 | `608.3a` | 6 | 17 | 0.33 | excluded by the bound |

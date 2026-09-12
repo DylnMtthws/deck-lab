@@ -446,3 +446,55 @@ def test_a_near_miss_quote_is_checked_against_the_document_too():
     problems = quote_problems(label_set, f"preamble {QUOTE} criteria")
     assert len(problems) == 1
     assert "near miss" in problems[0]
+
+
+def test_every_alternative_group_must_be_satisfied_not_just_one():
+    """The schema defect the panel's critic found, as a check.
+
+    Two independent propositions, each with a choice of citation, used to be
+    encoded as one flat disjunction — so covering the easy proposition twice
+    passed the label while the other went unestablished, with "one from each
+    group" stated only in prose no code reads.
+    """
+    third = "the active player receives priority"
+    label = _label(
+        required_rules=[],
+        sufficient_any_of=[["605.1a", "605.2"], ["605.5b"]],
+        quoted_evidence=[
+            {"rule": "605.1a", "quote": QUOTE, "why": "carries proposition one"},
+            {"rule": "605.2", "quote": f"{QUOTE} and also", "why": "same, differently"},
+            {"rule": "605.5b", "quote": OTHER, "why": "carries proposition two"},
+        ],
+    )
+    both_from_one_group = support_verdict(
+        label, [FakePassage(content=f"{QUOTE} and also")]
+    )
+    assert (
+        both_from_one_group["supported"] is False
+    ), "covering one proposition twice must not satisfy the other"
+    assert both_from_one_group["alternative_groups_unsatisfied"] == [["605.5b"]]
+
+    one_from_each = support_verdict(label, [FakePassage(content=f"{QUOTE}\n{OTHER}")])
+    assert one_from_each["supported"] is True
+    assert one_from_each["alternative_groups_unsatisfied"] == []
+    assert one_from_each["alternative_groups"] == 2
+    del third
+
+
+def test_a_flat_alternative_list_is_lifted_into_one_group():
+    """Earlier files keep their meaning rather than silently changing it."""
+    flat = _label(
+        sufficient_any_of=["605.5b"],
+        quoted_evidence=[
+            {"rule": "605.1a", "quote": QUOTE, "why": "defines a mana ability"},
+            {"rule": "605.5b", "quote": OTHER, "why": "an alternative"},
+        ],
+    )
+    assert flat.sufficient_any_of == [["605.5b"]]
+    assert flat.alternative_rules == ["605.5b"]
+
+
+def test_an_empty_alternative_group_is_refused():
+    """It could never be satisfied, so it would fail every answer forever."""
+    with pytest.raises(ValueError, match="empty alternative group"):
+        _label(sufficient_any_of=[[]])

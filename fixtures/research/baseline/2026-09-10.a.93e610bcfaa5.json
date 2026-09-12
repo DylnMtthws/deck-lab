@@ -1,0 +1,61 @@
+{
+  "adjudication_set": "2026-09-10.a",
+  "alternative_coverage": {
+    "mechanic-005": {
+      "qualifying": 3,
+      "returned": 2
+    }
+  },
+  "bundle_id": "bae0b5b8956c9724f8dc030fc2c284dfdf0a7819183854044e2a3aa70bd3b3e6",
+  "corpus_row_count": 34551,
+  "corpus_sha256": "62a6198cea9648296ee660337acb69c666d0a76560fc41b34ace47c1ed340b2d",
+  "discovery_applicable": 31,
+  "discovery_passed": 30,
+  "embedding_model_id": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+  "frozen_on": "2026-09-11",
+  "inputs_sha256": "93e610bcfaa5e03c934d5b80ac7fbfd688fa735048974a4a992dd8cd57f8f33d",
+  "kind": "development_baseline",
+  "limitations": [
+    "A NEW MEASUREMENT, NOT A COMPARISON. The corpus changed (400 chunks -> 871, new generation id) and the answer key got stricter (four previously inert disjunctions now carry constraints). Setting this 1/10 beside the previous 1/10 and concluding 'no change' would be wrong: the two numbers are over different corpora and different keys, and the per-question composition moved in both directions.",
+    "Retrieval and discovery are unchanged at 47/48 and 30/31. Card recall is untouched by anything in this round.",
+    "THE CHUNKER FIX WAS JUSTIFIED WITHOUT REFERENCE TO ANY ANSWER. 144 of 400 chunks exceeded the encoder's 512-token window, one of them by 27,867 tokens (the Glossary, which has no rule numbers to split on). Text past the window contributes nothing to the vector that dense retrieval scores. The acceptance condition comes from the model card, not from a rank, and would be correct if every question passed.",
+    "The alternative groups were TRANSCRIBED from each label's own sufficient_support prose, not decided: the union of the groups equals the previous flat list exactly, checked mechanically. It makes the key harder, not easier.",
+    "The rules-support labels are PROPOSED, not ratified. A failure scored against an unratified key is a lead, not a verdict.",
+    "The bar still varies across questions \u2014 see docs/r3-rules-support-audit.md \u2014 so an aggregate over these ten mixes unlike things. Two scored rules still cannot independently fail because they share a chunk with another scored rule.",
+    "NO QUERY, PLAN OR BOUND WAS CHANGED. Every rank on record was obtained by asking where a known answer sits, so a bound picked from one is fitted to this key. All ten questions have now been looked at; any number produced from them from here is produced with knowledge of the answers and should be reported that way. A held-out set is what would settle it.",
+    "A development measurement against a development bundle, not the G2 gate. Five blockers are registered in fixtures/research/g2_blockers.yaml, four open, every one a ratification rather than an engineering task.",
+    "Not evidence of generalization. deck-local-009 still fails because a bound fitted to an earlier answer key did not survive the key being corrected, and was left failing.",
+    "16 of the 47 card-retrieval passes are name lookups whose ask prints every required card's name. metagame-010 is unscored pending R5, so the retrieval denominator is 48, not 49.",
+    "Near-miss detection is not_evaluable for all ten: this round's near misses are prose annotations with no quote, so the matcher could not look. Distinct from having looked and found none."
+  ],
+  "name_lookup_count": 16,
+  "plans_sha256": "63f0e62a6d3abbb9d6d0da133dd9adde7e917400014c889f762b2a174171fc7c",
+  "reranker_model_id": "BAAI/bge-reranker-base",
+  "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+  "retrieval_applicable": 48,
+  "retrieval_failed": [
+    "deck-local-009"
+  ],
+  "retrieval_passed": 47,
+  "rules_support_applicable": 10,
+  "rules_support_failed": [
+    "rules-002",
+    "rules-003",
+    "rules-004",
+    "rules-005",
+    "rules-006",
+    "rules-007",
+    "rules-008",
+    "rules-009",
+    "rules-010"
+  ],
+  "rules_support_passed": 1,
+  "rules_support_set": "rules-support.2026-09-11.c",
+  "rules_support_status": "measured",
+  "rules_support_unlabelled": [],
+  "schema_version": "research-frozen-baseline.v1",
+  "unscored_pending": {
+    "metagame-010": "R5 (cohort counts for a field-frequency claim)"
+  }
+}

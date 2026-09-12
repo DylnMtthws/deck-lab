@@ -1,11 +1,11 @@
 {
-  "built_at": "2026-09-11T00:10:46+00:00",
-  "chunk_count": 400,
-  "chunk_ids_sha256": "da28b59a6283b3e2a006de81da09062b05092610b2a68218d5f1672172a89f8a",
+  "built_at": "2026-09-12T02:24:33+00:00",
+  "chunk_count": 871,
+  "chunk_ids_sha256": "db8c411304671efbbf08e0175ed66ca1eb5246bcac171b13885011b336e28df8",
   "configuration": {
     "chars_per_token": 4.0,
     "chunker": "sabermetrics.reference_layer.chunker.DocumentChunker",
-    "chunker_sha256": "aa35f0b4499738f9e1d3d896889db5cffbde31986e0b9afb3718a22d84dc8996",
+    "chunker_sha256": "a2b693f1339f7f9d26be5ca37a0b477e678fba122e724ec1d53e00d41842ba7f",
     "dimensions": 384,
     "embedding_model_id": "BAAI/bge-small-en-v1.5",
     "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
@@ -13,11 +13,11 @@
     "target_chunk_tokens": 500
   },
   "duplicate_chunks_collapsed": [],
-  "generation_id": "728d8602c0e0e8dadefcf416d401ea33b4794225d745a4629cf6d747e7a8a401",
+  "generation_id": "41fe565a1042b7e65151beb600e27ee5cf5f7b66f88d4a204d5eadb458ba362b",
   "normalized_sha256": "047f8944fc1c1d18d9c2a3daa28bac99531e95b9133c066a6cfb05718775b85a",
   "note": "an index is a prerequisite for answering a rules question, not an answer to one. whether a retrieved passage supports a claim is unlabelled and therefore unmeasured",
-  "reference_content_sha256": "8ec72f8f2dfc5bcbbb8278d110fc70427460d83acb0198b666dd68ac73806571",
-  "row_count": 400,
+  "reference_content_sha256": "5c26466bf4e4e9537b49a57361737b6d14827e41df59eda2ae09e0b855bd3fe8",
+  "row_count": 871,
   "schema_version": "research-rules-index.v1",
   "source": {
     "byte_count": 977822,
@@ -34,5 +34,5 @@
     "retrieved_from": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260819.txt",
     "schema_version": "research-rules-source.v1"
   },
-  "superseded_chunks_pruned": 147
+  "superseded_chunks_pruned": 315
 }

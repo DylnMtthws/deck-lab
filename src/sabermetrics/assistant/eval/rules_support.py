@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 RULES_SUPPORT_SCHEMA: Literal["research-rules-support-labels.v1"] = (
     "research-rules-support-labels.v1"
@@ -157,9 +157,27 @@ class RulesSupportLabel(_Strict):
     #: answered the question. This is a conjunction and it FAILS answers, so it
     #: is kept to what is load-bearing.
     required_rules: list[str]
-    #: Any ONE of these also carries a proposition that has several equally
-    #: valid citations. Empty when there is no such choice.
-    sufficient_any_of: list[str]
+    #: GROUPS of alternatives. Each inner list is one proposition with several
+    #: equally valid citations, and a passing answer needs one member of EVERY
+    #: group.
+    #:
+    #: It was a flat list, which was a real defect rather than a simplification:
+    #: four of the first ten labels described two independent either/or groups
+    #: and had to encode them as one, with "one from each group" written in
+    #: `sufficient_support` prose that no code reads. Satisfying the easy group
+    #: twice then passed the label while a proposition the label itself called
+    #: mandatory went unestablished. A flat list is still accepted on input and
+    #: is lifted into a single group, so the earlier files keep their meaning.
+    sufficient_any_of: list[list[str]]
+
+    @field_validator("sufficient_any_of", mode="before")
+    @classmethod
+    def _lift_flat_alternatives(cls, value: Any) -> Any:
+        """Accept the old flat list as a single group."""
+        if isinstance(value, list) and all(isinstance(entry, str) for entry in value):
+            return [value] if value else []
+        return value
+
     #: What the passage set must ESTABLISH, as propositions a reader can check.
     #: Prose on purpose: the rule numbers are the mechanism, not the meaning.
     sufficient_support: str = Field(min_length=20)
@@ -176,9 +194,14 @@ class RulesSupportLabel(_Strict):
     #: comes to cover a label nobody checked.
     verification: Literal["proposed_unreviewed", "adversarially_reconciled"]
 
+    @property
+    def alternative_rules(self) -> list[str]:
+        """Every alternative, flattened. Order preserved, duplicates kept."""
+        return [rule for group in self.sufficient_any_of for rule in group]
+
     @model_validator(mode="after")
     def every_scored_rule_is_quoted(self) -> RulesSupportLabel:
-        scored = [*self.required_rules, *self.sufficient_any_of]
+        scored = [*self.required_rules, *self.alternative_rules]
         if not scored:
             raise ValueError(f"{self.question_id}: a label that requires nothing")
         quoted = {entry.rule for entry in self.quoted_evidence}
@@ -188,10 +211,15 @@ class RulesSupportLabel(_Strict):
                 f"{self.question_id}: no quote for {missing}; a rule is matched "
                 "by its text, so an unquoted rule can never be covered"
             )
-        overlap = sorted(set(self.required_rules) & set(self.sufficient_any_of))
+        overlap = sorted(set(self.required_rules) & set(self.alternative_rules))
         if overlap:
             raise ValueError(
                 f"{self.question_id}: {overlap} are both required and optional"
+            )
+        if any(not group for group in self.sufficient_any_of):
+            raise ValueError(
+                f"{self.question_id}: an empty alternative group can never be "
+                "satisfied, so it would fail every answer"
             )
         traps = sorted({entry.rule for entry in self.near_miss_rules} & set(scored))
         if traps:
@@ -317,12 +345,16 @@ def support_verdict(
     missing_required = [
         rule for rule in label.required_rules if rule not in covered_required
     ]
-    covered_alternatives = [
-        rule for rule in label.sufficient_any_of if rule_covered(label, rule, passages)
+    groups = [
+        [rule for rule in group if rule_covered(label, rule, passages)]
+        for group in label.sufficient_any_of
     ]
-    satisfied = not missing_required and (
-        not label.sufficient_any_of or bool(covered_alternatives)
-    )
+    unsatisfied_groups = [index for index, covered in enumerate(groups) if not covered]
+    covered_alternatives = [rule for covered in groups for rule in covered]
+    # EVERY group must be satisfied, not just one. Each group is a separate
+    # proposition with several valid citations, so covering one group twice
+    # leaves the other proposition unestablished.
+    satisfied = not missing_required and not unsatisfied_groups
     detected: list[str] = []
     absent: list[str] = []
     unevaluable: list[str] = []
@@ -351,7 +383,13 @@ def support_verdict(
         "required_covered": sorted(covered_required),
         "required_missing": sorted(missing_required),
         "alternatives_covered": sorted(covered_alternatives),
-        "alternatives_total": len(label.sufficient_any_of),
+        "alternatives_total": len(label.alternative_rules),
+        "alternative_groups": len(label.sufficient_any_of),
+        # Which propositions the passages left unestablished. A group index is
+        # less useful than the rules it contains, so both are given.
+        "alternative_groups_unsatisfied": [
+            sorted(label.sufficient_any_of[index]) for index in unsatisfied_groups
+        ],
         # Three states, deliberately not two. "The matcher looked and found
         # nothing" and "the matcher had nothing to look with" are different
         # facts, and reporting them as one zero is reporting a check that never
@@ -420,16 +458,27 @@ def strictness_report(
         if found and found & required_chunks:
             collapsed.append(rule)
         required_chunks |= found
+    # Inertness is per GROUP: a group containing any rule co-located with a
+    # required rule is always satisfied and constrains nothing.
+    inert_groups = [
+        sorted(group)
+        for group in label.sufficient_any_of
+        if any(located.get(rule, set()) & required_chunks for rule in group)
+    ]
     auto = sorted(
         rule
-        for rule in label.sufficient_any_of
+        for group in label.sufficient_any_of
+        for rule in group
         if located.get(rule, set()) & required_chunks
     )
     minimum = len(
         {min(located[rule]) for rule in label.required_rules if located.get(rule)}
     )
-    if label.sufficient_any_of and not auto:
-        minimum += 1
+    minimum += sum(
+        1
+        for group in label.sufficient_any_of
+        if not any(located.get(rule, set()) & required_chunks for rule in group)
+    )
     return {
         "minimum_distinct_chunks": minimum,
         # Required rules sharing a chunk with an earlier required rule. Each
@@ -439,7 +488,8 @@ def strictness_report(
         # Alternatives co-located with a required rule. The disjunction is then
         # always satisfied and carries no constraint at all.
         "disjunction_satisfied_by_a_required_rule": auto,
-        "disjunction_is_inert": bool(label.sufficient_any_of) and bool(auto),
+        "inert_alternative_groups": inert_groups,
+        "disjunction_is_inert": bool(inert_groups),
         # A quote in the document but in no chunk can never be matched.
         "rules_in_no_chunk": unlocatable,
     }
