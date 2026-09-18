@@ -24,7 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -320,3 +320,84 @@ def mentions_card_name(haystack: str, name: str) -> bool:
         if token and re.search(rf"(?<!\w){re.escape(token)}(?!\w)", folded):
             return True
     return False
+
+
+#: Long enough that a shared run of words is the key's sentence and not the
+#: subject's vocabulary. Measured on the ten rules plans against their own
+#: labels: legitimate paraphrase peaks at five shared words, a query built from
+#: the key's quotes scores thirty-four and up. Six sits in the gap.
+KEY_SPAN_WORDS = 6
+
+
+def _words(text: str) -> list[str]:
+    """Lowercase word tokens, punctuation dropped, for span comparison."""
+    return re.findall(r"[a-z0-9]+", text.casefold())
+
+
+def longest_shared_span(left: str, right: str) -> int:
+    """Return the length in words of the longest run both texts contain."""
+    a, b = _words(left), _words(right)
+    best = 0
+    previous = [0] * (len(b) + 1)
+    for i in range(1, len(a) + 1):
+        current = [0] * (len(b) + 1)
+        for j in range(1, len(b) + 1):
+            if a[i - 1] == b[j - 1]:
+                current[j] = previous[j - 1] + 1
+                best = max(best, current[j])
+        previous = current
+    return best
+
+
+def plans_quoting_the_key(
+    plans: HandWrittenPlanSet,
+    quoted_evidence_by_question: Mapping[str, Sequence[str]],
+    *,
+    span_words: int = KEY_SPAN_WORDS,
+) -> dict[str, tuple[str, ...]]:
+    """Report rules plans whose lookup text carries the answer key's wording.
+
+    The card-name anti-cheat cannot see this. A rules lookup that says "an
+    object that enters the battlefield as a copy of another object" has not
+    asked a question; it has pasted the sentence it is meant to find, and the
+    passage will come back at rank 1 for a reason that says nothing about
+    retrieval. Every free-text field a rules plan carries is scanned — the
+    lookup question, its note and the plan's intent — because a span that is
+    refused in one field and permitted in another is not refused.
+
+    What this cannot catch: decomposing a query by the key's TOPICS rather than
+    its words. That failure mode differs in topic selection, not wording, and
+    only pre-registration distinguishes it after the fact.
+
+    Args:
+        plans: The hand-written plans.
+        quoted_evidence_by_question: For each question id, the verbatim quotes
+            its rules-support label scores.
+        span_words: Minimum shared run, in words, that counts as quoting.
+
+    Returns:
+        Question id to the quotes its plan shares a span with. Questions with
+        nothing to report are absent.
+    """
+    report: dict[str, tuple[str, ...]] = {}
+    for question_id, quotes in sorted(quoted_evidence_by_question.items()):
+        hand = plans.by_question_id.get(question_id)
+        if hand is None:
+            continue
+        texts = [hand.plan.intent]
+        for step in hand.plan.steps:
+            if isinstance(step, RulesLookupStep):
+                texts.extend((step.question, step.note))
+        shared = tuple(
+            sorted(
+                {
+                    quote
+                    for quote in quotes
+                    for text in texts
+                    if text and longest_shared_span(text, quote) >= span_words
+                }
+            )
+        )
+        if shared:
+            report[question_id] = shared
+    return report

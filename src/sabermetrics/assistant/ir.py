@@ -196,6 +196,14 @@ class TagFilterStep(_Step):
         return self
 
 
+class PlanNamesARuleError(PlanValidationError):
+    """A rules lookup contains a rule number, which is the answer's address."""
+
+
+#: A Comprehensive Rules number as printed: ``605.1a``, ``202.3``.
+_RULE_NUMBER = re.compile(r"\b\d{3}\.\d+[a-z]?\b")
+
+
 class RulesLookupStep(_Step):
     """Retrieval over the reference layer's active embedding generation."""
 
@@ -203,7 +211,32 @@ class RulesLookupStep(_Step):
     question: str = Field(min_length=8, max_length=500)
     tier_filter: tuple[int, ...] = ()
     document_filter: tuple[str, ...] = ()
+    #: Maximum chunks. When ``char_budget`` is set this is a cap that should
+    #: not bind before the budget does; the budget is the operative bound.
     limit: int = Field(default=5, ge=1, le=50)
+    #: Characters of passage text the step may return, applied to the ranked
+    #: rows in order. Chunks are a unit that changes meaning whenever the
+    #: chunker does — halving chunk size at a fixed ``limit`` halves the text a
+    #: lookup admits, which is what made one re-chunk read as a regression at
+    #: limit 6 and as a large improvement at a fixed character budget. A
+    #: budget in characters can be compared across two chunkings; a limit in
+    #: chunks cannot. ``None`` means the chunk limit alone applies.
+    char_budget: int | None = Field(default=None, ge=500, le=50_000)
+
+    @model_validator(mode="after")
+    def refuse_a_rule_number(self) -> RulesLookupStep:
+        """Refuse a lookup that names the rule it is supposed to find.
+
+        A rule number in a query is the answer's address, and a plan that
+        carries one is a lookup wearing a question's clothes. The card-name
+        anti-cheat cannot see it, so this is checked where a plan is parsed.
+        """
+        if _RULE_NUMBER.search(self.question):
+            raise PlanNamesARuleError(
+                f"rules_lookup {self.id!r} names a rule number in its question; "
+                "ask the rules question in plain language instead"
+            )
+        return self
 
 
 class DeckProfileStep(_Step):

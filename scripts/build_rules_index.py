@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import tempfile
 from datetime import UTC, datetime
@@ -163,6 +164,65 @@ def chunk_ids_sha256(chunks: list[Chunk]) -> str:
     """Hash the ordered chunk identities, for a cheap rebuild comparison."""
     payload = "\n".join(chunk.id for chunk in chunks)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+#: A rule number at the head of a chunk's text.
+_LEADING_RULE = re.compile(r"^\s*(\d{3}\.\d+[a-z]?)\.?\s")
+
+
+def index_refusals(chunks: list[Chunk]) -> list[str]:
+    """Return every reason these chunks must not become the active index.
+
+    Checked BEFORE ``index_chunks``: the indexer commits and activates the
+    generation in one transaction, so a check after it can refuse the manifest
+    but not the index, and leaves the database and the pinned manifest
+    describing different corpora.
+
+    Two conditions, both decidable from the chunks alone:
+
+    * No chunk exceeds the character ceiling that stands in for the encoder
+      window. The token assertion lives in the tests, which may load a
+      tokenizer; this is the proxy the build can check without one.
+    * No chunk is cited as a rule its text does not begin with. A chunk that
+      begins at 707.5 and is labelled ``CR 707.2c`` is a wrong citation, and
+      a whole Glossary labelled with the last rule before it is 83 of them.
+      A continuation piece begins mid-rule and carries no number, so it is
+      not checked; a piece that begins with a DIFFERENT number is.
+
+    Args:
+        chunks: The chunker's output.
+
+    Returns:
+        Human-readable refusals; empty when the build may proceed.
+    """
+    problems: list[str] = []
+    oversized = [
+        (chunk.section, len(chunk.content))
+        for chunk in chunks
+        if len(chunk.content) > DocumentChunker.MAX_CHUNK_CHARS
+    ]
+    if oversized:
+        problems.append(
+            f"{len(oversized)} chunk(s) exceed MAX_CHUNK_CHARS="
+            f"{DocumentChunker.MAX_CHUNK_CHARS}; first: {oversized[0]}"
+        )
+    miscited = []
+    for chunk in chunks:
+        section = chunk.section or ""
+        head = _LEADING_RULE.match(chunk.content)
+        if head is None:
+            continue
+        if section.startswith("CR ") and "." in section[3:]:
+            if head.group(1) != section[3:]:
+                miscited.append((section, head.group(1)))
+        elif not section.startswith("CR "):
+            miscited.append((section, head.group(1)))
+    if miscited:
+        problems.append(
+            f"{len(miscited)} chunk(s) begin at one rule and are cited as "
+            f"another; first: cited {miscited[0][0]!r}, begins {miscited[0][1]!r}"
+        )
+    return problems
 
 
 def _reproducible_chunks(path: Path) -> list[Chunk]:
@@ -307,6 +367,12 @@ def main() -> int:
     if collapsed:
         print(f"collapsed  {len(collapsed)} duplicate chunk(s): {collapsed[0]}")
     print(f"content    {content_hash[:12]}")
+    problems = index_refusals(chunks)
+    if problems:
+        raise RulesIndexError(
+            "REFUSING TO BUILD: the chunks would be indexed wrongly.\n  - "
+            + "\n  - ".join(problems)
+        )
     if args.verify_only:
         print("verify-only: nothing written")
         return 0

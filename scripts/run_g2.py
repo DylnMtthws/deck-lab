@@ -215,6 +215,8 @@ def _spawn_chunk(start: int, size: int, args: argparse.Namespace) -> dict[str, A
         ("--config", args.config),
         ("--plans", args.plans),
         ("--id-map", args.id_map),
+        ("--questions", args.questions),
+        ("--rules-support-labels", args.rules_support_labels),
     ):
         if value is not None:
             command += [flag, str(value)]
@@ -304,6 +306,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--plans", type=Path, default=None, help="plan directory")
+    parser.add_argument(
+        "--questions",
+        type=Path,
+        default=None,
+        help="question directory; a held-out set. Implies --measured: a run "
+        "over questions other than the checked-in golden set is never the gate",
+    )
+    parser.add_argument(
+        "--rules-support-labels",
+        type=Path,
+        default=None,
+        help="rules-support label file to score against instead of the "
+        "checked-in one; for a held-out set. Implies --measured",
+    )
     parser.add_argument("--id-map", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument(
@@ -342,7 +358,18 @@ def main() -> int:
     if args.chunk and args.only:
         raise RuntimeError("--chunk and --only are mutually exclusive")
 
-    questions = load_questions()
+    if args.questions or args.rules_support_labels:
+        # A held-out run publishes a number about a different question set or
+        # a different key. It can never be the gate, and it must not be able to
+        # overwrite the checked-in measurement, so both are forced here rather
+        # than left to the flag the operator remembered to pass.
+        args.measured = True
+    rules_support_labels = (
+        load_rules_support_labels(args.rules_support_labels)
+        if args.rules_support_labels
+        else load_rules_support_labels()
+    )
+    questions = load_questions(args.questions) if args.questions else load_questions()
     plans = (
         load_hand_written_plans(args.plans) if args.plans else load_hand_written_plans()
     )
@@ -383,7 +410,7 @@ def main() -> int:
             questions,
             plans=plans,
             id_map=id_map,
-            rules_support=load_rules_support_labels(),
+            rules_support=rules_support_labels,
         )
         if refusals:
             raise RuntimeError(
@@ -486,6 +513,15 @@ def _finish(
         reranker_revision=reranker.revision,
     )
 
+    # Loaded here as well as in main(): this function is also the scoring end
+    # of a chunked run, whose subprocesses re-enter through main() and whose
+    # merge does not, so the labels must be resolved from args at the point
+    # of use rather than threaded through.
+    rules_support_labels = (
+        load_rules_support_labels(args.rules_support_labels)
+        if args.rules_support_labels
+        else load_rules_support_labels()
+    )
     if args.measured or args.only:
         scorecard = g2_scorecard(
             questions,
@@ -494,7 +530,7 @@ def _finish(
             plans=plans,
             id_map=id_map,
             run=run,
-            rules_support=load_rules_support_labels(),
+            rules_support=rules_support_labels,
         )
     else:
         scorecard = authoritative_g2(
@@ -506,7 +542,7 @@ def _finish(
             run=run,
             settings=settings,
             corpus_oracle_ids=_corpus_oracle_ids(settings),
-            rules_support=load_rules_support_labels(),
+            rules_support=rules_support_labels,
         )
 
     print(json.dumps(scorecard, indent=2, sort_keys=True))

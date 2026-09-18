@@ -37,6 +37,14 @@ blockers:
       measures what its author guessed the ask needs. Several carry bounds that
       were chosen after inspecting where the labelled answers ranked, which is
       development tuning and is recorded as such in their review notes.
+      RULING (2026-09-12): the ten rules plans keep exactly one rules_lookup
+      each, at a fixed character budget, and a test asserts it. Decomposing
+      the lookups by hand was measured to change the score by nothing that did
+      not come from newly authored text, so it is R4 planner scope, measured
+      by G3 against this frozen shape. The rules_lookup questions are
+      byte-identical to 290baf2 and predate the index; the card_search top_k
+      values were cut 50 -> 3 under docs/r3-breadth-audit.md and ARE
+      rank-derived. See docs/r3-rules-support-remediation.md.
     owner: Dylan Matthews
     closure_criterion: >-
       Each plan read against its question's clarified ask and promoted to

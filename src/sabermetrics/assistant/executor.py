@@ -37,6 +37,7 @@ from sabermetrics.assistant.envelope import (
     PlanRun,
     ProfileFacetValue,
     ResultOrdering,
+    RulesRow,
     StatedAbsenceRecord,
     StepNotRun,
     StepNotRunReason,
@@ -333,6 +334,29 @@ class ResearchExecutor:
         except RulesUnavailable as exc:
             return _unavailable(step, exc.reason, exc.detail, ctx)
 
+        # The character budget is applied AFTER ranking and in rank order, so
+        # it changes how much of the ranking is returned and never which order.
+        # At least one row is always kept: a budget smaller than the top chunk
+        # is a budget that returns the top chunk, not nothing.
+        fetched = rows
+        if step.char_budget is not None:
+            kept: list[RulesRow] = []
+            used = 0
+            for row in rows:
+                if kept and used + len(row.content) > step.char_budget:
+                    break
+                kept.append(row)
+                used += len(row.content)
+            rows = tuple(kept)
+        dropped = len(fetched) - len(rows)
+        chars_returned = sum(len(row.content) for row in rows)
+        notices = ["reference retrieval is dense-only"]
+        if step.char_budget is not None:
+            notices.append(
+                f"char budget {step.char_budget}: returned {len(rows)} of "
+                f"{len(fetched)} ranked chunks, {chars_returned} characters"
+            )
+
         return StepResult(
             step_id=step.id,
             kind=step.kind,
@@ -340,7 +364,7 @@ class ResearchExecutor:
             ordering="ranked",
             provenance=ctx.provenance,
             coverage=Coverage(
-                eligible=len(rows),
+                eligible=len(fetched),
                 eligible_is_exact=False,
                 examined=None,
                 examined_absent_because=(
@@ -348,16 +372,17 @@ class ResearchExecutor:
                     "it scored"
                 ),
                 returned=len(rows),
-                dropped=0,
-                truncated=False,
+                dropped=dropped,
+                truncated=dropped > 0,
                 set_input_incomplete=False,
+                truncation_source=("char_budget",) if dropped else (),
             ),
             field=NoFieldEvidence(reason="not_a_field_query"),
             availability=RetrievalAvailability(
                 lexical=False,
                 dense=True,
                 reranked=False,
-                notices=("reference retrieval is dense-only",),
+                notices=tuple(notices),
             ),
             rules=rows,
             elapsed_ms=(time.perf_counter() - started) * 1000,

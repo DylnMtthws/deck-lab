@@ -858,3 +858,94 @@ def test_an_absence_plan_carries_every_absence_it_stated(executor):
     ]
     assert [absence.answers_expectation for absence in run.stated_absences] == [0, 1]
     assert run.result_set_oracle_ids == ()
+
+
+# -- a rules lookup bounded in characters, not chunks -----------------------
+
+
+class _SizedReferenceRetriever:
+    """A retriever returning ``top_k`` chunks of a fixed size, best first."""
+
+    def __init__(self, size):
+        self.size = size
+        self.queries = []
+
+    def retrieve(self, query):
+        self.queries.append(query)
+        return [
+            RetrievedChunk(
+                id=f"chunk-{rank}",
+                document="comprehensive_rules",
+                section=f"CR {rank}",
+                tier=1,
+                content="x" * self.size,
+                similarity_score=1.0 - rank / 100,
+            )
+            for rank in range(1, query.top_k + 1)
+        ]
+
+
+def test_a_char_budget_truncates_in_rank_order_and_discloses_it(cards):
+    """Chunks are a unit that changes meaning with the chunker; characters are not.
+
+    At limit 6 a re-chunk that halved chunk size halved the text a lookup
+    admitted, and the same fix read as a regression at one bound and as a
+    large improvement at a fixed character budget. So the budget is the
+    operative bound, applied after ranking and in rank order, and what it
+    dropped is on the coverage rather than silently absent.
+    """
+    retriever = _SizedReferenceRetriever(size=1000)
+    executor = ResearchExecutor(cards, rules=ReferenceRulesSource(retriever))
+    step = executor.run(
+        plan(
+            RulesLookupStep(
+                id="budgeted",
+                question="what is a state-triggered ability",
+                limit=12,
+                char_budget=2500,
+            )
+        )
+    ).steps[0]
+    assert isinstance(step, StepResult)
+    assert retriever.queries[-1].top_k == 12, "the cap is what the retriever sees"
+    assert [row.rank for row in step.rules] == [1, 2], "2,000 fits; a third would not"
+    assert step.coverage.eligible == 12
+    assert step.coverage.returned == 2
+    assert step.coverage.dropped == 10
+    assert step.coverage.truncated is True
+    assert step.coverage.truncation_source == ("char_budget",)
+    assert any("char budget 2500" in note for note in step.availability.notices)
+
+
+def test_a_char_budget_below_one_chunk_still_returns_the_top_chunk(cards):
+    """A budget smaller than the best passage returns the best passage, not nothing."""
+    retriever = _SizedReferenceRetriever(size=1000)
+    executor = ResearchExecutor(cards, rules=ReferenceRulesSource(retriever))
+    step = executor.run(
+        plan(
+            RulesLookupStep(
+                id="tiny",
+                question="what is a state-triggered ability",
+                limit=3,
+                char_budget=500,
+            )
+        )
+    ).steps[0]
+    assert isinstance(step, StepResult)
+    assert [row.rank for row in step.rules] == [1]
+    assert step.coverage.dropped == 2
+
+
+def test_no_char_budget_means_the_chunk_limit_alone_applies(cards):
+    retriever = _SizedReferenceRetriever(size=1000)
+    executor = ResearchExecutor(cards, rules=ReferenceRulesSource(retriever))
+    step = executor.run(
+        plan(
+            RulesLookupStep(
+                id="plain", question="what is a state-triggered ability", limit=3
+            )
+        )
+    ).steps[0]
+    assert isinstance(step, StepResult)
+    assert len(step.rules) == 3
+    assert step.coverage.truncated is False

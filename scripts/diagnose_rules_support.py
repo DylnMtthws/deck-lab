@@ -7,7 +7,8 @@ they call for three different responses:
 
 * the rule ranks inside a wider window — the plan's BOUND is what excluded it;
 * the rule ranks deep — retrieval reaches it, but barely;
-* the rule never ranks at all — a genuine gap between the query and the corpus.
+* the rule does not rank within the probe depth. This says the probe did not
+  reach it, not that nothing would: at depth 200 that bucket halves.
 
 READ THE OUTPUT WITH CARE. Every rank here was obtained by asking where a known
 answer sits. A bound chosen from these numbers is fitted to this answer key and
@@ -206,9 +207,11 @@ def main() -> int:
         f"- **{len(within)}** missing rules sit at rank 20 or better: the plan's",
         "  bound is what excluded them.",
         f"- **{len(deep)}** sit deeper than 20: retrieval reaches them, barely.",
-        f"- **{len(absent)}** never appear within {args.depth}: a genuine gap",
-        "  between the query and the corpus, and the only group where a wider",
-        "  window would not have helped.",
+        f"- **{len(absent)}** do not appear within {args.depth}. That is a fact",
+        "  about the probe depth, not about the corpus: an earlier version of",
+        "  this line called it a gap no window could close, and a sweep to",
+        "  depth 200 halved the bucket. What it does establish is that no",
+        "  bound anyone would defend reaches these rules with these queries.",
         "",
         "",
         "## Vocabulary overlap tracks retrievability",

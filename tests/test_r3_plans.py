@@ -248,9 +248,27 @@ def test_a_rules_plan_asks_the_rules_layer_rather_than_declaring_it_absent(
         if question.category != "rules":
             continue
         plan = planned[question.id].plan
-        assert any(
-            isinstance(step, RulesLookupStep) for step in plan.steps
-        ), f"{question.id}: a rules question should attempt a rules lookup"
+        lookups = [step for step in plan.steps if isinstance(step, RulesLookupStep)]
+        assert lookups, f"{question.id}: a rules question should attempt a rules lookup"
+        # THE SHAPE IS THE CONTROL. Exactly one lookup at one fixed budget for
+        # all ten, so the rules-support number is measured over a uniform,
+        # unfitted shape. Decomposing by hand was measured to buy nothing that
+        # did not come from newly authored text, and is R4 planner scope; see
+        # the header of fixtures/research/r3_plans/rules.yaml.
+        assert len(lookups) == 1, (
+            f"{question.id}: {len(lookups)} rules_lookup steps; the R3 shape is "
+            "one, and decomposition is measured by G3 against this control"
+        )
+        (lookup,) = lookups
+        assert lookup.char_budget == 6300, (
+            f"{question.id}: char_budget {lookup.char_budget}; the budget is "
+            "the operating point the plans had under the 871-chunk index, "
+            "pinned so two chunkings can be compared"
+        )
+        assert lookup.limit == 12, (
+            f"{question.id}: limit {lookup.limit}; the chunk cap is 12 so it "
+            "cannot bind before the character budget does"
+        )
         assert "rules_index_not_built" not in {
             absence.reason for absence in plan.stated_absences
         }, (

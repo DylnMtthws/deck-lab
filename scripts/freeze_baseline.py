@@ -89,6 +89,11 @@ def main() -> int:
     retrieval = card["gates"]["retrieval"]
     discovery = card["gates"]["discovery"]
     support = card["gates"].get("rules_support") or {}
+    # ``{"status": "not_built"}`` when no index was bound; every .get below
+    # then yields None, which the model records as "not recorded".
+    rules_index = provenance.get("rules_index") or {}
+    if "generation_id" not in rules_index:
+        rules_index = {}
     baseline = FrozenBaseline(
         kind=(
             "authoritative_gate"
@@ -124,6 +129,11 @@ def main() -> int:
         rules_support_applicable=support.get("applicable"),
         rules_support_failed=list(support.get("failed") or ()),
         rules_support_unlabelled=list(support.get("unlabelled") or ()),
+        rules_index_generation_id=rules_index.get("generation_id"),
+        rules_index_chunk_count=rules_index.get("chunk_count"),
+        rules_index_chunker_sha256=rules_index.get("chunker_sha256"),
+        rules_support_propositions_covered=support.get("propositions_covered"),
+        rules_support_propositions_total=support.get("propositions_total"),
         limitations=list(args.limitation),
     )
     output = args.output or (BASELINE_DIR / baseline_filename(baseline))

@@ -15,6 +15,27 @@ Its numbers were measured against the PRE-fix index (400 chunks); the index is
 now 871 chunks with no chunk over the encoder window, so its truncation figures
 describe the problem it diagnosed rather than the current state.
 
+**Annotations added on review (2026-09-12; see `r3-rules-support-remediation.md`):**
+
+- Two sentences below justify a LABEL decision by an observed RANK — "the
+  plan's own query already returns [CR 112] at rank 2" (on demoting 109.2b)
+  and "a paraphrase that never says 'evoke' still reaches 702.74a at rank 16"
+  (on rules-009). A key changed because of where the system ranked something
+  is contamination flowing into the answer key, the one direction that must
+  never happen. The redundancy argument for 109.2b stands on its own; the rank
+  must not be part of the owner's reasons.
+- The plan-shape recommendation in §3 was tested and is not adopted. The
+  clause-structure rule it proposes yields one step for rules-010 (its
+  `clarified_ask` has no comma) and 0/10 when applied; every decomposition that
+  adds no newly authored text scores 1/10. Ruling recorded in
+  `fixtures/research/r3_plans/rules.yaml` and `g2_blockers.yaml`.
+- The chunker recommendations in §3 landed only in part in fd4bafd (the
+  ceiling). Period-form splitting, first-rule labelling and a separately
+  labelled Glossary landed afterwards, when the partial fix was found to have
+  put a wrong citation on 214 of 871 chunks.
+- Line 8's "three defects" and line 57's "two confirmed defects" disagree; the
+  commit that acted on this document counted three.
+
 ---
 
 **Finding: what "1 of 10" is actually measuring**

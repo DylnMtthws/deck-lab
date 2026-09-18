@@ -1497,10 +1497,11 @@ got worse.
 
 **Nothing was tuned in response.** The rules plans, queries and bounds are
 byte-identical to the run that scored 47/48 with support unmeasured.
-`scripts/diagnose_rules_support.py` separates the causes — 11 of the 18 missing
-rules sit at rank 20 or better and were excluded by the plan's bound of six,
-three sit at 44–54, and three (`104.3e`, `400.6`, `702.74a`) never appear within
-60 and are a genuine gap between query and corpus. **Those ranks were obtained
+`scripts/diagnose_rules_support.py` separates the causes per rule; its output is
+regenerated into `docs/r3-rules-support-diagnosis.md` and the numbers quoted
+here in an earlier draft (11/3/3 over 17 rows) described the 400-chunk index
+and are superseded. The "never within 60" bucket is a fact about the probe
+depth, not the corpus: it halves at depth 200. **Those ranks were obtained
 by asking where a known answer sits, so a bound chosen from them is fitted to
 this answer key**, which is the mistake `deck-local-009` exists to demonstrate.
 The table decides which questions deserve investigation; it does not pick a
@@ -1518,9 +1519,11 @@ attacked the finished set and could not flip a single answer. All 61 quotes are
 verbatim, all clear the length floor, and no fabricated rule number survives.
 What it found instead was a **defect in the schema**:
 
-**`sufficient_any_of` is a single flat disjunction**, and four labels pack two
+**`sufficient_any_of` WAS a single flat disjunction**, and four labels packed two
 independent either/or groups into it, with "one from each group" stated in prose
-no code reads. Satisfying the easy group twice passes the label while a
+no code read. Since fd4bafd the field is `list[list[str]]` and those four are
+transcribed into nested groups; a flat list is still accepted and lifted into
+one group. Satisfying the easy group twice passes the label while a
 proposition the label itself calls mandatory goes unestablished.
 
 Worse, and this is the part that qualifies the headline number: **retrieval
@@ -1537,9 +1540,9 @@ and reproduces the critic's reading exactly:
 |---|---|
 | required rules that cannot independently fail | `rules-005/202.3`, `rules-008/605.3a` |
 | inert disjunctions | `rules-003`, `rules-008`, `rules-009`, `rules-010` |
-| effective bar | **2 to 4 distinct chunks**, a twofold spread |
+| effective bar | **2 to 5 distinct chunks**, a 2.5x spread |
 
-**Any aggregate over these ten mixes bars that differ by a factor of two**, which
+**Any aggregate over these ten mixes bars that differ by a factor of 2.5**, which
 is the first thing to say about a headline "n of 10". None of it is fixable by
 a script: each case needs a decision about what the question demands, which is
 the owner's. A test does assert the one case that is never a judgement call — a

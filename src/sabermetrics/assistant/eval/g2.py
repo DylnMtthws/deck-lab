@@ -51,9 +51,11 @@ from sabermetrics.assistant.eval.models import (
     GoldenQuestionSet,
 )
 from sabermetrics.assistant.eval.plans import (
+    KEY_SPAN_WORDS,
     HandWrittenPlanSet,
     mentions_card_name,
     plans_naming_the_answer,
+    plans_quoting_the_key,
 )
 from sabermetrics.assistant.eval.rules_support import (
     RulesSupportLabelSet,
@@ -179,6 +181,17 @@ def g2_scorecard(
     )
 
     leaked = plans_naming_the_answer(plans, question_set, id_map.names_by_label_id)
+    key_quoted = plans_quoting_the_key(
+        plans,
+        (
+            {
+                label.question_id: [entry.quote for entry in label.quoted_evidence]
+                for label in rules_support.labels
+            }
+            if rules_support is not None
+            else {}
+        ),
+    )
     unnamed = _unnamed_label_ids(question_set, id_map)
     name_leaked = _asks_that_name_their_own_answer(question_set, id_map)
     discovery = _discovery_gate(by_id, retrieval, name_leaked)
@@ -231,6 +244,24 @@ def g2_scorecard(
                     "as a retrieval success overstates the tool vocabulary. "
                     "a label the id map cannot name cannot be checked, so any "
                     "such id is listed and the subset reports not_measured"
+                ),
+            },
+            "plans_quoting_the_answer_key": {
+                # The card-name check cannot see this one. A rules lookup that
+                # shares a six-word run with the sentence it is meant to find
+                # has pasted the answer, and the passage comes back for a
+                # reason that says nothing about retrieval.
+                "status": "measured" if rules_support is not None else "not_measured",
+                "span_words": KEY_SPAN_WORDS,
+                "count": len(key_quoted),
+                "by_question": {key: list(value) for key, value in key_quoted.items()},
+                "note": (
+                    "a rules plan whose lookup question, note or intent shares a "
+                    "contiguous run of six or more words with a quote in its "
+                    "own rules-support label. legitimate paraphrase measured at "
+                    "five; a query built from the key measures thirty-four and "
+                    "up. this cannot detect decomposition by the key's TOPICS, "
+                    "which differs in selection rather than wording"
                 ),
             },
         },
@@ -459,6 +490,19 @@ def authoritative_g2(
         raise G2InputError(
             "authoritative G2 requires owner-verified plans: " + ", ".join(unverified)
         )
+    if rules_support is not None:
+        key_quoted = plans_quoting_the_key(
+            plans,
+            {
+                label.question_id: [entry.quote for entry in label.quoted_evidence]
+                for label in rules_support.labels
+            },
+        )
+        if key_quoted:
+            raise G2InputError(
+                "authoritative G2 refuses a rules plan that quotes its own answer "
+                "key: " + ", ".join(sorted(key_quoted))
+            )
     expected = {question.id for question in question_set.questions}
     observed = {row.question_id for row in observations}
     if observed != expected:
@@ -960,9 +1004,31 @@ def _rules_support(
             for row in step.rules
         )
         verdict = support_verdict(label, rows)
+        # The unit that can be compared across questions. A question's bar is
+        # a conjunction of 2 to 5 propositions (one per required rule and one
+        # per alternative group), so a per-question pass mixes bars that differ
+        # by 2.5x; per-proposition coverage does not.
+        propositions_total = len(label.required_rules) + len(label.sufficient_any_of)
+        propositions_covered = len(verdict["required_covered"]) + (
+            len(label.sufficient_any_of)
+            - len(verdict["alternative_groups_unsatisfied"])
+        )
+        verdict["propositions_total"] = propositions_total
+        verdict["propositions_covered"] = propositions_covered
+        # How much text the bound admitted. A limit in chunks means a
+        # different amount of text under every chunker, and this is what makes
+        # two runs comparable or shows that they are not.
+        verdict["chars_returned"] = sum(len(row.content) for row in rows)
+        verdict["chunks_returned"] = len(rows)
         verdicts[question_id] = verdict
         (passed if verdict["supported"] else failed).append(question_id)
     measured = sorted(verdicts)
+    propositions_covered_total = sum(
+        int(verdicts[question_id]["propositions_covered"]) for question_id in measured
+    )
+    propositions_total_all = sum(
+        int(verdicts[question_id]["propositions_total"]) for question_id in measured
+    )
     if not applicable:
         status = "not_applicable"
     elif not measured:
@@ -981,6 +1047,19 @@ def _rules_support(
         "passed": len(passed),
         "failed": sorted(failed),
         "pass_rate": len(passed) / len(measured) if measured else 0.0,
+        # The comparable unit, reported beside the per-question count rather
+        # than instead of it. See the note on propositions in each verdict.
+        "propositions_covered": propositions_covered_total,
+        "propositions_total": propositions_total_all,
+        "proposition_rate": (
+            propositions_covered_total / propositions_total_all
+            if propositions_total_all
+            else 0.0
+        ),
+        "chars_returned_by_question": {
+            question_id: int(verdicts[question_id]["chars_returned"])
+            for question_id in measured
+        },
         # Named and removed rather than passed. A rules question nobody has
         # labelled cannot be answered correctly OR incorrectly as far as this
         # gate is concerned, and counting it as a pass is the hole this closes.

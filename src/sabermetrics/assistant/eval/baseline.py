@@ -36,12 +36,33 @@ from sabermetrics.assistant.eval.rules_support import (
     load_rules_support_labels,
 )
 
-#: Bumped because the hash now covers the rules-support labels. A digest whose
+#: Bumped twice: v2 when the hash began covering the rules-support labels, v3
+#: when it began covering the rules index generation. A re-chunk with unchanged
+#: plans and labels used to hash identically, so a second corpus overwrote the
+#: first corpus's frozen number under the same filename and the "new
+#: measurement, not a comparison" rule lived only in prose. A digest whose
 #: inputs changed while its version did not is a digest that lies about what it
 #: compared.
-EVALUATION_INPUTS_VERSION: Literal["research-evaluation-inputs.v2"] = (
-    "research-evaluation-inputs.v2"
+EVALUATION_INPUTS_VERSION: Literal["research-evaluation-inputs.v3"] = (
+    "research-evaluation-inputs.v3"
 )
+RULES_INDEX_MANIFEST = (
+    Path(__file__).resolve().parents[4] / "fixtures" / "research" / "rules_index.json"
+)
+
+
+def rules_index_generation_id(manifest: Path | None = None) -> str | None:
+    """Return the checked-in rules index generation, or ``None`` if none is built.
+
+    Read from the manifest rather than the database because the manifest is
+    what is committed, and the hash must be recomputable from the tree alone.
+    """
+    manifest = RULES_INDEX_MANIFEST if manifest is None else manifest
+    if not manifest.is_file():
+        return None
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    generation = data.get("generation_id")
+    return str(generation) if generation else None
 
 
 class _Unset:
@@ -93,6 +114,7 @@ def evaluation_inputs_sha256(
     *,
     adjudications: Path = ADJUDICATIONS_PATH,
     rules_support: RulesSupportLabelSet | None | _Unset = _UNSET,
+    rules_index_manifest: Path | None = None,
 ) -> str:
     """Hash every input that can move a G2 number, and nothing that cannot.
 
@@ -154,6 +176,10 @@ def evaluation_inputs_sha256(
         # so it is not a cosmetic edit and must not hash the same.
         "rules_support": labels.sha256() if labels is not None else None,
         "rules_support_set": labels.label_set if labels is not None else None,
+        # The corpus a rules question is answered from. Two runs over different
+        # chunkings of the same document are different measurements, and this
+        # is what stops them sharing a hash and a filename.
+        "rules_index_generation_id": rules_index_generation_id(rules_index_manifest),
     }
     canonical = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
@@ -202,6 +228,19 @@ class FrozenBaseline(BaseModel):
     rules_support_applicable: int | None = None
     rules_support_failed: list[str] = Field(default_factory=list)
     rules_support_unlabelled: list[str] = Field(default_factory=list)
+    #: The rules corpus this was measured over. Optional so older baselines
+    #: load; ``None`` means "not recorded", which is the honest state of the
+    #: five frozen before this field existed, and is distinct from "no index".
+    rules_index_generation_id: str | None = None
+    rules_index_chunk_count: int | None = Field(default=None, ge=1)
+    rules_index_chunker_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    #: Rules support in the unit that can be compared across questions: one
+    #: proposition per required rule and per alternative group. Optional for
+    #: the same reason as above.
+    rules_support_propositions_covered: int | None = Field(default=None, ge=0)
+    rules_support_propositions_total: int | None = Field(default=None, ge=0)
     #: What this measurement does NOT establish. Free text, required, and read
     #: by a human rather than by code.
     limitations: list[str] = Field(min_length=1)

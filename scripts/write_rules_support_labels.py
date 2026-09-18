@@ -63,6 +63,13 @@ def main() -> int:
     parser.add_argument("--label-set", required=True)
     parser.add_argument("--labelled-on", required=True)
     parser.add_argument("--effective-date", default="")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite a label file whose alternative groups have been hand-"
+        "transcribed into nested lists. This script writes them FLAT, so "
+        "without --force it refuses rather than silently reverting them",
+    )
     args = parser.parse_args()
 
     passes: dict[str, list[dict[str, Any]]] = {}
@@ -177,6 +184,23 @@ def main() -> int:
         "labels": labels,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.output.is_file() and not args.force:
+        existing = yaml.safe_load(args.output.read_text(encoding="utf-8")) or {}
+        nested = [
+            label.get("question_id")
+            for label in existing.get("labels") or ()
+            if any(
+                isinstance(item, list) for item in label.get("sufficient_any_of") or ()
+            )
+        ]
+        if nested:
+            raise SystemExit(
+                "REFUSING TO OVERWRITE: the checked-in labels carry nested "
+                f"alternative groups on {', '.join(map(str, nested))}, transcribed by "
+                "hand from each label's own prose. This script writes the flat "
+                "form and would silently revert them. Pass --force if that is "
+                "what you mean, and re-transcribe afterwards"
+            )
     args.output.write_text(
         yaml.safe_dump(payload, sort_keys=False, allow_unicode=True, width=88),
         encoding="utf-8",

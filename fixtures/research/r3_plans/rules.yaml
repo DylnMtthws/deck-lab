@@ -8,6 +8,30 @@
 #   2. a rules_lookup that asks the actual rules question in plain language,
 #      with no card name in it at all.
 #
+# THE SHAPE IS FROZEN THROUGH R3, AND A TEST NOW ASSERTS IT (tests/test_r3_plans.py).
+# One rules_lookup per plan, limit 12, char_budget 6300. This was a ruling, not
+# a default: three independent re-measurements found that every decomposition
+# of these lookups into several steps that adds no newly authored text scores
+# exactly what the single query scores, and that semantically meaningless
+# splits outscore principled ones — so any gain from decomposing by hand comes
+# from text written with the answer key open. Decomposition is R4 planner
+# scope, measured by G3 against this control (docs/r3-rules-support-remediation.md).
+#
+# The bound is a CHARACTER budget, not a chunk count. limit 6 chunks admitted
+# ~12,600 characters under the 400-chunk index and ~6,300 under the 871-chunk
+# one, so a re-chunk read as a regression at the same "bound". 6,300 is the
+# operating point the plans already had under the current index; the limit of
+# 12 is a cap that cannot bind before the budget at any chunk size the ceiling
+# allows.
+#
+# PROVENANCE OF THE OTHER BOUND. The ten rules_lookup questions are byte-
+# identical to commit 290baf2, authored before any rules index existed, so they
+# cannot have been rank-tuned. The card_search top_k values were NOT: commit
+# 893fbb cut them from 50 to 3 (rules-009 to 5) under docs/r3-breadth-audit.md,
+# whose bounds were chosen so that "the deepest true member's observed rank is
+# at or above the proposed bound". The rules category's RECALL bound is
+# rank-derived; its lookup queries are not.
+#
 # The second step now reaches a real index, built from a dated and hashed
 # Comprehensive Rules document by scripts/build_rules_index.py. Every plan here
 # used to ALSO state rules_index_not_built, which was true and is no longer:
@@ -89,7 +113,8 @@ plans:
               commander_legal: true
         - id: phyrexian_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: the actual question; deliberately names no card
           question: >-
             Does paying a Phyrexian mana symbol with life instead of mana
@@ -136,7 +161,8 @@ plans:
               commander_legal: true
         - id: alternative_cost_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: what an alternative cost does to mana value and to cast status
           question: >-
             When a spell is cast for an alternative cost instead of its printed
@@ -183,7 +209,8 @@ plans:
               commander_legal: true
         - id: delayed_trigger_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: delayed triggered abilities and losing the game as a consequence
           question: >-
             How does a delayed triggered ability created by a spell's
@@ -228,7 +255,8 @@ plans:
               commander_legal: true
         - id: channel_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: is an activated ability from hand a cast spell, and can it be responded to
           question: >-
             Is activating a channel ability by discarding a card from your hand
@@ -274,7 +302,8 @@ plans:
               commander_legal: true
         - id: mdfc_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: characteristics and mana value of a back face in a public zone
           question: >-
             What are the characteristics and the mana value of a modal
@@ -318,7 +347,8 @@ plans:
               commander_legal: true
         - id: copy_timing_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: when a copy-on-entry replacement effect chooses, and what exists to choose
           question: >-
             When does a replacement effect that has a permanent enter the
@@ -367,7 +397,8 @@ plans:
               commander_legal: true
         - id: mana_ability_class_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: triggered mana ability versus replacement effect, and use of the stack
           question: >-
             Is an ability that adds extra mana whenever a permanent is tapped
@@ -414,7 +445,8 @@ plans:
               commander_legal: true
         - id: mana_ability_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: the definition of a mana ability and when one may be activated
           question: >-
             Is an activated ability whose only effect is untapping a permanent
@@ -461,7 +493,8 @@ plans:
               commander_legal: true
         - id: trigger_order_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: ordering of simultaneous triggers and when targets are chosen
           question: >-
             When two abilities controlled by the same player trigger at the
@@ -506,7 +539,8 @@ plans:
               commander_legal: true
         - id: control_of_spell_rule
           kind: rules_lookup
-          limit: 6
+          limit: 12
+          char_budget: 6300
           note: what changing control of a spell on the stack does and does not change
           question: >-
             What does gaining control of a spell on the stack change about that

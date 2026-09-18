@@ -55,6 +55,14 @@ def chunk_id(document: str, section: str | None, content: str) -> str:
 #: A numbered rule, e.g. "100.1." or "702.21a". The table of contents lists
 #: section titles only, so it contains none of these.
 _RULE_LINE = re.compile(r"^\d{3}\.\d")
+#: The start of one numbered rule, in either printed form: ``100.1.`` (period
+#: after the number, used by unlettered rules) or ``702.21a`` (letter suffix,
+#: no period). The number is captured so a chunk can be labelled with the rule
+#: its text begins with.
+_RULE_START = re.compile(r"^(\d{3}\.\d+[a-z]?)\.?\s", re.MULTILINE)
+#: The body's Glossary and Credits headings, each on a line of its own.
+_GLOSSARY_HEADING = re.compile(r"^Glossary[ \t]*$", re.MULTILINE)
+_CREDITS_HEADING = re.compile(r"^Credits[ \t]*$", re.MULTILINE)
 #: A section heading, e.g. "100. General".
 _SECTION_LINE = re.compile(r"^\d{3}\.\s")
 
@@ -121,14 +129,15 @@ class DocumentChunker:
     #: sub-section splitter to cut on and so was swallowed whole into the
     #: chunk of the last numbered rule before it.
     #:
-    #: 1,500 characters. The ratio is not uniform: prose runs ~4.1 chars per
-    #: token in this document, but the subtype lists in rule 205 are dense
-    #: proper nouns at ~3.2, and a ceiling set from the average left those two
-    #: chunks still over the window. 1,500 clears the densest text measured
-    #: with margin. The condition that actually matters is asserted in TOKENS
-    #: by the tests, which may load a tokenizer; this module may not, so the
-    #: bound it enforces is a proxy and the test is the check.
-    MAX_CHUNK_CHARS: int = 1500
+    #: 1,250 characters. The ratio is not uniform: prose runs ~4.1 chars per
+    #: token in this document, the subtype lists in rule 205 ~3.0, and 107.3n
+    #: — a rule about the variable X, which the tokenizer splits on every
+    #: symbol — 2.55. At that ratio 512 tokens is 1,305 characters, so 1,250
+    #: is the largest round ceiling that clears every chunk measured, with
+    #: margin. The condition that actually matters is asserted in TOKENS by
+    #: the tests, which may load a tokenizer; this module may not, so the bound
+    #: it enforces is a proxy and the test is the check.
+    MAX_CHUNK_CHARS: int = 1250
 
     def chunk_comprehensive_rules(self, rules_path: Path) -> list[Chunk]:
         """Chunk Comprehensive Rules by section number.
@@ -150,6 +159,18 @@ class DocumentChunker:
             rules_path.read_text(encoding="utf-8", errors="replace")
         )
         chunks: list[Chunk] = []
+
+        # The Glossary and the credits follow the last numbered rule and carry
+        # no rule numbers, so they are chunked apart from the body under labels
+        # that name what they are. The contents listing has already been
+        # stripped, so the heading found here is the body's.
+        back_matter = ""
+        glossary_heading = None
+        for glossary_heading in _GLOSSARY_HEADING.finditer(text):
+            pass
+        if glossary_heading is not None:
+            back_matter = text[glossary_heading.start() :]
+            text = text[: glossary_heading.start()]
 
         # Split by top-level section numbers (e.g., "100. General", "702. Keyword Abilities")
         # Pattern: line starting with a number followed by a period
@@ -182,6 +203,9 @@ class DocumentChunker:
                         content=sub_content.strip(),
                     )
                 )
+
+        if back_matter:
+            chunks.extend(self._chunk_back_matter(back_matter))
 
         logger.info("Chunked Comprehensive Rules into %d chunks", len(chunks))
         return chunks
@@ -517,51 +541,134 @@ class DocumentChunker:
         ]
 
     def _split_by_size(self, text: str, section_label: str) -> list[tuple[str, str]]:
-        """Split text into chunks of approximately TARGET_CHUNK_TOKENS tokens.
+        """Split one section's text into bounded chunks, each cited correctly.
+
+        A chunk is labelled with the rule its text BEGINS with. The previous
+        version set the label on every rule it passed and flushed only when a
+        size target was reached, so a chunk accumulating 707.3 through 707.8
+        was cited ``CR 707.8`` — and text with no rule numbers at all inherited
+        whatever label happened to be current. On the pinned document that put
+        an unambiguously wrong citation on 214 of 871 chunks, 83 of them the
+        Glossary cited as a conspiracy-draft rule. The rules-support matcher
+        keys on quote text and could not see it; a reader of the citation
+        could.
+
+        The rule number stays in the body: a person reading a cited passage
+        should see the number, and the quote matcher already accepts a quote
+        with or without it. Both the period form (``707.3.``) and the letter
+        form (``707.2c``) start a rule; the earlier splitter accepted only the
+        letter form, which is why one 5,000-character run was uninterruptible.
+
+        Consecutive rules are packed together up to the hard ceiling, never
+        past it, so the ceiling is met at rule boundaries wherever the text
+        allows and the blind whitespace cut in :meth:`_enforce_ceiling` is
+        reached only by a single rule longer than the window. A continuation
+        piece keeps its rule's label, because that is the rule it continues.
 
         Returns:
             List of (content, section) tuples.
         """
-        target_chars = int(self.TARGET_CHUNK_TOKENS * self.CHARS_PER_TOKEN)
+        bound = min(
+            int(self.TARGET_CHUNK_TOKENS * self.CHARS_PER_TOKEN), self.MAX_CHUNK_CHARS
+        )
+        starts = [match.start() for match in _RULE_START.finditer(text)]
+        segments: list[tuple[str, str]] = []
+        if not starts:
+            segments.append((text, section_label))
+        else:
+            if text[: starts[0]].strip():
+                segments.append((text[: starts[0]], section_label))
+            for index, start in enumerate(starts):
+                end = starts[index + 1] if index + 1 < len(starts) else len(text)
+                segment = text[start:end]
+                number = _RULE_START.match(segment)
+                assert number is not None  # finditer found it at this offset
+                segments.append((segment, f"CR {number.group(1)}"))
 
-        if len(text) <= target_chars:
-            # Still through the ceiling: target_chars is a soft preference at
-            # 2,000 and MAX_CHUNK_CHARS is a hard bound at 1,500, so returning
-            # here unchecked would let a path out of the function that ignores
-            # the bound the class declares.
-            return [(piece, section_label) for piece in self._enforce_ceiling(text)]
-
-        # Split by sub-section patterns (e.g., "100.1", "702.21a")
-        sub_pattern = re.compile(r"^(\d{3}\.\d+\w?)\s", re.MULTILINE)
-        parts = sub_pattern.split(text)
-
-        result: list[tuple[str, str]] = []
+        packed: list[tuple[str, str]] = []
         current_text = ""
-        current_section = section_label
-
-        for i, part in enumerate(parts):
-            if sub_pattern.match(part + " "):
-                current_section = f"CR {part}"
-                continue
-
-            current_text += part
-            if len(current_text) >= target_chars:
-                result.append((current_text, current_section))
+        current_label = section_label
+        for segment, label in segments:
+            if current_text and len(current_text) + len(segment) > bound:
+                packed.append((current_text, current_label))
                 current_text = ""
-
+            if not current_text:
+                current_label = label
+            current_text += segment
         if current_text.strip():
-            result.append((current_text, current_section))
+            packed.append((current_text, current_label))
 
-        if not result:
-            result = [(text, section_label)]
-        # The sub-section pattern only cuts on numbered rules. Anything with
-        # none — the Glossary, the credits, a long rule with no lettered
-        # subdivisions — arrives here whole and must still be bounded.
         return [
-            (piece, section)
-            for content, section in result
+            (piece, label)
+            for content, label in packed
             for piece in self._enforce_ceiling(content)
         ]
+
+    def _chunk_back_matter(self, back_matter: str) -> list[Chunk]:
+        """Chunk the Glossary and the credits under labels that say what they are.
+
+        Neither carries a rule number, so the section splitter has nothing to
+        cut on and the old code swallowed both into the last numbered rule's
+        chunk under that rule's label. A glossary chunk is cited by the first
+        term it defines; the credits are cited as ``Credits`` at a low tier so
+        a trademark notice never outranks a rule.
+
+        Args:
+            back_matter: Text from the body's ``Glossary`` heading to the end.
+
+        Returns:
+            Chunks in document order.
+        """
+        credits_match = _CREDITS_HEADING.search(back_matter)
+        glossary = (
+            back_matter[: credits_match.start()] if credits_match else back_matter
+        )
+        credits = back_matter[credits_match.start() :] if credits_match else ""
+        glossary = _GLOSSARY_HEADING.sub("", glossary, count=1)
+
+        chunks: list[Chunk] = []
+        entries = [entry for entry in glossary.split("\n\n") if entry.strip()]
+        current: list[str] = []
+        current_size = 0
+
+        def flush() -> None:
+            if not current:
+                return
+            body = "\n\n".join(current)
+            term = current[0].strip().splitlines()[0].strip()
+            label = f"Glossary: {term}"
+            for piece in self._enforce_ceiling(body):
+                chunks.append(
+                    Chunk(
+                        id=chunk_id("comprehensive_rules", label, piece),
+                        document="comprehensive_rules",
+                        section=label,
+                        tier=1,
+                        content=piece.strip(),
+                    )
+                )
+            current.clear()
+
+        for entry in entries:
+            if current and current_size + len(entry) + 2 > self.MAX_CHUNK_CHARS:
+                flush()
+                current_size = 0
+            current.append(entry)
+            current_size += len(entry) + 2
+        flush()
+
+        for piece in self._enforce_ceiling(credits):
+            if piece.strip():
+                chunks.append(
+                    Chunk(
+                        id=chunk_id("comprehensive_rules", "Credits", piece),
+                        document="comprehensive_rules",
+                        section="Credits",
+                        tier=3,
+                        content=piece.strip(),
+                    )
+                )
+        return chunks
 
     def _enforce_ceiling(self, text: str) -> list[str]:
         """Split text on paragraph boundaries until every piece fits the window.
@@ -588,9 +695,20 @@ class DocumentChunker:
                 pieces.append(current)
                 current = ""
             while len(paragraph) > self.MAX_CHUNK_CHARS:
-                cut = paragraph.rfind(" ", 0, self.MAX_CHUNK_CHARS)
-                if cut <= 0:
-                    cut = self.MAX_CHUNK_CHARS
+                # A sentence boundary first, whitespace only as a last resort.
+                # The rules-support key quotes whole sentences and requires a
+                # quote to sit inside one chunk, so a cut inside a sentence
+                # makes that sentence unmatchable forever; a cut between
+                # sentences never does. Only accepted when it keeps at least
+                # half the window, so a long sentence does not degrade into a
+                # run of tiny pieces.
+                cut = paragraph.rfind(". ", 0, self.MAX_CHUNK_CHARS)
+                if cut > self.MAX_CHUNK_CHARS // 2:
+                    cut += 1
+                else:
+                    cut = paragraph.rfind(" ", 0, self.MAX_CHUNK_CHARS)
+                    if cut <= 0:
+                        cut = self.MAX_CHUNK_CHARS
                 pieces.append(paragraph[:cut])
                 paragraph = paragraph[cut:].lstrip()
             current = paragraph
