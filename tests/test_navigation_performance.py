@@ -164,7 +164,7 @@ def test_build_lists_only_the_owner_editable_decks(client):
     assert b"Bob Editable" in bob_library.data
     assert b"Alice Editable" not in bob_library.data
     assert b'name="q"' in alice_library.data
-    assert b"Favorites" in alice_library.data
+    assert b"Saved" in alice_library.data
 
 
 def test_failed_http_cohort_fill_does_not_fail_the_shell(client, monkeypatch):
