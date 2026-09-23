@@ -78,7 +78,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     empty_library = client.get("/build").data
     assert b"Build" in empty_library
     assert b"All 0" in empty_library
-    assert b"Favorites 0" in empty_library
+    assert b"Saved 0" in empty_library
     assert b"Recently edited 0" in empty_library
     assert b'class="dl-new-deck-card"' in empty_library
     assert b">Filter</button>" not in empty_library
@@ -188,7 +188,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b"1 deck" in library
     assert b"edited this week" in library
     assert b"All 1" in library
-    assert b"Favorites 0" in library
+    assert b"Saved 0" in library
     assert b"Recently edited 1" in library
     assert b"data-deck-sort-menu" in library
     assert b"deck-sort-options" in library
@@ -198,7 +198,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b'class="dl-deck-card-hit-area"' in library
     assert b"data-deck-actions" in library
     assert b"dl-deck-favorite" in library
-    assert b"Add Kinnan draft to favorites" in library
+    assert b"Save Kinnan draft to your saved decks" in library
     assert b'role="menuitem">Add favorite' not in library
     assert b"Manage tags" in library
     assert b"Research cards" in library
@@ -217,7 +217,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b'class="dl-button dl-button-primary"' in library
     favorite_view = client.get("/build?filter=favorites").data
     assert b"All 1" in favorite_view
-    assert b"Favorites 0" in favorite_view
+    assert b"Saved 0" in favorite_view
     assert b"No decks match this view" in favorite_view
     with db.connect(path) as conn:
         conn.execute(

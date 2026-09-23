@@ -226,7 +226,7 @@ def test_home_resume_tiles_match_build_cards_and_keep_actions(
     assert "Turbo" in resume
     assert "Research cards" in resume
     assert "Research commander" in resume
-    assert "Add Kinnan draft to favorites" in resume
+    assert "Save Kinnan draft to your saved decks" in resume
 
     kinnan = next(card for card in home_cards if card["title"] == "Kinnan draft")
     assert str(kinnan["hit_area"]).endswith(f"/build/deck/{second}")
@@ -241,11 +241,11 @@ def test_home_resume_tiles_match_build_cards_and_keep_actions(
     )
     assert favored.status_code == 302
     resume_after = _resume_html(client.get("/").get_data(as_text=True))
-    assert "Remove Kinnan draft from favorites" in resume_after
+    assert "Remove Kinnan draft from saved decks" in resume_after
     assert 'class="dl-deck-favorite active"' in resume_after
     favorites = client.get("/build?filter=favorites").get_data(as_text=True)
     assert "Kinnan draft" in favorites
-    assert "Add Kinnan draft to favorites" not in favorites
+    assert "Save Kinnan draft to your saved decks" not in favorites
 
     shared = client.post(f"/api/decks/{second}/share")
     assert shared.status_code == 200
@@ -430,7 +430,7 @@ function card(id, title) {
   menu.appendChild(box);
   article.appendChild(menu);
   const favorite = el("form", { method: "post", action: "/build/deck/" + id + "/favorite" });
-  favorite.appendChild(el("button", { className: "dl-deck-favorite", type: "submit", "aria-label": "Add " + title + " to favorites" }));
+  favorite.appendChild(el("button", { className: "dl-deck-favorite", type: "submit", "aria-label": "Save " + title + " to your saved decks" }));
   article.appendChild(favorite);
   body.appendChild(article);
   return { menu, summary, share, form };
