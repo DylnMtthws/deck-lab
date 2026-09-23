@@ -3,6 +3,7 @@
 {% block content %}
 <nav class="dl-eyebrow"><a href="{{ url_for('research.index') }}">Research</a> / Commanders / {{ commander.name }}</nav>
 <section class="dl-detail-head" style="margin-top:20px">
+    <a class="dl-button dl-research-back" href="{{ back_url }}"><span aria-hidden="true">‹</span> Back to table</a>
     <div class="dl-commander-art">{% for member in commander.commanders %}{% if member.image_uri %}<img class="dl-card-art" src="{{ member.image_uri }}" alt="{{ member.name }} card art" loading="eager">{% endif %}{% endfor %}</div>
     <div class="dl-detail-title">
         <div class="dl-eyebrow">Commander profile</div><h1>{{ commander.name }}</h1>

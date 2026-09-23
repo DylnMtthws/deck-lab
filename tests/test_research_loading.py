@@ -155,7 +155,9 @@ def test_prepared_snapshot_serves_default_and_meta_without_reload(
     meta = client.get("/research/?tab=metagame")
     assert first.status_code == meta.status_code == 200
     assert first.headers["Cache-Control"] == "private, no-store"
-    assert b"Loading Commander" in first.data
+    assert b'data-tab="cards"' in first.data
+    assert b'aria-current="page">Cards</a>' in first.data
+    assert b'aria-current="page">Commanders</a>' not in first.data
     assert b"Loading Commander" in meta.data
     assert b"data-research-updated" not in first.data
     assert b"data-research-updated" not in meta.data
@@ -170,7 +172,9 @@ def test_prepared_snapshot_serves_default_and_meta_without_reload(
     assert len(calls) == baseline + 4
     assert client.get("/research/?tab=metagame&color=U").status_code == 200
     assert len(calls) == baseline + 5
-    assert client.get("/research/?window=90").status_code == 200
+    cards = client.get("/research/?window=90")
+    assert cards.status_code == 200
+    assert b'data-tab="cards"' in cards.data
     assert len(calls) == baseline + 5
 
 

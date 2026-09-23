@@ -600,3 +600,5 @@ a.dl-card-name:hover{color:var(--brand-text)}
   .dl-catalog-card-actions { gap: 8px; }
   .dl-catalog-card-actions .dl-button { padding: 0 8px; font-size: 14px; }
 }
+
+.dl-detail-head > .dl-research-back { grid-column: 1 / -1; justify-self: start; width: fit-content; }

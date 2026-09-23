@@ -82,7 +82,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b"Recently edited 0" in empty_library
     assert b'class="dl-new-deck-card"' in empty_library
     assert b">Filter</button>" not in empty_library
-    response = client.get("/research?q=Kinnan")
+    response = client.get("/research?tab=commanders&q=Kinnan")
     assert response.status_code == 200
     assert b"Kinnan Test" in response.data
     assert b"Tournament evidence:" not in response.data
