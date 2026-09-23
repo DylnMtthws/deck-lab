@@ -18,6 +18,12 @@
     const submit = document.getElementById('feedback-submit');
     const success = document.getElementById('feedback-success');
     const signin = document.getElementById('feedback-signin');
+    const title = document.getElementById('feedback-title');
+    const intro = document.getElementById('feedback-intro');
+    const dismiss = document.getElementById('feedback-close');
+    const originalTitle = title.textContent;
+    const originalIntro = intro.textContent;
+    const successTitle = success.getAttribute('data-success-title') || 'Thanks for your feedback';
     let csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     let refreshSession = false;
     let attachment = null;
@@ -36,6 +42,11 @@
         requestID = crypto.randomUUID(); status.textContent = '';
         submit.textContent = 'Send feedback';
         signin.hidden = true; refreshSession = false;
+    }
+    function returnToForm() {
+        form.hidden = false; intro.hidden = false; dismiss.hidden = false;
+        title.textContent = originalTitle; intro.textContent = originalIntro;
+        success.hidden = true; reset(); description.focus();
     }
     function removeImage() {
         pendingImage += 1;
@@ -74,12 +85,13 @@
     }
     launcher.hidden = false;
     launcher.addEventListener('click', function () {
-        if (!success.hidden) { success.hidden = true; form.hidden = false; }
+        if (!success.hidden) returnToForm();
         panel.showModal(); launcher.setAttribute('aria-expanded', 'true');
         description.focus();
     });
     document.getElementById('feedback-close').addEventListener('click', close);
-    document.getElementById('feedback-done').addEventListener('click', close);
+    document.getElementById('feedback-close-success').addEventListener('click', close);
+    document.getElementById('feedback-another').addEventListener('click', returnToForm);
     panel.addEventListener('close', function () {
         launcher.setAttribute('aria-expanded', 'false'); launcher.focus();
     });
@@ -160,7 +172,9 @@
             });
             const body = await response.json();
             if (response.ok && body.ok === true) {
-                reset(); form.hidden = true; success.hidden = false; success.focus();
+                reset(); form.hidden = true; intro.hidden = true; dismiss.hidden = true;
+                title.textContent = successTitle;
+                success.hidden = false; success.focus();
             } else {
                 status.textContent = body.error || 'We could not confirm delivery. Please retry.';
                 if (response.status === 401 || body.code === 'session_expired') {
