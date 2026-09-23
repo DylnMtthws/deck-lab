@@ -28,7 +28,7 @@ def test_choose_commanders_button_is_in_deck_options_not_card_search() -> None:
     assert "data-commanders-open" not in html[combobox_start:more_start]
     assert re.search(
         r'<details class="dl-decklist-more">[\s\S]*?'
-        r'<summary aria-label="Deck options">•••</summary>[\s\S]*?'
+        r'<summary aria-label="Deck options"[^>]*>•••</summary>[\s\S]*?'
         r'<button type="button" data-commanders-open>'
         r"Choose commanders / partner</button>",
         html,
