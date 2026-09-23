@@ -149,9 +149,15 @@ def test_mobile_paddings_do_not_fight_the_token(css: str) -> None:
     assert "padding:0 16px" not in block
 
 
-def test_narrow_research_override_uses_the_token(css: str) -> None:
+def test_narrow_override_moves_the_shared_token_not_one_page(css: str) -> None:
+    """DYL-59: narrow phones may tighten the gutter, but not on one page only.
+
+    Scoping ``--dl-page-gutter: 14px`` to ``.dl-research-main`` left the research
+    page content 2px inside the header, which is the exact seam DYL-59 is about.
+    """
     block = _media_block(css, "@media (max-width: 430px) {")
-    assert re.search(r"\.dl-research-main\s*\{[^}]*--dl-page-gutter:\s*14px", block)
+    assert re.search(r":root\s*\{[^}]*--dl-page-gutter:\s*14px", block)
+    assert not re.search(r"\.dl-research-main\s*\{[^}]*--dl-page-gutter", block)
     assert "padding-left" not in block
 
 

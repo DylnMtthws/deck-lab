@@ -207,6 +207,31 @@ def test_row_preview_is_a_button_that_opens_the_dialog() -> None:
     assert "could not be loaded" in after_error["status"]
 
 
+def test_modal_focus_returns_to_the_opener_after_an_async_rerender() -> None:
+    """DYL-66: closing the modal must focus the live control that opened it.
+
+    The builder rebuilds every decklist row whenever a queued command resolves,
+    so the node captured at open time is routinely detached by the time the
+    dialog emits ``close``. Focusing that stale node is a silent no-op and drops
+    keyboard users back on ``<body>``; the opener has to be re-resolved.
+    """
+    payload = _payload()
+    focus_return = payload["focusReturn"]
+    # Preconditions: the scenario really did replace the opener node.
+    assert focus_return["openerDetached"] is True
+    assert focus_return["openerReplaced"] is True
+    assert focus_return["focusKey"] == "preview:entry-ring"
+    # Behaviour under test.
+    assert focus_return["returnedToLiveOpener"] is True
+    assert focus_return["returnedToStaleNode"] is False
+    assert focus_return["activeLabel"] == "View card image for Sol Ring"
+
+    js = BUILDER_JS.read_text()
+    assert 'preview.dataset.cardFocusKey = "preview:" + entry.id' in js
+    assert 'name.dataset.cardFocusKey = "name:" + entry.id' in js
+    assert "function returnCardImageFocus()" in js
+
+
 def test_card_name_link_opens_the_same_dialog() -> None:
     payload = _payload()
     name = payload["nameMarkup"]

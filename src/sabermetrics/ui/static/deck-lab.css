@@ -337,7 +337,11 @@ button { cursor: pointer; }
   .dl-admin-kpis{grid-template-columns:repeat(2,1fr)}.dl-admin-columns{grid-template-columns:1fr}.dl-user-controls{grid-template-columns:1fr}.dl-user-metrics{grid-template-columns:repeat(2,1fr)}.dl-invite-link{display:grid}
 }
 @media (max-width: 430px) {
-  .dl-research-main { --dl-page-gutter: 14px; overflow-x: hidden; }
+  /* Narrow phones tighten the shared gutter. DYL-59 requires the header, the page
+     and the footer to share one inset, so the token moves at :root rather than on
+     one page, which would leave /research/ 2px out of line with the header. */
+  :root { --dl-page-gutter: 14px; }
+  .dl-research-main { overflow-x: hidden; }
   #research-filters .dl-color-chip-row { flex-wrap: nowrap; gap: 2px; }
   .dl-research-main .dl-segments a, [data-research-live] > .dl-segments a, [data-research-tabs] a { padding: 0 4px; font-size: 12px; }
   .dl-research-summary { min-width: 0; }

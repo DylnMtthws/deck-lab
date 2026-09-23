@@ -94,6 +94,9 @@ class Element {
   append(...nodes) { nodes.forEach((n) => this.appendChild(n)); }
   replaceChildren(...nodes) { this.children.forEach((c) => { c.parentNode = null; }); this.children.length = 0; this._text = ""; nodes.forEach((n) => this.appendChild(n)); }
   closest(selector) { let node = this; while (node && node.tagName) { if (matches(node, selector)) return node; node = node.parentNode; } return null; }
+  get isConnected() { let node = this; while (node.parentNode) node = node.parentNode; return node === documentElement; }
+  focus() { document.activeElement = this; }
+  blur() { if (document.activeElement === this) document.activeElement = null; }
   querySelector(selector) { return queryAll(this, selector)[0] || null; }
   querySelectorAll(selector) { return queryAll(this, selector); }
   addEventListener(type, fn) { (this.listeners[type] || (this.listeners[type] = [])).push(fn); }
@@ -320,6 +323,31 @@ let prevented = false;
 nameLink.dispatchEvent({ type: "click", target: nameLink, preventDefault() { prevented = true; }, stopPropagation() {} });
 const afterNameClick = { modalCalls: modalCalls.length, prevented, title: imageTitle.textContent };
 
+// DYL-66: focus must return to the control that opened the modal even when a
+// queued render has replaced that row while the dialog was open.
+function livePreview(label) {
+  return [...document.querySelectorAll(".dl-card-preview")]
+    .find((n) => (n.getAttribute("aria-label") || "").includes(label));
+}
+const focusOpener = livePreview("Sol Ring");
+focusOpener.focus();
+focusOpener.dispatchEvent(makeEvent("click", { target: focusOpener, button: 0 }));
+// A quantity command re-renders the decklist: every row node is rebuilt.
+const plus = [...document.querySelectorAll("button")]
+  .find((n) => n.getAttribute("aria-label") === "Add one Sol Ring");
+plus.dispatchEvent(makeEvent("click", { target: plus, button: 0 }));
+await flush();
+const rebuiltPreview = livePreview("Sol Ring");
+imageDialog.close();
+const focusReturn = {
+  openerDetached: !focusOpener.isConnected,
+  openerReplaced: rebuiltPreview !== focusOpener,
+  focusKey: rebuiltPreview ? rebuiltPreview.getAttribute("data-card-focus-key") : null,
+  returnedToLiveOpener: document.activeElement === rebuiltPreview,
+  returnedToStaleNode: document.activeElement === focusOpener,
+  activeLabel: document.activeElement ? document.activeElement.getAttribute("aria-label") : null,
+};
+
 // DYL-65: every icon-only control rendered by the builder carries a tip.
 const tips = {};
 [...document.querySelectorAll("button"), ...document.querySelectorAll("summary")].forEach((el2) => {
@@ -331,6 +359,7 @@ const tips = {};
 console.log(JSON.stringify({
   zero, one, two, backToZero,
   previewMarkup, opened, afterLoad, afterError, nameMarkup, afterNameClick,
+  focusReturn,
   tips,
   fetches: fetches.length,
 }));
