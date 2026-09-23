@@ -177,9 +177,9 @@ def test_build_saved_filter_tab_carries_a_tooltip() -> None:
     assert "data-dl-tip=" in match.group(0)
 
 
-def test_tooltip_css_primitive_is_not_defined_in_this_branch() -> None:
-    """The [data-dl-tip] primitive ships on the shell branch; only apply it here."""
-    assert "[data-dl-tip]" not in CSS_PATH.read_text()
+def test_tooltip_css_primitive_is_defined_exactly_once() -> None:
+    """The [data-dl-tip] primitive ships once, from the shell work."""
+    assert CSS_PATH.read_text().count("content: attr(data-dl-tip);") == 1
 
 
 # --- DYL-62: star for saved decks, heart for favourite commanders ----------

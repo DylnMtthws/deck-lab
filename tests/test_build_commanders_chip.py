@@ -40,13 +40,11 @@ def _app(tmp_path, monkeypatch, **env: str):
         status="active",
     )
     with db.connect(path) as conn:
-        conn.execute(
-            """INSERT INTO cards
+        conn.execute("""INSERT INTO cards
             (id,oracle_id,name,mana_cost,cmc,type_line,oracle_text,color_identity,
              is_legal_commander,is_legal_in_99,image_uri)
             VALUES('kinnan','oracle-kinnan','Kinnan Test','{G}{U}',2,
-             'Legendary Creature — Human Druid','Mana text','["G","U"]',1,1,NULL)"""
-        )
+             'Legendary Creature — Human Druid','Mana text','["G","U"]',1,1,NULL)""")
         conn.commit()
     app = create_app(path)
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, SESSION_COOKIE_SECURE=False)
@@ -102,45 +100,45 @@ def test_chip_reuses_the_existing_route_and_adds_no_new_one(tmp_path, monkeypatc
     app, _client, _path = _app(tmp_path, monkeypatch)
     rules = {str(rule) for rule in app.url_map.iter_rules()}
     assert COMMANDERS_HREF in rules
-    assert not [r for r in rules if "commander" in r and r.startswith("/build")], (
-        "the chip must not introduce a /build commanders route"
-    )
+    assert not [
+        r for r in rules if "commander" in r and r.startswith("/build")
+    ], "the chip must not introduce a /build commanders route"
 
 
 # --- the chip itself -------------------------------------------------------
 
 
 def test_build_renders_a_commanders_chip(tmp_path, monkeypatch):
-    _app_, client, _path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     page = client.get("/build").get_data(as_text=True)
     chip = _commander_chip(page)
     assert "commander" in _attr(chip, "aria-label").lower()
 
 
 def test_chip_lives_outside_the_deck_filter_nav(tmp_path, monkeypatch):
-    _app_, client, _path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     page = client.get("/build").get_data(as_text=True)
-    assert COMMANDERS_HREF not in _filter_nav(page), (
-        "the commanders chip is not a deck filter and must sit outside the nav"
-    )
+    assert COMMANDERS_HREF not in _filter_nav(
+        page
+    ), "the commanders chip is not a deck filter and must sit outside the nav"
     assert 'class="dl-tab-divider"' in page, "the two hierarchies need a visual break"
 
 
 def test_chip_uses_a_heart_that_is_hidden_from_assistive_tech(tmp_path, monkeypatch):
-    _app_, client, _path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     page = client.get("/build").get_data(as_text=True)
     chip_start = page.index(f'href="{COMMANDERS_HREF}"')
     chip_html = page[chip_start : page.index("</a>", chip_start)]
     assert HEART in chip_html, "the commanders chip must carry the heart"
-    assert re.search(r'<span aria-hidden="true">♥</span>', chip_html), (
-        "the heart glyph must stay aria-hidden"
-    )
+    assert re.search(
+        r'<span aria-hidden="true">♥</span>', chip_html
+    ), "the heart glyph must stay aria-hidden"
 
 
 def test_chip_accessible_name_distinguishes_commanders_from_decks(
     tmp_path, monkeypatch
 ):
-    _app_, client, _path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     page = client.get("/build").get_data(as_text=True)
     name = _attr(_commander_chip(page), "aria-label").lower()
     assert "commander" in name
@@ -150,17 +148,17 @@ def test_chip_accessible_name_distinguishes_commanders_from_decks(
 
 
 def test_chip_is_never_marked_current_on_build(tmp_path, monkeypatch):
-    _app_, client, _path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     for url in ("/build", "/build?filter=favorites", "/build?filter=recent"):
         chip = _commander_chip(client.get(url).get_data(as_text=True))
-        assert "aria-current" not in chip, (
-            f"{url}: the cross-page chip must not claim to be the current page"
-        )
+        assert (
+            "aria-current" not in chip
+        ), f"{url}: the cross-page chip must not claim to be the current page"
 
 
 def test_chip_is_not_styled_as_a_deck_filter_tab():
     library = LIBRARY_TEMPLATE.read_text()
-    chip = re.search(rf"<a\b[^>]*url_for\('main.favorite_commanders'\)[^>]*>", library)
+    chip = re.search(r"<a\b[^>]*url_for\('main.favorite_commanders'\)[^>]*>", library)
     assert chip, "the chip should link via url_for, not a hardcoded path"
     assert "dl-underline-tabs" not in chip.group(0)
     css = CSS_PATH.read_text()
@@ -168,15 +166,15 @@ def test_chip_is_not_styled_as_a_deck_filter_tab():
     assert ".dl-tab-divider" in css
 
 
-def test_tooltip_primitive_is_still_not_defined_in_this_branch():
-    assert "[data-dl-tip]" not in CSS_PATH.read_text()
+def test_tooltip_primitive_is_defined_exactly_once():
+    assert CSS_PATH.read_text().count("content: attr(data-dl-tip);") == 1
 
 
 # --- the star deck filters keep working ------------------------------------
 
 
 def test_deck_filters_still_round_trip_with_the_chip_present(tmp_path, monkeypatch):
-    _app_, client, path = _app(tmp_path, monkeypatch)
+    _created, client, _path = _app(tmp_path, monkeypatch)
     saved = _seed_deck(client, "Round trip")
     _seed_deck(client, "Not saved")
     client.post(f"/build/deck/{saved}/favorite")

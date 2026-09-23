@@ -55,7 +55,7 @@ JS_TIP_EXPRESSIONS = (
     'zone.name + " actions"',
     '"Add a card to " + zone.name',
     '"Clear selection"',
-    '"Add " + card.name',
+    '"Add " + card.name + " to " + destinationName(addDestinationId())',
 )
 
 
@@ -260,9 +260,11 @@ def test_no_tip_is_empty_and_no_labelled_control_lost_its_aria_label() -> None:
     assert "dl-card-name" in js and 'name.setAttribute("data-dl-tip"' not in js
 
 
-def test_builder_does_not_define_the_shared_tooltip_primitive() -> None:
-    """The `[data-dl-tip]` CSS ships on the shell branch; never duplicate it."""
-    assert "data-dl-tip" not in CSS_PATH.read_text()
+def test_shared_tooltip_primitive_is_defined_exactly_once() -> None:
+    """The `[data-dl-tip]` CSS ships once, from the shell work; never duplicated."""
+    css = CSS_PATH.read_text()
+    assert css.count("content: attr(data-dl-tip);") == 1
+    assert "[data-dl-tip]:focus-visible::after" in css
 
 
 def test_runtime_icon_controls_expose_tips_for_every_labelled_action() -> None:
