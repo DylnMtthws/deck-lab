@@ -23,10 +23,11 @@
                 <label class="dl-decklist-search">
                     <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75"/><path d="m12 12 4 4"/></svg>
                     <span class="dl-visually-hidden">Add or find a card</span>
-                    <input type="search" id="card-search" data-card-search placeholder="Add or find a card" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="card-search-list" aria-haspopup="listbox">
+                    <input type="search" id="card-search" data-card-search placeholder="Add or find a card" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="card-search-list" aria-haspopup="listbox" aria-describedby="card-add-destination-hint">
                 </label>
-                <label class="desktop-only dl-toolbar-select dl-add-destination-control"><span class="dl-visually-hidden">Add to zone</span><select class="dl-zone-select" data-add-zone aria-label="Add to zone"></select></label>
+                <label class="dl-toolbar-select dl-add-destination-control"><span class="dl-add-destination-label" aria-hidden="true">Add to</span><select class="dl-zone-select" id="card-add-zone" data-add-zone aria-label="Add found cards to category"></select></label>
                 <ul class="dl-card-suggest" id="card-search-list" role="listbox" data-card-results hidden></ul>
+                <p class="dl-visually-hidden" id="card-add-destination-hint" data-add-destination-hint>Cards you add go to Unsorted.</p>
                 <div class="dl-visually-hidden" data-search-status aria-live="polite"></div>
             </div>
             {% endif %}
