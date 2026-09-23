@@ -1,5 +1,14 @@
 (function () {
   "use strict";
+  var TAB_KEYS = ["cards", "commanders", "metagame", "decks"];
+  var DEFAULT_TAB = "cards";
+
+  function tabKeyFromUrl(url) {
+    var tab = url.searchParams.get("tab") || DEFAULT_TAB;
+    return TAB_KEYS.indexOf(tab) === -1 ? DEFAULT_TAB : tab;
+  }
+  window.tabKeyFromUrl = tabKeyFromUrl;
+
   var page = document.querySelector("[data-research-page]");
   if (!page) return;
 
@@ -168,17 +177,11 @@
   document.addEventListener("pointerup", clearBoundDragging);
   document.addEventListener("pointercancel", clearBoundDragging);
 
-  var TAB_KEYS = ["cards", "commanders", "metagame", "decks"];
   var tabAnimTimer = 0;
 
   function prefersReducedMotion() {
     return typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-
-  function tabKeyFromUrl(url) {
-    var tab = url.searchParams.get("tab") || "commanders";
-    return TAB_KEYS.indexOf(tab) === -1 ? "commanders" : tab;
   }
 
   function tabIndexFromTabs(tabs) {
@@ -246,7 +249,7 @@
     for (var i = 0; i < links.length; i++) {
       try {
         var href = new URL(links[i].href, location.href);
-        var tab = href.searchParams.get("tab") || "commanders";
+        var tab = href.searchParams.get("tab") || DEFAULT_TAB;
         if (tab === key) return i;
       } catch (err) {}
     }
@@ -287,7 +290,7 @@
     var form = searchForm();
     if (!form) return;
     var tab = form.querySelector("input[name='tab']");
-    if (tab) tab.value = url.searchParams.get("tab") || "commanders";
+    if (tab) tab.value = url.searchParams.get("tab") || DEFAULT_TAB;
     var q = form.querySelector("input[name='q']");
     if (q && (document.activeElement !== q || lastRequest.restore)) q.value = url.searchParams.get("q") || "";
     var windowField = form.querySelector("input[name='window']");

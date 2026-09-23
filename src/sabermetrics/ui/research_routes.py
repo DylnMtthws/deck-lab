@@ -5,7 +5,7 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from flask import (
     Blueprint,
@@ -40,6 +40,13 @@ from sabermetrics.research_cache import (
 )
 
 bp = Blueprint("research", __name__, url_prefix="/research")
+
+# Cards is the first tab in the strip. Keep this in sync with DEFAULT_TAB
+# in static/deck-lab-research.js.
+DEFAULT_TAB = "cards"
+_RESEARCH_TABS = frozenset({"cards", "commanders", "metagame", "decks"})
+# ResearchRepo.cards orders by name and does not take a sort argument.
+_CARDS_SORT = "name"
 
 
 @bp.context_processor
@@ -183,6 +190,52 @@ def _deck_filter_args() -> dict[str, Any]:
     }
 
 
+def _research_index_path() -> str:
+    return urlparse(url_for("research.index")).path.rstrip("/") or "/"
+
+
+def _back_value_is_hostile(value: str) -> bool:
+    if any(ord(char) < 32 for char in value):
+        return True
+    return "\\" in value or "//" in value or "://" in value.lower()
+
+
+def _research_back_url() -> str:
+    """Rebuild the research index from a querystring-only ``back`` value.
+
+    A path is accepted only when it is the research index. Schemes,
+    protocol-relative URLs, and control characters fall back to the bare
+    index so this link cannot be an open redirect.
+    """
+    index = url_for("research.index")
+    raw = request.args.get("back")
+    if raw is None:
+        return index
+    candidate = raw.strip()
+    if not candidate or _back_value_is_hostile(candidate):
+        return index
+    if candidate.startswith("/"):
+        parsed = urlparse(candidate)
+        if parsed.scheme or parsed.netloc:
+            return index
+        path = parsed.path.rstrip("/") or "/"
+        if path != _research_index_path():
+            return index
+        query = parsed.query
+    elif candidate.startswith("?"):
+        query = candidate[1:]
+    elif "/" in candidate:
+        return index
+    else:
+        query = candidate
+    if not query or _back_value_is_hostile(query):
+        return index
+    encoded = urlencode(parse_qsl(query, keep_blank_values=True), doseq=True)
+    if not encoded:
+        return index
+    return f"{index}?{encoded}"
+
+
 def _full_results_href() -> str:
     args = request.args.to_dict(flat=False)
     args["results"] = ["full"]
@@ -192,9 +245,9 @@ def _full_results_href() -> str:
 
 
 def _load_index_state() -> dict[str, Any]:
-    tab = request.args.get("tab", "commanders")
-    if tab not in {"cards", "commanders", "metagame", "decks"}:
-        tab = "commanders"
+    tab = request.args.get("tab", DEFAULT_TAB)
+    if tab not in _RESEARCH_TABS:
+        tab = DEFAULT_TAB
     query = (request.args.get("q") or "").strip()[:120]
     page = max(1, _int_arg("page", 1))
     window_days = _window_arg()
@@ -327,7 +380,7 @@ def _load_index_state() -> dict[str, Any]:
         "colors": _selected_commander_colors(),
         "favorite_only": request.args.get("favorites") == "1",
         "plays_card": "",
-        "sort": request.args.get("sort", "meta" if tab == "metagame" else "name"),
+        "sort": request.args.get("sort", "meta" if tab == "metagame" else _CARDS_SORT),
         "card_filters": card_filters,
         "commander_filters": commander_filters,
         "deck_filters": deck_filters,
@@ -373,7 +426,10 @@ def commander(card_id: str):
         current_user.id
     )
     return render_template(
-        "deck_lab/commander.html", commander=commander_data, favorite=favorite
+        "deck_lab/commander.html",
+        commander=commander_data,
+        favorite=favorite,
+        back_url=_research_back_url(),
     )
 
 
