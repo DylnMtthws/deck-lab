@@ -63,8 +63,9 @@
           state = body; failedSave = null;
           try { localStorage.removeItem(recoveryKey); } catch (_) {}
           setSaving("Saved", false); render();
+          return true;
         });
-      }).catch(function (error) { failedSave = packet; setSaving("Retry save", true); if (saveState) saveState.title = error.message; })
+      }).catch(function (error) { failedSave = packet; setSaving("Retry save", true); if (saveState) saveState.title = error.message; return false; })
         .finally(function () { pendingSaves = Math.max(0, pendingSaves - 1); syncExport(); });
     });
     return queue;
@@ -390,7 +391,8 @@
     document.querySelectorAll("[data-view]").forEach(function (button) { button.setAttribute("aria-pressed", button.dataset.view === view ? "true" : "false"); }); document.querySelectorAll("[data-display]").forEach(function (button) { button.setAttribute("aria-pressed", button.dataset.display === display ? "true" : "false"); }); document.querySelectorAll("[data-density]").forEach(function (button) { button.setAttribute("aria-pressed", button.dataset.density === density ? "true" : "false"); });
     var group = document.querySelector("[data-group]"), sort = document.querySelector("[data-sort]"); if (group) { group.value = preference("group_mode", "zone"); refreshSelect(group); } if (sort) { sort.value = preference("sort_mode", "manual"); refreshSelect(sort); }
     var table = document.getElementById("table-view"), playmat = document.getElementById("playmat-view"); if (table) table.hidden = view !== "table"; if (playmat) playmat.hidden = view !== "playmat"; document.querySelectorAll("[data-table-only]").forEach(function (el) { el.hidden = view !== "table"; }); document.querySelectorAll("[data-playmat-only]").forEach(function (el) { el.hidden = view !== "playmat"; });
-    document.querySelectorAll("[data-add-zone],[data-bulk-zone]").forEach(function (select) { var current = select.value; select.replaceChildren(); state.zones.forEach(function (zone) { var option = node("option", "", zone.name); option.value = zone.id; select.appendChild(option); }); if (state.zones.some(function (zone) { return zone.id === current; })) select.value = current; else if (state.zones[0]) select.value = state.zones[0].id; refreshSelect(select); });
+    document.querySelectorAll("[data-bulk-zone]").forEach(function (select) { var current = select.value; select.replaceChildren(); state.zones.forEach(function (zone) { var option = node("option", "", zone.name); option.value = zone.id; select.appendChild(option); }); if (state.zones.some(function (zone) { return zone.id === current; })) select.value = current; else if (state.zones[0]) select.value = state.zones[0].id; refreshSelect(select); });
+    syncAddDestination();
     document.querySelectorAll("[data-surface]").forEach(function (button) { button.classList.toggle("active", !(state.presentation || {}).playmat_id && button.dataset.surface === ((state.presentation || {}).surface || "slate-grid")); }); document.querySelectorAll("[data-playmat-id]").forEach(function (button) { button.classList.toggle("active", !!((state.presentation || {}).playmat_id) && button.dataset.playmatId === String((state.presentation || {}).playmat_id)); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.checked = !!(state.presentation || {})[input.dataset.setting]; }); var size = document.querySelector("[data-playmat-size]"); if (size) { size.value = Number((state.presentation || {}).canvas_width || 1600) + "x" + Number((state.presentation || {}).canvas_height || 900); refreshSelect(size); }
     syncRails();
   }
@@ -434,10 +436,33 @@
     stage.addEventListener("wheel", function (event) { var p = viewportState(), zoom = Number(p.zoom || 1), unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? stage.clientHeight : 1, strip = event.target.closest(".dl-mat-cards"); if (!(event.metaKey || event.ctrlKey) && strip && strip.scrollWidth > strip.clientWidth && (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY))) return; event.preventDefault(); if (event.metaKey || event.ctrlKey) { var bounds = stage.getBoundingClientRect(), factor = Math.exp(-event.deltaY * unit * 0.0015); zoomViewport(zoom * factor, event.clientX - bounds.left, event.clientY - bounds.top); } else { var horizontal = event.shiftKey && !event.deltaX ? event.deltaY * unit : event.deltaX * unit, vertical = event.shiftKey && !event.deltaX ? 0 : event.deltaY * unit; paintViewport(Number(p.pan_x || 0) - horizontal, Number(p.pan_y || 0) - vertical, zoom); persistViewport(); } }, { passive: false });
   }
 
-  function setAddDestination(id) { var select = document.querySelector("[data-add-zone]"); if (select) { select.value = id; refreshSelect(select); } }
+  // DYL-69: searching and choosing a destination category are one flow. The destination always
+  // resolves to a zone that still exists; "Unsorted" is the server's permanent fallback zone,
+  // so a deleted destination degrades there instead of silently landing cards somewhere else.
+  function unsortedZoneId() { var zone = state.zones.find(function (item) { return String(item.name || "").trim().toLowerCase() === "unsorted"; }) || state.zones[0]; return zone ? zone.id : ""; }
+  function destinationName(zoneId) { var zone = state.zones.find(function (item) { return item.id === zoneId; }); return zone ? zone.name : "Unsorted"; }
+  function addDestinationId() { var select = document.querySelector("[data-add-zone]"), current = select ? select.value : ""; return state.zones.some(function (zone) { return zone.id === current; }) ? current : unsortedZoneId(); }
+  function syncResultDestinations() { var label = destinationName(addDestinationId()); document.querySelectorAll("[data-card-results] [data-add-result]").forEach(function (button) { button.setAttribute("aria-label", "Add " + button.dataset.addResult + " to " + label); button.setAttribute("data-dl-tip", "Add " + button.dataset.addResult + " to " + label); }); }
+  function syncAddDestination() {
+    var select = document.querySelector("[data-add-zone]");
+    if (!select) return "";
+    var current = select.value, next = addDestinationId(), dropped = !!current && current !== next;
+    select.replaceChildren();
+    state.zones.forEach(function (zone) { var option = node("option", "", zone.name); option.value = zone.id; select.appendChild(option); });
+    select.value = next;
+    refreshSelect(select);
+    var hint = document.querySelector("[data-add-destination-hint]");
+    if (hint) hint.textContent = "Cards you add go to " + destinationName(next) + ".";
+    syncResultDestinations();
+    if (dropped) searchStatus("That category is gone. Cards you add now go to " + destinationName(next) + ".");
+    return next;
+  }
+  function setAddDestination(id) { var select = document.querySelector("[data-add-zone]"); if (!select) return; if (state.zones.some(function (zone) { return zone.id === id; })) select.value = id; syncAddDestination(); }
+  var addDestinationSelect = document.querySelector("[data-add-zone]");
+  if (addDestinationSelect) addDestinationSelect.addEventListener("change", function () { searchStatus("Cards you add go to " + destinationName(syncAddDestination()) + "."); });
   document.querySelectorAll("[data-add-open]").forEach(function (button) { button.addEventListener("click", function () { focusCardSearch(); }); });
   var searchTimer, searchController, searchSeq = 0, activeOption = -1;
-  function addCard(cardId, zoneId) { if (cardId && zoneId) command([{ type: "add_card", card_id: cardId, zone_id: zoneId, quantity: 1 }]); }
+  function addCard(cardId, zoneId) { return cardId && zoneId ? command([{ type: "add_card", card_id: cardId, zone_id: zoneId, quantity: 1 }]) : Promise.resolve(false); }
   function searchStatus(text) { var status = document.querySelector("[data-search-status]"); if (status) status.textContent = text || ""; }
   function searchOptions() { return document.querySelectorAll("[data-card-results] [role=option]"); }
   function closeCardResults() {
@@ -461,13 +486,24 @@
     });
   }
   function chooseOption(option) {
-    var zone = document.querySelector("[data-add-zone]");
-    if (!option || !zone) return;
-    addCard(option.dataset.cardId, zone.value);
+    if (!option) return;
+    var zoneId = addDestinationId();
+    if (!zoneId) { searchStatus("Create a category before adding cards."); return; }
+    var label = destinationName(zoneId);
+    var addedName = option.dataset.cardName || "card";
+    // DYL-69: the save queue is asynchronous and `command` swallows its own errors, so a
+    // refused or conflicted save must not be announced as success. Report only the queued
+    // state up front and resolve the wording once the server has actually accepted.
+    var pending = addCard(option.dataset.cardId, zoneId);
     var input = document.querySelector("[data-card-search]");
     if (input) { input.value = ""; input.focus(); }
     closeCardResults();
-    searchStatus("");
+    searchStatus("Adding " + addedName + " to " + label + "…");
+    pending.then(function (accepted) {
+      searchStatus(accepted
+        ? "Added " + addedName + " to " + label + "."
+        : "Could not add " + addedName + " to " + label + ". Use Retry save.");
+    });
   }
   function renderSearchResults(body) {
     var results = document.querySelector("[data-card-results]"), input = document.querySelector("[data-card-search]");
@@ -480,6 +516,7 @@
       tile.setAttribute("role", "option");
       tile.setAttribute("aria-selected", "false");
       tile.dataset.cardId = card.id;
+      tile.dataset.cardName = card.name;
       if (url) {
         art = node("div", "dl-search-result-art");
         var img = node("img"); img.src = url; img.alt = ""; img.loading = "lazy";
@@ -489,7 +526,9 @@
       copy.append(node("strong", "", card.name), node("small", "", card.type_line || "Card"));
       var add = node("button", "dl-icon-button", "+");
       add.type = "button";
-      add.setAttribute("aria-label", "Add " + card.name); add.setAttribute("data-dl-tip", "Add " + card.name);
+      add.setAttribute("data-add-result", card.name);
+      add.setAttribute("aria-label", "Add " + card.name + " to " + destinationName(addDestinationId()));
+      add.setAttribute("data-dl-tip", "Add " + card.name + " to " + destinationName(addDestinationId()));
       add.addEventListener("click", function (event) { event.preventDefault(); event.stopPropagation(); chooseOption(tile); });
       tile.append(copy, add);
       tile.draggable = true;
@@ -501,7 +540,7 @@
     if (!(body.results || []).length) {
       results.appendChild(node("p", "dl-card-suggest-empty", "No cards match this search."));
       searchStatus("No cards match this search.");
-    } else searchStatus(Math.min(body.results.length, 8) + " card name results");
+    } else searchStatus(Math.min(body.results.length, 8) + " card name results. Cards you add go to " + destinationName(addDestinationId()) + ".");
     results.hidden = false;
     if (input) input.setAttribute("aria-expanded", "true");
   }

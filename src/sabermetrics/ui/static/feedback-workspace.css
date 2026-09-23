@@ -45,15 +45,27 @@
   gap: 8px;
   min-width: 0;
   flex: 1 1 280px;
-  max-width: 460px;
+  max-width: 520px;
 }
 .dl-workspace-body .dl-card-combobox .dl-decklist-search {
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
 }
+/* DYL-69: the destination picker sits beside the search box and names itself, so
+   "find a card" and "put it in this category" read as one action. */
 .dl-workspace-body .dl-add-destination-control {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dl-workspace-body .dl-add-destination-label {
+  color: var(--muted);
+  font: 10px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .dl-workspace-body .dl-add-destination-control .dl-select-control {
   width: 132px;
@@ -266,12 +278,37 @@
   .dl-workspace-body .dl-heading-title {
     grid-column: 2;
   }
+  /* DYL-69: on narrow viewports the toolbar wraps instead of hiding the destination
+     picker, so the add flow stays complete and the controls keep a 44px touch target. */
+  .dl-workspace-body .dl-builder-toolbar {
+    flex: 0 0 auto;
+    min-height: 54px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    overflow-x: visible;
+  }
   .dl-workspace-body .dl-card-combobox {
     max-width: none;
-    flex-basis: 220px;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .dl-workspace-body .dl-card-combobox .dl-decklist-search {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
   }
   .dl-workspace-body .dl-add-destination-control {
-    display: none;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .dl-workspace-body .dl-add-destination-control .dl-select-control {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .dl-workspace-body .dl-add-destination-control .dl-select-trigger {
+    min-height: 44px;
   }
 }
 
