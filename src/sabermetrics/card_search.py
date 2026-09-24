@@ -133,6 +133,26 @@ def unique_legal_faces_sql(
     )
 
 
+def unique_legal_faces_page_sql(
+    where_sql: str, *, columns: str = _RESEARCH_COLUMNS
+) -> str:
+    """One page of :func:`unique_legal_faces_sql` ordered by name.
+
+    Pages over distinct names first so the printing window runs only for the
+    page's names. Bind ``where`` values twice, then ``LIMIT`` and ``OFFSET``.
+    """
+    return (
+        f"SELECT {columns} FROM ("
+        f"SELECT {columns}, "
+        "ROW_NUMBER() OVER (PARTITION BY c.name "
+        "ORDER BY c.image_uri IS NULL, c.id) AS _print_rn "
+        f"FROM cards c WHERE {where_sql} AND c.name IN ("
+        f"SELECT c.name FROM cards c WHERE {where_sql} GROUP BY c.name "
+        "ORDER BY c.name COLLATE NOCASE, c.name LIMIT ? OFFSET ?)"
+        ") AS c WHERE c._print_rn=1 ORDER BY c.name COLLATE NOCASE, c.name"
+    )
+
+
 def catalog_load_sql() -> str:
     return unique_legal_faces_sql(
         format_legal_sql("c"),
@@ -189,6 +209,19 @@ def _catalog_stamp(conn: sqlite3.Connection, db_key: str) -> _CatalogStamp:
     epoch = str(row[0])
     revision = int(row[1] or 0)
     return (_file_id(db_key), epoch, revision)
+
+
+def catalog_revision(conn: sqlite3.Connection, db_key: str) -> _CatalogStamp | None:
+    """Read-only catalog stamp; ``None`` when the revision table is absent."""
+    try:
+        row = conn.execute(
+            "SELECT epoch, revision FROM card_catalog_revision WHERE id=1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    if row is None:
+        return None
+    return (_file_id(db_key), str(row[0]), int(row[1] or 0))
 
 
 def _parse_identity(value: Any) -> tuple[list[str], bool]:
