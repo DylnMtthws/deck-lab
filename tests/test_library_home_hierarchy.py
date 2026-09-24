@@ -89,34 +89,29 @@ def _attr(tag: str, name: str) -> str:
 # --- DYL-57: home leads with the instructions -------------------------------
 
 
-def test_home_places_how_it_goes_above_the_door_grid(tmp_path, monkeypatch) -> None:
+def test_home_places_how_it_goes_below_the_hero(tmp_path, monkeypatch) -> None:
     client, _path = _app(tmp_path, monkeypatch)
     home = client.get("/").get_data(as_text=True)
     assert home.count('class="dl-how"') == 1
-    assert home.count('class="dl-door-grid"') == 1
     hero = home.index('class="dl-home-hero"')
     how = home.index('class="dl-how"')
-    doors = home.index('class="dl-door-grid"')
-    assert hero < how < doors, "instructions must sit between the hero and the doors"
+    assert hero < how, "instructions must follow the hero"
 
 
-def test_home_resume_sits_between_instructions_and_doors(tmp_path, monkeypatch) -> None:
+def test_home_resume_follows_the_instructions(tmp_path, monkeypatch) -> None:
     client, _path = _app(tmp_path, monkeypatch)
     _seed_deck(client, "Resume draft")
     home = client.get("/").get_data(as_text=True)
     how = home.index('class="dl-how"')
     resume = home.index("Pick up where you left off")
-    doors = home.index('class="dl-door-grid"')
-    assert how < resume < doors
+    assert how < resume
     # The deck-card script stays last on the page.
-    assert home.index("deck-lab-library.js") > doors
+    assert home.index("deck-lab-library.js") > resume
 
 
 def test_home_reorder_preserves_every_flag_gate(tmp_path, monkeypatch) -> None:
     client, _path = _app(tmp_path, monkeypatch, SABER_DECK_LAB_RESEARCH="0")
     home = client.get("/").get_data(as_text=True)
-    assert "Find out what is actually winning" not in home
-    assert "Lay it out like it is on the table" in home
     assert 'class="dl-how"' in home
     assert "Pick up where you left off" not in home, "no decks yet"
 
@@ -131,10 +126,7 @@ def test_home_hides_builder_sections_when_the_builder_is_off(
 ) -> None:
     client, _path = _app(tmp_path, monkeypatch, SABER_DECK_LAB_BUILDER="0")
     home = client.get("/").get_data(as_text=True)
-    assert "Lay it out like it is on the table" not in home
-    assert "Find out what is actually winning" in home
     assert "Pick up where you left off" not in home
-    assert home.index('class="dl-how"') < home.index('class="dl-door-grid"')
 
 
 # --- DYL-61: the saved-deck control carries a real tooltip ------------------

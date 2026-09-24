@@ -36,18 +36,5 @@
     </div>
 </section>
 {% endif %}
-
-<section class="dl-door-grid" aria-label="Deck Lab areas">
-    {% if config.DECK_LAB_RESEARCH_ENABLED %}<article class="dl-card dl-door">
-        <h2>Find out what is actually winning</h2>
-        <p>Compare meta share and top-16 finishes against a stated window. Open any commander to see the cards its recorded lists run.</p>
-        <div class="dl-door-actions"><a class="dl-button dl-button-primary" href="{{ url_for('research.index') }}">Open Research</a></div>
-    </article>{% endif %}
-    {% if config.DECK_LAB_BUILDER_ENABLED %}<article class="dl-card dl-door">
-        <h2>Lay it out like it is on the table</h2>
-        <p class="desktop-copy">Name your own zones and switch between a list, grid, spoiler, and desktop playmat without converting the deck.</p><p class="mobile-copy">Name your own zones and switch between list, grid, and spoiler views without changing the deck.</p>
-        <div class="dl-door-actions"><a class="dl-button dl-button-primary" href="{{ url_for('builder.library') }}">New deck</a><a class="dl-button" href="{{ url_for('builder.library') }}">Open decks</a></div>
-    </article>{% endif %}
-</section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='deck-lab-library.js') }}" defer></script>{% endblock %}

@@ -72,7 +72,6 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b"players" not in home.lower()
     assert b"commanders tracked" not in home.lower()
     assert b"of your decks" not in home.lower()
-    assert home.count(b'class="dl-door-actions"') == 2
     assert "© 2026 Deck Lab".encode() in home
     assert b"Tournament data" not in home
     empty_library = client.get("/build").data
