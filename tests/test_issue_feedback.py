@@ -4,8 +4,11 @@ import io
 import json
 import logging
 import re
+import shutil
+import subprocess
 import time
 import uuid
+from pathlib import Path
 
 import httpx
 import pytest
@@ -197,7 +200,7 @@ def test_report_routing_context_and_confirmation_only(client, provider, category
     )
     assert response.status_code == 200 and response.json == {
         "ok": True,
-        "message": "Thanks—your feedback was sent.",
+        "message": "Thanks for the feedback — your report was submitted successfully.",
     }
     assert len(provider["issues"]) == 1
     issue = next(iter(provider["issues"].values()))
@@ -398,12 +401,19 @@ def test_dev_preview_feedback_is_visible_and_saved_locally(tmp_path, monkeypatch
     assert b'id="feedback-launcher"' in page.data
     assert b"Share a private note with the Deck Lab team." in page.data
     assert b"Saved only in this isolated preview" in page.data
+    assert (
+        "Thanks for the feedback — your report was saved in this preview."
+        in page.get_data(as_text=True)
+    )
     assert "linear_feedback" not in local_app.extensions
     response = local_client.post(
         "/feedback/submit",
         data=form_data(local_client, description="The local preview button works."),
     )
     assert response.status_code == 200
+    assert response.json["message"] == (
+        "Thanks for the feedback — your report was saved in this preview."
+    )
     with db.connect(path) as conn:
         report = dict(conn.execute("SELECT * FROM deck_lab_dev_feedback").fetchone())
     assert report["user_id"] == user_id
@@ -663,6 +673,127 @@ def test_user_markdown_remains_literal(client, provider):
     assert response.status_code == 200
     body = next(iter(provider["issues"].values()))["description"]
     assert "````\n" + message + "\n````" in body
+
+
+def _rule_body(css: str, selector: str) -> str:
+    match = re.search(re.escape(selector) + r"\s*\{([^}]+)\}", css)
+    assert match, f"missing CSS rule for {selector}"
+    return match.group(1)
+
+
+def test_feedback_success_markup_replaces_done(client):
+    page = client.get("/profile").get_data(as_text=True)
+    assert 'id="feedback-close-success"' in page
+    assert 'id="feedback-another"' in page
+    assert "feedback-done" not in page
+    assert 'class="feedback-submit-secondary"' in page
+    assert 'data-success-title="Thanks for your feedback"' in page
+    assert 'aria-labelledby="feedback-title"' in page
+    assert 'id="feedback-title">Tell us what broke</h2>' in page
+    assert "Thanks for the feedback — your report was submitted successfully." in page
+    assert (
+        'id="feedback-submit" class="feedback-submit" type="submit">Send feedback</button>'
+        in page
+    )
+    assert (
+        'id="feedback-close-success" class="feedback-submit" type="button">Close</button>'
+        in page
+    )
+    assert (
+        'id="feedback-another" class="feedback-submit-secondary" type="button">'
+        "Submit another comment</button>" in page
+    )
+    assert 'aria-label="Send feedback"' in page
+    assert 'aria-label="Close feedback"' in page
+
+
+def test_feedback_success_actions_wrap_in_a_row():
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "sabermetrics"
+        / "ui"
+        / "static"
+        / "issue-feedback.css"
+    ).read_text()
+    actions = _rule_body(css, ".feedback-success-actions")
+    assert re.search(r"display\s*:\s*flex", actions)
+    assert re.search(r"flex-wrap\s*:\s*wrap", actions)
+    secondary = _rule_body(css, ".feedback-submit-secondary")
+    assert re.search(r"background\s*:\s*transparent", secondary)
+    assert re.search(r"border\s*:\s*1px\s+solid", secondary)
+    assert re.search(r"min-height\s*:\s*44px", secondary)
+    shared = _rule_body(css, ".feedback-success-actions .feedback-submit-secondary")
+    assert re.search(r"flex\s*:\s*1\s+0\s+9\.5rem", shared)
+    focus = _rule_body(css, ".feedback-submit-secondary:focus-visible")
+    assert re.search(r"outline\s*:\s*2px\s+solid\s+#ff889a", focus)
+    assert re.search(r"outline-offset\s*:\s*3px", focus)
+
+
+def test_feedback_widget_success_state_machine():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required to execute the feedback widget state machine")
+    harness = Path(__file__).with_name("feedback_widget_harness.js")
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "sabermetrics"
+        / "ui"
+        / "static"
+        / "issue-feedback.js"
+    )
+    result = subprocess.run(
+        [node, str(harness), str(script)],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=20,
+    )
+    if result.returncode != 0:
+        pytest.fail(result.stderr or result.stdout or "feedback widget harness failed")
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["passed"]
+    assert payload["idle"] == {
+        "title": "Tell us what broke",
+        "introHidden": False,
+        "formHidden": False,
+        "successHidden": True,
+        "submitLabel": "Send feedback",
+    }
+    assert payload["submitting"]["submitLabel"] == "Sending…"
+    assert payload["submitting"]["status"] == "Sending your feedback…"
+    assert payload["submitting"]["formHidden"] is False
+    assert payload["submitting"]["title"] == "Tell us what broke"
+    assert payload["success"]["title"] == "Thanks for your feedback"
+    assert "Tell us what broke" not in payload["success"]["title"]
+    assert payload["success"]["introHidden"] is True
+    assert payload["success"]["formHidden"] is True
+    assert payload["success"]["successHidden"] is False
+    assert payload["success"]["dismissHidden"] is True
+    assert payload["success"]["focus"] == "feedback-success"
+    assert payload["success"]["open"] is True
+    assert payload["success"]["labelledBy"] == "feedback-title"
+    assert payload["success"]["visibleButtons"] == [
+        "feedback-close-success",
+        "feedback-another",
+    ]
+    assert payload["another"]["title"] == "Tell us what broke"
+    assert payload["another"]["introHidden"] is False
+    assert payload["another"]["formHidden"] is False
+    assert payload["another"]["successHidden"] is True
+    assert payload["another"]["submitLabel"] == "Send feedback"
+    assert payload["another"]["focus"] == "feedback-description"
+    assert payload["another"]["open"] is True
+    assert payload["another"]["description"] == ""
+    assert payload["another"]["freshRequest"] is True
+    assert payload["reopened"]["title"] == "Tell us what broke"
+    assert payload["reopened"]["introHidden"] is False
+    assert payload["reopened"]["formHidden"] is False
+    assert payload["reopened"]["successHidden"] is True
+    assert payload["reopened"]["submitLabel"] == "Send feedback"
+    assert payload["reopened"]["open"] is True
+    assert payload["closed"] is True
 
 
 def test_session_renewal_preserves_report_identity(client, app, user, provider):

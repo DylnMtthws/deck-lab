@@ -19,11 +19,13 @@
         </div>
     </header>
     <div class="dl-library-filter-row">
-        <nav class="dl-library-pills" aria-label="Deck filters">
+        <nav class="dl-underline-tabs" aria-label="Deck filters">
             <a href="{{ url_for('builder.library', q=query, sort=sort) }}" {% if active_filter == 'all' %}aria-current="page"{% endif %}>All {{ library_stats.total_count }}</a>
-            <a href="{{ url_for('builder.library', q=query, filter='favorites', sort=sort) }}" {% if active_filter == 'favorites' %}aria-current="page"{% endif %}><span aria-hidden="true">♥</span> Favorites {{ library_stats.favorite_count }}</a>
+            <a href="{{ url_for('builder.library', q=query, filter='favorites', sort=sort) }}" {% if active_filter == 'favorites' %}aria-current="page"{% endif %} data-dl-tip="Show only decks you saved"><span aria-hidden="true">★</span> Saved {{ library_stats.favorite_count }}</a>
             <a href="{{ url_for('builder.library', q=query, filter='recent', sort=sort) }}" {% if active_filter == 'recent' %}aria-current="page"{% endif %}>Recently edited {{ library_stats.recent_count }}</a>
         </nav>
+        <span class="dl-tab-divider" aria-hidden="true"></span>
+        <a class="dl-library-crosslink" href="{{ url_for('main.favorite_commanders') }}" aria-label="Favorite commanders" data-dl-tip="Browse the commanders you hearted"><span aria-hidden="true">♥</span> Commanders</a>
         <details class="dl-library-sort" data-deck-sort-menu>
             <summary aria-label="Sort decks: {{ 'Last edited' if sort == 'edited' else 'Name A to Z' }}" aria-haspopup="menu" aria-controls="deck-sort-options">
                 <span>Sort:</span><strong>{{ 'Last edited' if sort == 'edited' else 'Name A–Z' }}</strong>

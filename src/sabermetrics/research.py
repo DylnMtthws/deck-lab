@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import sqlite3
+import threading
+from collections import OrderedDict
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date, timedelta
@@ -24,8 +27,26 @@ from sabermetrics.card_discovery import (
     numeric_stat_sql,
     primary_type,
 )
-from sabermetrics.card_search import unique_legal_faces_sql
+from sabermetrics.card_search import (
+    catalog_revision,
+    unique_legal_faces_page_sql,
+    unique_legal_faces_sql,
+)
 from sabermetrics.research_identities import attach_members
+
+# Card results depend only on the public card corpus, never on the viewer.
+# Entries are keyed by the trigger-maintained catalog revision, so any card
+# insert/update/delete or database replacement makes them unreachable.
+_CARDS_LOCK = threading.Lock()
+_CARD_RESULTS: OrderedDict[tuple[Any, ...], dict[str, Any]] = OrderedDict()
+_CARD_COVERAGE: dict[tuple[Any, ...], dict[str, int]] = {}
+_MAX_CARD_RESULTS = 64
+
+
+def reset_card_results_cache() -> None:
+    with _CARDS_LOCK:
+        _CARD_RESULTS.clear()
+        _CARD_COVERAGE.clear()
 
 
 def _colors(value: Any) -> list[str]:
@@ -387,9 +408,20 @@ class ResearchRepo:
             where.append("c.rarity=?")
             values.append(rarity)
         where_sql = " AND ".join(where)
-        faces_sql = unique_legal_faces_sql(where_sql)
-        coverage_sql = unique_legal_faces_sql(format_legal_sql("c"))
         with self._connect() as conn:
+            db_key = str(self.db_path.resolve())
+            stamp = catalog_revision(conn, db_key)
+            key = (
+                None
+                if stamp is None
+                else (db_key, stamp, where_sql, tuple(values), page, per_page)
+            )
+            if key is not None:
+                with _CARDS_LOCK:
+                    cached = _CARD_RESULTS.get(key)
+                    if cached is not None:
+                        _CARD_RESULTS.move_to_end(key)
+                        return copy.deepcopy(cached)
             total = int(
                 conn.execute(
                     f"SELECT COUNT(DISTINCT c.name) FROM cards c WHERE {where_sql}",
@@ -397,30 +429,60 @@ class ResearchRepo:
                 ).fetchone()[0]
             )
             rows = conn.execute(
-                faces_sql + " ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?",
-                [*values, per_page + 1, (page - 1) * per_page],
+                unique_legal_faces_page_sql(where_sql),
+                [*values, *values, per_page + 1, (page - 1) * per_page],
             ).fetchall()
-            coverage = conn.execute(f"""SELECT COUNT(*) AS total,
-                          SUM(CASE WHEN {numeric_stat_sql("c.power")} IS NOT NULL
-                                   THEN 1 ELSE 0 END) AS numeric_power,
-                          SUM(CASE WHEN {numeric_stat_sql("c.toughness")} IS NOT NULL
-                                   THEN 1 ELSE 0 END) AS numeric_toughness
-                   FROM ({coverage_sql}) AS c""").fetchone()
+            coverage = self._card_stat_coverage(
+                conn, None if stamp is None else (db_key, stamp)
+            )
         has_next = len(rows) > per_page
         results = [dict(row) for row in rows[:per_page]]
         for row in results:
             row["color_identity"] = _colors(row.get("color_identity"))
-        return {
+        result = {
             "results": results,
             "total": total,
             "page": page,
             "has_next": has_next,
-            "stat_coverage": {
-                "legal_cards": int(coverage["total"] or 0),
-                "numeric_power": int(coverage["numeric_power"] or 0),
-                "numeric_toughness": int(coverage["numeric_toughness"] or 0),
-            },
+            "stat_coverage": coverage,
         }
+        if key is not None:
+            with _CARDS_LOCK:
+                _CARD_RESULTS[key] = copy.deepcopy(result)
+                _CARD_RESULTS.move_to_end(key)
+                while len(_CARD_RESULTS) > _MAX_CARD_RESULTS:
+                    _CARD_RESULTS.popitem(last=False)
+        return result
+
+    @staticmethod
+    def _card_stat_coverage(
+        conn: sqlite3.Connection, key: tuple[Any, ...] | None
+    ) -> dict[str, int]:
+        """Numeric power/toughness coverage of all legal faces; filter-independent."""
+        if key is not None:
+            with _CARDS_LOCK:
+                cached = _CARD_COVERAGE.get(key)
+            if cached is not None:
+                return dict(cached)
+        coverage_sql = unique_legal_faces_sql(format_legal_sql("c"))
+        row = conn.execute(f"""SELECT COUNT(*) AS total,
+                      SUM(CASE WHEN {numeric_stat_sql("c.power")} IS NOT NULL
+                               THEN 1 ELSE 0 END) AS numeric_power,
+                      SUM(CASE WHEN {numeric_stat_sql("c.toughness")} IS NOT NULL
+                               THEN 1 ELSE 0 END) AS numeric_toughness
+               FROM ({coverage_sql}) AS c""").fetchone()
+        coverage = {
+            "legal_cards": int(row["total"] or 0),
+            "numeric_power": int(row["numeric_power"] or 0),
+            "numeric_toughness": int(row["numeric_toughness"] or 0),
+        }
+        if key is not None:
+            with _CARDS_LOCK:
+                # Only the newest revision per database is useful.
+                for stale in [k for k in _CARD_COVERAGE if k[0] == key[0]]:
+                    del _CARD_COVERAGE[stale]
+                _CARD_COVERAGE[key] = dict(coverage)
+        return coverage
 
     def commander_detail(
         self, card_id: str, *, window_days: int = 90

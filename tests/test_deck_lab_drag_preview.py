@@ -381,7 +381,8 @@ def test_card_image_follows_pointer_from_playmat_and_sidebar(tmp_path: Path) -> 
     sidebar = result["sidebarArt"]
     assert sidebar["afterStart"]["types"] == ["text/card-id"]
     assert sidebar["afterStart"]["effectAllowed"] == "copy"
-    assert sidebar["afterStart"]["addLabel"] == "Add Lightning Bolt"
+    # DYL-69: the add button names the destination category it will add into.
+    assert sidebar["afterStart"]["addLabel"] == "Add Lightning Bolt to Unsorted"
     assert sidebar["afterStart"]["preview"]["src"] == "https://img.test/bolt.jpg"
     assert _moved(sidebar["afterStart"]["preview"], sidebar["afterMove"])
     assert sidebar["afterOver"]["dropEffect"] == "copy"
@@ -425,4 +426,4 @@ def test_card_image_follows_pointer_from_playmat_and_sidebar(tmp_path: Path) -> 
         assert cancelled["dragSource"] is False
         assert cancelled["extraCommands"] == []
 
-    assert result["addControl"] == "Add Lightning Bolt"
+    assert result["addControl"] == "Add Lightning Bolt to Unsorted"

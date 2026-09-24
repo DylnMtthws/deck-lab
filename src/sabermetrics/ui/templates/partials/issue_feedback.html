@@ -32,10 +32,13 @@
         <p id="feedback-status" role="status" aria-live="polite" aria-atomic="true"></p>
         <p id="feedback-signin" hidden><a href="{{ url_for('auth.login') }}" target="_blank" rel="noopener">Sign in in a new tab</a>, then retry here.</p>
         <div class="feedback-destination">{{ config.FEEDBACK_DESTINATION }}</div>
-        <button id="feedback-submit" class="feedback-submit" type="submit">Send</button>
+        <button id="feedback-submit" class="feedback-submit" type="submit">Send feedback</button>
     </form>
-    <div id="feedback-success" hidden tabindex="-1">
+    <div id="feedback-success" hidden tabindex="-1" data-success-title="Thanks for your feedback">
         <p>{{ config.FEEDBACK_SUCCESS_MESSAGE }}</p>
-        <button id="feedback-done" class="feedback-submit" type="button">Done</button>
+        <div class="feedback-success-actions">
+            <button id="feedback-close-success" class="feedback-submit" type="button">Close</button>
+            <button id="feedback-another" class="feedback-submit-secondary" type="button">Submit another comment</button>
+        </div>
     </div>
 </dialog>

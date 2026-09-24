@@ -77,7 +77,7 @@ def test_meta_reuses_default_cohort_but_not_user_favorites(client, monkeypatch):
     calls = _track_commanders(monkeypatch)
     favorites = Mock(return_value={"commander"})
     monkeypatch.setattr(db.FavoritesRepo, "commander_ids", favorites)
-    first = client.get("/research/")
+    first = client.get("/research/?tab=commanders")
     assert first.status_code == 200
     assert b'aria-pressed="true"' in first.data
     favorites.return_value = set()
@@ -96,7 +96,10 @@ def test_meta_reuses_default_cohort_but_not_user_favorites(client, monkeypatch):
     assert len(calls) == 4
     assert client.get("/research/?tab=metagame&color=U").status_code == 200
     assert len(calls) == 5
-    assert client.get("/research/?window=90").status_code == 200
+    cards = client.get("/research/?window=90")
+    assert cards.status_code == 200
+    assert b'data-tab="cards"' in cards.data
+    assert b'aria-current="page">Cards</a>' in cards.data
     assert len(calls) == 5
 
 
@@ -124,7 +127,7 @@ def test_two_users_cannot_inherit_favorites_or_account_html(client):
     db.FavoritesRepo(path).toggle_commander(alice, "commander")
     alice_client = client
     bob_client = _login(client.application, bob)
-    alice_page = alice_client.get("/research/")
+    alice_page = alice_client.get("/research/?tab=commanders")
     bob_page = bob_client.get("/research/?tab=metagame")
     assert alice_page.status_code == bob_page.status_code == 200
     assert b"navigation@example.test" in alice_page.data
@@ -161,7 +164,7 @@ def test_build_lists_only_the_owner_editable_decks(client):
     assert b"Bob Editable" in bob_library.data
     assert b"Alice Editable" not in bob_library.data
     assert b'name="q"' in alice_library.data
-    assert b"Favorites" in alice_library.data
+    assert b"Saved" in alice_library.data
 
 
 def test_failed_http_cohort_fill_does_not_fail_the_shell(client, monkeypatch):

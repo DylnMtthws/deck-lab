@@ -162,8 +162,10 @@ class _StepParser(HTMLParser):
 def _parsed_steps(html: str) -> list[dict[str, object]]:
     start = html.find('class="dl-how"')
     assert start >= 0, "home page is missing How it goes"
+    end = html.find("</section>", start)
+    assert end >= 0, "How it goes section is never closed"
     parser = _StepParser()
-    parser.feed(html[start:])
+    parser.feed(html[start:end])
     assert len(parser.steps) == 3
     return parser.steps
 

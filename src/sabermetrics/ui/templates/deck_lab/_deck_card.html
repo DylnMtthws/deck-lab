@@ -31,7 +31,7 @@
             {% endif %}
             <form method="post" action="{{ url_for('builder.favorite_deck',deck_id=d.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="dl-deck-favorite{% if d.favorite %} active{% endif %}" type="submit" aria-label="{{ 'Remove ' + d.title + ' from favorites' if d.favorite else 'Add ' + d.title + ' to favorites' }}" title="{{ 'Remove from favorites' if d.favorite else 'Add to favorites' }}"><span aria-hidden="true">♥</span></button>
+                <button class="dl-deck-favorite{% if d.favorite %} active{% endif %}" type="submit" aria-label="{{ 'Remove ' + d.title + ' from saved decks' if d.favorite else 'Save ' + d.title + ' to your saved decks' }}" title="{{ 'Remove from saved decks' if d.favorite else 'Save deck' }}" data-dl-tip="{{ 'Remove from saved decks' if d.favorite else 'Save deck' }}"><span aria-hidden="true">★</span></button>
             </form>
         </div>
     </article>

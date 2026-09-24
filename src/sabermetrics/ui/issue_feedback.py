@@ -36,7 +36,10 @@ from sabermetrics.ui.feedback_store import (
 
 bp = Blueprint("issue_feedback", __name__, url_prefix="/feedback")
 logger = logging.getLogger(__name__)
-SUCCESS = {"ok": True, "message": "Thanks—your feedback was sent."}
+SUCCESS = {
+    "ok": True,
+    "message": "Thanks for the feedback — your report was submitted successfully.",
+}
 
 
 def code_block(text: str) -> str:
@@ -126,12 +129,14 @@ def init_feedback(app) -> None:
         app.config["FEEDBACK_INTRO"] = "Share a private note with the Deck Lab team."
         app.config["FEEDBACK_DESTINATION"] = "Saved only in this isolated preview"
         app.config["FEEDBACK_SUCCESS_MESSAGE"] = (
-            "Thanks—your feedback was saved in this preview."
+            "Thanks for the feedback — your report was saved in this preview."
         )
     else:
         app.config["FEEDBACK_INTRO"] = "File a private issue for the Deck Lab team."
         app.config["FEEDBACK_DESTINATION"] = "Files as a private Linear issue"
-        app.config["FEEDBACK_SUCCESS_MESSAGE"] = "Thanks—your feedback was sent."
+        app.config["FEEDBACK_SUCCESS_MESSAGE"] = (
+            "Thanks for the feedback — your report was submitted successfully."
+        )
     app.extensions["feedback_slots"] = BoundedSemaphore(1)
     if config:
         app.extensions["linear_feedback"] = LinearFeedbackClient(config)
