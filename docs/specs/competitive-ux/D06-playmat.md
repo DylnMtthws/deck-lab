@@ -20,3 +20,8 @@ Every §2.8 "must keep working" interaction. All existing playmat tests stay gre
 - AC-7 `test_spread_stack_toggle_sends_set_zone_layout_and_animates_flip` (FLIP classes applied; none under reduced motion)
 - AC-8 `test_existing_playmat_interactions_unchanged`: names the existing test modules you ran: `test_deck_lab_drag_preview`, `test_feedback_playmat_review`, `test_feedback_workspace*`, `test_account_playmats`, plus any others you find.
 - Visual DoD: scenarios `playmat` and `playmat-hover-stack` must be clean at 1440 and 1280. The orchestrator judges the "real cards" feel from the screenshots.
+
+## Review server
+Use port **5316** for your seeded review server (`--port 5316`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

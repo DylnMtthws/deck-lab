@@ -25,3 +25,8 @@ Agent: HIGH. Depends on D00. Read COMMON.md, `DESIGN-SPEC.md` §1, §2.1, §2.2,
 - AC-9 `test_export_menu_items_have_icons_labels_descriptions`: and copy/download behaviour is unchanged.
 - AC-10 `test_no_count_or_bulk_controls_visible_in_toolbar`
 - Visual DoD: scenarios `list`, `list-selection`, `view-options`, `export-menu` and `playmat` must be clean at 1440 and 1280 (no `bar:`, `covered:` or `native:`).
+
+## Review server
+Use port **5311** for your seeded review server (`--port 5311`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

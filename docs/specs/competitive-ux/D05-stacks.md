@@ -20,3 +20,8 @@ Agent: HIGH. Depends on D00. Read COMMON.md, `DESIGN-SPEC.md` §1, §2.4 and §3
 - AC-8 `test_arrow_key_navigation_across_columns`
 - AC-9 `test_reduced_motion_disables_lift_transform`
 - Visual DoD: scenario `stacks` must be clean at 1440 and 1280. Columns wrap; there is no horizontal page overflow.
+
+## Review server
+Use port **5315** for your seeded review server (`--port 5315`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

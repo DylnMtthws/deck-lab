@@ -20,3 +20,8 @@ Agent: LOW. Depends on D00. Read COMMON.md, `DESIGN-SPEC.md` §1, §2.9 (shortcu
 - AC-5 `test_unsupported_terms_render_as_warn_chips_with_title`
 - AC-6 `test_plain_query_unchanged` (T03's behaviour kept)
 - Visual DoD: scenarios `hotkeys` and `research-syntax` must be clean at 1440 and 1280 (no `native:`; no text below 11 px).
+
+## Review server
+Use port **5317** for your seeded review server (`--port 5317`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

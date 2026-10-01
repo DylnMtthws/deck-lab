@@ -27,3 +27,8 @@ Keep `window.DeckLabStatus.typeBucket` and `summarize` unchanged.
 - AC-4 `test_considering_and_verdict_chips_render_and_verdict_opens_tools_tab`
 - AC-5 `test_status_text_sizes_within_scale` (computed sizes are 11–14 px only)
 - Visual DoD: scenarios `status-issues` and `playmat` must be clean at 1440 and 1280, with `underStatus` 0.
+
+## Review server
+Use port **5314** for your seeded review server (`--port 5314`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

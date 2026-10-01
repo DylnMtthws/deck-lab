@@ -37,3 +37,8 @@ Agent: HIGH. Depends on D00. Read COMMON.md, `DESIGN-SPEC.md` §1, §2.6 and §3
 - AC-8 `test_verdict_segmented_and_note_debounce_still_saves`
 - AC-9 `test_no_native_controls_in_rail` (harness: computed style differs from an unstyled probe)
 - Visual DoD: scenarios `list` (Card tab), `rail-deck` and `rail-tools` must be clean at 1440 and 1280.
+
+## Review server
+Use port **5313** for your seeded review server (`--port 5313`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.

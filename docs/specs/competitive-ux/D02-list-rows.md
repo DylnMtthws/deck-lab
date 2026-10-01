@@ -24,3 +24,8 @@ Agent: HIGH. Depends on D00. Read COMMON.md, `DESIGN-SPEC.md` §1, §2.3, §2.5 
 - AC-8 `test_row_click_focuses_panel_and_dblclick_opens_dialog`
 - AC-9 `test_feedback_controls_are_icon_buttons_with_names_no_emoji`
 - Visual DoD: scenarios `list`, `list-selection` and `spoiler` must be clean at 1440 and 1280, with `bigSym` 0 and no `native:`.
+
+## Review server
+Use port **5312** for your seeded review server (`--port 5312`). Kill it by PID when done; never kill processes you did not start.
+
+Note: `static/deck-lab-shell.js` enhances every `<select>` on the page into a custom dropdown (`enhanceSelects`). Your `.dl-select`/dropdown styling must work with that enhancement, not fight it.
