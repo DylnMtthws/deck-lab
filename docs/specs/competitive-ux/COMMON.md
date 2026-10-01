@@ -63,6 +63,8 @@ different checkout, and without it you test the wrong code.
    - Only listen for `deck-lab:ready` when the API is absent.
    - Every builder extension task must include a test that loads your module AFTER the builder has rendered and fired ready, with no further events, and asserts that your UI is populated.
 
+10. **Script and style tags must be literal HTML.** Write `<script src="{{ url_for('static', filename='x.js') }}" defer></script>`, wrapped in `{% if not shared %}...{% endif %}` when the module is owner-only. Never build a tag inside a `{{ '...' }}` string: Flask autoescapes it into visible text and the script never loads. Page tests must match a real element with a regex such as `<script src="[^"]*/x\.js" defer></script>`, not merely the filename.
+
 ## Definition of done (every task)
 
 A task is DONE only when ALL of these are true:
