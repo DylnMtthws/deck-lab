@@ -202,8 +202,12 @@ def test_dialog_close_tooltip_does_not_overlap_dialog_edge() -> None:
         'aria-label="Close keyboard help">×</button>' in html
     ), "hotkeys close button must NOT have data-dl-tip"
 
-    # Comment dialog close button in deck-lab-feedback.js — no data-dl-tip
-    assert '"data-dl-tip"' not in js
+    # Comment dialog close button in deck-lab-feedback.js — no data-dl-tip.
+    # Scoped to the dialog builder: row feedback buttons elsewhere in the file keep tooltips.
+    start = js.index("function ensureCommentDialog")
+    dialog_js = js[start : js.index("\n  function ", start + 1)]
+    assert 'setAttribute("aria-label", "Close comment")' in dialog_js
+    assert '"data-dl-tip"' not in dialog_js
 
 
 def test_dialogs_css_has_styles() -> None:

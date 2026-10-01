@@ -157,6 +157,7 @@ class Element {
     return child;
   }
   append(...nodes) { nodes.forEach((n) => this.appendChild(n)); }
+  contains(node) { while (node) { if (node === this) return true; node = node.parentNode; } return false; }
   insertBefore(child, ref) {
     child.parentNode = this;
     const index = ref ? this.children.indexOf(ref) : this.children.length;
