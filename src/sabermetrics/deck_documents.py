@@ -97,6 +97,61 @@ def _json(value: Any, fallback: Any) -> Any:
         return fallback
 
 
+# Builder role keys (deck-lab-builder.js). cEDH ``flex`` has no builder bucket.
+_CANDIDATE_ROLE_TO_BUILDER: dict[str, str] = {
+    "acceleration": "ramp",
+    "tutor": "tutor",
+    "interaction": "removal",
+    "protection": "protection",
+    "card_advantage": "draw",
+    "win_package": "wincon",
+    "land": "land",
+    "flex": "other",
+}
+
+
+def map_candidate_role(role: object) -> str:
+    """Map a cEDH candidate role onto a builder role key.
+
+    Every value in ``cedh.domain.ROLES`` has an entry. Anything else, including
+    a missing role on the simulator wire, becomes ``other``.
+
+    Args:
+        role: Role string from a stored candidate card.
+
+    Returns:
+        A builder role key.
+    """
+    return _CANDIDATE_ROLE_TO_BUILDER.get(str(role or ""), "other")
+
+
+def _candidate_commander_ids(candidate: dict[str, Any]) -> list[str]:
+    """Return commander oracle ids from the stored document or the wire form."""
+    commander = candidate.get("commander")
+    if isinstance(commander, dict) and isinstance(commander.get("oracle_ids"), list):
+        return [str(item) for item in commander["oracle_ids"] if str(item or "")]
+    raw = candidate.get("commander_oracle_ids")
+    if isinstance(raw, list):
+        return [str(item) for item in raw if str(item or "")]
+    return []
+
+
+def _candidate_library(candidate: dict[str, Any]) -> list[Any]:
+    """Return the 99 from a stored candidate.
+
+    Rows saved by the lab use ``DeckCandidate.to_json()``, whose library is
+    ``cards`` and whose entries carry ``role``. The simulator wire uses
+    ``library`` and has no roles. ``cards`` wins when both are present.
+    """
+    cards = candidate.get("cards")
+    if isinstance(cards, list):
+        return cards
+    library = candidate.get("library")
+    if isinstance(library, list):
+        return library
+    return []
+
+
 _WORD_COPY_LIMITS = {
     "one": 1,
     "two": 2,
@@ -610,9 +665,9 @@ class DeckDocumentRepo:
                 (deck_id,),
             ).fetchone()["id"]
             candidate = _json(source["candidate_json"], {})
-            for order, oracle_id in enumerate(
-                candidate.get("commander_oracle_ids", [])
-            ):
+            if not isinstance(candidate, dict):
+                candidate = {}
+            for order, oracle_id in enumerate(_candidate_commander_ids(candidate)):
                 card = self._oracle_row(conn, oracle_id)
                 if (
                     not card
@@ -628,17 +683,24 @@ class DeckDocumentRepo:
                     is_commander=True,
                     order=order,
                 )
-            for order, item in enumerate(candidate.get("library", [])):
+            for order, item in enumerate(_candidate_library(candidate)):
+                if not isinstance(item, dict):
+                    continue
                 oracle_id = str(item.get("oracle_id") or "")
                 card = self._oracle_row(conn, oracle_id)
                 if not card or not card.get("is_legal_in_99"):
                     continue
+                try:
+                    copies = int(item.get("quantity") or 1)
+                except (TypeError, ValueError):
+                    copies = 1
                 self._insert_card(
                     conn,
                     deck_id=deck_id,
                     zone_id=unsorted_id,
                     card=card,
-                    quantity=int(item.get("quantity") or 1),
+                    quantity=max(1, min(99, copies)),
+                    role=map_candidate_role(item.get("role")),
                     order=order,
                 )
             self._event(

@@ -60,14 +60,39 @@
 <div class="dl-empty">No decks were edited in the last 30 days.</div>
 {% endif %}
 
-<dialog id="new-deck-dialog" class="dl-dialog">
-    <form method="post" action="{{ url_for('builder.create_deck') }}">
+<dialog id="new-deck-dialog" class="dl-dialog"{% if request.args.get('generate') == '1' %} data-open-generate{% endif %} data-prefill-commander="{{ request.args.get('commander', '') }}" data-prefill-commander-name="{{ request.args.get('commander_name', '') }}">
+    <form method="post" action="{{ url_for('builder.create_deck') }}" data-new-deck-form>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="dl-dialog-head"><div><div class="dl-eyebrow">New deck</div><h2>Start an empty draft</h2></div><button class="dl-icon-button" type="button" data-dialog-close aria-label="Close">×</button></div>
+        <div class="dl-dialog-head"><div><div class="dl-eyebrow">New deck</div><h2>Start a deck</h2></div><button class="dl-icon-button" type="button" data-dialog-close aria-label="Close">×</button></div>
+        <fieldset class="dl-generate-choice">
+            <legend>How should this deck start?</legend>
+            <label><input type="radio" name="deck_start" value="empty" checked data-start-empty> Empty deck</label>
+            <label><input type="radio" name="deck_start" value="generate" data-start-generate> Generate from a strategy pack</label>
+        </fieldset>
+        <div class="dl-generate-fields" data-generate-fields hidden>
+            <label>Strategy pack<span data-generate-pack-slot></span></label>
+            <p class="dl-muted" data-generate-empty hidden>No strategy pack supports this commander yet.</p>
+            <label>What should this deck focus on?<textarea class="dl-field" data-generate-intent maxlength="2000"></textarea></label>
+        </div>
         <label>Deck name<input class="dl-field" name="title" value="Untitled deck" maxlength="160" required></label>
         {% include 'deck_lab/_commander_picker.html' %}
-        <button class="dl-button dl-button-primary" type="submit">Create deck</button>
+        <button class="dl-button dl-button-primary" type="submit" data-create-deck>Create deck</button>
+        <button class="dl-button dl-button-primary" type="button" data-generate-submit hidden disabled>Generate</button>
     </form>
+    <div data-generate-progress role="status" aria-live="polite" hidden>
+        <div class="dl-eyebrow">Generating</div>
+        <ol class="dl-generate-steps">
+            <li data-generate-step="queued" data-state="upcoming"><span data-generate-mark aria-hidden="true"></span><span>Queued</span></li>
+            <li data-generate-step="running" data-state="upcoming"><span data-generate-mark aria-hidden="true"></span><span>Building</span></li>
+            <li data-generate-step="simulating" data-state="upcoming"><span data-generate-mark aria-hidden="true"></span><span>Simulating</span></li>
+            <li data-generate-step="explaining" data-state="upcoming"><span data-generate-mark aria-hidden="true"></span><span>Explaining</span></li>
+            <li data-generate-step="done" data-state="upcoming"><span data-generate-mark aria-hidden="true"></span><span>Done</span></li>
+        </ol>
+        <p data-generate-spinner>Building the list…</p>
+        <p data-generate-error hidden></p>
+        <button class="dl-button" type="button" data-generate-retry hidden>Retry</button>
+        <p data-generate-timeout hidden>This build timed out after 5 minutes. <a data-generate-job-link href="">Open the job page</a></p>
+    </div>
 </dialog>
 <dialog id="import-deck-dialog" class="dl-dialog dl-import-dialog"{% if import_errors or import_preview %} open{% endif %}>
     <form method="post" action="{{ url_for('builder.import_preview') }}" data-import-form>
@@ -116,4 +141,4 @@
     <button class="dl-button dl-button-primary" type="button" data-new-deck>New deck</button>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-library.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-library.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-generate.js') }}" defer></script>{% endblock %}
