@@ -127,8 +127,9 @@
     });
   }
   function zoneName(zoneId) { var zone = state.zones.find(function (item) { return item.id === zoneId; }); return zone ? zone.name : "Unsorted"; }
-  function manaToken(symbol) {
-    var upper = String(symbol || "").toUpperCase(), token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
+  function manaToken(sym) {
+    if (window.DeckLabMana) return window.DeckLabMana.symbol(sym, { decorative: true });
+    var upper = String(sym || "").toUpperCase(), token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
     if (/^[WUBRGC]$/.test(upper)) token.classList.add("mana", "mana-" + upper);
     else token.classList.add("dl-mana-generic");
     token.setAttribute("aria-hidden", "true");

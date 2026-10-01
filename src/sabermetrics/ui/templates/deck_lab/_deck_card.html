@@ -1,3 +1,4 @@
+{% from 'deck_lab/_mana.html' import mana_symbol %}
 {% set color_names = {'W':'White','U':'Blue','B':'Black','R':'Red','G':'Green'} %}
 <article class="dl-card dl-deck-card">
         <a class="dl-deck-card-hit-area" href="{{ url_for('builder.deck', deck_id=d.id) }}" aria-label="Open {{ d.title }} in the builder"></a>
@@ -6,7 +7,7 @@
             <div class="dl-deck-card-copy">
                 <h2>{{ d.title }}</h2>
                 <p>{{ d.commander_names or 'Commander not chosen' }}</p>
-                {% if d.color_identity or d.is_colorless %}<span class="dl-color-identity" aria-label="Commander color identity">{% for color in d.color_identity %}<span class="mana mana-{{ color }}" aria-label="{{ color_names[color] }}">{{ color }}</span>{% endfor %}{% if d.is_colorless %}<span class="mana mana-C" aria-label="Colorless">C</span>{% endif %}</span>{% endif %}
+                {% if d.color_identity or d.is_colorless %}<span class="dl-color-identity" aria-label="Commander color identity">{% for color in d.color_identity %}{{ mana_symbol(color) }}{% endfor %}{% if d.is_colorless %}{{ mana_symbol('C') }}{% endif %}</span>{% endif %}
                 {% if d.tags %}<div class="dl-deck-tags" aria-label="Deck tags">{% for tag in d.tags %}<span>{{ tag.name }}</span>{% endfor %}{% if d.hidden_tag_count %}<span>+{{ d.hidden_tag_count }}</span>{% endif %}</div>{% endif %}
             </div>
             <details class="dl-deck-actions" data-deck-actions>
