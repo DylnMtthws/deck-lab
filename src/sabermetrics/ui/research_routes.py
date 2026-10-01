@@ -42,24 +42,51 @@ from sabermetrics.ui.scryfall_query import ParsedQuery, parse_query
 
 # Filter keys in card_filters that can be populated from a parsed query.
 # Explicit form-query values always win over parsed values.
-_PARSED_CARD_KEYS = frozenset({
-    "oracle_text", "super_type", "super_op", "card_type", "type_op",
-    "sub_type", "sub_op", "colors", "color_mode",
-    "mana_min_bound", "mana_max_bound",
-    "power_min_bound", "power_max_bound",
-    "toughness_min_bound", "toughness_max_bound",
-    "rarity",
-})
+_PARSED_CARD_KEYS = frozenset(
+    {
+        "oracle_text",
+        "super_type",
+        "super_op",
+        "card_type",
+        "type_op",
+        "sub_type",
+        "sub_op",
+        "colors",
+        "color_mode",
+        "mana_min_bound",
+        "mana_max_bound",
+        "power_min_bound",
+        "power_max_bound",
+        "toughness_min_bound",
+        "toughness_max_bound",
+        "rarity",
+    }
+)
 
 # Form-query parameter names that, when present in the request, prevent a
 # parsed value from overriding.
-_CARD_FORM_PARAMS = frozenset({
-    "oracle_text", "super_type", "super_op", "card_type", "type_op",
-    "sub_type", "sub_op", "card_color", "color_mode",
-    "mana_operator", "mana_value", "mana_min", "mana_max",
-    "power_min", "power_max", "toughness_min", "toughness_max",
-    "rarity",
-})
+_CARD_FORM_PARAMS = frozenset(
+    {
+        "oracle_text",
+        "super_type",
+        "super_op",
+        "card_type",
+        "type_op",
+        "sub_type",
+        "sub_op",
+        "card_color",
+        "color_mode",
+        "mana_operator",
+        "mana_value",
+        "mana_min",
+        "mana_max",
+        "power_min",
+        "power_max",
+        "toughness_min",
+        "toughness_max",
+        "rarity",
+    }
+)
 
 bp = Blueprint("research", __name__, url_prefix="/research")
 
@@ -269,7 +296,8 @@ def _has_form_arg_list(name: str) -> bool:
 
 
 def _merge_parsed_filters(
-    card_filters: dict[str, Any], parsed: ParsedQuery,
+    card_filters: dict[str, Any],
+    parsed: ParsedQuery,
 ) -> None:
     """Merge parsed query filters into *card_filters*.
 

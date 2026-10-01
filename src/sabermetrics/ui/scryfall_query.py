@@ -14,29 +14,77 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-SUPERTYPES_LOWER = frozenset({
-    "basic", "legendary", "snow", "world", "ongoing", "host", "elite", "token",
-})
-CARD_TYPES_LOWER = frozenset({
-    "artifact", "battle", "conspiracy", "creature", "dungeon", "enchantment",
-    "instant", "kindred", "land", "phenomenon", "plane", "planeswalker",
-    "scheme", "sorcery", "tribal", "vanguard",
-})
+SUPERTYPES_LOWER = frozenset(
+    {
+        "basic",
+        "legendary",
+        "snow",
+        "world",
+        "ongoing",
+        "host",
+        "elite",
+        "token",
+    }
+)
+CARD_TYPES_LOWER = frozenset(
+    {
+        "artifact",
+        "battle",
+        "conspiracy",
+        "creature",
+        "dungeon",
+        "enchantment",
+        "instant",
+        "kindred",
+        "land",
+        "phenomenon",
+        "plane",
+        "planeswalker",
+        "scheme",
+        "sorcery",
+        "tribal",
+        "vanguard",
+    }
+)
 RARITY_ALIASES: dict[str, str] = {
-    "c": "common", "common": "common",
-    "u": "uncommon", "uncommon": "uncommon",
-    "r": "rare", "rare": "rare",
-    "m": "mythic", "mythic": "mythic",
+    "c": "common",
+    "common": "common",
+    "u": "uncommon",
+    "uncommon": "uncommon",
+    "r": "rare",
+    "rare": "rare",
+    "m": "mythic",
+    "mythic": "mythic",
 }
 COLOR_LETTERS = frozenset("wubrgc")
 
 _CANONICAL_SUPERTYPES = (
-    "Basic", "Legendary", "Snow", "World", "Ongoing", "Host", "Elite", "Token",
+    "Basic",
+    "Legendary",
+    "Snow",
+    "World",
+    "Ongoing",
+    "Host",
+    "Elite",
+    "Token",
 )
 _CANONICAL_CARD_TYPES = (
-    "Artifact", "Battle", "Conspiracy", "Creature", "Dungeon", "Enchantment",
-    "Instant", "Kindred", "Land", "Phenomenon", "Plane", "Planeswalker",
-    "Scheme", "Sorcery", "Tribal", "Vanguard",
+    "Artifact",
+    "Battle",
+    "Conspiracy",
+    "Creature",
+    "Dungeon",
+    "Enchantment",
+    "Instant",
+    "Kindred",
+    "Land",
+    "Phenomenon",
+    "Plane",
+    "Planeswalker",
+    "Scheme",
+    "Sorcery",
+    "Tribal",
+    "Vanguard",
 )
 
 
@@ -54,6 +102,7 @@ class ParsedQuery:
             into filters, in the order they appeared. Used for the
             "Applied from search" notice in the UI.
     """
+
     filters: dict[str, Any] = field(default_factory=dict)
     name_terms: tuple[str, ...] = ()
     unsupported: tuple[str, ...] = ()
@@ -213,7 +262,9 @@ def _parse_one(term: str) -> tuple[str, Any] | None:
     # c:<letters> / c=<letters> / id:<letters> / id=<letters>
     m = re.match(r"^(c|id)([:=])([wubrgc]+)$", stripped, re.IGNORECASE)
     if m:
-        return _parse_color_filter(m.group(1).lower(), m.group(2), m.group(3), is_negated)
+        return _parse_color_filter(
+            m.group(1).lower(), m.group(2), m.group(3), is_negated
+        )
 
     # mv / cmc / pow / power / tou / toughness with comparator
     result = _parse_numeric_comparator(term)
@@ -290,7 +341,10 @@ def _parse_type_filter(value: str, is_negated: bool) -> tuple[str, Any]:
 
 
 def _parse_color_filter(
-    prefix: str, separator: str, letters: str, is_negated: bool,
+    prefix: str,
+    separator: str,
+    letters: str,
+    is_negated: bool,
 ) -> tuple[str, Any]:
     """Map a color/identity term to a filter key and value.
 

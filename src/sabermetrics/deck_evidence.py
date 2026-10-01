@@ -104,7 +104,9 @@ def _oracle_ids(document: dict[str, Any]) -> list[str]:
 
 
 def _event_column(conn: sqlite3.Connection) -> str | None:
-    found = {str(row[1]) for row in conn.execute("PRAGMA table_info(tournament_results)")}
+    found = {
+        str(row[1]) for row in conn.execute("PRAGMA table_info(tournament_results)")
+    }
     for name in _EVENT_COLUMNS:
         if name in found:
             return name
@@ -155,7 +157,10 @@ def _card_reason(explanation: Any, oracle_id: str) -> str | None:
     cards = explanation.get("cards")
     if isinstance(cards, list):
         for item in cards:
-            if not isinstance(item, dict) or str(item.get("oracle_id") or "") != oracle_id:
+            if (
+                not isinstance(item, dict)
+                or str(item.get("oracle_id") or "") != oracle_id
+            ):
                 continue
             reason = item.get("reason")
             if isinstance(reason, str) and reason.strip():
@@ -209,7 +214,9 @@ def _deck_oracle_ids(document: dict[str, Any]) -> set[str]:
     return found
 
 
-def _entry_for_oracle(document: dict[str, Any], oracle_id: str) -> dict[str, Any] | None:
+def _entry_for_oracle(
+    document: dict[str, Any], oracle_id: str
+) -> dict[str, Any] | None:
     fallback: dict[str, Any] | None = None
     for entry in document.get("entries") or []:
         if not isinstance(entry, dict):
@@ -318,9 +325,7 @@ def _explanations(
     return out
 
 
-def _cohort_sql(
-    *, partner: bool, event_column: str | None, oracle_count: int
-) -> str:
+def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -> str:
     event_join = _EVENT_JOIN if event_column else ""
     event_sql = _EVENT_PREDICATE[event_column] if event_column else ""
     commander_sql = _PARTNER_COMMANDER if partner else _SINGLE_COMMANDER
@@ -344,7 +349,9 @@ def _cohort_sql(
     if oracle_count <= 0:
         return cohort
     marks = ",".join("?" for _ in range(oracle_count))
-    return cohort + f"""
+    return (
+        cohort
+        + f"""
         UNION ALL
         SELECT 'card' AS kind, c.oracle_id AS oracle_id,
                COUNT(DISTINCT cohort.deck_id) AS lists
@@ -354,6 +361,7 @@ def _cohort_sql(
         WHERE c.oracle_id IN ({marks})
         GROUP BY c.oracle_id
     """
+    )
 
 
 class DeckEvidenceService:
@@ -534,7 +542,9 @@ class DeckEvidenceService:
                     continue
                 if not card.get("card_id"):
                     continue
-                if not _inside_identity(_parse_colors(card.get("color_identity")), allowed):
+                if not _inside_identity(
+                    _parse_colors(card.get("color_identity")), allowed
+                ):
                     continue
                 missing.append(
                     {
@@ -549,12 +559,19 @@ class DeckEvidenceService:
                         "role_tags": card.get("role_tags"),
                     }
                 )
-            missing.sort(key=lambda item: (-float(item["rate"]), str(item["name"]).casefold()))
+            missing.sort(
+                key=lambda item: (-float(item["rate"]), str(item["name"]).casefold())
+            )
             missing = missing[:capped]
             for item in missing:
                 roles = _card_roles(item)
                 item["role_guess"] = roles[0] if roles else ""
-                for extra in ("color_identity", "oracle_text", "type_line", "role_tags"):
+                for extra in (
+                    "color_identity",
+                    "oracle_text",
+                    "type_line",
+                    "role_tags",
+                ):
                     item.pop(extra, None)
         unplayed: list[dict[str, Any]] = []
         if known and not too_few:
@@ -637,16 +654,23 @@ class DeckEvidenceService:
         if known and denominator > 0:
             ranked = sorted(
                 counted.items(),
-                key=lambda item: (-int(item[1]["lists"]), str(item[1].get("name") or "").casefold()),
+                key=lambda item: (
+                    -int(item[1]["lists"]),
+                    str(item[1].get("name") or "").casefold(),
+                ),
             )
             for card_oracle, card in ranked:
                 if len(found) >= capped:
                     break
                 if card_oracle in in_deck:
                     continue
-                if not _is_legal_in_99(card.get("is_legal_in_99")) or not card.get("card_id"):
+                if not _is_legal_in_99(card.get("is_legal_in_99")) or not card.get(
+                    "card_id"
+                ):
                     continue
-                if not _inside_identity(_parse_colors(card.get("color_identity")), allowed):
+                if not _inside_identity(
+                    _parse_colors(card.get("color_identity")), allowed
+                ):
                     continue
                 if not _shares_role(_card_roles(card), role):
                     continue
@@ -729,7 +753,9 @@ def _resolve_floor(
     return event_column, max(0, int(min_event_size))
 
 
-def _allowed_colors(conn: sqlite3.Connection, commanders: list[dict[str, str]]) -> set[str]:
+def _allowed_colors(
+    conn: sqlite3.Connection, commanders: list[dict[str, str]]
+) -> set[str]:
     keys: list[str] = []
     for commander in commanders:
         if commander["card_id"]:
