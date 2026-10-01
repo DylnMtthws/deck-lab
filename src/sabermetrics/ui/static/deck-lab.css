@@ -873,3 +873,13 @@ a.dl-card-name:hover{color:var(--brand-text)}
   font-size: 11px;
   margin-top: 4px;
 }
+.dl-meta-compare{width:min(560px,calc(100vw - 32px))}
+.dl-meta-compare [data-meta-compare-body]{display:grid;gap:16px}
+.dl-meta-section{display:grid;gap:8px}
+.dl-meta-section h3{margin:0;font-size:13px}
+.dl-meta-basis,.dl-meta-absence,.dl-meta-note{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.dl-meta-row{display:grid;gap:4px;padding:8px 0;border-top:1px solid var(--line)}
+.dl-meta-row p{margin:0;font-size:12px;line-height:1.45}
+.dl-meta-actions{display:flex;flex-wrap:wrap;gap:6px}
+.dl-replace-list{display:grid;gap:6px;margin-top:8px}
+.dl-replace-list button,.dl-meta-actions .dl-button{min-height:32px}

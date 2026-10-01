@@ -405,6 +405,30 @@ def simulation_latest(deck_id: str):
     return jsonify(simulation_view(Path(current_app.config["DB_PATH"]), deck_id))
 
 
+@bp.get("/api/decks/<deck_id>/meta-diff")
+def deck_meta_diff(deck_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).meta_diff(
+        document, _evidence_window()
+    )
+    return jsonify(payload)
+
+
+@bp.get("/api/decks/<deck_id>/alternatives/<oracle_id>")
+def deck_alternatives(deck_id: str, oracle_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).alternatives(
+        document, oracle_id, _evidence_window()
+    )
+    return jsonify(payload)
+
+
 @bp.get("/api/deck-tags")
 def deck_tags():
     query = (request.args.get("q") or "").strip()

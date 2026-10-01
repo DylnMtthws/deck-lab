@@ -36,6 +36,7 @@ OWNER_ONLY_MODULES = (
     "deck-lab-hotkeys.js",
     "deck-lab-considering.js",
     "deck-lab-feedback.js",
+    "deck-lab-meta-compare.js",
 )
 
 
@@ -225,3 +226,18 @@ def test_builder_feedback_roundtrips_and_survives_deck_deletion(tmp_path, monkey
         ).fetchall()
     assert [row["card_name"] for row in cards] == [card["name"]]
     assert [row["verdict"] for row in decks] == ["good"]
+
+
+def test_meta_compare_endpoints_state_their_sample(tmp_path, monkeypatch):
+    client, _path, _owner, deck_id = _generated_deck(tmp_path, monkeypatch)
+    diff = client.get(f"/api/decks/{deck_id}/meta-diff")
+    assert diff.status_code == 200
+    payload = diff.get_json()
+    for key in ("denominator", "window_days", "min_event_size"):
+        assert key in payload, key
+    document = _document(client.get(f"/build/deck/{deck_id}").get_data(as_text=True))
+    entry = next(
+        e for e in document["entries"] if not e["is_commander"] and e.get("oracle_id")
+    )
+    alternatives = client.get(f"/api/decks/{deck_id}/alternatives/{entry['oracle_id']}")
+    assert alternatives.status_code == 200
