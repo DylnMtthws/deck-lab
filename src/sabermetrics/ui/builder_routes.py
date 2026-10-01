@@ -34,6 +34,7 @@ from sabermetrics.deck_documents import (
     InvalidCommand,
     RevisionConflict,
 )
+from sabermetrics.deck_evidence import DeckEvidenceService
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
     DeckTextImportError,
@@ -42,12 +43,26 @@ from sabermetrics.deck_text_import import (
 from sabermetrics.ui.feedback_images import sanitize_image
 
 _NO_PACK = "No strategy pack supports this commander yet."
+_EVIDENCE_WINDOWS = frozenset({0, 30, 60, 90, 180})
 
 bp = Blueprint("builder", __name__)
 
 
 def _repo() -> DeckDocumentRepo:
     return DeckDocumentRepo(Path(current_app.config["DB_PATH"]))
+
+
+def _evidence_window() -> int:
+    raw = request.args.get("window")
+    if raw is None or not str(raw).strip():
+        return 30
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        abort(400)
+    if value not in _EVIDENCE_WINDOWS:
+        abort(400)
+    return value
 
 
 @bp.before_request
@@ -316,6 +331,18 @@ def deck_json(deck_id: str):
         return jsonify(_repo().get(current_user.id, deck_id))
     except DeckNotFound:
         return jsonify(error="not_found"), 404
+
+
+@bp.get("/api/decks/<deck_id>/evidence")
+def deck_evidence(deck_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).for_deck(
+        document, _evidence_window()
+    )
+    return jsonify(payload)
 
 
 @bp.get("/api/deck-tags")
