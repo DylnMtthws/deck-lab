@@ -48,3 +48,4 @@ Load `deck-lab-builder.js`, then `deck-lab-considering.js`. Reuse the fake DOM a
 - AC-6 `test_nothing_inserted_in_shared_mode`
 - AC-7 `test_builder_page_includes_script_after_builder` (Flask test client: the owner's builder page includes `deck-lab-considering.js` after `deck-lab-builder.js`; a shared page does not include it)
 - AC-8 `test_server_count_excludes_considering`: Python test through `DeckDocumentRepo`. A deck with 99 + commander + 3 cards in Considering has `total_count == 100`, and `export_text(..., "sections")` behaviour stays as it is today. This is a regression guard on existing behaviour; do not change server code.
+- AC-9 `test_button_enables_after_checkbox_selection_via_ui`: select a row through its real checkbox (not `setSelection`); the button becomes enabled with the correct label, and becomes disabled again after the clear-selection button.

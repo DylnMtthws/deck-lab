@@ -80,3 +80,5 @@ have foreign keys to `generated_decks`, so they cannot hold feedback on the Deck
 - AC-10 `test_vote_reverts_on_failed_save_and_shows_status` (Node harness)
 - AC-11 `test_verdict_section_saves_and_debounces_comment` (Node harness, fake timers)
 - AC-12 `test_script_not_loaded_on_shared_page` (Flask test client)
+- AC-13 `test_comment_dialog_saves_comment_and_marks_button` (harness: open the dialog from a row, type, Save → PUT with the comment; the row's comment button shows the has-comment marker; Cancel sends nothing)
+- AC-14 `test_feedback_controls_have_accessible_names`

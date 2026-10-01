@@ -67,3 +67,5 @@ quantity-weighted.
 - AC-7 `test_sample_hand_deterministic_with_seeded_rng_and_no_replacement` (a 4-of entry may appear up to 4 times; total equals 7)
 - AC-8 `test_sample_hand_short_library_message`
 - AC-9 `test_builder_page_includes_stats_script` (Flask test client)
+- AC-10 `test_curve_bin_keyboard_enter_and_space_toggle_filter`
+- AC-11 `test_pips_section_limited_to_commander_identity_and_states_rule`

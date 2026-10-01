@@ -43,3 +43,4 @@ users read cards without opening anything. Deck Lab only has a click-to-open ima
 - AC-9 `test_evidence_slot_exists_and_is_empty`
 - AC-10 `test_panel_container_on_owner_and_shared_pages` (Flask test client)
 - AC-11 `test_panel_click_opens_existing_image_dialog`
+- AC-12 `test_hover_preloads_only_hovered_image`: exactly one image preload per distinct hovered entry, none for unhovered entries.

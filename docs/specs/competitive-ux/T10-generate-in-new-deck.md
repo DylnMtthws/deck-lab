@@ -64,3 +64,4 @@ unreachable:
 - AC-10 `test_done_job_imports_candidate_and_navigates` (harness asserts the POST to `/build/import/candidate/<id>` and `location.assign`)
 - AC-11 `test_end_to_end_fixture_generation_to_builder` (Flask test client; run the job synchronously by monkeypatching the executor in fixture mode, as existing cEDH tests do; then import; GET the builder page returns 200 and the deck has 100 cards)
 - AC-12 `test_legacy_lab_routes_unchanged`: the existing `/lab` tests still pass; name any you relied on in the report.
+- AC-13 `test_generate_disabled_with_message_when_no_pack_matches` (harness)

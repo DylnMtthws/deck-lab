@@ -56,3 +56,4 @@ tests.
 - AC-5 `test_issue_button_lists_issues_and_focuses_entry` (harness: illegal fixture with one deck issue and one entry issue; clicking the entry item calls `focusEntry` with that id)
 - AC-6 `test_bar_updates_on_render_event`
 - AC-7 `test_builder_page_has_status_bar_container_and_script` (Flask test client: owner page and shared page)
+- AC-8 `test_toolbar_deck_count_untouched`: `[data-deck-count]` text and attributes are identical with and without the status script loaded.
