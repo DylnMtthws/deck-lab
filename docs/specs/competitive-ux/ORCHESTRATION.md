@@ -15,22 +15,22 @@ Owner of this file: the orchestrator (Claude). Task agents must not edit it.
 
 The program is DONE only when every box is checked:
 
-- [ ] D1. Every one of the 16 recommendations below has status VERIFIED or PRE-EXISTING, or is
+- [x] D1. Every one of the 16 recommendations below has status VERIFIED or PRE-EXISTING, or is
       DEFERRED with a reason the user has been told. Target: 0 DEFERRED.
       - VERIFIED = merged into `feat/competitive-ux`, AND I re-ran all three gates myself, AND I
         read the full diff, AND every AC in the spec maps to a test I confirmed exists, AND for at
         least one AC per task I reverted the feature line(s) locally and saw the test fail.
       - PRE-EXISTING = already on `main`, with a file:line or commit as evidence.
-- [ ] D2. On the integration branch after the last merge: Gate 1 = 0 failures and passed count
+- [x] D2. On the integration branch after the last merge: Gate 1 = 0 failures and passed count
       ≥ 1617 + (new tests); Gate 2 clean; Gate 3 clean.
-- [ ] D3. Integration test (`tests/test_competitive_ux_integration.py`, written by me; permanent, runs in CI): a Flask test-client
+- [x] D3. Integration test (`tests/test_competitive_ux_integration.py`, written by me; permanent, runs in CI): a Flask test-client
       run that logs in a seeded user, creates a deck, and asserts the builder page, export formats,
       feedback endpoints, Research syntax, and the generate flow (fixture mode) each work. Exit 0.
-- [ ] D4. Constraint guard over the whole integration diff is empty or every hit is justified:
+- [x] D4. Constraint guard over the whole integration diff is empty or every hit is justified:
       `git diff 43c59cc...feat/competitive-ux -U0 -- src | grep '^+' | grep -i -E 'price|usd|budget|owned|collection'`
-- [ ] D5. Scope guard: nothing merged that is outside these 16 recommendations; out-of-scope edits by
+- [x] D5. Scope guard: nothing merged that is outside these 16 recommendations; out-of-scope edits by
       agents are reverted before merge.
-- [ ] D6. Nothing pushed; `main` untouched; temporary task worktrees removed after merge.
+- [x] D6. Nothing pushed; `main` untouched; temporary task worktrees removed after merge.
 - [ ] D7. Final report to the user: per-recommendation status table, gate results, what I could not
       verify (no browser rendering of localhost in this environment), and the suggested PR split.
 
@@ -47,13 +47,13 @@ The program is DONE only when every box is checked:
 | 7 | Real mana symbols | T02 | LOW | VERIFIED (97125df) |
 | 8 | Generation in the new-deck flow + real progress | T10 | HIGH | VERIFIED (56e2077) |
 | 9 | Evidence badges + "Why this card?" | T12 | HIGH | VERIFIED (a9b3e27) |
-| 10 | Compare to the meta | T13 | HIGH | TODO |
-| 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
+| 10 | Compare to the meta | T13 | HIGH | VERIFIED (196e1e8) |
+| 11 | "Replace with…" same-role alternatives | T13 | HIGH | VERIFIED (196e1e8) |
 | 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | VERIFIED |
 | 13 | Per-card + deck feedback in the builder | T07 | LOW | VERIFIED |
 | 14 | Group by role + remembered view/group/sort | T11 | LOW | VERIFIED (e7ef49d); persistence PRE-EXISTING |
 | 15 | Scryfall syntax in Research search | T03 | LOW | VERIFIED (e94c127) |
-| 16 | Tester polish DYL-55–71 | — | — | PRE-EXISTING: merged on main (2b9918e, ccf5d8b, 5df306e, f3b5595, 84a807b, 1884ede, bc61a26) — verify only |
+| 16 | Tester polish DYL-55–71 | — | — | PRE-EXISTING (verified in git log): merged on main (2b9918e, ccf5d8b, 5df306e, f3b5595, 84a807b, 1884ede, bc61a26) — verify only |
 
 ## Task graph
 
@@ -116,3 +116,6 @@ all gates after every merge.
 - 2026-10-01: TODO (orchestrator, end): format-only `ruff format` commit for files with drift from T01/T03/T12/T14 (deck_documents.py, deck_evidence.py, research_routes.py, scryfall_query.py) — CI does not enforce format, but base files were formatted.
 - 2026-10-01: D3 integration test added (6 tests: script elements/order on owner+shared pages, generated deck roles+exports, Considering batch via real command API + role view + simulation absence, evidence absence-not-zero, Research syntax). Mutation-checked: removing a module tag and autoescaping a tag each fail it. Feedback (T07) and meta-compare (T13) checks to be added after their merges.
 - 2026-10-01: T07 VERIFIED → merged after rework: deck_id without FK (feedback survives deck deletion — CLAUDE.md research-data decision); existing test file restored. Mutation re-adding ON DELETE CASCADE fails the survival test. Integration test extended (feedback is owner-only module; HTTP round-trip; survives /build/deck/<id>/delete). Gates: 1872 passed / ruff / mypy clean.
+- 2026-10-01: T13 VERIFIED → merged (196e1e8). Additive-only to deck_evidence.py (T12 contract intact); alternatives reuse analytics.role_tagger (vocabulary matches builder keys; lightweight imports; deck_evidence is outside cedh/ so the cedh import rule is not engaged, and nothing in cedh/ imports it). Mutation disabling the color-identity filter fails 2 tests. builder_routes add/add with T14 hand-resolved.
+- 2026-10-01: Format-only commit 9965b65 (AST-verified) limited to files formatted on main or new; setup_db.py/deck_documents.py left (already unformatted on main).
+- 2026-10-01: FINAL — D2: 1883 passed / 31 skipped / 0 failed (baseline 1617 → +266 tests), ruff clean, mypy clean. D3: tests/test_competitive_ux_integration.py (9 tests, mutation-checked). D4: guard empty; no cedh import-graph violations; cedh_routes.py untouched. D5: 30 src/scripts files changed, all mapped to tasks. D6: nothing pushed; main untouched; 15 task worktrees + branches removed; .cursor exclude entry reverted. Orchestration tooling and agent logs kept outside the repo at worktrees/.cux/ for audit.
