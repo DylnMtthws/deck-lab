@@ -21,8 +21,10 @@
     </form>
     <section>
         <div class="dl-research-summary"><span>{{ data.total }} commander-legal cards</span><button class="dl-button" type="button" data-filter-open>Filters</button></div>
-        {% if query_applied %}<p class="dl-muted" data-query-applied>Applied from search: {{ query_applied|join(', ') }}</p>{% endif %}
-        {% if query_unsupported %}<p class="dl-notice" data-query-unsupported>Not supported yet: {{ query_unsupported|join(', ') }}</p>{% endif %}
+        {% if query_applied or query_unsupported %}<div class="dl-chip-row dl-syntax-chips">{% endif %}
+        {% if query_applied %}{% for term in query_applied %}<span class="dl-chip dl-syntax-chip is-ok" data-syntax-term="{{ term }}" title="Applied: {{ term }}">{{ term }}<button class="dl-chip-remove" data-remove-syntax="{{ term }}" aria-label="Remove {{ term }} from search" type="button">×</button></span>{% endfor %}{% endif %}
+        {% if query_unsupported %}{% for term in query_unsupported %}<span class="dl-chip dl-syntax-chip is-warn" title="Not supported yet">{{ term }}</span>{% endfor %}{% endif %}
+        {% if query_applied or query_unsupported %}</div>{% endif %}
         <div class="dl-card-result-grid" data-research-results data-research-freshness="fresh">
         {% for card in data.results %}
             <a class="dl-card-result" href="{{ url_for('research.card', card_id=card.id) }}" aria-label="Open {{ card.name }}"><span class="dl-card-result-fallback" aria-hidden="true"><span class="dl-card-result-fallback-head"><strong>{{ card.name }}</strong><span class="dl-mono">{{ card.mana_cost or '—' }}</span></span><span>{{ card.type_line }}</span><span class="dl-card-result-fallback-art"></span><span class="dl-card-result-fallback-foot">{% for color in card.color_identity %}{{ mana_symbol(color) }}{% endfor %}<small>{{ card.rarity or 'Card' }}</small></span></span><img src="{{ card.image_uri or ('https://api.scryfall.com/cards/named?fuzzy=' ~ (card.name|urlencode) ~ '&format=image&version=normal') }}" alt="{{ card.name }} card" loading="lazy" decoding="async"></a>

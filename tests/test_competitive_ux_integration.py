@@ -192,7 +192,7 @@ def test_research_syntax_applies_on_cards_tab(tmp_path, monkeypatch):
     client, _path, _owner, _deck_id = _generated_deck(tmp_path, monkeypatch)
     page = client.get("/research/?tab=cards&q=t:instant mv<=1")
     assert page.status_code == 200
-    assert "data-query-applied" in page.get_data(as_text=True)
+    assert 'data-syntax-term="t:instant"' in page.get_data(as_text=True)
 
 
 def test_builder_feedback_roundtrips_and_survives_deck_deletion(tmp_path, monkeypatch):

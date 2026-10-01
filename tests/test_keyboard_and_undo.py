@@ -459,6 +459,30 @@ def _assert_keys(text: str) -> None:
     for token in HELP_KEYS:
         if len(token) == 1 and token.isalpha():
             assert re.search(rf"(?<![\w]){re.escape(token)}(?![\w])", text), token
+        elif token == "Shift+Enter":
+            ok = "<kbd>Shift</kbd>+<kbd>Enter</kbd>" in text or "Shift + Enter" in text
+            assert ok, token
+        elif token == "ArrowDown":
+            ok = "<kbd>↓</kbd>" in text or "↓" in text
+            assert ok, token
+        elif token == "ArrowUp":
+            ok = "<kbd>↑</kbd>" in text or "↑" in text
+            assert ok, token
+        elif token == "Cmd+Z":
+            ok = "<kbd>⌘ Z</kbd>" in text or "⌘ Z" in text
+            assert ok, token
+        elif token == "Ctrl+Z":
+            ok = "<kbd>Ctrl Z</kbd>" in text or "Ctrl Z" in text
+            assert ok, token
+        elif token == "Cmd+Shift+Z":
+            ok = "<kbd>⌘ Shift Z</kbd>" in text or "⌘ Shift Z" in text
+            assert ok, token
+        elif token == "Ctrl+Shift+Z":
+            ok = "<kbd>Ctrl Shift Z</kbd>" in text or "Ctrl Shift Z" in text
+            assert ok, token
+        elif token == "Ctrl+Y":
+            ok = "<kbd>Ctrl Y</kbd>" in text or "Ctrl Y" in text
+            assert ok, token
         else:
             assert token in text, token
 
