@@ -92,6 +92,15 @@ class Element {
     this.children.push(child);
     return child;
   }
+  removeChild(child) {
+    const idx = this.children.indexOf(child);
+    if (idx >= 0) this.children.splice(idx, 1);
+    if (child) child.parentNode = null;
+    return child;
+  }
+  remove() {
+    if (this.parentNode && this.parentNode.removeChild) this.parentNode.removeChild(this);
+  }
   append(...nodes) { nodes.forEach((n) => this.appendChild(n)); }
   replaceChildren(...nodes) { this.children.forEach((c) => { c.parentNode = null; }); this.children.length = 0; this._text = ""; nodes.forEach((n) => this.appendChild(n)); }
   closest(selector) { let node = this; while (node && node.tagName) { if (matches(node, selector)) return node; node = node.parentNode; } return null; }
@@ -365,7 +374,7 @@ body.appendChild(el("div", { "data-tag-summary": "" }));
     var legalityEl = barEl.querySelector("[data-status-legality]");
     var typeEls = barEl.querySelectorAll("[data-status-type]");
     var roleEls = barEl.querySelectorAll("[data-status-role]");
-    var issuesEl = barEl.querySelector("[data-status-issues]");
+    var issuesEl = document.querySelector("[data-status-issues]");
     return {
       countText: countEl ? countEl.textContent : "",
       countInvalid: countEl ? countEl.classList.contains("is-invalid") : false,
@@ -392,8 +401,7 @@ body.appendChild(el("div", { "data-tag-summary": "" }));
       // to avoid realm boundary issues with Element objects.
       result.focusEntryCheck = vm.runInContext(
         "(function() {" +
-        "  var bar = document.querySelector('[data-status-bar]');" +
-        "  var issuesList = bar.querySelector('[data-status-issues]');" +
+        "  var issuesList = document.querySelector('[data-status-issues]');" +
         "  if (!issuesList) return {error: 'no issues list'};" +
         "  var btns = [];" +
         "  for (var ci = 0; ci < issuesList.children.length; ci += 1) {" +

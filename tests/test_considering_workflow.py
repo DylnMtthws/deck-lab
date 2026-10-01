@@ -46,7 +46,8 @@ def test_button_inserted_and_disabled_without_selection() -> None:
     assert payload["buttonExists"] is True
     assert payload["buttonDisabled"] is True
     assert payload["buttonLabel"] == "Move to Considering"
-    assert payload["badgeExists"] is True
+    # Badge removed from considering.js in D04 — now in status bar
+    # assert payload["badgeExists"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -101,15 +102,13 @@ def test_label_switches_to_move_to_deck_and_moves_to_unsorted() -> None:
 
 
 def test_badge_counts_private_zone_quantities_and_hides_at_zero() -> None:
+    # The +N considering badge moved to the status bar in D04.
+    # This test verifies considering.js no longer creates it.
     payload = _payload("badge_quantities")
-
-    assert payload["badgeText"] == "+5 considering"
-    assert payload["badgeHidden"] is False
-    assert payload["badgeTitle"] == "Not counted toward 100 or included in exports"
+    assert payload["badgeExists"] is False
 
     zero_payload = _payload("badge_hides_at_zero")
-    assert zero_payload["badgeExists"] is True
-    assert zero_payload["badgeHidden"] is True
+    assert zero_payload["badgeExists"] is False
 
 
 # ---------------------------------------------------------------------------
