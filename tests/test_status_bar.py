@@ -130,9 +130,8 @@ def test_bar_renders_count_types_roles_and_legal_chip() -> None:
     assert "Artifact" in type_names
     assert "Enchantment" in type_names
     assert "Instant" in type_names
-    # Roles: ramp=2, draw=1, counter=1, free=1 (top 5)
-    role_names = [r["name"] for r in snap["roles"]]
-    assert "ramp" in role_names
+    # Roles are no longer rendered in the status bar (D04 removed role spans)
+    # See test_design_status_bar.py for type pill assertions
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +146,7 @@ def test_issue_button_lists_issues_and_focuses_entry() -> None:
     snap = payload["snapshot"]
     assert snap["countText"] == "3/100"
     assert snap["countInvalid"] is True
-    assert "is-legal" not in snap["legalClass"]
+    assert "is-ok" not in snap["legalClass"]
 
     issues_snap = payload["issuesAfterClick"]
     assert issues_snap["hasIssuesList"] is True
@@ -168,7 +167,7 @@ def test_bar_updates_on_render_event() -> None:
     assert after["countText"] == "100/100"
     assert after["countInvalid"] is False
     assert after["legalText"] == "Legal"
-    assert "is-legal" in after["legalClass"]
+    assert "is-ok" in after["legalClass"]
 
 
 # ---------------------------------------------------------------------------

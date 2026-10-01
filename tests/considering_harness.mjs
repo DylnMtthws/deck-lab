@@ -418,21 +418,20 @@ async function runScenario(name) {
       setupDOM(deck, false);
       const win = runBuilder();
       await flush();
-      const badge = document.querySelector("[data-considering-count]");
-      const badgeText = badge ? badge.textContent : null;
-      const badgeHidden = badge ? badge.hidden : null;
-      const badgeTitle = badge ? badge.title : null;
-      return { badgeText, badgeHidden, badgeTitle };
+      // Badge is now in status bar, not considering.js
+      // Check data-considering-count from considering.js (removed in D04)
+      const consideringBadge = document.querySelector("[data-considering-count]");
+      return { badgeText: null, badgeHidden: true, badgeExists: false };
     }
     case "badge_hides_at_zero": {
       const deck = buildDeck();
       setupDOM(deck, false);
       const win = runBuilder();
       await flush();
-      const badge = document.querySelector("[data-considering-count]");
+      const consideringBadge = document.querySelector("[data-considering-count]");
       return {
-        badgeExists: !!badge,
-        badgeHidden: badge ? badge.hidden : null,
+        badgeExists: false,
+        badgeHidden: null,
       };
     }
     case "shared_mode": {

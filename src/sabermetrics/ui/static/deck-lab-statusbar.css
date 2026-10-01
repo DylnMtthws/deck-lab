@@ -1,1 +1,138 @@
-/* Owner: D04 — pinned deck status bar. */
+/* D04 — Status bar, issues popover, playmat zoom offset */
+.dl-status-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 36px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+  font-family: var(--sans);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.dl-status-bar::-webkit-scrollbar { display: none; }
+.dl-status-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--body);
+  font-weight: 500;
+}
+.dl-status-count.is-invalid { color: var(--brand-text); }
+.dl-status-sep {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.dl-status-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+.dl-status-progress-track {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink-deep);
+  overflow: hidden;
+  flex: none;
+}
+.dl-status-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  transition: width var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.dl-status-progress-fill.is-warning { background: var(--warning); }
+.dl-status-progress-fill.is-success { background: var(--success); }
+.dl-status-progress-fill.is-brand { background: var(--brand-text); }
+
+[data-status-legality] { flex: none; }
+.dl-status-issues-toggle {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Issues popover — fixed on document.body, above builder/rail, below dialog */
+.dl-status-issues-popover.dl-popover {
+  position: fixed;
+  z-index: 75;
+  min-width: 280px;
+  max-width: min(480px, calc(100vw - 16px));
+  max-height: 260px;
+  overflow: auto;
+}
+.dl-status-issues-popover ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dl-status-issues-popover li {
+  padding: 2px 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+}
+.dl-status-issues-popover li + li {
+  margin-top: 2px;
+}
+.dl-status-issues-popover li button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--body);
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.dl-status-issues-popover li button:hover {
+  background: var(--panel-2);
+}
+.dl-status-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  flex: none;
+}
+.dl-status-type {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.dl-status-type-label {
+  color: var(--muted);
+  font-family: var(--sans);
+}
+.dl-status-type-count {
+  color: var(--body);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.dl-status-considering {
+  margin-left: auto;
+}
+.dl-status-verdict {
+  cursor: pointer;
+}
+.dl-status-verdict:hover {
+  opacity: .85;
+}
+
+@media (max-width: 767px) {
+  .dl-status-bar { display: none; }
+}

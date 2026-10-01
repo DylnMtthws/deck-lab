@@ -87,28 +87,7 @@
     return btn;
   }
 
-  function insertBadge() {
-    var badge = document.createElement("span");
-    badge.className = "dl-considering-count";
-    badge.setAttribute("data-considering-count", "");
-    badge.hidden = true;
-    badge.title = "Not counted toward 100 or included in exports";
-    var ref = document.querySelector("[data-deck-count]");
-    if (ref && ref.parentNode) {
-      ref.parentNode.insertBefore(badge, ref.nextSibling);
-    }
-    return badge;
-  }
-
-  function updateBadge(badge, state) {
-    var qty = totalPrivateQuantity(state);
-    if (qty > 0) {
-      badge.hidden = false;
-      badge.textContent = "+" + qty + " considering";
-    } else {
-      badge.hidden = true;
-    }
-  }
+  // Badge removed in D04 — now rendered by deck-lab-status.js in the status bar
 
   function updateButton(btn, api) {
     var sel = api.getSelection();
@@ -140,12 +119,10 @@
     if (!bulkControls) return;
 
     var btn = insertButton(bulkControls);
-    var badge = insertBadge();
 
     function refresh() {
       var state = api.getState();
       updateButton(btn, api);
-      updateBadge(badge, state);
     }
 
     btn.addEventListener("click", function () {

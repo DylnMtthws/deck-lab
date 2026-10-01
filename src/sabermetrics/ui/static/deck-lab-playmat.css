@@ -1,1 +1,5 @@
+/* D04 — Zoom control bottom offset for sticky status bar (top of file) */
+.dl-playmat-view .dl-zoom {
+  bottom: calc(36px + var(--s-3));
+}
 /* Owner: D06 — playmat zones, cards, and stack peek. */
