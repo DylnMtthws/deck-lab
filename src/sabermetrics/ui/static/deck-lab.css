@@ -649,3 +649,22 @@ a.dl-card-name:hover{color:var(--brand-text)}
 @media (hover: none) {
   [data-dl-tip]::after { content: none; }
 }
+
+/* Card preview panel — fixed 488:680 frame so image swaps do not shift the rail. */
+.dl-card-panel{display:grid;gap:10px;padding:12px 0 14px;border-bottom:1px solid var(--line)}
+.dl-card-panel-empty{margin:0;font-size:12px;line-height:1.45}
+.dl-card-panel-frame{position:relative;width:100%;aspect-ratio:488 / 680;overflow:hidden;border-radius:8px;background:#12182b}
+.dl-card-panel-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#161d31 0%,#27314d 50%,#161d31 100%);background-size:200% 100%;animation:dl-card-panel-shimmer 1.2s ease-in-out infinite}
+@keyframes dl-card-panel-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.dl-card-panel-skeleton{animation:none}}
+.dl-card-panel-image-btn{position:absolute;inset:0;display:block;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;color:inherit;cursor:pointer}
+.dl-card-panel-image-btn img{width:100%;height:100%;object-fit:contain;display:block}
+.dl-card-panel-frame.is-loading .dl-card-panel-image-btn img{opacity:0}
+.dl-card-panel-fallback{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:16px;text-align:center;color:var(--body);font-size:13px}
+.dl-card-panel-name{margin:0;font-size:14px;letter-spacing:-.01em}
+.dl-card-panel-cost,.dl-card-panel-type,.dl-card-panel-oracle,.dl-card-panel-meta{margin:0;font-size:12px;line-height:1.45}
+.dl-card-panel-type,.dl-card-panel-oracle{color:var(--muted)}
+.dl-card-panel-meta{display:flex;flex-wrap:wrap;gap:8px}
+.dl-card-panel-issues{margin:0;padding-left:16px;color:var(--brand-text);font-size:12px;line-height:1.4}
+.dl-card-panel-pin{justify-self:start;min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font:11px var(--mono);cursor:pointer}
+.dl-card-panel-pin[aria-pressed="true"]{border-color:var(--brand);color:var(--body)}

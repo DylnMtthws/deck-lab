@@ -46,6 +46,7 @@
     </section>
     <aside class="dl-stats-rail" aria-label="Deck overview">
         <div class="dl-builder-rail-head"><button class="dl-rail-toggle" type="button" data-toggle-rail="right" aria-label="Collapse Deck sidebar" aria-expanded="true" title="Toggle Deck sidebar"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M13 3v14"/></svg></button><div class="dl-eyebrow">Deck</div></div>
+        <aside class="dl-card-panel" data-card-panel aria-label="Card preview" aria-live="polite"></aside>
         <section><h2>Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>
         <section><h2>Color</h2><div class="dl-color-stats" id="color-stats"></div></section>
         <section>
@@ -71,4 +72,4 @@
 <script id="deck-document-data" type="application/json">{{ document|tojson }}</script>
 {% endblock %}
 {% block footer %}{% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-export.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-builder.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-export.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-builder.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-card-panel.js') }}" defer></script>{% endblock %}
