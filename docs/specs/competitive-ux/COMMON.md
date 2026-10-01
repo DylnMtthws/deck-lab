@@ -27,6 +27,8 @@ different checkout, and without it you test the wrong code.
 
 ## Hard rules
 
+0. **The base commit has ZERO failing tests.** Any failure in Gate 1 is caused by your change. Never report failures as "pre-existing". Fix them, or report BLOCKED with the failing test names. Run the FULL suite for Gate 1, not a subset.
+
 1. Work ONLY in your assigned worktree directory, on your assigned branch. Never
    `cd` elsewhere, never touch another worktree, never `git push`, never merge,
    never rebase onto anything, never use `git stash`.

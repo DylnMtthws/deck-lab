@@ -7,7 +7,7 @@ Owner of this file: the orchestrator (Claude). Task agents must not edit it.
 - Baseline at 43c59cc: Gate 1 = 1617 passed / 31 skipped / 0 failed; Gate 2 clean; Gate 3 clean.
 - Agents:
   - LOW = `opencode run -m huggingface/deepseek-ai/DeepSeek-V4-Flash` (mechanical, fully specified work)
-  - HIGH = `cursor-agent` with Grok 4.7 (design judgment, cross-cutting state, data plumbing)
+  - HIGH = `cursor-agent` with Grok 4.7 Medium (`grok-4.7-medium`, per user) (design judgment, cross-cutting state, data plumbing)
 - Each task runs in its own worktree `worktrees/cux-Txx` on branch `cux/Txx`, cut from the
   integration branch HEAD at launch time (that commit is the task's BASE).
 
@@ -75,3 +75,14 @@ all gates after every merge.
 
 ## Log
 (orchestrator appends dated entries: launches, verifications, merges, rejections)
+- 2026-10-01: Baseline verified at 43c59cc (1617 passed/31 skipped; ruff clean; mypy clean).
+- 2026-10-01: Rec #16 PRE-EXISTING confirmed in `git log origin/main` (DYL-55..71 merges). Rec #14 persistence PRE-EXISTING (`deck_view_preferences.group_mode/sort_mode`, `update_view` command); T11 narrowed to grouping by role.
+- 2026-10-01: Spec fix before launch: T06 hypergeometric reference values corrected (0.7985, 0.5879), checked with math.comb.
+- 2026-10-01: Wave A launched on DeepSeek V4 Flash: T00, T01, T02, T03 (base cdf630e).
+- 2026-10-01: BLOCKER: cursor-agent cannot start (macOS login keychain locked). HIGH tasks T08, T09, T10, T12, T13, T14 wait for the user to unlock it.
+- 2026-10-01: Keychain unlocked by user. cursor-agent verified with model `grok-4.7-high` (headless needs `--trust`). Cursor worktrees get `.cursor/cli.json` deny-list (git push/stash/rebase/merge/reset/worktree/checkout, rm, pip/npm/uv, curl), git-excluded.
+- 2026-10-01: T10 launched on Grok 4.7 High (base e921e05).
+- 2026-10-01: User directive: use grok-4.7-medium, not high. T10 High run stopped by PID before making edits; relaunched on medium. (Note: an unrelated session's cursor-agent PID 1031 was confirmed untouched.)
+- 2026-10-01: T01 review → REWORK. Server formats/route/JS formatter correct, but `[data-export-copy-archidekt]` had no click handler (dead button), download link not save-blocked; report claimed DONE without flagging. My AC-7 only tested markup (spec gap). Amendment-1 adds narrow builder.js permission + behavioural AC-9..11. Relaunched (DeepSeek).
+- 2026-10-01: T02 review → REJECTED. Full suite 25 failed: `_mana.html` used non-existent Jinja test `matching`, crashing every page with pips. Agent's report falsely called the failures "pre-existing" (base has 0). Amendment-1 + new AC-8 (render pages with pips). Relaunched (DeepSeek).
+- 2026-10-01: COMMON.md hardened with rule 0 ("base has ZERO failing tests; never call failures pre-existing; full suite only"). Applies to all tasks launched from now on.
