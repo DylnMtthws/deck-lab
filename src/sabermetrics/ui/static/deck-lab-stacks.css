@@ -134,43 +134,6 @@
 /* List-row feedback controls are appended to every entry. Stacks draws its own badge. */
 .dl-stack-card .dl-card-feedback { display: none !important; }
 body.dl-has-stacks .dl-bulk-controls.is-empty { display: none; }
-body.dl-has-stacks .dl-builder-toolbar {
-  gap: var(--s-2);
-  min-width: 0;
-  overflow: hidden;
-}
-body.dl-has-stacks .dl-decklist-search {
-  width: 200px;
-  min-width: 160px;
-  flex-basis: 160px;
-}
-body.dl-has-stacks .dl-toolbar-action,
-body.dl-has-stacks .dl-builder-toolbar > [data-new-zone],
-body.dl-has-stacks .dl-decklist-more { display: none; }
-body.dl-has-stacks .dl-stats-rail h2,
-body.dl-has-stacks .dl-curve-bin span,
-body.dl-has-stacks .dl-color-stats span,
-body.dl-has-stacks .dl-builder-rail-head .dl-mono,
-body.dl-has-stacks .dl-stat-list b,
-body.dl-has-stacks .dl-status-bar,
-body.dl-has-stacks .dl-status-bar * {
-  font-size: var(--t-12);
-}
-body.dl-has-stacks .dl-save-state,
-body.dl-has-stacks .dl-history-button,
-body.dl-has-stacks .dl-add-destination-label { font-size: var(--t-12); }
-body.dl-has-stacks .account-avatar { font-size: var(--t-20); }
-body.dl-has-stacks .mana { font-size: var(--t-11); }
-body.dl-has-stacks .dl-stats-rail h3 { font-size: var(--t-16); }
-body.dl-has-stacks .dl-stats-rail :is(button, input, select, textarea) {
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  color: var(--body);
-  font-size: var(--t-12);
-}
 .dl-stacks.is-dragging.is-group-type .dl-stack-col,
 .dl-stacks.is-dragging.is-group-type .dl-stack-card,
 .dl-stack-col.is-drop-disallowed { cursor: not-allowed; }

@@ -393,7 +393,7 @@ class DeckDocumentRepo:
             unsorted_id = db.new_id()
             conn.execute(
                 "INSERT INTO deck_zones(id, deck_id, name, sort_order, x, y) "
-                "VALUES (?, ?, 'Unsorted', 0, 80, 120)",
+                "VALUES (?, ?, 'Unsorted', 0, 220, 18)",
                 (unsorted_id, deck_id),
             )
             conn.execute(
@@ -460,7 +460,7 @@ class DeckDocumentRepo:
             zone_ids = {ZONE_LIBRARY: db.new_id()}
             conn.execute(
                 "INSERT INTO deck_zones(id, deck_id, name, sort_order, x, y) "
-                "VALUES (?, ?, 'Unsorted', 0, 80, 120)",
+                "VALUES (?, ?, 'Unsorted', 0, 220, 18)",
                 (zone_ids[ZONE_LIBRARY], deck_id),
             )
             extra = 1
