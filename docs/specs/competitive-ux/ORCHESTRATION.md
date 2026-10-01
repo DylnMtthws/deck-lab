@@ -50,7 +50,7 @@ The program is DONE only when every box is checked:
 | 10 | Compare to the meta | T13 | HIGH | TODO |
 | 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
 | 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | VERIFIED |
-| 13 | Per-card + deck feedback in the builder | T07 | LOW | TODO |
+| 13 | Per-card + deck feedback in the builder | T07 | LOW | VERIFIED |
 | 14 | Group by role + remembered view/group/sort | T11 | LOW | VERIFIED (e7ef49d); persistence PRE-EXISTING |
 | 15 | Scryfall syntax in Research search | T03 | LOW | VERIFIED (e94c127) |
 | 16 | Tester polish DYL-55–71 | — | — | PRE-EXISTING: merged on main (2b9918e, ccf5d8b, 5df306e, f3b5595, 84a807b, 1884ede, bc61a26) — verify only |
@@ -115,3 +115,4 @@ all gates after every merge.
 - 2026-10-01: T14 VERIFIED → merged. Table has no FK on deck_id (deck deletion unaffected); hash via existing DeckCandidate.deck_sha256; simulator-returned hash compared against ours (integrity contract); client only via build_simulator_client; bounded executor, 202 + status URL. Mutation running simulation on the request thread fails the latch test. builder_routes add/add conflict with T12 hand-resolved. Gates: 1849 passed / ruff / mypy clean.
 - 2026-10-01: TODO (orchestrator, end): format-only `ruff format` commit for files with drift from T01/T03/T12/T14 (deck_documents.py, deck_evidence.py, research_routes.py, scryfall_query.py) — CI does not enforce format, but base files were formatted.
 - 2026-10-01: D3 integration test added (6 tests: script elements/order on owner+shared pages, generated deck roles+exports, Considering batch via real command API + role view + simulation absence, evidence absence-not-zero, Research syntax). Mutation-checked: removing a module tag and autoescaping a tag each fail it. Feedback (T07) and meta-compare (T13) checks to be added after their merges.
+- 2026-10-01: T07 VERIFIED → merged after rework: deck_id without FK (feedback survives deck deletion — CLAUDE.md research-data decision); existing test file restored. Mutation re-adding ON DELETE CASCADE fails the survival test. Integration test extended (feedback is owner-only module; HTTP round-trip; survives /build/deck/<id>/delete). Gates: 1872 passed / ruff / mypy clean.
