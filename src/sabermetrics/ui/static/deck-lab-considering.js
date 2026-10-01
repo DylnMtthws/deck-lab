@@ -73,11 +73,20 @@
 
   function insertButton(bulkControls) {
     var btn = document.createElement("button");
-    btn.className = "dl-button dl-button-primary";
+    btn.className = "dl-button";
     btn.type = "button";
     btn.setAttribute("data-move-considering", "");
     btn.textContent = "Move to Considering";
     btn.disabled = true;
+    if (bulkControls.getAttribute && bulkControls.getAttribute("data-considering-slot") != null) {
+      bulkControls.appendChild(btn);
+      return btn;
+    }
+    var slot = bulkControls.querySelector("[data-considering-slot]");
+    if (slot) {
+      slot.appendChild(btn);
+      return btn;
+    }
     var ref = bulkControls.querySelector("[data-clear-selection]");
     if (ref) {
       bulkControls.insertBefore(btn, ref);
@@ -136,7 +145,9 @@
     var api = window.DeckLabBuilder;
     if (api.shared) return;
 
-    var bulkControls = document.querySelector("[data-bulk-controls]");
+    var bulkControls = document.querySelector("[data-considering-slot]")
+      || document.querySelector("[data-selection-bar]")
+      || document.querySelector("[data-bulk-controls]");
     if (!bulkControls) return;
 
     var btn = insertButton(bulkControls);

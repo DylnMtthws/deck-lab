@@ -106,6 +106,7 @@ def test_destination_selector_survives_narrow_viewports():
         line for line in markup.splitlines() if "dl-add-destination-control" in line
     )
     assert "desktop-only" not in destination
-    # The select names itself visibly and to assistive tech.
-    assert ">Add to<" in destination
+    # The pill names the zone; the select keeps the accessible name.
+    assert "data-add-destination-toggle" in destination
+    assert "data-add-destination-name" in destination
     assert 'aria-label="Add found cards to category"' in destination

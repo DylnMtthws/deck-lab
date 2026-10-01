@@ -24,13 +24,13 @@ def test_choose_commanders_button_is_in_deck_options_not_card_search() -> None:
     assert "dl-card-combobox" in html
     assert "dl-add-panel" not in html
     combobox_start = html.index("dl-card-combobox")
-    more_start = html.index('class="dl-decklist-more"')
+    more_start = html.index("dl-decklist-more")
     assert "data-commanders-open" not in html[combobox_start:more_start]
     assert re.search(
-        r'<details class="dl-decklist-more">[\s\S]*?'
-        r'<summary aria-label="Deck options"[^>]*>•••</summary>[\s\S]*?'
-        r'<button type="button" data-commanders-open>'
-        r"Choose commanders / partner</button>",
+        r"dl-decklist-more[\s\S]*?"
+        r'<summary class="dl-icon-button" aria-label="Deck options"[^>]*>[\s\S]*?'
+        r'<button type="button" role="menuitem" data-commanders-open>'
+        r"Commanders…</button>",
         html,
     )
     body = _rule_body(CSS_PATH.read_text(), ".dl-decklist-more")

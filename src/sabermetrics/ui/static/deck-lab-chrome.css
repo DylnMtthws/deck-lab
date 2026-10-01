@@ -1,1 +1,324 @@
 /* Owner: D01 — header, toolbar, view popover, selection bar, export and deck-options menus. */
+
+.dl-workspace-header {
+  height: 56px;
+  min-height: 56px;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.dl-workspace-header .dl-segments { margin-left: 0; flex: none; }
+.dl-workspace-header .dl-icon-button,
+.dl-workspace-back {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  font-size: var(--t-16);
+}
+.dl-workspace-crumb { min-width: 0; flex: 0 1 auto; }
+.dl-workspace-crumb span { color: var(--muted); font-size: var(--t-13); }
+.dl-workspace-crumb i { color: var(--faint); font-style: normal; }
+.dl-workspace-crumb button {
+  max-width: 240px;
+  font: 600 var(--t-14)/1 var(--sans);
+}
+.dl-header-divider {
+  width: 1px;
+  height: 16px;
+  flex: none;
+  background: var(--line);
+}
+.dl-save-state {
+  flex: none;
+  gap: 6px;
+  padding: 0 var(--s-2);
+  border: 0;
+  background: transparent;
+  font: 500 var(--t-12)/1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.dl-save-state.is-ok { color: var(--success); }
+.dl-save-state.is-ok .dl-dot { background: var(--success); }
+.dl-save-state.is-warn,
+.dl-save-state.error {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+.dl-history-button { color: var(--muted); }
+.dl-history-button:disabled,
+.dl-workspace-header [data-undo]:disabled,
+.dl-workspace-header [data-redo]:disabled {
+  opacity: .4;
+  cursor: default;
+}
+.dl-workspace-header .dl-export-menu summary {
+  height: 32px;
+  min-height: 32px;
+  min-width: 0;
+  gap: 6px;
+  padding: 0 var(--s-3);
+  border-radius: var(--r-md);
+  font: 500 var(--t-13)/1 var(--sans);
+  font-weight: 500;
+}
+.dl-workspace-header .dl-export-menu summary svg { width: 16px; height: 16px; }
+.dl-workspace-header .dl-export-menu > div {
+  width: 280px;
+  padding: var(--s-2);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-pop);
+}
+.dl-workspace-header .dl-export-menu > div [role="menuitem"] {
+  min-height: 44px;
+  height: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: var(--s-2);
+  border-radius: var(--r-sm);
+  color: var(--body);
+  font-size: var(--t-13);
+}
+.dl-workspace-header .dl-export-menu > div [role="menuitem"] svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dl-menu-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dl-menu-label { font: 500 var(--t-13)/1.2 var(--sans); color: var(--body); }
+.dl-menu-desc { font: var(--t-12)/1.3 var(--sans); color: var(--faint); }
+.dl-export-status {
+  margin: var(--s-1) var(--s-2) 0;
+  font: var(--t-12)/1.3 var(--sans);
+  color: var(--faint);
+}
+
+.dl-builder-toolbar {
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  flex: 0 0 52px;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+.dl-toolbar-main,
+.dl-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 100%;
+}
+.dl-toolbar-main[hidden],
+.dl-selection-bar[hidden] { display: none !important; }
+.dl-builder-toolbar > .dl-deck-count {
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* The combobox must stay the width of the search field. A growing combobox
+   parks the View button in the middle of the toolbar. */
+.dl-workspace-body .dl-toolbar-main > .dl-card-combobox {
+  flex: 0 1 420px;
+  width: 420px;
+  max-width: 420px;
+  min-width: 280px;
+}
+.dl-decklist-search {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-2) 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--ink-deep);
+}
+.dl-workspace-body .dl-toolbar-main .dl-decklist-search {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.dl-decklist-search > svg {
+  position: static;
+  left: auto;
+  top: auto;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  transform: none;
+  stroke: var(--faint);
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.dl-decklist-search label { flex: 1; min-width: 0; display: flex; }
+.dl-decklist-search input {
+  width: 100%;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--body);
+  font: var(--t-13)/1 var(--sans);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.dl-decklist-search input:focus { box-shadow: none; }
+.dl-decklist-search input:focus-visible { box-shadow: var(--focus); }
+.dl-destination-pill {
+  height: 22px;
+  flex: none;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font: 500 var(--t-12)/1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dl-add-destination-control { position: relative; flex: none; display: flex; align-items: center; }
+.dl-add-destination-control .dl-select-control,
+.dl-add-destination-control select { display: none !important; }
+.dl-destination-menu { top: calc(100% + 8px); right: 0; min-width: 180px; display: grid; gap: 2px; }
+.dl-destination-menu[hidden] { display: none !important; }
+.dl-destination-menu .dl-menu-item {
+  height: 32px;
+  padding: 0 var(--s-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--body);
+  font: 500 var(--t-13)/1 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.dl-destination-menu .dl-menu-item:hover { background: var(--panel-2); }
+
+.dl-toolbar-main > .push { flex: 1 1 auto; margin-left: auto; }
+.dl-view-control { position: relative; flex: none; }
+.dl-view-control > .dl-button { gap: 6px; white-space: nowrap; }
+.dl-view-control .dl-popover {
+  top: calc(100% + 8px);
+  left: 0;
+  width: 300px;
+  display: grid;
+  gap: var(--s-2);
+}
+.dl-view-control .dl-popover[hidden] { display: none !important; }
+.dl-view-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  color: var(--muted);
+  font-size: var(--t-13);
+}
+.dl-view-row .dl-select,
+.dl-view-row .dl-select-control { width: 148px; flex: none; }
+.dl-view-popover .dl-select-trigger,
+.dl-view-control .dl-select-trigger,
+.dl-selection-bar .dl-select-trigger {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 28px 0 var(--s-2);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  font: 500 var(--t-13)/1 var(--sans);
+}
+.dl-view-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--body);
+  font-size: var(--t-13);
+}
+.dl-view-control .dl-surface { min-height: 52px; height: 52px; }
+.dl-view-control .dl-segments { margin: 0; }
+
+.dl-toolbar-hint {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  color: var(--faint);
+  font-size: var(--t-12);
+  white-space: nowrap;
+}
+@media (min-width: 1360px) {
+  .dl-toolbar-hint { display: inline-flex; }
+}
+
+.dl-deck-options { position: relative; flex: none; }
+.dl-deck-options > summary { width: 32px; height: 32px; list-style: none; }
+.dl-deck-options > div,
+.dl-decklist-more > div {
+  top: calc(100% + 8px);
+  width: 220px;
+  padding: var(--s-2);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-pop);
+}
+.dl-deck-options > div [role="menuitem"],
+.dl-decklist-more > div button {
+  min-height: 32px;
+  font-size: var(--t-13);
+  color: var(--body);
+}
+.dl-deck-options .danger,
+.dl-decklist-more > div button.danger { color: var(--brand-text); }
+
+.dl-selection-bar .dl-selection-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--t-13);
+  white-space: nowrap;
+}
+.dl-selection-bar .dl-select,
+.dl-selection-bar .dl-select-control { width: 132px; }
+.dl-selection-bar .dl-button { white-space: nowrap; }
+
+/* Unstyled builder controls must not match the capture lint's native probe.
+   The probe node is appended directly to body, so this stays inside the
+   workspace regions and uses a radius the user agent does not. */
+:where(.dl-workspace-body) :where(.dl-builder, .dl-workspace-header, .dl-status-bar, dialog) :is(button, select, input, textarea, summary) {
+  border-radius: 2px;
+}

@@ -38,12 +38,9 @@ def test_floating_new_zone_button_is_removed() -> None:
     assert "dl-new-zone-floating" not in html
     assert "dl-new-zone-floating" not in css
     assert "dl-new-zone-floating" not in js
-    assert html.count("data-new-zone") == 3
-    assert (
-        '<button class="dl-button dl-toolbar-action" type="button" data-new-zone'
-        in html
-    )
-    assert "data-new-zone>New zone</button>" in html
+    assert html.count("data-new-zone") == 2
+    assert "dl-toolbar-action" not in html
+    assert 'data-new-zone aria-label="Create a new zone">New zone</button>' in html
     assert 'class="dl-icon-button dl-add-zone" type="button" data-new-zone' in html
     assert 'aria-label="Create a new zone"' in html
     assert 'aria-label="Add zone"' in html
@@ -62,13 +59,13 @@ def test_row_density_control_lives_only_in_deck_options() -> None:
     assert 'aria-label="Row density"' not in html
     assert not _DL_DENSITY_CLASS.search(css)
     assert ".dl-density-comfortable .dl-deck-row" in css
+    assert "Row density" not in html
     assert re.search(
-        r'<details class="dl-decklist-more">[\s\S]*?'
-        r'<span class="dl-decklist-more-label">Row density</span>'
+        r"data-view-popover[\s\S]*?"
         r'<button type="button" data-density="compact" aria-pressed="true">'
         r"Compact</button>"
         r'<button type="button" data-density="comfortable" aria-pressed="false">'
-        r"Comfortable</button>",
+        r"Comfy</button>",
         html,
     )
     assert html.count('data-density="compact"') == 1
