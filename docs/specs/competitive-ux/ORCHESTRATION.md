@@ -41,8 +41,8 @@ The program is DONE only when every box is checked:
 | 1 | Hover/focus card panel | T08 | HIGH | VERIFIED (25a33ff) |
 | 2 | Pinned deck status bar | T05 | LOW | VERIFIED |
 | 3 | Keyboard editing + undo/redo | T09 | HIGH | VERIFIED (afcda14) |
-| 4 | "Considering" zone | T04 | LOW | PARTIAL PRE-EXISTING: private zone names excluded from count/copy (`deck_documents.py:64-71`, `deck-lab-export.js` PRIVATE_ZONE_NAMES) — T04 adds the workflow |
-| 5 | Interactive stats (curve filter, pips vs sources, odds, sample hand) | T06 | LOW | TODO |
+| 4 | "Considering" zone | T04 | LOW | VERIFIED (9b66f34); count/export exclusion PRE-EXISTING |
+| 5 | Interactive stats (curve filter, pips vs sources, odds, sample hand) | T06 | LOW | VERIFIED |
 | 6 | Paste-ready export for Moxfield/Archidekt | T01 | LOW | VERIFIED (2789c4d); builds on pre-existing "Copy list" (b46f209) |
 | 7 | Real mana symbols | T02 | LOW | VERIFIED (97125df) |
 | 8 | Generation in the new-deck flow + real progress | T10 | HIGH | VERIFIED (56e2077) |
@@ -107,3 +107,5 @@ all gates after every merge.
 - 2026-10-01: T09 VERIFIED → merged (afcda14). Dual capture (wrapped command + render-diff) with applying/pending suppression; mutation removing the suppression guard fails 4 tests. 409 detected via save-state title (brittle; accepted given builder.js was off-limits). MERGE INCIDENT (mine): resolver initially dropped T09's `{% if not shared %}` wrapper AND the card-image dialog (T09 had moved it to the end of the scripts block deliberately, because an existing test requires it after the last `{% endif %}`). Caught by element-count check + suite; hand-resolved to T09's arrangement; resolver now inserts scripts before the trailing <dialog>. One unexplained single failure during resolution; two subsequent full runs clean (1783 passed) — watching for flakiness.
 - 2026-10-01: T11 VERIFIED → merged (e7ef49d) after 2 reworks; mutation removing unknown→other fold fails 3 tests.
 - 2026-10-01: T05 VERIFIED → merged (see merge commit). Late-load fixed; mutation removing immediate render fails 3 tests. Deviation accepted: footer placed after the owner-only block in content (not inside .dl-builder grid) — CSS designed for that. MERGE INCIDENT (mine, #2): resolver silently dropped T05's footer because it shared the conflict hunk with the scripts line. Restored. Resolver now refuses hunks where theirs adds non-script lines; new `.cux/presence_check.sh` asserts every template line a branch added survives the merge — run retroactively on T01/T02/T03/T08/T09/T10/T11: all present. Gates: 1802 passed, ruff/mypy clean.
+- 2026-10-01: T04 VERIFIED → merged (9b66f34) after rework (literal conditional script tag; test now matches a real element and forbids `&lt;script`). Command shapes checked against `_apply_command` (`type` key, client zone_id accepted). Mutation removing selection-event wiring fails 2 tests.
+- 2026-10-01: T06 VERIFIED → merged after rework (module-level odds/hand state). Mutation resetting the hand on render fails 1 test. Gates: 1826 passed / ruff / mypy clean.
