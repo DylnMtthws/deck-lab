@@ -247,7 +247,13 @@
   function renderTable() {
     var view = document.getElementById("table-view"); if (!view) return; view.replaceChildren();
     var collapsed = []; try { collapsed = JSON.parse(preference("collapsed_json", "[]")); } catch (_) {}
-    var display = preference("display_mode", "text"), density = preference("density", "compact"), surface = node("div", "dl-decklist-surface dl-density-" + density + " dl-display-" + display);
+    var display = preference("display_mode", "text"), density = preference("density", "compact");
+    if (display === "stacks") {
+      if (window.DeckLabStacks && window.DeckLabStacks.render) window.DeckLabStacks.render(groups().map(function (group) { return { id: group.id, name: group.name, zone: group.zone || null, permanent: !!group.permanent, entries: group.entries.filter(_entryMatches) }; }), view, window.DeckLabBuilder || null);
+      if (!state.entries.length) view.appendChild(node("div", "dl-empty", "Choose a commander or add cards to begin."));
+      return;
+    }
+    var surface = node("div", "dl-decklist-surface dl-density-" + density + " dl-display-" + display);
     if (display === "text") {
       var columns = node("div", "dl-decklist-columns");
       ["", "Qty", "Name", "Cost", "Type", "Zone", "Role", ""].forEach(function (label, index) { var heading = node("span", index === 0 ? "dl-column-select" : "", label); if (label) heading.setAttribute("role", "columnheader"); columns.appendChild(heading); });

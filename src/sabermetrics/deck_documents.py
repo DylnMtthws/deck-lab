@@ -1834,7 +1834,7 @@ class DeckDocumentRepo:
         elif kind == "update_view":
             option_sets = {
                 "view_mode": {"table", "playmat"},
-                "display_mode": {"text", "grid", "spoiler"},
+                "display_mode": {"text", "grid", "spoiler", "stacks"},
                 "group_mode": {"zone", "type", "role"},
                 "sort_mode": {"manual", "name", "mana_value"},
                 "density": {"compact", "comfortable"},
