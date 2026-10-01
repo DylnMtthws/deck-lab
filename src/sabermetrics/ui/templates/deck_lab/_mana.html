@@ -1,0 +1,15 @@
+{% macro mana_symbol(sym, decorative=true) %}
+{%- set upper = sym|upper -%}
+{%- if upper != '' and upper.strip('0123456789WUBRGCSXYZTQPE/½∞') == '' %}
+{%- set file = upper|replace('/', '') %}
+<img class="dl-ms" src="https://svgs.scryfall.io/card-symbols/{{ file }}.svg" alt="{% if not decorative %}{{ '{' }}{{ sym }}{{ '}' }}{% endif %}" width="16" height="16" loading="lazy" decoding="async"{% if decorative %} aria-hidden="true"{% endif %} onerror="var s=document.createElement('span');s.className='dl-mana-symbol dl-mana-generic';s.textContent='{{ upper|replace('/','⁄') }}';s.setAttribute('aria-hidden','true');this.parentNode.replaceChild(s,this);this.onerror=null">
+{%- else %}
+<span class="dl-mana-symbol dl-mana-generic" aria-hidden="true">{{ upper|replace('/', '⁄') }}</span>
+{%- endif %}
+{% endmacro %}
+
+{% macro mana_pips(colors, decorative=true) %}
+{%- for color in colors %}
+{{ mana_symbol(color, decorative) }}
+{%- endfor %}
+{% endmacro %}

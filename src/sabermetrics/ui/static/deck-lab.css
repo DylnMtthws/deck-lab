@@ -649,3 +649,8 @@ a.dl-card-name:hover{color:var(--brand-text)}
 @media (hover: none) {
   [data-dl-tip]::after { content: none; }
 }
+
+/* Mana symbols — real Scryfall SVG */
+.dl-ms { width: 1em; height: 1em; vertical-align: -0.125em; display: inline-block; }
+.dl-mana-cost .dl-ms,
+.dl-chip-row .dl-ms { vertical-align: -0.1em; }

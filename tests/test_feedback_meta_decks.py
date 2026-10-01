@@ -400,8 +400,8 @@ def test_meta_density_classes_and_css_hide_columns_in_order(tmp_path, monkeypatc
     html = page.get_data(as_text=True)
     assert "Field view" not in html
     assert "qualifying entries across the configured local corpus" not in html
-    header = re.search(r"<thead><tr>(.*?)</tr></thead>", html).group(1)
-    row = re.search(r"<tbody><tr>(.*?)</tr>", html).group(1)
+    header = re.search(r"<thead><tr>(.*?)</tr></thead>", html, re.DOTALL).group(1)
+    row = re.search(r"<tbody><tr>(.*?)</tr>", html, re.DOTALL).group(1)
     for column in (
         "dl-meta-col-commander",
         "dl-meta-col-identity",

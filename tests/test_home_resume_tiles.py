@@ -222,7 +222,8 @@ def test_home_resume_tiles_match_build_cards_and_keep_actions(
         assert marker in resume
         assert marker in library
     assert "https://images.example.test/kinnan.jpg" in resume
-    assert "mana-U" in resume and "mana-G" in resume
+    assert "svgs.scryfall.io/card-symbols/U.svg" in resume
+    assert "svgs.scryfall.io/card-symbols/G.svg" in resume
     assert "Turbo" in resume
     assert "Research cards" in resume
     assert "Research commander" in resume
