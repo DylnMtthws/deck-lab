@@ -161,7 +161,15 @@
       var targetZoneId = findZoneIdByName(state, targetZoneName);
       if (!targetZoneId) {
         var newZoneId = "zone-consider-" + Date.now();
-        cmds.push({ type: "create_zone", zone_id: newZoneId, name: targetZoneName, x: 200, y: 200 });
+        var createZone = { type: "create_zone", zone_id: newZoneId, name: targetZoneName };
+        if (typeof api.freeZonePosition === "function") {
+          var spot = api.freeZonePosition(360, 240);
+          if (spot && spot.x != null && spot.y != null) {
+            createZone.x = spot.x;
+            createZone.y = spot.y;
+          }
+        }
+        cmds.push(createZone);
         targetZoneId = newZoneId;
       }
       var ids = getSelectedNonCommanderEntryIds(api);

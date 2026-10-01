@@ -371,8 +371,97 @@
       handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
     });
   }
+  function playmatIcon(name) {
+    if (window.DeckLabIcons && typeof window.DeckLabIcons.svg === "function") return window.DeckLabIcons.svg(name, { size: 16 });
+    var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  }
+  function prefersReducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (_) { return false; }
+  }
+  function cardRect(card) {
+    if (!card || typeof card.getBoundingClientRect !== "function") return null;
+    var rect = card.getBoundingClientRect();
+    if (!rect || rect.left == null || rect.top == null) return null;
+    return rect;
+  }
+  function captureZoneFlip(zoneId) {
+    var mat = document.getElementById("playmat");
+    if (!mat) return;
+    if (prefersReducedMotion()) { mat._dlFlip = null; return; }
+    var box = null;
+    mat.querySelectorAll(".dl-mat-zone").forEach(function (el) { if (el.dataset.zoneId === zoneId) box = el; });
+    if (!box) { mat._dlFlip = null; return; }
+    var first = {};
+    box.querySelectorAll(".dl-mat-card").forEach(function (card) {
+      var id = card.dataset.entryId, rect = cardRect(card);
+      if (id && rect) first[id] = { left: rect.left, top: rect.top };
+    });
+    mat._dlFlip = { zoneId: zoneId, first: first };
+  }
+  function applyZoneFlip() {
+    var mat = document.getElementById("playmat");
+    if (!mat || !mat._dlFlip) return;
+    var flip = mat._dlFlip;
+    mat._dlFlip = null;
+    if (prefersReducedMotion()) return;
+    var box = null;
+    mat.querySelectorAll(".dl-mat-zone").forEach(function (el) { if (el.dataset.zoneId === flip.zoneId) box = el; });
+    if (!box) return;
+    var moved = false;
+    box.querySelectorAll(".dl-mat-card").forEach(function (card) {
+      var from = flip.first[card.dataset.entryId], rect = cardRect(card);
+      if (!from || !rect) return;
+      var dx = Math.round(from.left - rect.left), dy = Math.round(from.top - rect.top);
+      if (!dx && !dy) return;
+      moved = true;
+      card.classList.add("dl-flip");
+      card.setAttribute("data-flip", "1");
+      card.style.transform = "translate(" + dx + "px," + dy + "px)";
+    });
+    if (!moved) return;
+    var run = function () {
+      box.querySelectorAll(".dl-mat-card.dl-flip").forEach(function (card) {
+        card.classList.add("dl-flip-run");
+        card.style.transform = "";
+      });
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(function () { requestAnimationFrame(run); });
+    else setTimeout(run, 0);
+  }
+  function bindStackPeek(box, cards) {
+    var timer = null;
+    function cancel() { if (timer) { clearTimeout(timer); timer = null; } }
+    function openPeek() { cancel(); cards.classList.add("is-peek"); }
+    function focusedInside() {
+      var active = document.activeElement;
+      return !!(active && box.contains(active));
+    }
+    function closePeek() {
+      cancel();
+      if (focusedInside()) return;
+      cards.classList.remove("is-peek");
+    }
+    cards.addEventListener("pointerenter", function () { cancel(); timer = setTimeout(openPeek, 300); });
+    cards.addEventListener("pointerleave", function (event) {
+      if (event.relatedTarget && box.contains(event.relatedTarget)) return;
+      closePeek();
+    });
+    box.addEventListener("focusin", function () { openPeek(); });
+    box.addEventListener("focusout", function () {
+      setTimeout(function () { if (!focusedInside()) cards.classList.remove("is-peek"); }, 0);
+    });
+  }
+  function zoneCount(entries) { return node("span", "dl-chip dl-mat-count", qty(entries)); }
   function zoneMenu(zone, entries) {
-    var details = node("details", "dl-zone-menu"), summary = node("summary", "", "•••"); summary.setAttribute("aria-label", zone.name + " actions"); summary.setAttribute("data-dl-tip", zone.name + " actions"); details.appendChild(summary); var menu = node("div", "dl-zone-menu-popover");
+    var details = node("details", "dl-zone-menu"), summary = node("summary", "dl-icon-button");
+    summary.setAttribute("aria-label", zone.name + " actions");
+    summary.setAttribute("data-dl-tip", zone.name + " actions");
+    summary.appendChild(playmatIcon("more"));
+    details.appendChild(summary);
+    var menu = node("div", "dl-zone-menu-popover");
     function item(label, action, danger) { var button = node("button", danger ? "danger" : "", label); button.type = "button"; button.addEventListener("click", function (event) { event.stopPropagation(); details.open = false; action(); }); menu.appendChild(button); }
     item("Rename zone", function () { openZoneDialog(zone); });
     item("Select all " + entries.length, function () { entries.forEach(function (entry) { selectedEntries.add(entry.id); }); renderPlaymat(); syncSelection(); });
@@ -381,14 +470,16 @@
     details.appendChild(menu); details.addEventListener("toggle", function () { var box = details.closest(".dl-mat-zone"); if (box) box.classList.toggle("menu-open", details.open); }); return details;
   }
   function zoneLayoutButton(zone) {
-    var stacked = zone.layout_mode === "fan", button = node("button", "dl-zone-layout-toggle"), icon = document.createElementNS("http://www.w3.org/2000/svg", "svg"), label = stacked ? "Spread cards" : "Stack cards"; icon.setAttribute("viewBox", "0 0 20 20"); icon.setAttribute("aria-hidden", "true"); icon.innerHTML = stacked ? '<rect x="1.5" y="4" width="5" height="12" rx="1.2"/><rect x="7.5" y="4" width="5" height="12" rx="1.2"/><rect x="13.5" y="4" width="5" height="12" rx="1.2"/>' : '<rect x="2.2" y="5.1" width="7.2" height="11.5" rx="1.3" transform="rotate(-18 5.8 10.8)"/><rect x="6.4" y="2.6" width="7.2" height="12" rx="1.3"/><rect x="10.6" y="5.1" width="7.2" height="11.5" rx="1.3" transform="rotate(18 14.2 10.8)"/>'; button.type = "button"; button.title = label; button.setAttribute("aria-label", label + " in " + zone.name); button.appendChild(icon); button.addEventListener("click", function (event) { event.stopPropagation(); command([{ type: "set_zone_layout", zone_id: zone.id, layout: stacked ? "spread" : "fan" }]); }); return button;
+    var stacked = zone.layout_mode === "fan", button = node("button", "dl-icon-button dl-zone-layout-toggle"), label = stacked ? "Spread cards" : "Stack cards", tip = label + " in " + zone.name;
+    button.type = "button"; button.title = tip; button.setAttribute("aria-label", tip); button.setAttribute("data-dl-tip", tip);
+    button.appendChild(playmatIcon(stacked ? "spread" : "stack"));
+    button.addEventListener("click", function (event) { event.stopPropagation(); captureZoneFlip(zone.id); command([{ type: "set_zone_layout", zone_id: zone.id, layout: stacked ? "spread" : "fan" }]); });
+    return button;
   }
   function zoneGridButton(zone) {
-    var active = zone.layout_mode === "grid", button = node("button", "dl-zone-grid-toggle"), icon = document.createElementNS("http://www.w3.org/2000/svg", "svg"), label = active ? "Exit grid" : "Grid cards";
-    icon.setAttribute("viewBox", "0 0 20 20"); icon.setAttribute("aria-hidden", "true");
-    icon.innerHTML = '<rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/>';
-    button.type = "button"; button.title = label; button.setAttribute("aria-label", label + " in " + zone.name); button.setAttribute("aria-pressed", active ? "true" : "false");
-    button.appendChild(icon);
+    var active = zone.layout_mode === "grid", button = node("button", "dl-icon-button dl-zone-grid-toggle" + (active ? " is-on" : "")), label = active ? "Exit grid" : "Grid cards", tip = label + " in " + zone.name;
+    button.type = "button"; button.title = tip; button.setAttribute("aria-label", tip); button.setAttribute("data-dl-tip", tip); button.setAttribute("aria-pressed", active ? "true" : "false");
+    button.appendChild(playmatIcon("grid"));
     button.addEventListener("click", function (event) { event.stopPropagation(); command([{ type: "set_zone_layout", zone_id: zone.id, layout: active ? "spread" : "grid" }]); });
     return button;
   }
@@ -396,16 +487,16 @@
     var mat = document.getElementById("playmat"); if (!mat) return; mat.replaceChildren(); var p = state.presentation || {}, width = Number(p.canvas_width || 1600), height = Number(p.canvas_height || 900);
     mat.className = "dl-playmat " + (p.surface || "slate-grid") + (p.show_zone_outlines ? " show-zone-outlines" : "") + (p.dim_inactive ? " dim-inactive" : ""); mat.style.width = width + "px"; mat.style.height = height + "px"; mat.style.transform = "translate(" + Number(p.pan_x || 0) + "px," + Number(p.pan_y || 0) + "px) scale(" + Number(p.zoom || 1) + ")"; var imageUrl = ""; if (!shared) { if (p.playmat_id) imageUrl = "/api/playmats/" + encodeURIComponent(p.playmat_id); else if (p.surface === "custom") imageUrl = "/api/decks/" + encodeURIComponent(state.id) + "/playmat"; } mat.style.backgroundImage = imageUrl ? "url('" + imageUrl + "')" : ""; mat.style.backgroundSize = imageUrl ? "cover" : ""; mat.style.backgroundPosition = imageUrl ? "center" : "";
     var commanders = state.entries.filter(function (entry) { return !!entry.is_commander; });
-    if (commanders.length) { var commandBox = node("section", "dl-mat-zone dl-mat-command"); commandBox.style.setProperty("--zone-layer", "1"); commandBox.style.left = "18px"; commandBox.style.top = "18px"; commandBox.style.width = Math.max(170, 22 + commanders.length * 132 + Math.max(0, commanders.length - 1) * 7) + "px"; var commandBar = node("div", "dl-mat-zone-bar"); commandBar.append(node("h2", "", "Commander"), node("b", "", qty(commanders))); commandBox.appendChild(commandBar); var commandCards = node("div", "dl-mat-cards"); commanders.forEach(function (entry, index) { commandCards.appendChild(makeCard(entry, index)); }); commandBox.appendChild(commandCards); mat.appendChild(commandBox); }
+    if (commanders.length) { var commandBox = node("section", "dl-mat-zone dl-mat-command"); commandBox.style.setProperty("--zone-layer", "1"); commandBox.style.left = "18px"; commandBox.style.top = "18px"; commandBox.style.width = Math.max(170, 22 + commanders.length * 132 + Math.max(0, commanders.length - 1) * 7) + "px"; var commandBar = node("div", "dl-mat-zone-bar"); commandBar.append(node("h2", "", "Commander"), zoneCount(commanders)); commandBox.appendChild(commandBar); var commandCards = node("div", "dl-mat-cards"); commanders.forEach(function (entry, index) { commandCards.appendChild(makeCard(entry, index)); }); commandBox.appendChild(commandCards); mat.appendChild(commandBox); }
     state.zones.forEach(function (zone, index) {
-      var entries = zoneEntries(zone.id), layout = zone.layout_mode || "spread", box = node("section", "dl-mat-zone " + layout + (activeZoneId === zone.id ? " active" : "")); box.dataset.zoneId = zone.id; box.tabIndex = 0; box.setAttribute("aria-label", zone.name + " zone"); box.style.setProperty("--zone-layer", String(zoneLayerValue(zone, index))); var visibleItems = entries.length + (shared ? 0 : 1), stackDepth = Math.min(Math.max(entries.length - 1, 0), 8), spreadWidth = 22 + visibleItems * 132 + Math.max(0, visibleItems - 1) * 7, fanWidth = 22 + 132 + stackDepth * 4 + (shared ? 0 : 40), shape = gridShape(visibleItems), gridWidth = 22 + shape.cols * 132 + Math.max(0, shape.cols - 1) * 7, dynamicWidth = layout === "fan" ? Math.max(180, fanWidth) : layout === "grid" ? gridWidth : Math.min(720, Math.max(286, spreadWidth)), zoneWidth = layout === "fan" || layout === "grid" ? dynamicWidth : Number(zone.width || dynamicWidth); box.style.width = zoneWidth + "px"; box.style.left = Number(zone.x == null ? 220 + index * 280 : zone.x) + "px"; box.style.top = Number(zone.y == null ? 18 : zone.y) + "px";
+      var entries = zoneEntries(zone.id), layout = zone.layout_mode || "spread", box = node("section", "dl-mat-zone " + layout + (activeZoneId === zone.id ? " active" : "")); box.dataset.zoneId = zone.id; box.tabIndex = 0; box.setAttribute("aria-label", zone.name + " zone"); box.style.setProperty("--zone-layer", String(zoneLayerValue(zone, index))); var visibleItems = entries.length + (shared ? 0 : 1), stackSlots = Math.min(Math.max(entries.length - 1, 0), 6), spreadWidth = 22 + visibleItems * 132 + Math.max(0, visibleItems - 1) * 7, fanWidth = Math.max(shared ? 180 : 300, 22 + 132 + stackSlots * 3 + (shared ? 0 : 48)), shape = gridShape(visibleItems), gridWidth = 22 + shape.cols * 132 + Math.max(0, shape.cols - 1) * 7, dynamicWidth = layout === "fan" ? Math.max(180, fanWidth) : layout === "grid" ? gridWidth : Math.min(720, Math.max(286, spreadWidth)), zoneWidth = layout === "fan" || layout === "grid" ? dynamicWidth : Number(zone.width || dynamicWidth); box.style.width = zoneWidth + "px"; box.style.left = Number(zone.x == null ? 220 + index * 280 : zone.x) + "px"; box.style.top = Number(zone.y == null ? 18 : zone.y) + "px";
       box.addEventListener("click", function () { activeZoneId = zone.id; document.querySelectorAll(".dl-mat-zone.active").forEach(function (el) { el.classList.remove("active"); }); box.classList.add("active"); });
-      var bar = node("div", "dl-mat-zone-bar"); bar.append(node("h2", "", zone.name), node("b", "", qty(entries))); if (!shared) bar.append(zoneGridButton(zone), zoneLayoutButton(zone), zoneMenu(zone, entries)); box.appendChild(bar); attachZoneDrag(bar, box, zone, p);
-      var cards = node("div", "dl-mat-cards"); if (layout === "fan") cards.style.height = 192 + stackDepth * 3 + "px"; if (layout === "grid") { cards.style.setProperty("--grid-cols", String(shape.cols)); cards.style.height = (4 + shape.rows * 184 + Math.max(0, shape.rows - 1) * 7) + "px"; } entries.forEach(function (entry, cardIndex) { var card = makeCard(entry, cardIndex); if (layout === "fan") { var offset = Math.min(cardIndex, 8); card.style.setProperty("--stack-x", offset * 4 + "px"); card.style.setProperty("--stack-y", offset * 3 + "px"); card.style.zIndex = String(100 - cardIndex); } cards.appendChild(card); }); if (!shared) { var plus = node("button", "dl-mat-add" + (layout === "fan" ? " compact" : ""), "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add a card to " + zone.name); plus.setAttribute("data-dl-tip", "Add a card to " + zone.name); if (layout === "fan") { plus.style.left = 140 + stackDepth * 4 + "px"; plus.style.top = "4px"; } plus.addEventListener("click", function (event) { event.stopPropagation(); activeZoneId = zone.id; setAddDestination(zone.id); focusCardSearch(); }); cards.appendChild(plus); } if (layout === "spread" && spreadWidth > zoneWidth) { cards.tabIndex = 0; cards.setAttribute("aria-label", zone.name + " cards. Scroll horizontally to see all cards."); } box.appendChild(cards);
+      var bar = node("div", "dl-mat-zone-bar"); bar.append(node("h2", "", zone.name), zoneCount(entries)); if (!shared) bar.append(zoneGridButton(zone), zoneLayoutButton(zone), zoneMenu(zone, entries)); box.appendChild(bar); attachZoneDrag(bar, box, zone, p);
+      var cards = node("div", "dl-mat-cards"); if (layout === "fan") cards.style.height = (8 + 184 + stackSlots * 3) + "px"; if (layout === "grid") { cards.style.setProperty("--grid-cols", String(shape.cols)); cards.style.height = (4 + shape.rows * 184 + Math.max(0, shape.rows - 1) * 7) + "px"; } entries.forEach(function (entry, cardIndex) { var card = makeCard(entry, cardIndex); if (layout === "fan") { var depth = Math.min(cardIndex, 6); card.style.setProperty("--stack-x", depth * 3 + "px"); card.style.setProperty("--stack-y", depth * 3 + "px"); card.style.zIndex = String(100 - cardIndex); if (cardIndex < 5) { card.setAttribute("data-peek-index", String(cardIndex)); card.style.setProperty("--peek-index", String(cardIndex)); } } cards.appendChild(card); }); if (layout === "fan" && entries.length > 7) { var extra = entries.length - 7, badge = node("span", "dl-stack-more", "+" + extra); badge.setAttribute("aria-label", extra + " more cards in the stack"); cards.appendChild(badge); } if (!shared) { var plus = node("button", "dl-mat-add" + (layout === "fan" ? " compact" : ""), "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add a card to " + zone.name); plus.setAttribute("data-dl-tip", "Add a card to " + zone.name); if (layout === "fan") { plus.style.left = (148 + stackSlots * 3) + "px"; plus.style.top = "8px"; } plus.addEventListener("click", function (event) { event.stopPropagation(); activeZoneId = zone.id; setAddDestination(zone.id); focusCardSearch(); }); cards.appendChild(plus); } if (layout === "spread" && spreadWidth > zoneWidth) { cards.tabIndex = 0; cards.setAttribute("aria-label", zone.name + " cards. Scroll horizontally to see all cards."); } if (layout === "fan") bindStackPeek(box, cards); box.appendChild(cards);
       box.addEventListener("dragover", function (event) { var fromDeck = transferHas(event.dataTransfer, "text/deck-entry"), fromSidebar = transferHas(event.dataTransfer, "text/card-id"); if (!fromDeck && !fromSidebar) return; event.preventDefault(); event.dataTransfer.dropEffect = fromDeck ? "move" : "copy"; box.classList.add("drop-target"); positionDragPreview(event.clientX, event.clientY); }); box.addEventListener("dragleave", function (event) { if (!box.contains(event.relatedTarget)) box.classList.remove("drop-target"); }); box.addEventListener("drop", function (event) { event.preventDefault(); clearDropState(); var entryId = event.dataTransfer.getData("text/deck-entry"), cardId = event.dataTransfer.getData("text/card-id"); if (entryId) command([{ type: "move_entry", entry_id: entryId, zone_id: zone.id, sort_order: 999 }]); else if (cardId) command([{ type: "add_card", card_id: cardId, zone_id: zone.id, quantity: 1 }]); });
       mat.appendChild(box);
     });
-    var label = document.getElementById("zoom-label"); if (label) label.textContent = Math.round(Number(p.zoom || 1) * 100) + "%"; renderSelectionBar();
+    var label = document.getElementById("zoom-label"); if (label) label.textContent = Math.round(Number(p.zoom || 1) * 100) + "%"; applyZoneFlip(); renderSelectionBar();
   }
   function renderSelectionBar() {
     var bar = document.querySelector("[data-playmat-selection]"); if (!bar) return; var selected = state.entries.filter(function (entry) { return selectedEntries.has(entry.id); }); bar.hidden = !selected.length; bar.replaceChildren(); if (!selected.length) return;
@@ -485,7 +576,7 @@
   var zoneDialog = document.getElementById("zone-dialog"), zoneDialogTarget = null, zoneSaving = false;
   function openZoneDialog(zone) { if (!zoneDialog) return; zoneDialogTarget = zone || null; zoneDialog.querySelector("h2").textContent = zone ? "Rename zone" : "New zone"; var input = zoneDialog.querySelector("[data-zone-name]"), error = zoneDialog.querySelector("[data-zone-error]"); input.value = zone ? zone.name : ""; if (error) error.textContent = ""; zoneDialog.showModal(); input.focus(); }
   document.querySelectorAll("[data-new-zone]").forEach(function (button) { button.addEventListener("click", function () { openZoneDialog(null); }); });
-  if (zoneDialog) zoneDialog.addEventListener("close", function () { if (zoneDialog.returnValue !== "save") return; if (zoneSaving) return; var input = zoneDialog.querySelector("[data-zone-name]"), name = input.value.trim(), error = zoneDialog.querySelector("[data-zone-error]"); if (!name) { error.textContent = "Enter a zone name."; openZoneDialog(zoneDialogTarget); return; } zoneSaving = true; var payload = zoneDialogTarget ? { type: "rename_zone", zone_id: zoneDialogTarget.id, name: name } : { type: "create_zone", name: name }; zoneDialogTarget = null; command([payload]).finally(function () { zoneSaving = false; }); });
+  if (zoneDialog) zoneDialog.addEventListener("close", function () { if (zoneDialog.returnValue !== "save") return; if (zoneSaving) return; var input = zoneDialog.querySelector("[data-zone-name]"), name = input.value.trim(), error = zoneDialog.querySelector("[data-zone-error]"); if (!name) { error.textContent = "Enter a zone name."; openZoneDialog(zoneDialogTarget); return; } zoneSaving = true; var payload = zoneDialogTarget ? { type: "rename_zone", zone_id: zoneDialogTarget.id, name: name } : { type: "create_zone", name: name }; if (!zoneDialogTarget && window.DeckLabBuilder) { var spot = window.DeckLabBuilder.freeZonePosition(360, 240); if (spot) { payload.x = spot.x; payload.y = spot.y; } } zoneDialogTarget = null; command([payload]).finally(function () { zoneSaving = false; }); });
   var deleteDialog = document.getElementById("delete-zone-dialog"), deleteTarget = null; function openDeleteZone(zone) { deleteTarget = zone; deleteDialog.querySelector("h2").textContent = "Delete " + zone.name + "?"; deleteDialog.showModal(); } if (deleteDialog) deleteDialog.addEventListener("close", function () { if (deleteDialog.returnValue === "delete" && deleteTarget) command([{ type: "delete_zone", zone_id: deleteTarget.id }]); deleteTarget = null; });
   var title = document.getElementById("deck-title"); if (title && !shared) { title.title = "Click to rename"; title.addEventListener("click", function () { var name = window.prompt("Deck name", state.title); if (name && name !== state.title) command([{ type: "rename_deck", title: name }]); }); }
 
@@ -853,6 +944,50 @@
       return section;
     },
     render: function () { render(); },
+    freeZonePosition: function (width, height) {
+      var mat = document.getElementById("playmat");
+      if (!mat || typeof mat.getBoundingClientRect !== "function") return null;
+      var matRect = mat.getBoundingClientRect();
+      if (!matRect || !(matRect.width > 0) || !(matRect.height > 0)) return null;
+      var zoneWidth = Number(width) > 0 ? Number(width) : 360;
+      var zoneHeight = Number(height) > 0 ? Number(height) : 240;
+      var presentation = state.presentation || {};
+      var zoom = Number(presentation.zoom || 1);
+      if (!(zoom > 0)) zoom = 1;
+      var canvasW = Number(presentation.canvas_width || 1600);
+      var canvasH = Number(presentation.canvas_height || 900);
+      var gutter = 16;
+      var obstacles = [];
+      mat.querySelectorAll(".dl-mat-zone").forEach(function (el) {
+        if (typeof el.getBoundingClientRect !== "function") return;
+        var rect = el.getBoundingClientRect();
+        if (!rect || !(rect.width > 0) || !(rect.height > 0)) return;
+        obstacles.push({
+          x: (rect.left - matRect.left) / zoom,
+          y: (rect.top - matRect.top) / zoom,
+          w: rect.width / zoom,
+          h: rect.height / zoom
+        });
+      });
+      function blocked(x, y) {
+        var i, item;
+        for (i = 0; i < obstacles.length; i += 1) {
+          item = obstacles[i];
+          if (!(x + zoneWidth + gutter <= item.x || item.x + item.w + gutter <= x || y + zoneHeight + gutter <= item.y || item.y + item.h + gutter <= y)) return true;
+        }
+        return false;
+      }
+      var y = 18;
+      while (y + zoneHeight <= canvasH) {
+        var x = 18;
+        while (x + zoneWidth <= canvasW) {
+          if (!blocked(x, y)) return { x: x, y: y };
+          x += 24;
+        }
+        y += 24;
+      }
+      return null;
+    },
   };
   _dispatchBuilderEvent("deck-lab:ready", { api: window.DeckLabBuilder });
 

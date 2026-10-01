@@ -1522,6 +1522,38 @@ class DeckDocumentRepo:
             raise InvalidCommand("That card is no longer in this deck.")
         return cast(sqlite3.Row, row)
 
+    def _place_new_zone(
+        self, conn: sqlite3.Connection, deck_id: str
+    ) -> tuple[float, float]:
+        """Place a zone the client did not position, below every existing one.
+
+        ``x`` is 18. ``y`` is 24 px under the lowest bottom, where each zone's
+        bottom is ``y + (height or 240)`` and the command zone bottom is 258.
+        A wide auto-sized zone cannot overlap this origin horizontally. When
+        ``y`` is past the canvas, ``canvas_height`` grows to ``y + 264`` in
+        the caller's transaction.
+        """
+        bottoms = [258.0]
+        for row in conn.execute(
+            "SELECT y, height FROM deck_zones WHERE deck_id=?",
+            (deck_id,),
+        ):
+            bottoms.append(float(row["y"] or 0) + float(row["height"] or 240))
+        origin_y = max(bottoms) + 24.0
+        presentation = conn.execute(
+            "SELECT canvas_height FROM deck_presentations WHERE deck_id=?",
+            (deck_id,),
+        ).fetchone()
+        canvas_h = float(
+            (presentation["canvas_height"] if presentation else None) or 900
+        )
+        if origin_y > canvas_h and presentation is not None:
+            conn.execute(
+                "UPDATE deck_presentations SET canvas_height=? WHERE deck_id=?",
+                (int(origin_y + 264), deck_id),
+            )
+        return (18.0, origin_y)
+
     def _apply_command(
         self,
         conn: sqlite3.Connection,
@@ -1589,6 +1621,12 @@ class DeckDocumentRepo:
                 "SELECT COALESCE(MAX(sort_order),-1)+1 FROM deck_zones WHERE deck_id=?",
                 (deck_id,),
             ).fetchone()[0]
+            supplied_x = command.get("x") if "x" in command else None
+            supplied_y = command.get("y") if "y" in command else None
+            if supplied_x not in (None, "") and supplied_y not in (None, ""):
+                origin_x, origin_y = float(supplied_x), float(supplied_y)
+            else:
+                origin_x, origin_y = self._place_new_zone(conn, deck_id)
             try:
                 conn.execute(
                     "INSERT INTO deck_zones(id,deck_id,name,sort_order,x,y) VALUES(?,?,?,?,?,?)",
@@ -1597,8 +1635,8 @@ class DeckDocumentRepo:
                         deck_id,
                         name,
                         order,
-                        float(command.get("x") or 120 + order * 40),
-                        float(command.get("y") or 160 + order * 30),
+                        origin_x,
+                        origin_y,
                     ),
                 )
             except sqlite3.IntegrityError as exc:
