@@ -12,6 +12,7 @@ import json
 import re
 from urllib.parse import urlparse
 
+from sabermetrics import db
 from sabermetrics.ui import builder_routes, cedh_routes
 from tests.test_generate_in_new_deck import (
     ImmediateExecutor,
@@ -34,6 +35,7 @@ OWNER_ONLY_MODULES = (
     "deck-lab-history.js",
     "deck-lab-hotkeys.js",
     "deck-lab-considering.js",
+    "deck-lab-feedback.js",
 )
 
 
@@ -190,3 +192,36 @@ def test_research_syntax_applies_on_cards_tab(tmp_path, monkeypatch):
     page = client.get("/research/?tab=cards&q=t:instant mv<=1")
     assert page.status_code == 200
     assert "data-query-applied" in page.get_data(as_text=True)
+
+
+def test_builder_feedback_roundtrips_and_survives_deck_deletion(tmp_path, monkeypatch):
+    client, path, _owner, deck_id = _generated_deck(tmp_path, monkeypatch)
+    document = _document(client.get(f"/build/deck/{deck_id}").get_data(as_text=True))
+    card = next(
+        e for e in document["entries"] if not e["is_commander"] and e.get("oracle_id")
+    )
+    voted = client.put(
+        f"/api/decks/{deck_id}/feedback/cards/{card['oracle_id']}",
+        json={"card_name": card["name"], "vote": "up", "comment": "Core piece"},
+    )
+    assert voted.status_code == 200, voted.get_data(as_text=True)
+    verdict = client.put(
+        f"/api/decks/{deck_id}/feedback/deck", json={"verdict": "good", "comment": ""}
+    )
+    assert verdict.status_code == 200
+    stored = client.get(f"/api/decks/{deck_id}/feedback").get_json()
+    assert stored["cards"][card["oracle_id"]]["vote"] == "up"
+    assert stored["deck"]["verdict"] == "good"
+
+    deleted = client.post(f"/build/deck/{deck_id}/delete")
+    assert deleted.status_code in (200, 302, 303)
+    with db.connect(path) as conn:
+        cards = conn.execute(
+            "SELECT card_name FROM deck_document_card_feedback WHERE deck_id=?",
+            (deck_id,),
+        ).fetchall()
+        decks = conn.execute(
+            "SELECT verdict FROM deck_document_feedback WHERE deck_id=?", (deck_id,)
+        ).fetchall()
+    assert [row["card_name"] for row in cards] == [card["name"]]
+    assert [row["verdict"] for row in decks] == ["good"]
