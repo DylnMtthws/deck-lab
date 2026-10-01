@@ -38,7 +38,7 @@ The program is DONE only when every box is checked:
 
 | # | Recommendation | Task | Agent | Status |
 |---|---|---|---|---|
-| 1 | Hover/focus card panel | T08 | HIGH | TODO |
+| 1 | Hover/focus card panel | T08 | HIGH | VERIFIED (25a33ff) |
 | 2 | Pinned deck status bar | T05 | LOW | TODO |
 | 3 | Keyboard editing + undo/redo | T09 | HIGH | TODO |
 | 4 | "Considering" zone | T04 | LOW | PARTIAL PRE-EXISTING: private zone names excluded from count/copy (`deck_documents.py:64-71`, `deck-lab-export.js` PRIVATE_ZONE_NAMES) — T04 adds the workflow |
@@ -98,3 +98,4 @@ all gates after every merge.
 - 2026-10-01: Integration gates after T00+T01+T02+T10: 1676 passed / 31 skipped; ruff clean; mypy clean.
 - 2026-10-01: T14 launched (Grok 4.7 Medium) from 56e2077 — depends only on T10.
 - 2026-10-01: T03 VERIFIED → merged (e94c127). Parse gated to Cards tab. Mutation: removing the gate fails 3 tests. Integration gates: 1747 passed / ruff / mypy clean. Wave A COMPLETE (T00–T03).
+- 2026-10-01: T08 VERIFIED → merged (25a33ff). Image URL rule identical to builder cardImage; dialog reuse via clicking the row's own preview control (no closure access needed); text via createTextNode. Mutation: removing collapsed-rail guard fails 1 test. Conflicts (script tags, CSS appends) resolved; resolver saved as .cux/resolve_appends.py. Gates: 1759 passed. T12 launched (Grok 4.7 Medium).
