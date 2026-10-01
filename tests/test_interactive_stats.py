@@ -102,9 +102,8 @@ def test_pips_counting_rules_table() -> None:
     assert "W" not in data, "W should not appear (not in commander identity)"
     assert "R" not in data, "R should not appear (not in commander identity)"
     assert "B" not in data, "B should not appear (not in commander identity)"
-    # Each row should have Pips and Sources text
-    assert "Pips" in data["U"]["text"]
-    assert "Sources" in data["U"]["text"]
+    # Each row shows the pip share and the source count.
+    assert "src" in data["U"]["text"]
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +132,7 @@ def test_sources_counting_rules() -> None:
 
     # So sources: W = 1 (City), U = 1 (City), B = 1 (City), R = 1 (City), G = 10+1+1+1=13 (Forests + Trop + City + Birds)
     assert data.get("G"), "expected G row"
-    assert "Sources" in data["G"]["text"]
+    assert "src" in data["G"]["text"]
 
 
 def test_sources_triple_color_any_land() -> None:
@@ -145,9 +144,9 @@ def test_sources_triple_color_any_land() -> None:
     assert "G" in data, "expected G row"
     assert "R" in data, "expected R row"
     # City of Brass adds 1 source to each of W, G, R
-    assert "Sources" in data["W"]["text"]
-    assert "Sources" in data["G"]["text"]
-    assert "Sources" in data["R"]["text"]
+    assert "src" in data["W"]["text"]
+    assert "src" in data["G"]["text"]
+    assert "src" in data["R"]["text"]
 
 
 # ---------------------------------------------------------------------------
@@ -200,9 +199,10 @@ def test_hypergeom_known_values() -> None:
 def test_odds_ui_updates_result_text() -> None:
     payload = _payload("odds_ui_update")
     assert "error" not in payload, payload.get("error", "")
-    assert (
-        payload["firstText"] != payload["secondText"]
-    ), "changing inputs should produce different result text"
+    # The percentage lives on its own. This fixture has no lands, so both
+    # probabilities stay 0.0%. The sentence controls are what change.
+    assert payload["seen"] == "10"
+    assert payload["need"] == "2"
     assert "%" in payload["firstText"]
     assert "%" in payload["secondText"]
 

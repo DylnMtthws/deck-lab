@@ -164,35 +164,45 @@
     return result;
   }
 
+  var PIP_COLORS = { W: "#ede7cf", U: "#5aa6f0", B: "#6b5b8c", R: "#e06a5e", G: "#57d39b" };
+
   function renderPipsSection(commanderIds, pipsData) {
-    var section = window.DeckLabBuilder.railSection("pips", "Color requirements");
+    var section = window.DeckLabBuilder.railSection("pips", "Color requirements", { tab: "deck" });
     section.replaceChildren();
     var heading = document.createElement("h2");
+    heading.className = "dl-eyebrow";
     heading.textContent = "Color requirements";
     section.appendChild(heading);
     var sorted = Array.from(commanderIds).sort();
     sorted.forEach(function (color) {
       var data = pipsData[color] || { pips: 0, pipShare: 0, sources: 0 };
       var row = document.createElement("div");
+      row.className = "dl-pip-row";
       row.setAttribute("data-pips-color", color);
-      var symSpan = document.createElement("span");
       var mana = document.createElement("i");
       mana.className = "mana mana-" + color;
       mana.textContent = color;
-      symSpan.appendChild(mana);
-      symSpan.appendChild(document.createTextNode(" "));
-      row.appendChild(symSpan);
-      var pipsSpan = document.createElement("span");
-      pipsSpan.textContent = "Pips " + data.pipShare + "%";
-      row.appendChild(pipsSpan);
-      var sourcesSpan = document.createElement("span");
-      sourcesSpan.textContent = "Sources " + data.sources;
-      row.appendChild(sourcesSpan);
+      row.appendChild(mana);
+      var bar = document.createElement("span");
+      bar.className = "dl-pip-bar";
+      var fill = document.createElement("i");
+      fill.style.width = Math.max(0, Math.min(100, data.pipShare)) + "%";
+      fill.style.background = PIP_COLORS[color] || "var(--muted)";
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      var stat = document.createElement("span");
+      stat.className = "dl-pip-stat";
+      stat.appendChild(document.createTextNode(data.pipShare + "% · "));
+      var count = document.createElement("b");
+      count.textContent = String(data.sources);
+      stat.appendChild(count);
+      stat.appendChild(document.createTextNode(" src"));
+      row.appendChild(stat);
       section.appendChild(row);
     });
     var rule = document.createElement("p");
     rule.className = "dl-muted";
-    rule.textContent = "Sources: lands and mana producers that can add the color.";
+    rule.textContent = "Pips needed vs. lands and dorks that make each color.";
     section.appendChild(rule);
   }
 
@@ -266,9 +276,10 @@
   var _hand = [];
 
   function renderOddsSection(state) {
-    var section = window.DeckLabBuilder.railSection("odds", "Draw odds");
+    var section = window.DeckLabBuilder.railSection("odds", "Draw odds", { tab: "tools" });
     section.replaceChildren();
     var heading = document.createElement("h2");
+    heading.className = "dl-eyebrow";
     heading.textContent = "Draw odds";
     section.appendChild(heading);
 
@@ -277,7 +288,9 @@
 
     // Category select
     var select = document.createElement("select");
+    select.className = "dl-select";
     select.setAttribute("data-odds-category", "");
+    select.setAttribute("aria-label", "Card category");
 
     // Lands option
     var landOpt = document.createElement("option");
@@ -329,6 +342,7 @@
     // Seen input
     var seenInput = document.createElement("input");
     seenInput.type = "number";
+    seenInput.className = "dl-field dl-inline-field";
     seenInput.setAttribute("data-odds-seen", "");
     seenInput.value = String(_oddsSeen);
     seenInput.min = "1";
@@ -338,14 +352,19 @@
     // Need input
     var needInput = document.createElement("input");
     needInput.type = "number";
+    needInput.className = "dl-field dl-inline-field";
     needInput.setAttribute("data-odds-need", "");
     needInput.value = String(_oddsNeed);
     needInput.min = "0";
     needInput.setAttribute("aria-label", "Minimum cards of this category needed");
 
     // Result output
-    var resultOut = document.createElement("span");
+    var resultOut = document.createElement("div");
+    resultOut.className = "dl-odds-result";
     resultOut.setAttribute("data-odds-result", "");
+    var detailOut = document.createElement("p");
+    detailOut.className = "dl-muted dl-odds-detail";
+    detailOut.setAttribute("data-odds-detail", "");
 
     function updateOdds() {
       var n = parseInt(seenInput.value, 10) || 7;
@@ -363,34 +382,30 @@
       _oddsCategory = select.value;
       _oddsSeen = n;
       _oddsNeed = k;
-      resultOut.textContent = (prob * 100).toFixed(1) + "% to see at least " + k + " " + categoryLabel + " in " + n + " cards (K=" + K + " in N=" + N + ")";
+      var pretty = categoryLabel ? categoryLabel.toLowerCase() : "cards";
+      resultOut.textContent = (prob * 100).toFixed(1) + "%";
+      detailOut.textContent = K + " " + pretty + " in " + N + " cards";
     }
 
     select.addEventListener("change", updateOdds);
     seenInput.addEventListener("input", updateOdds);
     needInput.addEventListener("input", updateOdds);
 
-    var row1 = document.createElement("div");
-    row1.className = "dl-odds-row";
-    row1.appendChild(select);
-    section.appendChild(row1);
-
-    var row2 = document.createElement("div");
-    row2.className = "dl-odds-row";
-    var label1 = document.createElement("label");
-    label1.textContent = "Seen ";
-    label1.appendChild(seenInput);
-    row2.appendChild(label1);
-    var label2 = document.createElement("label");
-    label2.textContent = "Need ";
-    label2.appendChild(needInput);
-    row2.appendChild(label2);
-    section.appendChild(row2);
-
-    var row3 = document.createElement("div");
-    row3.className = "dl-odds-row";
-    row3.appendChild(resultOut);
-    section.appendChild(row3);
+    var card = document.createElement("div");
+    card.className = "dl-odds-card";
+    card.appendChild(resultOut);
+    var sentence = document.createElement("p");
+    sentence.className = "dl-odds-sentence";
+    sentence.appendChild(document.createTextNode("to see at least "));
+    sentence.appendChild(needInput);
+    sentence.appendChild(document.createTextNode(" "));
+    sentence.appendChild(select);
+    sentence.appendChild(document.createTextNode(" in "));
+    sentence.appendChild(seenInput);
+    sentence.appendChild(document.createTextNode(" cards"));
+    card.appendChild(sentence);
+    card.appendChild(detailOut);
+    section.appendChild(card);
 
     // Initial compute
     updateOdds();
@@ -424,10 +439,18 @@
     return drawn;
   }
 
+  function handImage(entry) {
+    if (entry.image_uri) return entry.image_uri;
+    return entry.name
+      ? "https://api.scryfall.com/cards/named?format=image&version=normal&exact=" + encodeURIComponent(entry.name)
+      : "";
+  }
+
   function renderSampleHandSection(state) {
-    var section = window.DeckLabBuilder.railSection("sample-hand", "Sample hand");
+    var section = window.DeckLabBuilder.railSection("sample-hand", "Sample hand", { tab: "tools" });
     section.replaceChildren();
     var heading = document.createElement("h2");
+    heading.className = "dl-eyebrow";
     heading.textContent = "Sample hand";
     section.appendChild(heading);
 
@@ -438,44 +461,72 @@
 
     var drawBtn = document.createElement("button");
     drawBtn.type = "button";
-    drawBtn.className = "dl-button";
+    drawBtn.className = "dl-button is-primary is-sm";
     drawBtn.setAttribute("data-sample-draw", "");
     drawBtn.textContent = "Draw 7";
 
     var nextBtn = document.createElement("button");
     nextBtn.type = "button";
-    nextBtn.className = "dl-button";
+    nextBtn.className = "dl-button is-sm";
     nextBtn.setAttribute("data-sample-next", "");
     nextBtn.textContent = "Draw a card";
     nextBtn.disabled = true;
 
     var list = document.createElement("div");
+    list.className = "dl-hand";
     list.setAttribute("data-sample-cards", "");
 
     var landCount = document.createElement("p");
     landCount.className = "dl-muted";
     landCount.setAttribute("data-sample-lands", "");
 
+    function handSummary(hand) {
+      var counts = {};
+      hand.forEach(function (entry) {
+        var key = /Land/i.test(entry.type_line || "") ? "lands" : (entry.role || "other");
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      var order = ["lands"];
+      Object.keys(counts).sort().forEach(function (key) {
+        if (order.indexOf(key) < 0) order.push(key);
+      });
+      return order.filter(function (key) { return counts[key]; }).map(function (key) {
+        var n = counts[key];
+        var label = key === "lands" ? (n === 1 ? "land" : "lands") : key;
+        return n + " " + label;
+      }).join(" · ");
+    }
+
     function updateHandDisplay() {
       list.replaceChildren();
-      var landsInHand = 0;
       _hand.forEach(function (entry) {
         var btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "dl-text-button";
-        btn.textContent = entry.name;
+        btn.className = "dl-hand-card";
+        btn.setAttribute("data-entry-id", entry.id);
+        btn.setAttribute("aria-label", "Focus " + entry.name);
+        var url = handImage(entry);
+        if (url) {
+          var img = document.createElement("img");
+          img.alt = "";
+          img.src = url;
+          btn.appendChild(img);
+        }
+        var name = document.createElement("span");
+        name.className = url ? "dl-visually-hidden" : "dl-hand-name";
+        name.textContent = entry.name;
+        btn.appendChild(name);
         btn.addEventListener("click", function () {
           window.DeckLabBuilder.focusEntry(entry.id);
         });
         list.appendChild(btn);
-        if (/Land/i.test(entry.type_line || "")) landsInHand++;
       });
-      landCount.textContent = "Lands in hand: " + landsInHand;
+      landCount.textContent = handSummary(_hand);
       if (_hand.length > 0 && window.DeckLabBuilder.getState) {
         var libEntries = libraryEntries(window.DeckLabBuilder.getState());
         var total = libEntries.reduce(function (n, e) { return n + Number(e.quantity || 0); }, 0);
         if (total < 7) {
-          landCount.textContent += " (only " + total + " cards in library)";
+          landCount.textContent += (landCount.textContent ? " " : "") + "(only " + total + " cards in library)";
         }
       }
     }
@@ -553,5 +604,58 @@
     window.DeckLabBuilder.render();
   }
 
+  function initRailTabs() {
+    var root = document.querySelector("[data-rail-tabs]");
+    if (!root || root.getAttribute("data-rail-tabs-ready")) return;
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-rail-tab]"));
+    if (!tabs.length) return;
+    root.setAttribute("data-rail-tabs-ready", "true");
+    var deckId = "deck";
+    try {
+      var data = document.getElementById("deck-document-data");
+      if (data) deckId = String(JSON.parse(data.textContent || "{}").id || deckId);
+    } catch (error) {}
+    var storageKey = "deck-lab-rail-tab:" + deckId;
+    var rail = root.closest(".dl-stats-rail") || document;
+    function paneFor(name) {
+      return rail.querySelector('[data-rail-pane="' + name + '"]');
+    }
+    function select(name, focusTab) {
+      tabs.forEach(function (tab) {
+        var on = tab.getAttribute("data-rail-tab") === name;
+        tab.setAttribute("aria-selected", on ? "true" : "false");
+        tab.tabIndex = on ? 0 : -1;
+        var pane = paneFor(tab.getAttribute("data-rail-tab"));
+        if (pane) {
+          if (on) pane.removeAttribute("hidden");
+          else pane.setAttribute("hidden", "");
+        }
+        if (on && focusTab) tab.focus();
+      });
+      try { localStorage.setItem(storageKey, name); } catch (error) {}
+    }
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        select(tab.getAttribute("data-rail-tab"), false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var next = null;
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") next = tabs[(index + 1) % tabs.length];
+        else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = tabs[(index - 1 + tabs.length) % tabs.length];
+        else if (event.key === "Home") next = tabs[0];
+        else if (event.key === "End") next = tabs[tabs.length - 1];
+        else return;
+        event.preventDefault();
+        select(next.getAttribute("data-rail-tab"), true);
+      });
+    });
+    var saved = null;
+    try { saved = localStorage.getItem(storageKey); } catch (error) {}
+    if (saved && tabs.some(function (tab) { return tab.getAttribute("data-rail-tab") === saved; })) {
+      select(saved, false);
+    }
+  }
+
   init();
+  initRailTabs();
 })();

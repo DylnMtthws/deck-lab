@@ -40,7 +40,7 @@
     if (booted) return;
     var api = window.DeckLabBuilder;
     if (!api || typeof api.railSection !== "function") return;
-    var section = api.railSection("simulation", "Goldfish simulation");
+    var section = api.railSection("simulation", "Goldfish simulation", { tab: "deck" });
     if (!section) return;
     booted = true;
 
@@ -62,6 +62,7 @@
     if (!shared) {
       runButton = document.createElement("button");
       runButton.type = "button";
+      runButton.className = "dl-button is-primary is-sm";
       runButton.textContent = "Run simulation";
       runButton.setAttribute("aria-label", "Run simulation");
       runButton.setAttribute("data-simulate-run", "");
@@ -70,6 +71,7 @@
 
       rerunButton = document.createElement("button");
       rerunButton.type = "button";
+      rerunButton.className = "dl-button is-sm";
       rerunButton.textContent = "Re-run";
       rerunButton.setAttribute("aria-label", "Re-run");
       rerunButton.setAttribute("data-simulate-rerun", "");

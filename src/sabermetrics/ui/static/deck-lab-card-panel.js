@@ -121,16 +121,27 @@
   function syncPin(button) {
     button.setAttribute("aria-pressed", pinned ? "true" : "false");
     button.setAttribute("aria-label", pinned ? "Unpin card preview" : "Pin card preview");
-    button.textContent = pinned ? "Pinned" : "Pin";
+    button.setAttribute("data-dl-tip", pinned ? "Unpin this card" : "Pin this card");
+    button.classList.toggle("is-on", pinned);
+    button.replaceChildren();
+    if (window.DeckLabIcons && typeof window.DeckLabIcons.svg === "function") {
+      button.appendChild(window.DeckLabIcons.svg(pinned ? "pin-off" : "pin", { size: 16 }));
+    } else {
+      button.textContent = pinned ? "Pinned" : "Pin";
+    }
   }
 
   function ensurePin() {
-    var button = panel.querySelector("[data-card-panel-pin]");
+    var button = document.querySelector("[data-card-panel-pin]");
     if (!button) {
       button = document.createElement("button");
       button.type = "button";
-      button.className = "dl-card-panel-pin";
+      button.className = "dl-icon-button dl-card-panel-pin";
       button.setAttribute("data-card-panel-pin", "");
+    }
+    if (!button._pinBound) {
+      button._pinBound = true;
+      button.type = "button";
       button.addEventListener("click", function () {
         pinned = !pinned;
         syncPin(button);
@@ -142,6 +153,89 @@
     }
     syncPin(button);
     return button;
+  }
+
+  var ROLE_OPTIONS = [
+    ["", "Add role"],
+    ["ramp", "Ramp"],
+    ["draw", "Draw"],
+    ["removal", "Removal"],
+    ["protection", "Protection"],
+    ["counter", "Counter"],
+    ["free", "Free interaction"],
+    ["tutor", "Tutor"],
+    ["combo", "Combo"],
+    ["engine", "Engine"],
+    ["board_wipe", "Board wipe"],
+    ["recursion", "Recursion"],
+    ["wincon", "Win condition"],
+    ["land", "Land"],
+    ["utility", "Utility"],
+    ["other", "Other"]
+  ];
+
+  function roleSelect(entry) {
+    var select = document.createElement("select");
+    select.className = "dl-select dl-role-select";
+    select.setAttribute("aria-label", "Role for " + entry.name);
+    var current = String(entry.role || "").toLowerCase();
+    var options = ROLE_OPTIONS.slice();
+    if (current && !options.some(function (item) { return item[0] === current; })) {
+      options.push([current, roleLabel(current)]);
+    }
+    options.forEach(function (item) {
+      var option = document.createElement("option");
+      option.value = item[0];
+      option.textContent = item[1];
+      option.selected = item[0] === current;
+      select.appendChild(option);
+    });
+    select.value = current;
+    var root = document.querySelector(".dl-builder");
+    if (root && root.getAttribute("data-shared") === "true") select.disabled = true;
+    select.addEventListener("change", function () {
+      var api = window.DeckLabBuilder;
+      if (!api || typeof api.command !== "function" || select.disabled) return;
+      api.command([{ type: "set_role", entry_id: entry.id, role: select.value }]);
+    });
+    return select;
+  }
+
+  function panelFeedback(entry) {
+    var root = document.querySelector(".dl-builder");
+    if (root && root.getAttribute("data-shared") === "true") return null;
+    var group = labeled("span", "dl-card-feedback dl-card-panel-feedback");
+    group.setAttribute("data-card-panel-feedback", "");
+    [
+      ["up", "thumb-up", "Good pick"],
+      ["down", "thumb-down", "Bad pick"],
+      ["comment", "comment", "Comment on " + entry.name]
+    ].forEach(function (spec) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dl-icon-button";
+      btn.setAttribute("aria-label", spec[2]);
+      btn.setAttribute("data-dl-tip", spec[2]);
+      if (spec[0] === "comment") btn.setAttribute("data-card-comment", "");
+      else {
+        btn.setAttribute("data-vote", spec[0]);
+        btn.setAttribute("aria-pressed", "false");
+      }
+      if (window.DeckLabIcons && typeof window.DeckLabIcons.svg === "function") {
+        btn.appendChild(window.DeckLabIcons.svg(spec[1], { size: 16 }));
+      }
+      btn.addEventListener("click", function () {
+        var id = String(entry.id).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        var row = document.querySelector('[data-entry-id="' + id + '"]');
+        if (!row) return;
+        var target = spec[0] === "comment"
+          ? row.querySelector("[data-card-comment]")
+          : row.querySelector('[data-vote="' + spec[0] + '"]');
+        if (target && target !== btn && typeof target.click === "function") target.click();
+      });
+      group.appendChild(btn);
+    });
+    return group;
   }
 
   function ensureSlot() {
@@ -223,32 +317,45 @@
     var cost = labeled("div", "dl-card-panel-cost");
     cost.setAttribute("data-card-panel-cost", "");
     if (!fillSymbols(cost, entry.mana_cost)) cost.textContent = "—";
+    var title = labeled("div", "dl-card-panel-title");
+    title.append(name, cost);
     var typeLine = labeled("p", "dl-card-panel-type", entry.type_line || "—");
     typeLine.setAttribute("data-card-panel-type", "");
     var oracle = labeled("p", "dl-card-panel-oracle");
     oracle.setAttribute("data-card-panel-oracle", "");
     fillSymbols(oracle, entry.oracle_text || "");
-    var meta = labeled("p", "dl-card-panel-meta");
-    var qty = labeled("span", "", String(entry.quantity == null ? 0 : entry.quantity));
+    var meta = labeled("div", "dl-card-panel-meta");
+    meta.setAttribute("data-card-panel-meta", "");
+    var copies = Number(entry.quantity == null ? 0 : entry.quantity);
+    var qtyChip = labeled("span", "dl-chip");
+    var qty = labeled("span", "", String(copies));
     qty.setAttribute("data-card-panel-qty", "");
-    var zone = labeled("span", "", zoneLabel(entry));
+    qtyChip.append(qty, document.createTextNode(copies === 1 ? " copy" : " copies"));
+    var zone = labeled("span", "dl-chip", zoneLabel(entry));
     zone.setAttribute("data-card-panel-zone", "");
-    var role = labeled("span", "", roleLabel(entry.role));
+    var role = labeled("span", "dl-visually-hidden", roleLabel(entry.role));
     role.setAttribute("data-card-panel-role", "");
-    meta.append(qty, zone, role);
-    var body = labeled("div", "dl-card-panel-body");
-    body.append(name, cost, typeLine, oracle, meta);
+    role.setAttribute("aria-hidden", "true");
+    var roleControl = roleSelect(entry);
+    meta.append(qtyChip, zone, role, roleControl);
+    var feedback = panelFeedback(entry);
+    if (feedback) meta.appendChild(feedback);
+    var nodes = [buildFrame(entry), title, typeLine, oracle, meta];
     var issues = issueTexts(entry);
     if (issues.length) {
       var list = document.createElement("ul");
       list.className = "dl-card-panel-issues";
       list.setAttribute("role", "note");
       issues.forEach(function (text) {
-        list.appendChild(labeled("li", "", text));
+        list.appendChild(labeled("li", "dl-chip is-warn", text));
       });
-      body.appendChild(list);
+      nodes.push(list);
     }
-    panel.replaceChildren(buildFrame(entry), body, ensurePin(), ensureSlot());
+    var pin = ensurePin();
+    var slot = ensureSlot();
+    if (!pin.parentNode || panel.contains(pin)) nodes.push(pin);
+    nodes.push(slot);
+    panel.replaceChildren.apply(panel, nodes);
   }
 
   function renderEmpty() {
@@ -321,7 +428,9 @@
   }
 
   function boot() {
-    if (!panel || inactive()) return;
+    if (!panel) return;
+    if (document.querySelector("[data-card-panel-pin]")) ensurePin();
+    if (inactive()) return;
     var state = readState();
     var entries = (state && state.entries) || [];
     if (!entries.length) {

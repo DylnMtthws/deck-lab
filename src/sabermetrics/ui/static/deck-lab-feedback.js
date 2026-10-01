@@ -370,13 +370,17 @@
   }
 
   function buildVerdictSection() {
-    var sectionEl = api.railSection("feedback", "Your verdict");
+    var sectionEl = api.railSection("feedback", "Your verdict", { tab: "tools" });
     var verdictGroup = sectionEl.querySelector("[data-feedback-verdict-group]");
     if (verdictGroup) return sectionEl;
     verdictGroup = document.createElement("div");
     verdictGroup.setAttribute("data-feedback-verdict-group", "");
     verdictGroup.className = "dl-feedback-verdict";
+    verdictGroup.setAttribute("role", "group");
+    verdictGroup.setAttribute("aria-label", "Your verdict");
 
+    var segments = document.createElement("div");
+    segments.className = "dl-segments";
     var verdicts = [
       { value: "good", label: "Good" },
       { value: "mixed", label: "Mixed" },
@@ -397,8 +401,9 @@
         });
         scheduleVerdictSave(newVerdict);
       });
-      verdictGroup.appendChild(btn);
+      segments.appendChild(btn);
     });
+    verdictGroup.appendChild(segments);
 
     var commentLabel = document.createElement("label");
     commentLabel.className = "dl-fb-verdict-comment-label";

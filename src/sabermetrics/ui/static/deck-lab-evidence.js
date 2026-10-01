@@ -139,11 +139,12 @@
 
   function ensureControls() {
     if (!window.DeckLabBuilder || !window.DeckLabBuilder.railSection) return;
-    var section = window.DeckLabBuilder.railSection("evidence", "Tournament evidence");
+    var section = window.DeckLabBuilder.railSection("evidence", "Tournament evidence", { tab: "deck" });
     if (!section) return;
     if (!section.querySelector("[data-evidence-window]")) {
       var label = el("label", "dl-evidence-window");
-      var select = el("select", "dl-field");
+      label.appendChild(el("span", "dl-evidence-window-label", "Window"));
+      var select = el("select", "dl-select");
       select.setAttribute("data-evidence-window", "");
       select.setAttribute("aria-label", "Tournament window");
       WINDOWS.forEach(function (item) {
