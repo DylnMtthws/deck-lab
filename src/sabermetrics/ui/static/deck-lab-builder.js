@@ -189,11 +189,16 @@
     if (bulkZone) { bulkZone.disabled = noSelection; if (bulkZone._dlSelectTrigger) bulkZone._dlSelectTrigger.disabled = noSelection; }
     if (controls) controls.classList.toggle("is-empty", noSelection);
     document.querySelectorAll(".dl-deck-row[data-entry-id]").forEach(function (row) { row.classList.toggle("selected", selectedEntries.has(row.dataset.entryId)); });
+    var snapshot = Array.from(selectedEntries).sort().join(",");
+    if (snapshot !== _lastSelectionSnapshot) {
+      _lastSelectionSnapshot = snapshot;
+      _dispatchBuilderEvent("deck-lab:selection", { ids: Array.from(selectedEntries) });
+    }
   }
 
   function renderText(group, container) {
     var rows = node("div", "dl-zone-rows");
-    group.entries.forEach(function (entry) {
+    group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) {
       var row = node("div", "dl-deck-row"), q = node("div", "dl-qty");
       row.dataset.entryId = entry.id; row.classList.toggle("selected", selectedEntries.has(entry.id));
       if (!shared && !entry.is_commander) { var minus = node("button", "", "−"); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + entry.name); minus.setAttribute("data-dl-tip", "Remove one " + entry.name); minus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: -1 }]); }); q.appendChild(minus); }
@@ -213,8 +218,8 @@
       var issueMark = applyCardValidity(row, entry, entry.name); if (issueMark) actions.appendChild(issueMark); row.appendChild(actions); rows.appendChild(row);
     }); container.appendChild(rows);
   }
-  function renderGrid(group, container) { var grid = node("div", "dl-grid-display"); group.entries.forEach(function (entry) { var card = node("div", "dl-grid-card"); card.dataset.entryId = entry.id; card.title = entry.name; var url = cardImage(entry); if (url) { var img = node("img"); img.src = url; img.alt = entry.name; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "fallback", entry.name)); card.appendChild(node("b", "", entry.quantity + "×")); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); grid.appendChild(card); }); container.appendChild(grid); }
-  function renderSpoiler(group, container) { var grid = node("div", "dl-spoiler-display"); group.entries.forEach(function (entry) { var card = node("article", "dl-spoiler-card"), url = cardImage(entry); card.dataset.entryId = entry.id; if (url) { var img = node("img"); img.src = url; img.alt = ""; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "dl-card-art")); var body = node("div"), rules = node("p"); appendManaText(rules, entry.oracle_text || entry.type_line || "Card details unavailable."); body.append(node("strong", "", entry.quantity + "× " + entry.name), rules); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); card.appendChild(body); grid.appendChild(card); }); container.appendChild(grid); }
+  function renderGrid(group, container) { var grid = node("div", "dl-grid-display"); group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) { var card = node("div", "dl-grid-card"); card.dataset.entryId = entry.id; card.title = entry.name; var url = cardImage(entry); if (url) { var img = node("img"); img.src = url; img.alt = entry.name; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "fallback", entry.name)); card.appendChild(node("b", "", entry.quantity + "×")); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); grid.appendChild(card); }); container.appendChild(grid); }
+  function renderSpoiler(group, container) { var grid = node("div", "dl-spoiler-display"); group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) { var card = node("article", "dl-spoiler-card"), url = cardImage(entry); card.dataset.entryId = entry.id; if (url) { var img = node("img"); img.src = url; img.alt = ""; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "dl-card-art")); var body = node("div"), rules = node("p"); appendManaText(rules, entry.oracle_text || entry.type_line || "Card details unavailable."); body.append(node("strong", "", entry.quantity + "× " + entry.name), rules); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); card.appendChild(body); grid.appendChild(card); }); container.appendChild(grid); }
   function renderTable() {
     var view = document.getElementById("table-view"); if (!view) return; view.replaceChildren();
     var collapsed = []; try { collapsed = JSON.parse(preference("collapsed_json", "[]")); } catch (_) {}
@@ -396,7 +401,43 @@
     document.querySelectorAll("[data-surface]").forEach(function (button) { button.classList.toggle("active", !(state.presentation || {}).playmat_id && button.dataset.surface === ((state.presentation || {}).surface || "slate-grid")); }); document.querySelectorAll("[data-playmat-id]").forEach(function (button) { button.classList.toggle("active", !!((state.presentation || {}).playmat_id) && button.dataset.playmatId === String((state.presentation || {}).playmat_id)); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.checked = !!(state.presentation || {})[input.dataset.setting]; }); var size = document.querySelector("[data-playmat-size]"); if (size) { size.value = Number((state.presentation || {}).canvas_width || 1600) + "x" + Number((state.presentation || {}).canvas_height || 900); refreshSelect(size); }
     syncRails();
   }
-  function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); }
+  var _onRenderListeners = [], _entryFilterFn = null, _entryFilterLabel = "", _lastSelectionSnapshot = "";
+  function _dispatchBuilderEvent(name, detail) {
+    if (typeof document.dispatchEvent !== "function") return;
+    try { document.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch (_) {}
+  }
+  function _runOnRenderListeners() {
+    _onRenderListeners.forEach(function (fn) {
+      try { fn(state); } catch (e) { console.error(e); }
+    });
+    _dispatchBuilderEvent("deck-lab:render", { state: state });
+  }
+  function _entryMatches(entry) {
+    return !_entryFilterFn || _entryFilterFn(entry);
+  }
+  function _renderEntryFilterChip() {
+    var toolbar = document.querySelector(".dl-builder-toolbar");
+    if (!toolbar) return;
+    var existing = toolbar.querySelector("[data-entry-filter-chip]");
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    if (!_entryFilterFn) return;
+    var chip = document.createElement("span");
+    chip.setAttribute("data-entry-filter-chip", "");
+    var labelSpan = document.createElement("span");
+    labelSpan.textContent = _entryFilterLabel ? "Filtered: " + _entryFilterLabel : "Filtered";
+    chip.appendChild(labelSpan);
+    var clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.setAttribute("aria-label", "Clear filter");
+    clearBtn.setAttribute("data-entry-filter-clear", "");
+    clearBtn.textContent = "×";
+    clearBtn.addEventListener("click", function () {
+      window.DeckLabBuilder.setEntryFilter(null);
+    });
+    chip.appendChild(clearBtn);
+    toolbar.appendChild(chip);
+  }
+  function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); _renderEntryFilterChip(); _runOnRenderListeners(); }
   function syncRails() {
     root.classList.remove("left-collapsed");
     root.classList.toggle("right-collapsed", !rails.right);
@@ -697,6 +738,85 @@
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && dragPreview) clearDropState(); });
   document.addEventListener("click", function (event) { var anchor = event.target.closest && event.target.closest("a[href]"); if (!anchor || !pendingSaves || event.defaultPrevented || anchor.target || anchor.hasAttribute("download")) return; var target = new URL(anchor.href, location.href); if (target.origin !== location.origin) return; event.preventDefault(); queue.then(function () { if (!failedSave) location.assign(target.href); else if (saveState) saveState.focus(); }); }, true);
   narrow.addEventListener("change", function () { render(); }); render();
+
+  // --- DeckLabBuilder extension API ---
+  window.DeckLabBuilder = {
+    version: 1,
+    get shared() { return shared; },
+    getState: function () { return state; },
+    onRender: function (fn) {
+      _onRenderListeners.push(fn);
+      return function () {
+        var idx = _onRenderListeners.indexOf(fn);
+        if (idx >= 0) _onRenderListeners.splice(idx, 1);
+      };
+    },
+    command: function (commands) {
+      var result = command(commands);
+      return result;
+    },
+    getSelection: function () {
+      return Array.from(selectedEntries);
+    },
+    setSelection: function (ids) {
+      var valid = new Set(state.entries.map(function (e) { return e.id; }));
+      selectedEntries.clear();
+      (ids || []).forEach(function (id) { if (valid.has(id)) selectedEntries.add(id); });
+      syncSelection();
+      renderSelectionBar();
+    },
+    setEntryFilter: function (fn, label) {
+      _entryFilterFn = fn || null;
+      _entryFilterLabel = label || "";
+      render();
+    },
+    focusEntry: function (entryId) {
+      entryId = String(entryId);
+      var view = document.getElementById("table-view");
+      if (!view) return false;
+      var el = view.querySelector('[data-entry-id="' + entryId.replace(/"/g, '\\"') + '"]');
+      if (!el) return false;
+      if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+      el.scrollIntoView({ block: "nearest" });
+      el.focus();
+      _dispatchBuilderEvent("deck-lab:focus-entry", { entryId: entryId });
+      return true;
+    },
+    railSection: function (id, title) {
+      id = String(id);
+      var rail = document.querySelector(".dl-stats-rail");
+      if (!rail) return null;
+      var existing = rail.querySelector('[data-ext-section="' + id.replace(/"/g, '\\"') + '"]');
+      if (existing) return existing;
+      var section = document.createElement("section");
+      section.setAttribute("data-ext-section", id);
+      var heading = document.createElement("h2");
+      heading.textContent = title;
+      section.appendChild(heading);
+      rail.appendChild(section);
+      return section;
+    },
+    render: function () { render(); },
+  };
+  _dispatchBuilderEvent("deck-lab:ready", { api: window.DeckLabBuilder });
+
+  // Delegated hover listener on #table-view
+  var _hoverLastId = null;
+  function _onHover(event) {
+    var target = event.target;
+    var entryEl = target.closest && target.closest("[data-entry-id]");
+    if (!entryEl) return;
+    var id = entryEl.getAttribute("data-entry-id");
+    if (id === _hoverLastId) return;
+    _hoverLastId = id;
+    _dispatchBuilderEvent("deck-lab:entry-hover", { entryId: id });
+  }
+  var _tableView = document.getElementById("table-view");
+  if (_tableView) {
+    _tableView.addEventListener("mouseover", _onHover);
+    _tableView.addEventListener("focusin", _onHover);
+  }
+
   if (tagsDialog && new URLSearchParams(location.search).get("panel") === "tags") { tagsDialog.showModal(); if (tagInput) tagInput.focus(); }
   try { var pending = JSON.parse(localStorage.getItem(recoveryKey)); if (pending && pending.commands) command(pending.commands, pending.mutation_id, pending.expected_revision); } catch (_) {}
 })();
