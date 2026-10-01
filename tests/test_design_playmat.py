@@ -330,12 +330,13 @@ def test_server_fallback_places_new_zone_below_all_and_grows_canvas(
             {"type": "create_zone", "name": "Alpha", "zone_id": "alpha"},
             {"type": "create_zone", "name": "Beta", "zone_id": "beta"},
             {"type": "create_zone", "name": "Gamma", "zone_id": "gamma"},
+            {"type": "create_zone", "name": "Delta", "zone_id": "delta"},
         ],
     )
     zones = {zone["name"]: zone for zone in document["zones"]}
-    assert set(zones) == {"Unsorted", "Alpha", "Beta", "Gamma"}
+    assert set(zones) == {"Unsorted", "Alpha", "Beta", "Gamma", "Delta"}
     seen = [zones["Unsorted"]]
-    for name in ("Alpha", "Beta", "Gamma"):
+    for name in ("Alpha", "Beta", "Gamma", "Delta"):
         zone = zones[name]
         assert zone["x"] == 18
         lowest = max([COMMAND_BOTTOM, *(_zone_bottom(earlier) for earlier in seen)])
@@ -344,8 +345,8 @@ def test_server_fallback_places_new_zone_below_all_and_grows_canvas(
             assert zone["y"] > _zone_bottom(earlier)
         assert zone["y"] > COMMAND_BOTTOM
         seen.append(zone)
-    assert zones["Gamma"]["y"] > 900
-    assert document["presentation"]["canvas_height"] == zones["Gamma"]["y"] + 264
+    assert zones["Delta"]["y"] > 900
+    assert document["presentation"]["canvas_height"] == zones["Delta"]["y"] + 264
 
     commanded = repo.create(owner, title="Command floor")
     with db.connect(repo.db_path) as conn:
