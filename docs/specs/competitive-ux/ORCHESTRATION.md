@@ -23,7 +23,7 @@ The program is DONE only when every box is checked:
       - PRE-EXISTING = already on `main`, with a file:line or commit as evidence.
 - [ ] D2. On the integration branch after the last merge: Gate 1 = 0 failures and passed count
       ≥ 1617 + (new tests); Gate 2 clean; Gate 3 clean.
-- [ ] D3. Integration smoke (`scripts/competitive_ux_smoke.py`, written by me): a Flask test-client
+- [ ] D3. Integration test (`tests/test_competitive_ux_integration.py`, written by me; permanent, runs in CI): a Flask test-client
       run that logs in a seeded user, creates a deck, and asserts the builder page, export formats,
       feedback endpoints, Research syntax, and the generate flow (fixture mode) each work. Exit 0.
 - [ ] D4. Constraint guard over the whole integration diff is empty or every hit is justified:
@@ -114,3 +114,4 @@ all gates after every merge.
 - 2026-10-01: T13 launched (Grok 4.7 Medium) from integration HEAD.
 - 2026-10-01: T14 VERIFIED → merged. Table has no FK on deck_id (deck deletion unaffected); hash via existing DeckCandidate.deck_sha256; simulator-returned hash compared against ours (integrity contract); client only via build_simulator_client; bounded executor, 202 + status URL. Mutation running simulation on the request thread fails the latch test. builder_routes add/add conflict with T12 hand-resolved. Gates: 1849 passed / ruff / mypy clean.
 - 2026-10-01: TODO (orchestrator, end): format-only `ruff format` commit for files with drift from T01/T03/T12/T14 (deck_documents.py, deck_evidence.py, research_routes.py, scryfall_query.py) — CI does not enforce format, but base files were formatted.
+- 2026-10-01: D3 integration test added (6 tests: script elements/order on owner+shared pages, generated deck roles+exports, Considering batch via real command API + role view + simulation absence, evidence absence-not-zero, Research syntax). Mutation-checked: removing a module tag and autoescaping a tag each fail it. Feedback (T07) and meta-compare (T13) checks to be added after their merges.
