@@ -834,8 +834,10 @@
       _dispatchBuilderEvent("deck-lab:focus-entry", { entryId: entryId });
       return true;
     },
-    railSection: function (id, title) {
+    railSection: function (id, title, opts) {
       id = String(id);
+      opts = opts || {};
+      var tab = opts.tab || "deck";
       var rail = document.querySelector(".dl-stats-rail");
       if (!rail) return null;
       var existing = rail.querySelector('[data-ext-section="' + id.replace(/"/g, '\\"') + '"]');
@@ -845,7 +847,9 @@
       var heading = document.createElement("h2");
       heading.textContent = title;
       section.appendChild(heading);
-      rail.appendChild(section);
+      var pane = rail.querySelector('[data-rail-pane="' + String(tab).replace(/"/g, "") + '"]');
+      if (pane) pane.appendChild(section);
+      else rail.appendChild(section);
       return section;
     },
     render: function () { render(); },
