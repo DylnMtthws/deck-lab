@@ -316,12 +316,15 @@ const afterLoad = { imgHidden: !!imageEl.hidden, statusHidden: !!imageStatus.hid
 imageEl.dispatchEvent(makeEvent("error", { target: imageEl }));
 const afterError = { imgHidden: !!imageEl.hidden, statusHidden: !!imageStatus.hidden, status: imageStatus.textContent };
 
-// The card-name link opens the same dialog and no longer targets a new tab.
+// A plain click keeps the name from navigating. Double-click opens the image dialog.
 const nameLink = document.querySelectorAll(".dl-card-name")[1];
 const nameMarkup = { tag: nameLink.tagName, target: String(nameLink.target || ""), tip: nameLink.getAttribute("data-dl-tip"), aria: nameLink.getAttribute("aria-label") };
 let prevented = false;
+const callsBeforeName = modalCalls.length;
 nameLink.dispatchEvent({ type: "click", target: nameLink, preventDefault() { prevented = true; }, stopPropagation() {} });
-const afterNameClick = { modalCalls: modalCalls.length, prevented, title: imageTitle.textContent };
+const nameRow = nameLink.closest(".dl-deck-row");
+nameRow.dispatchEvent({ type: "dblclick", target: nameLink, preventDefault() {}, stopPropagation() {} });
+const afterNameClick = { modalCalls: modalCalls.length, callsBeforeName, prevented, title: imageTitle.textContent };
 
 // DYL-66: focus must return to the control that opened the modal even when a
 // queued render has replaced that row while the dialog was open.
