@@ -46,7 +46,7 @@ The program is DONE only when every box is checked:
 | 6 | Paste-ready export for Moxfield/Archidekt | T01 | LOW | VERIFIED (2789c4d); builds on pre-existing "Copy list" (b46f209) |
 | 7 | Real mana symbols | T02 | LOW | VERIFIED (97125df) |
 | 8 | Generation in the new-deck flow + real progress | T10 | HIGH | VERIFIED (56e2077) |
-| 9 | Evidence badges + "Why this card?" | T12 | HIGH | TODO |
+| 9 | Evidence badges + "Why this card?" | T12 | HIGH | VERIFIED (a9b3e27) |
 | 10 | Compare to the meta | T13 | HIGH | TODO |
 | 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
 | 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | TODO |
@@ -109,3 +109,6 @@ all gates after every merge.
 - 2026-10-01: T05 VERIFIED → merged (see merge commit). Late-load fixed; mutation removing immediate render fails 3 tests. Deviation accepted: footer placed after the owner-only block in content (not inside .dl-builder grid) — CSS designed for that. MERGE INCIDENT (mine, #2): resolver silently dropped T05's footer because it shared the conflict hunk with the scripts line. Restored. Resolver now refuses hunks where theirs adds non-script lines; new `.cux/presence_check.sh` asserts every template line a branch added survives the merge — run retroactively on T01/T02/T03/T08/T09/T10/T11: all present. Gates: 1802 passed, ruff/mypy clean.
 - 2026-10-01: T04 VERIFIED → merged (9b66f34) after rework (literal conditional script tag; test now matches a real element and forbids `&lt;script`). Command shapes checked against `_apply_command` (`type` key, client zone_id accepted). Mutation removing selection-event wiring fails 2 tests.
 - 2026-10-01: T06 VERIFIED → merged after rework (module-level odds/hand state). Mutation resetting the hand on render fails 1 test. Gates: 1826 passed / ruff / mypy clean.
+- 2026-10-01: T07 review → REWORK. Implementation sound (owner-scoped routes, card_key validation, CSRF). SPEC ERROR (mine): I specified ON DELETE CASCADE on deck_id, but DeckDocumentRepo enables FKs → deleting a deck would erase testers' research feedback, contradicting CLAUDE.md (feedback kept on delete); plain FK would instead block deletion. Amendment-1: deck_id without FK + AC-15 survival test; also revert T07's edit to an existing test (integration already satisfies the original).
+- 2026-10-01: T12 VERIFIED → merged (a9b3e27). Reuses ResearchRepo._scope (no re-derived window); single aggregate query; event-size column probed at runtime (none locally → floor reported as "event size not recorded"); unknown commander → unavailable, not 0; explanations only from the deck's own source candidate (owner-scoped). Noted (non-blocking): relies on SQLite emitting UNION ALL rows in order. Mutation dropping the denominator from badge text fails 3 tests. Gates: 1838 passed / ruff / mypy clean. (Orchestrator slip: first merge attempt ran inside cux-T12 — a no-op; redone in integration.)
+- 2026-10-01: T13 launched (Grok 4.7 Medium) from integration HEAD.
