@@ -127,12 +127,17 @@
     });
   }
   function zoneName(zoneId) { var zone = state.zones.find(function (item) { return item.id === zoneId; }); return zone ? zone.name : "Unsorted"; }
-  function manaToken(sym) {
-    if (window.DeckLabMana) return window.DeckLabMana.symbol(sym, { decorative: true });
-    var upper = String(sym || "").toUpperCase(), token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
-    if (/^[WUBRGC]$/.test(upper)) token.classList.add("mana", "mana-" + upper);
-    else token.classList.add("dl-mana-generic");
-    token.setAttribute("aria-hidden", "true");
+  function manaToken(sym, kind) {
+    var token;
+    if (window.DeckLabMana) token = window.DeckLabMana.symbol(sym, { decorative: true });
+    else {
+      var upper = String(sym || "").toUpperCase();
+      token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
+      if (/^[WUBRGC]$/.test(upper)) token.classList.add("mana", "mana-" + upper);
+      else token.classList.add("dl-mana-generic");
+      token.setAttribute("aria-hidden", "true");
+    }
+    if (token && token.classList) token.classList.add(kind === "inline" ? "dl-mana-text" : "dl-mana-pip");
     return token;
   }
   function appendManaText(container, text) {
@@ -146,7 +151,7 @@
     while ((match = pattern.exec(raw))) {
       if (match.index > last) appendPlain(raw.slice(last, match.index));
       var wrap = node("span", "dl-mana-inline");
-      wrap.appendChild(manaToken(match[1]));
+      wrap.appendChild(manaToken(match[1], "inline"));
       wrap.appendChild(node("span", "dl-visually-hidden", match[0]));
       container.appendChild(wrap);
       last = match.index + match[0].length;
@@ -157,8 +162,37 @@
     var wrap = node("span", "dl-mana-cost"), raw = String(entry.mana_cost || "").trim(), matches = Array.from(raw.matchAll(/\{([^}]+)\}/g));
     wrap.setAttribute("aria-label", raw ? "Mana cost " + raw.replace(/[{}]/g, " ").trim() : "No mana cost");
     if (!matches.length) { wrap.textContent = "—"; return wrap; }
-    matches.forEach(function (match) { wrap.appendChild(manaToken(match[1])); });
+    matches.forEach(function (match) { wrap.appendChild(manaToken(match[1], "cost")); });
     return wrap;
+  }
+  function roleLabel(role) {
+    var current = String(role || "").toLowerCase(), found = "";
+    roleOptions.forEach(function (item) { if (item[0] === current) found = item[1]; });
+    if (current && found) return found;
+    if (!current) return "";
+    return current.replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+  }
+  function groupUncounted(group) {
+    if (group.id === "role-private") return true;
+    return !!(group.zone && !isLibraryZone(group.zone.id));
+  }
+  function libraryTotal() {
+    return qty(state.entries.filter(function (entry) {
+      return entry.is_commander || isLibraryZone(entry.zone_id);
+    }));
+  }
+  function shareBar(group) {
+    if (groupUncounted(group)) return null;
+    var bar = node("span", "dl-share"), fill = node("i");
+    var total = libraryTotal(), portion = total ? qty(group.entries) / total : 0;
+    bar.setAttribute("aria-hidden", "true");
+    fill.style.width = Math.max(0, Math.min(100, Math.round(portion * 100))) + "%";
+    bar.appendChild(fill);
+    return bar;
+  }
+  function paintIcon(button, iconName, glyph) {
+    if (window.DeckLabIcons) button.appendChild(window.DeckLabIcons.svg(iconName, { size: 14 }));
+    else button.textContent = glyph;
   }
   function roleSelect(entry) {
     var select = node("select", "dl-role-select"), current = String(entry.role || "").toLowerCase();
@@ -221,25 +255,46 @@
   }
 
   function renderText(group, container) {
-    var rows = node("div", "dl-zone-rows");
+    var rows = node("div", "dl-zone-rows"), groupMode = preference("group_mode", "zone");
     group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) {
-      var row = node("div", "dl-deck-row"), q = node("div", "dl-qty");
+      var row = node("div", "dl-deck-row"), q = node("div", "dl-qty"), imageUrl = cardImage(entry);
+      var name = imageUrl ? node("a", "dl-card-name", "") : node("span", "dl-card-name", "");
+      var cardCell = node("span", "dl-card-cell");
       row.dataset.entryId = entry.id; row.classList.toggle("selected", selectedEntries.has(entry.id));
-      if (!shared && !entry.is_commander) { var minus = node("button", "", "−"); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + entry.name); minus.setAttribute("data-dl-tip", "Remove one " + entry.name); minus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: -1 }]); }); q.appendChild(minus); }
+      name.appendChild(node("span", "dl-card-name-text", entry.name));
+      if (imageUrl) {
+        name.href = imageUrl; name.rel = "noopener"; name.dataset.cardFocusKey = "name:" + entry.id;
+        name.setAttribute("aria-label", entry.name);
+        name.addEventListener("click", function (event) { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); });
+      }
+      cardCell.appendChild(name);
+      if ((groupMode === "role" || groupMode === "type") && !entry.is_commander && !isLibraryZone(entry.zone_id)) cardCell.appendChild(node("span", "dl-chip dl-zone-chip", zoneName(entry.zone_id)));
+      if (groupMode === "zone" && !entry.is_commander && roleLabel(entry.role)) cardCell.appendChild(node("span", "dl-chip dl-role-chip", roleLabel(entry.role)));
+      if (!shared && !entry.is_commander) {
+        var minus = node("button", "dl-step", ""); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + entry.name); minus.setAttribute("data-dl-tip", "Remove one " + entry.name); paintIcon(minus, "minus", "−"); minus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: -1 }]); }); q.appendChild(minus);
+      }
       q.appendChild(node("span", "", entry.quantity));
-      if (!shared && !entry.is_commander) { var plus = node("button", "", "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add one " + entry.name); plus.setAttribute("data-dl-tip", "Add one " + entry.name); plus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: 1 }]); }); q.appendChild(plus); }
-      var imageUrl = cardImage(entry), name = imageUrl ? node("a", "dl-card-name", entry.name) : node("span", "dl-card-name", entry.name);
-      if (imageUrl) { name.href = imageUrl; name.rel = "noopener"; name.dataset.cardFocusKey = "name:" + entry.id; name.setAttribute("aria-label", entry.name + ". View card image"); name.addEventListener("click", function (event) { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); openCardImage(entry.name, imageUrl, name); }); }
+      if (!shared && !entry.is_commander) {
+        var plus = node("button", "dl-step", ""); plus.type = "button"; plus.setAttribute("aria-label", "Add one " + entry.name); plus.setAttribute("data-dl-tip", "Add one " + entry.name); paintIcon(plus, "plus", "+"); plus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: 1 }]); }); q.appendChild(plus);
+      }
       if (!entry.is_commander && !shared) { var choose = node("input", "dl-row-select"); choose.type = "checkbox"; choose.checked = selectedEntries.has(entry.id); choose.setAttribute("aria-label", "Select " + entry.name); choose.addEventListener("change", function () { if (choose.checked) selectedEntries.add(entry.id); else selectedEntries.delete(entry.id); syncSelection(); }); row.appendChild(choose); } else row.appendChild(node("span", "dl-row-select-space"));
-      row.append(q, name, manaCost(entry), node("span", "dl-card-type", entry.type_line || "—"));
-      if (entry.is_commander) row.appendChild(node("span", "dl-zone-value", "Commander"));
-      else if (!shared) { var select = zoneOptions(entry.zone_id, "dl-inline-zone-select"); select.setAttribute("aria-label", "Move " + entry.name + " to zone"); select.addEventListener("change", function () { command([{ type: "move_entry", entry_id: entry.id, zone_id: select.value, sort_order: 999 }]); }); row.appendChild(select); }
-      else row.appendChild(node("span", "dl-zone-value", zoneName(entry.zone_id)));
-      if (entry.is_commander) row.appendChild(node("span", "dl-role-empty", "—")); else if (!shared) row.appendChild(roleSelect(entry)); else row.appendChild(node("span", entry.role ? "dl-role-chip" : "dl-role-empty", entry.role || "—"));
-      var actions = node("div", "dl-row-actions"), imageUrl = cardImage(entry);
-      if (imageUrl) { var preview = node("button", "dl-icon-button dl-card-preview", ""); preview.type = "button"; preview.dataset.cardFocusKey = "preview:" + entry.id; preview.setAttribute("aria-label", "View card image for " + entry.name); preview.setAttribute("data-dl-tip", "View card image"); preview.addEventListener("click", function () { openCardImage(entry.name, imageUrl, preview); }); preview.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="10" height="14" rx="1.5"/><path d="M7 6h10v11a1 1 0 0 1-1 1H7z"/></svg>'; actions.appendChild(preview); }
-      if (!shared) { var remove = node("button", "dl-icon-button", "×"); remove.type = "button"; remove.setAttribute("aria-label", "Remove " + entry.name); remove.setAttribute("data-dl-tip", "Remove " + entry.name); remove.addEventListener("click", function () { command([{ type: "remove_entry", entry_id: entry.id }]); }); actions.appendChild(remove); }
-      var issueMark = applyCardValidity(row, entry, entry.name); if (issueMark) actions.appendChild(issueMark); row.appendChild(actions); rows.appendChild(row);
+      row.append(q, cardCell, manaCost(entry), node("span", "dl-card-type", entry.type_line || "—"));
+      var actions = node("div", "dl-row-actions");
+      if (imageUrl) { var preview = node("button", "dl-icon-button dl-card-preview", ""); preview.type = "button"; preview.dataset.cardFocusKey = "preview:" + entry.id; preview.setAttribute("aria-label", "View card image for " + entry.name); preview.setAttribute("data-dl-tip", "View card image"); preview.addEventListener("click", function () { openCardImage(entry.name, imageUrl, preview); }); paintIcon(preview, "image", ""); actions.appendChild(preview); }
+      if (!shared) { var remove = node("button", "dl-icon-button dl-row-remove", ""); remove.type = "button"; remove.setAttribute("aria-label", "Remove " + entry.name); remove.setAttribute("data-dl-tip", "Remove " + entry.name); paintIcon(remove, "x", "×"); remove.addEventListener("click", function () { command([{ type: "remove_entry", entry_id: entry.id }]); }); actions.appendChild(remove); }
+      var issueMark = applyCardValidity(row, entry, entry.name); if (issueMark) actions.appendChild(issueMark); row.appendChild(actions);
+      if (!entry.is_commander && !shared) { var select = zoneOptions(entry.zone_id, "dl-inline-zone-select"); select.setAttribute("aria-label", "Move " + entry.name + " to zone"); select.addEventListener("change", function () { command([{ type: "move_entry", entry_id: entry.id, zone_id: select.value, sort_order: 999 }]); }); row.appendChild(select); }
+      row.addEventListener("click", function (event) {
+        var target = event.target;
+        if (target && target.closest && target.closest("button, input, select, textarea")) return;
+        if (window.DeckLabBuilder && window.DeckLabBuilder.focusEntry) window.DeckLabBuilder.focusEntry(entry.id);
+      });
+      row.addEventListener("dblclick", function (event) {
+        var target = event.target;
+        if (target && target.closest && target.closest("button, input, select, textarea")) return;
+        if (imageUrl) openCardImage(entry.name, imageUrl, name);
+      });
+      rows.appendChild(row);
     }); container.appendChild(rows);
   }
   function renderGrid(group, container) { var grid = node("div", "dl-grid-display"); group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) { var card = node("div", "dl-grid-card"); card.dataset.entryId = entry.id; card.title = entry.name; var url = cardImage(entry); if (url) { var img = node("img"); img.src = url; img.alt = entry.name; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "fallback", entry.name)); card.appendChild(node("b", "", entry.quantity + "×")); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); grid.appendChild(card); }); container.appendChild(grid); }
@@ -256,14 +311,14 @@
     var surface = node("div", "dl-decklist-surface dl-density-" + density + " dl-display-" + display);
     if (display === "text") {
       var columns = node("div", "dl-decklist-columns");
-      ["", "Qty", "Name", "Cost", "Type", "Zone", "Role", ""].forEach(function (label, index) { var heading = node("span", index === 0 ? "dl-column-select" : "", label); if (label) heading.setAttribute("role", "columnheader"); columns.appendChild(heading); });
+      ["", "Qty", "Card", "Cost", "Type", ""].forEach(function (label, index) { var heading = node("span", index === 0 ? "dl-column-select" : "", label); if (label) heading.setAttribute("role", "columnheader"); columns.appendChild(heading); });
       surface.appendChild(columns);
     }
     groups().forEach(function (group) {
-      var isCollapsed = collapsed.indexOf(group.id) >= 0, section = node("section", "dl-zone-section" + (group.id === "commander" ? " commander" : "") + (isCollapsed ? " collapsed" : "")), head = node("div", "dl-zone-heading"), toggle = node("button", "dl-zone-collapse", isCollapsed ? "▸" : "▾"), selectCell = node("span", "dl-heading-select"), title = node("div", "dl-heading-title"); section.id = "zone-" + group.id; toggle.type = "button"; toggle.setAttribute("aria-label", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("data-dl-tip", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+      var isCollapsed = collapsed.indexOf(group.id) >= 0, section = node("section", "dl-zone-section" + (group.id === "commander" ? " commander" : "") + (isCollapsed ? " collapsed" : "")), head = node("div", "dl-zone-heading"), toggle = node("button", "dl-zone-collapse" + (isCollapsed ? " is-collapsed" : ""), ""), selectCell = node("span", "dl-heading-select"), title = node("div", "dl-heading-title"), heading = node("h2"), countLabel = String(qty(group.entries)); section.id = "zone-" + group.id; toggle.type = "button"; paintIcon(toggle, "chevron-down", isCollapsed ? "▸" : "▾"); toggle.setAttribute("aria-label", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("data-dl-tip", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true"); if (group.id === "commander") heading.appendChild(node("span", "dl-chip dl-commander-chip", "Commander")); else heading.textContent = group.name; if (groupUncounted(group)) countLabel += " · not counted";
       var selectable = group.entries.filter(function (entry) { return !entry.is_commander; });
       if (selectable.length && !shared) { var selectAll = node("input", "dl-group-select"); selectAll.type = "checkbox"; selectAll.checked = selectable.every(function (entry) { return selectedEntries.has(entry.id); }); selectAll.indeterminate = !selectAll.checked && selectable.some(function (entry) { return selectedEntries.has(entry.id); }); selectAll.setAttribute("aria-label", "Select all cards in " + group.name); selectAll.addEventListener("click", function (event) { event.stopPropagation(); }); selectAll.addEventListener("change", function () { selectable.forEach(function (entry) { if (selectAll.checked) selectedEntries.add(entry.id); else selectedEntries.delete(entry.id); }); renderTable(); syncSelection(); }); selectCell.appendChild(selectAll); }
-      title.append(toggle, node("h2", "", group.name), node("span", "dl-zone-count", qty(group.entries))); head.append(selectCell, title);
+      title.append(toggle, heading, node("span", "dl-zone-count", countLabel)); var bar = shareBar(group); if (bar) title.appendChild(bar); head.append(selectCell, title);
       section.appendChild(head); var body = node("div"); body.hidden = collapsed.indexOf(group.id) >= 0; section.appendChild(body);
       toggle.addEventListener("click", function () { var next = collapsed.indexOf(group.id) >= 0 ? collapsed.filter(function (id) { return id !== group.id; }) : collapsed.concat([group.id]); command([{ type: "update_view", collapsed: next }]); });
       if (display === "grid") renderGrid(group, body); else if (display === "spoiler") renderSpoiler(group, body); else renderText(group, body); surface.appendChild(section);

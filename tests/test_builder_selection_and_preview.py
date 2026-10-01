@@ -238,9 +238,10 @@ def test_card_name_link_opens_the_same_dialog() -> None:
     assert name["tag"] == "A"
     assert name["target"] == ""
     assert name["tip"] is None  # visible text: no tooltip
-    assert name["aria"] == "Sol Ring. View card image"
+    assert name["aria"] == "Sol Ring"
     after = payload["afterNameClick"]
     assert after["prevented"] is True
+    assert after["callsBeforeName"] == 1
     assert after["modalCalls"] == 2
     assert after["title"] == "Sol Ring"
 

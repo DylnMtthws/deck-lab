@@ -108,10 +108,19 @@
       var upBtn = row.querySelector('[data-vote="up"]');
       var downBtn = row.querySelector('[data-vote="down"]');
       var commentBtn = row.querySelector("[data-card-comment]");
-      if (upBtn) upBtn.setAttribute("aria-pressed", fb && fb.vote === "up" ? "true" : "false");
-      if (downBtn) downBtn.setAttribute("aria-pressed", fb && fb.vote === "down" ? "true" : "false");
+      if (upBtn) {
+        var upOn = !!(fb && fb.vote === "up");
+        upBtn.setAttribute("aria-pressed", upOn ? "true" : "false");
+        upBtn.classList.toggle("is-on", upOn);
+      }
+      if (downBtn) {
+        var downOn = !!(fb && fb.vote === "down");
+        downBtn.setAttribute("aria-pressed", downOn ? "true" : "false");
+        downBtn.classList.toggle("is-on", downOn);
+      }
       if (commentBtn) {
-        var hasComment = fb && fb.comment;
+        var hasComment = !!(fb && fb.comment);
+        commentBtn.classList.toggle("is-on", hasComment);
         if (hasComment) commentBtn.setAttribute("data-has-comment", "");
         else commentBtn.removeAttribute("data-has-comment");
       }
@@ -145,6 +154,13 @@
     return entry.oracle_id || "card:" + (entry.card_id || "");
   }
 
+  function feedbackIcon(name) {
+    if (window.DeckLabIcons && typeof window.DeckLabIcons.svg === "function") {
+      return window.DeckLabIcons.svg(name, { size: 15 });
+    }
+    return null;
+  }
+
   function ensureFeedbackGroup(row, cardKey, cardName) {
     var group = row.querySelector("[data-card-feedback]");
     if (group) return group;
@@ -156,31 +172,39 @@
     upBtn.setAttribute("data-vote", "up");
     upBtn.setAttribute("aria-pressed", "false");
     upBtn.setAttribute("aria-label", "Good pick");
-    upBtn.textContent = "\uD83D\uDC4D";
+    upBtn.setAttribute("data-dl-tip", "Good pick");
     upBtn.type = "button";
-    upBtn.className = "dl-fb-btn dl-fb-up";
+    upBtn.className = "dl-icon-button dl-fb-btn dl-fb-up";
+    var upIcon = feedbackIcon("thumb-up");
+    if (upIcon) upBtn.appendChild(upIcon);
 
     var downBtn = document.createElement("button");
     downBtn.setAttribute("data-vote", "down");
     downBtn.setAttribute("aria-pressed", "false");
     downBtn.setAttribute("aria-label", "Bad pick");
-    downBtn.textContent = "\uD83D\uDC4E";
+    downBtn.setAttribute("data-dl-tip", "Bad pick");
     downBtn.type = "button";
-    downBtn.className = "dl-fb-btn dl-fb-down";
+    downBtn.className = "dl-icon-button dl-fb-btn dl-fb-down";
+    var downIcon = feedbackIcon("thumb-down");
+    if (downIcon) downBtn.appendChild(downIcon);
 
     var commentBtn = document.createElement("button");
     commentBtn.setAttribute("data-card-comment", "");
     commentBtn.setAttribute("aria-label", "Comment on " + cardName);
-    commentBtn.textContent = "\uD83D\uDCAC";
+    commentBtn.setAttribute("data-dl-tip", "Comment on " + cardName);
     commentBtn.type = "button";
-    commentBtn.className = "dl-fb-btn dl-fb-comment";
+    commentBtn.className = "dl-icon-button dl-fb-btn dl-fb-comment";
+    var commentIcon = feedbackIcon("comment");
+    if (commentIcon) commentBtn.appendChild(commentIcon);
 
     group.appendChild(upBtn);
     group.appendChild(downBtn);
     group.appendChild(commentBtn);
 
     var existing = row.querySelector("[data-card-feedback]");
+    var actions = row.querySelector(".dl-row-actions");
     if (existing) existing.replaceWith(group);
+    else if (actions) actions.appendChild(group);
     else row.appendChild(group);
 
     upBtn.addEventListener("click", function () {
@@ -190,7 +214,9 @@
       var oldComment = prevFb ? prevFb.comment : null;
 
       upBtn.setAttribute("aria-pressed", newVote === "up" ? "true" : "false");
+      upBtn.classList.toggle("is-on", newVote === "up");
       downBtn.setAttribute("aria-pressed", "false");
+      downBtn.classList.remove("is-on");
 
       var oldVote = prevFb ? prevFb.vote : null;
       if (!feedbackCache) feedbackCache = { cards: {}, deck: null };
@@ -215,7 +241,9 @@
       var oldComment = prevFb ? prevFb.comment : null;
 
       downBtn.setAttribute("aria-pressed", newVote === "down" ? "true" : "false");
+      downBtn.classList.toggle("is-on", newVote === "down");
       upBtn.setAttribute("aria-pressed", "false");
+      upBtn.classList.remove("is-on");
 
       var oldVote = prevFb ? prevFb.vote : null;
       if (!feedbackCache) feedbackCache = { cards: {}, deck: null };
@@ -435,6 +463,7 @@
     if (!view) return;
     var rows = view.querySelectorAll("[data-entry-id]");
     rows.forEach(function (row) {
+      if (!row.classList || !row.classList.contains("dl-deck-row")) return;
       if (row.querySelector("[data-card-feedback]")) return;
       var entryId = row.getAttribute("data-entry-id");
       var entry = findEntry(entryId);
