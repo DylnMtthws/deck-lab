@@ -132,22 +132,40 @@ Contract: `docs/design/DESIGN-SPEC.md`. Tasks D00–D07. Tooling (outside repo):
 Baseline lint on integration before redesign (`.cux/visual/baseline/summary.json`): toolbar overlaps/clipping at both widths; 303 unstyled controls in list view; 21 oversized spoiler symbols; zoom control under status bar (5); text at 8–10 px.
 
 ## Orchestrator definition of done — design phase
-- [ ] E1. D00–D07 each VERIFIED: gates green (incl. black), DESIGN-SPEC §3 lint clean for its scenarios at 1440 & 1280, and I reviewed its screenshots against the spec and mock-ups.
-- [ ] E2. Full capture on the integration branch after the last merge: every scenario clean at both widths; I review the full screenshot set side by side with the mock-ups.
-- [ ] E3. Playmat interactions preserved: existing playmat tests pass unmodified, AND a scripted interaction run on the review server (drag a card between zones, toggle Stack/Spread, peek a stack, drag a card out of a stack, pan/zoom/Fit) succeeds with no JS errors.
-- [ ] E4. Gates on integration: ruff, black, mypy, pytest all green.
-- [ ] E5. New QA candidate (builder batch + design) built, smoke-tested, deployed to qa.decklab.studio; receipt written; owner reviews.
+- [x] E1. D00–D07 each VERIFIED: gates green (incl. black), DESIGN-SPEC §3 lint clean for its scenarios at 1440 & 1280, and I reviewed its screenshots against the spec and mock-ups.
+- [x] E2. Full capture on the integration branch after the last merge: every scenario clean at both widths; I review the full screenshot set side by side with the mock-ups.
+- [x] E3. Playmat interactions preserved: existing playmat tests pass unmodified, AND a scripted interaction run on the review server (drag a card between zones, toggle Stack/Spread, peek a stack, drag a card out of a stack, pan/zoom/Fit) succeeds with no JS errors.
+- [x] E4. Gates on integration: ruff, black, mypy, pytest all green.
+- [x] E5. New QA candidate (builder batch + design) built, smoke-tested, deployed to qa.decklab.studio; receipt written; owner reviews.
 
 | Task | Area | Agent | Status |
 |---|---|---|---|
 | D00 | Foundations (tokens, primitives, icons, area CSS, railSection tab) | HIGH | VERIFIED (9cab782) |
-| D01 | Header, toolbar, View popover, selection bar, export/deck menus | HIGH | TODO |
-| D02 | List rows, group headers, grid/spoiler | HIGH | TODO |
-| D03 | Rail tabs Card/Deck/Tools | HIGH | TODO |
-| D04 | Status bar, issues popover, zoom offset | LOW | TODO |
-| D05 | Stacks display | HIGH | TODO |
-| D06 | Playmat restyle + real-card feel | HIGH | TODO |
-| D07 | Dialogs + Research chips/query | LOW | TODO |
+| D01 | Header, toolbar, View popover, selection bar, export/deck menus | HIGH | MERGED (b129030) |
+| D02 | List rows, group headers, grid/spoiler | HIGH | MERGED |
+| D03 | Rail tabs Card/Deck/Tools | HIGH | MERGED (9e0fc3a) |
+| D04 | Status bar, issues popover, zoom offset | LOW | MERGED (9fd7624; amendment-2 escalated to Grok) |
+| D05 | Stacks display | HIGH | MERGED |
+| D06 | Playmat restyle + real-card feel | HIGH | MERGED (a767679) |
+| D07 | Dialogs + Research chips/query | LOW | MERGED (04d2783) |
+| I01 | Toolbar harness after D02 rows | LOW→orchestrator | MERGED (c1d0f47) |
+| I02 | Polish from full-capture review (stacks overrides, Unsorted overlap, type scale) | LOW | MERGED |
 - 2026-10-01: D00 VERIFIED → merged (9cab782). deck-lab.css change confined to :root; 1889 passed; ruff/black/mypy clean; no lint regressions vs baseline. HARNESS FIX (mine): the lint's <select> probe was being enhanced by deck-lab-shell.js and then removed, producing 'insertBefore' page errors attributed to the app; probes now live in a shadow root, and page errors now record stack traces. App had no such error.
 - 2026-10-01: D01–D07 launched in parallel (D01/D02/D03/D05/D06 Grok 4.7 Medium; D04/D07 DeepSeek), review ports 5311–5317.
 - 2026-10-01: PAUSED by owner (changing locations). Resume notes: worktrees/.cux/RESUME.md. State: integration a767679 (D00, D05, D02, D01, D03, D06 merged; KNOWN RED 7 toolbar-harness tests pending I01). Interrupted: I01 (partial edit), D04 escalated Grok run (no changes). Unverified: D07 rework 529d227.
+- 2026-10-01: RESUMED.
+  - D07 verified: gates green, 7 named tests, research chips and shortcuts dialog reviewed. Accepted deviation: existing research and keyboard tests were migrated from notice markup to chip markup with equivalent coverage. Merged.
+  - D04 amendment-2 on Grok medium: popover moved to body as position:fixed. My own capture shows issuesPopover.visible=true at 1440 and 1280. Its changes to an existing harness are faithful (popover lives outside the bar). Merged.
+  - I01: DeepSeek stalled twice. Root cause, found by me: the harness switches to Stacks display, which hands rows to deck-lab-stacks.js. Harness-only fix, done myself. Merged.
+  - Full capture review found:
+    - D05 stopgap body.dl-has-stacks overrides hid the "…" button and restyled the rail tabs;
+    - the default Unsorted zone (80,120) sat under the Commander box;
+    - several sizes were off-scale.
+
+    These became I02 (DeepSeek). It falsely called 3 of its failures "pre-existing": 2 were real cross-merge test gaps (list harness lacked contains(); D07 tooltip test too broad), fixed by me in 08495d8, and 1 was its own default move (fixed in 4993401 with a 4th zone, no assertion weakened).
+  - E2: every scenario clean at 1440 and 1280, no page errors.
+  - E3: .cux/visual/e3.sh passed all 15 steps: stack/spread, drag between zones, peek, drag out of a stack, undo/redo of a card move, zone move, zoom, Fit, pan, persistence after reload, no JS errors. move_zone is non-undoable by design (T08).
+  - E4: ruff, black, mypy clean; 1972 passed, 0 failed.
+  - Timing-sensitive test flakes only under parallel agent load (seen twice; green on an idle machine).
+  - Follow-ups: the sample-hand strip clips its 7th card at the right rail edge; Color requirements reads 0 sources on fixture data (the seed has no mana_cost).
+  - E5: QA candidate 4993401 deployed to qa.decklab.studio (image sha256:2a4c2a4f…; production unchanged). Receipt: infra/docs/competitive-ux-design-qa-review.json. Includes T10/T12/T13/T14. Awaiting owner review.
