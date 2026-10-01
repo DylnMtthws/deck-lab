@@ -52,7 +52,7 @@ The program is DONE only when every box is checked:
 | 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | TODO |
 | 13 | Per-card + deck feedback in the builder | T07 | LOW | TODO |
 | 14 | Group by role + remembered view/group/sort | T11 | LOW | TODO |
-| 15 | Scryfall syntax in Research search | T03 | LOW | TODO |
+| 15 | Scryfall syntax in Research search | T03 | LOW | VERIFIED (e94c127) |
 | 16 | Tester polish DYL-55–71 | — | — | PRE-EXISTING: merged on main (2b9918e, ccf5d8b, 5df306e, f3b5595, 84a807b, 1884ede, bc61a26) — verify only |
 
 ## Task graph
@@ -97,3 +97,4 @@ all gates after every merge.
 - 2026-10-01: T10 review → rework (remove speculative `_recorded_steps` dead code; add AC-13 test) → VERIFIED → merged (56e2077), conflicts with T02 in commander.html/deck-lab.css resolved by orchestrator. NOTABLE: T10 found and fixed a latent main bug — `import_candidate` read `library`/`commander_oracle_ids`, but stored candidates use `cards`/`commander.oracle_ids`, so imported decks lost their 99. Mutation: breaking a role mapping fails 1 test.
 - 2026-10-01: Integration gates after T00+T01+T02+T10: 1676 passed / 31 skipped; ruff clean; mypy clean.
 - 2026-10-01: T14 launched (Grok 4.7 Medium) from 56e2077 — depends only on T10.
+- 2026-10-01: T03 VERIFIED → merged (e94c127). Parse gated to Cards tab. Mutation: removing the gate fails 3 tests. Integration gates: 1747 passed / ruff / mypy clean. Wave A COMPLETE (T00–T03).
