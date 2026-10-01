@@ -665,3 +665,10 @@ a.dl-card-name:hover{color:var(--brand-text)}
 .dl-generate-steps li[data-state="current"] { color: var(--body); font-weight: 600; }
 .dl-generate-steps li[data-state="complete"] { color: var(--body); }
 .dl-generate-steps [data-generate-mark] { display: inline-block; width: 1.1em; }
+
+/* Goldfish re-simulation (T14) */
+.dl-sim { display: grid; gap: 8px; margin-top: 8px; }
+.dl-sim-status { margin: 0; color: var(--muted); font-size: 13px; }
+.dl-sim-result, .dl-sim-delta, .dl-sim-unseen { margin: 0; font-size: 13px; }
+.dl-sim-note { margin: 0; color: var(--muted); font-size: 13px; }
+.dl-sim-actions { display: flex; gap: 8px; flex-wrap: wrap; }
