@@ -122,3 +122,29 @@ all gates after every merge.
 - 2026-10-01: POST-COMPLETION FINDINGS (while preparing QA): (1) CI's format gate is `black --check`, which my Gate 2 never ran (I used ruff only, and my earlier "format-only" commit used ruff format). 14 files failed black; fixed with black, ASTs verified identical. COMMON.md Gate 2 now includes black. (2) T04's rework had also rewritten an existing test (test_builder_selection_and_preview.py dialog-placement check) — out of scope and missed in my review (my verify output filtering hid it). Restored to main's version; the original assertion holds.
 - 2026-10-01: QA candidate: branch `qa/competitive-ux-builder` (local), builder-experience batch T00–T09, T11 (excludes T10/T12/T13/T14). Built by replaying the reviewed task commits onto origin/main; builder.html verified identical to the integration template minus excluded pieces (after restoring a dialog the replay dropped). Gates: ruff ✓ black ✓ mypy ✓ pytest 1829 passed. Head cbe3c1e. QA build started via infra/scripts/qa_local_release.py.
 - 2026-10-01: QA DEPLOYED: qa/competitive-ux-builder @ cbe3c1e → https://qa.decklab.studio (image sha256:05fbeaa0…, native smokes passed, production container unchanged). Live check (QA automation account): all 11 batch modules served with ?v=cbe3c1e; evidence.js 404 as expected; builder markers present. Receipt: infra/docs/competitive-ux-builder-qa-review.json. Awaiting owner review.
+
+---
+
+# Design phase (owner direction 2026-10-01)
+
+Owner: "Take A as the structure, and add B's stacks as a display mode. Keep the playmat style capability and continue to allow the interactions that make it feel like a real playmat with real cards being stacked and unstacked."
+Contract: `docs/design/DESIGN-SPEC.md`. Tasks D00–D07. Tooling (outside repo): `worktrees/.cux/visual/seed_and_serve.py` (seeded review server) and `capture.cjs` (screenshots + layout lint; Scryfall cache-through at ≤2 req/s).
+Baseline lint on integration before redesign (`.cux/visual/baseline/summary.json`): toolbar overlaps/clipping at both widths; 303 unstyled controls in list view; 21 oversized spoiler symbols; zoom control under status bar (5); text at 8–10 px.
+
+## Orchestrator definition of done — design phase
+- [ ] E1. D00–D07 each VERIFIED: gates green (incl. black), DESIGN-SPEC §3 lint clean for its scenarios at 1440 & 1280, and I reviewed its screenshots against the spec and mock-ups.
+- [ ] E2. Full capture on the integration branch after the last merge: every scenario clean at both widths; I review the full screenshot set side by side with the mock-ups.
+- [ ] E3. Playmat interactions preserved: existing playmat tests pass unmodified, AND a scripted interaction run on the review server (drag a card between zones, toggle Stack/Spread, peek a stack, drag a card out of a stack, pan/zoom/Fit) succeeds with no JS errors.
+- [ ] E4. Gates on integration: ruff, black, mypy, pytest all green.
+- [ ] E5. New QA candidate (builder batch + design) built, smoke-tested, deployed to qa.decklab.studio; receipt written; owner reviews.
+
+| Task | Area | Agent | Status |
+|---|---|---|---|
+| D00 | Foundations (tokens, primitives, icons, area CSS, railSection tab) | HIGH | TODO |
+| D01 | Header, toolbar, View popover, selection bar, export/deck menus | HIGH | TODO |
+| D02 | List rows, group headers, grid/spoiler | HIGH | TODO |
+| D03 | Rail tabs Card/Deck/Tools | HIGH | TODO |
+| D04 | Status bar, issues popover, zoom offset | LOW | TODO |
+| D05 | Stacks display | HIGH | TODO |
+| D06 | Playmat restyle + real-card feel | HIGH | TODO |
+| D07 | Dialogs + Research chips/query | LOW | TODO |

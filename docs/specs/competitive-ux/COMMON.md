@@ -66,6 +66,8 @@ different checkout, and without it you test the wrong code.
 
 10. **Script and style tags must be literal HTML.** Write `<script src="{{ url_for('static', filename='x.js') }}" defer></script>`, wrapped in `{% if not shared %}...{% endif %}` when the module is owner-only. Never build a tag inside a `{{ '...' }}` string: Flask autoescapes it into visible text and the script never loads. Page tests must match a real element with a regex such as `<script src="[^"]*/x\.js" defer></script>`, not merely the filename.
 
+11. **Design tasks (Dxx) also follow `docs/design/DESIGN-SPEC.md` §3 (visual definition of done).** Tests passing is not enough: the capture lint must be clean for your scenarios, and the orchestrator reviews your screenshots.
+
 ## Definition of done (every task)
 
 A task is DONE only when ALL of these are true:
