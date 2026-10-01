@@ -1,0 +1,289 @@
+/* Design foundations (D00). Refines the canonical dl- primitives. Area tasks own layout. */
+
+/* Focus: every interactive control shows the brand ring, not the browser outline. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* Hover and focus use the fast duration. Popovers lift on the layout duration. */
+.dl-button,
+.dl-icon-button,
+.dl-field,
+.dl-select,
+select.dl-field,
+select.dl-zone-select,
+select.dl-role-select,
+select.dl-inline-zone-select,
+.dl-segments a,
+.dl-segments button,
+.dl-chip,
+.dl-tab {
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+.dl-popover {
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.dl-button {
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 32px;
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  color: var(--body);
+  font: 500 var(--t-13)/1 var(--sans);
+  cursor: pointer;
+}
+.dl-button:hover { background: var(--panel-2); }
+.dl-button.is-primary,
+.dl-button.dl-button-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.dl-button.is-primary:hover,
+.dl-button.dl-button-primary:hover { background: #f05b72; }
+.dl-button.is-ghost,
+.dl-button.dl-button-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.dl-button.is-ghost:hover,
+.dl-button.dl-button-quiet:hover {
+  background: var(--panel-2);
+  color: var(--body);
+}
+.dl-button.is-sm {
+  height: 26px;
+  min-height: 26px;
+  padding: 0 var(--s-2);
+  font-size: var(--t-12);
+}
+.dl-button svg,
+.dl-icon-button svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dl-icon-button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--t-16);
+}
+.dl-icon-button:hover { background: var(--panel-2); color: var(--body); }
+.dl-icon-button.is-on,
+.dl-icon-button.active { color: var(--brand-text); }
+
+.dl-field {
+  height: 34px;
+  min-height: 34px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--ink-deep);
+  color: var(--body);
+  padding: 0 var(--s-3);
+  font: var(--t-13)/1 var(--sans);
+}
+textarea.dl-field {
+  height: auto;
+  min-height: 96px;
+  padding: var(--s-2) var(--s-3);
+  line-height: 1.45;
+  resize: vertical;
+}
+.dl-field::placeholder { color: var(--muted); }
+.dl-field:focus,
+.dl-field:focus-visible {
+  border-color: rgba(233, 69, 96, .6);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.dl-select,
+select.dl-field,
+select.dl-zone-select,
+select.dl-role-select,
+select.dl-inline-zone-select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background-color: var(--panel-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2398a0bd' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-2) center;
+  background-size: 14px 14px;
+  color: var(--body);
+  padding: 0 28px 0 var(--s-2);
+  font: 500 var(--t-13)/1 var(--sans);
+}
+.dl-select:focus-visible,
+select.dl-field:focus-visible,
+select.dl-zone-select:focus-visible,
+select.dl-role-select:focus-visible,
+select.dl-inline-zone-select:focus-visible {
+  border-color: rgba(233, 69, 96, .6);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.dl-segments {
+  display: inline-flex;
+  padding: 3px;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--ink-deep);
+}
+.dl-segments a,
+.dl-segments button {
+  height: 26px;
+  min-height: 26px;
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: 500 var(--t-13)/1 var(--sans);
+  cursor: pointer;
+}
+.dl-segments [aria-current="page"],
+.dl-segments [aria-pressed="true"] {
+  background: var(--panel-2);
+  color: var(--body);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+.dl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 var(--s-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font: 500 var(--t-12)/1 var(--sans);
+  white-space: nowrap;
+}
+.dl-chip.is-ok { background: var(--success-soft); color: var(--success); }
+.dl-chip.is-warn { background: var(--warning-soft); color: var(--warning); }
+.dl-chip.is-brand { background: var(--brand-soft); color: var(--brand-text); }
+.dl-chip[aria-pressed="true"],
+.dl-chip.active {
+  color: var(--body);
+  background: var(--brand-soft);
+}
+
+.dl-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dl-kbd,
+kbd {
+  font: 500 var(--t-11)/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.dl-popover {
+  position: absolute;
+  z-index: 40;
+  padding: var(--s-3);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--body);
+  box-shadow: var(--shadow-pop);
+}
+
+.dl-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.dl-tab {
+  height: 30px;
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: 500 var(--t-13)/30px var(--sans);
+  cursor: pointer;
+}
+.dl-tab[aria-selected="true"],
+.dl-tab[aria-pressed="true"],
+.dl-tab.is-on {
+  background: var(--panel-2);
+  color: var(--body);
+}
+.dl-tab:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.dl-eyebrow {
+  font: 600 var(--t-11)/1 var(--sans);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-button,
+  .dl-icon-button,
+  .dl-field,
+  .dl-select,
+  select.dl-field,
+  select.dl-zone-select,
+  select.dl-role-select,
+  select.dl-inline-zone-select,
+  .dl-segments,
+  .dl-segments a,
+  .dl-segments button,
+  .dl-chip,
+  .dl-kbd,
+  kbd,
+  .dl-popover,
+  .dl-tabs,
+  .dl-tab,
+  .dl-dot,
+  .dl-eyebrow {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
