@@ -360,6 +360,13 @@
         loadDiff();
       });
     }
+    var railOpener = document.querySelector('[data-rail-pane="tools"] [data-meta-compare-open]');
+    if (railOpener && railOpener !== opener) {
+      railOpener.addEventListener("click", function () {
+        openDialog(document.querySelector("[data-meta-compare]"));
+        loadDiff();
+      });
+    }
     document.addEventListener("change", function (event) {
       var target = event.target;
       if (!target || !target.hasAttribute || !target.hasAttribute("data-evidence-window")) return;

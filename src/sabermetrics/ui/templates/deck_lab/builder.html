@@ -55,18 +55,41 @@
         {% if config.DECK_LAB_PLAYMAT_ENABLED %}<div class="dl-playmat-view" id="playmat-view" hidden><div class="dl-playmat-stage" id="playmat-stage"><div class="dl-playmat" id="playmat"></div></div>{% if not shared %}<div class="dl-playmat-selection" data-playmat-selection hidden></div>{% endif %}<div class="dl-zoom"><button class="dl-icon-button" data-zoom="out" aria-label="Zoom out" data-dl-tip="Zoom out">−</button><span class="dl-mono" id="zoom-label">100%</span><button class="dl-icon-button" data-zoom="in" aria-label="Zoom in" data-dl-tip="Zoom in">+</button><button class="dl-button" data-zoom="fit">Fit</button></div></div>{% endif %}
     </section>
     <aside class="dl-stats-rail" aria-label="Deck overview">
-        <div class="dl-builder-rail-head"><button class="dl-rail-toggle" type="button" data-toggle-rail="right" aria-label="Collapse Deck sidebar" aria-expanded="true" title="Toggle Deck sidebar"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M13 3v14"/></svg></button><div class="dl-eyebrow">Deck</div></div>
-        <aside class="dl-card-panel" data-card-panel aria-label="Card preview" aria-live="polite"></aside>
-        <section><h2>Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>
-        <section><h2>Color</h2><div class="dl-color-stats" id="color-stats"></div></section>
-        <section>
-            <div class="dl-zones-head">
-                <h2>Zones</h2>
-                {% if not shared %}<button class="dl-icon-button dl-add-zone" type="button" data-new-zone aria-label="Add zone" title="Add zone">+</button>{% endif %}
+        <div class="dl-builder-rail-head" data-rail-tabs>
+            <div class="dl-tabs" role="tablist" aria-label="Deck sidebar">
+                <button class="dl-tab" type="button" role="tab" id="rail-tab-card" data-rail-tab="card" aria-controls="rail-pane-card" aria-selected="true" tabindex="0">Card</button>
+                <button class="dl-tab" type="button" role="tab" id="rail-tab-deck" data-rail-tab="deck" aria-controls="rail-pane-deck" aria-selected="false" tabindex="-1">Deck</button>
+                <button class="dl-tab" type="button" role="tab" id="rail-tab-tools" data-rail-tab="tools" aria-controls="rail-pane-tools" aria-selected="false" tabindex="-1">Tools</button>
             </div>
-            <div class="dl-stat-list" id="zone-stats"></div>
-        </section>
-        <section><h2>Tags</h2><div class="dl-builder-tag-summary" data-tag-summary></div>{% if not shared %}<button class="dl-text-button" type="button" data-tags-open>Manage tags</button>{% endif %}</section>
+            <span class="dl-rail-spacer"></span>
+            <button class="dl-icon-button" type="button" data-card-panel-pin aria-pressed="false" aria-label="Pin card preview" data-dl-tip="Pin this card"></button>
+            <button class="dl-rail-toggle dl-icon-button" type="button" data-toggle-rail="right" aria-label="Collapse Deck sidebar" aria-expanded="true" title="Toggle Deck sidebar" data-dl-tip="Collapse Deck sidebar"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M13 3v14"/></svg></button>
+        </div>
+        <div class="dl-rail-panes">
+            <div class="dl-rail-pane" id="rail-pane-card" data-rail-pane="card" role="tabpanel" aria-labelledby="rail-tab-card">
+                <aside class="dl-card-panel" data-card-panel aria-label="Card preview" aria-live="polite"></aside>
+            </div>
+            <div class="dl-rail-pane" id="rail-pane-deck" data-rail-pane="deck" role="tabpanel" aria-labelledby="rail-tab-deck" hidden>
+                <section data-rail-block="curve"><h2 class="dl-eyebrow" id="mana-curve-heading">Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>
+                <section data-ext-section="pips"><h2 class="dl-eyebrow">Color requirements</h2></section>
+                <section>
+                    <div class="dl-zones-head">
+                        <h2 class="dl-eyebrow">Zones</h2>
+                        {% if not shared %}<button class="dl-icon-button dl-add-zone" type="button" data-new-zone aria-label="Add zone" data-dl-tip="Add zone">+</button>{% endif %}
+                    </div>
+                    <div class="dl-stat-list" id="zone-stats"></div>
+                </section>
+                <section class="dl-rail-tags"><h2 class="dl-eyebrow">Tags</h2><div class="dl-builder-tag-summary" data-tag-summary></div>{% if not shared %}<button class="dl-button is-ghost is-sm" type="button" data-tags-open>Manage</button>{% endif %}</section>
+                <section data-ext-section="evidence"><h2 class="dl-eyebrow">Tournament evidence</h2></section>
+                <section data-ext-section="simulation"><h2 class="dl-eyebrow">Goldfish simulation</h2></section>
+                <div id="color-stats" hidden></div>
+            </div>
+            <div class="dl-rail-pane" id="rail-pane-tools" data-rail-pane="tools" role="tabpanel" aria-labelledby="rail-tab-tools" hidden>
+                <section data-ext-section="odds"><h2 class="dl-eyebrow">Draw odds</h2></section>
+                <section data-ext-section="sample-hand"><h2 class="dl-eyebrow">Sample hand</h2></section>
+                {% if not shared %}<section data-ext-section="feedback"><h2 class="dl-eyebrow">Your verdict</h2></section><section class="dl-rail-compare"><button class="dl-button" type="button" data-meta-compare-open aria-haspopup="dialog" aria-controls="meta-compare-dialog">Compare to meta</button></section>{% endif %}
+            </div>
+        </div>
     </aside>
 </div>
 {% if not shared %}

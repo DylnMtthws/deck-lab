@@ -603,7 +603,12 @@ async function runScenario() {
       needInput.dispatchEvent(makeEvent("input", { target: needInput }));
       await flush();
       const afterNeed = resultEl.textContent;
-      return { firstText: afterSeen, secondText: afterNeed };
+      return {
+        firstText: afterSeen,
+        secondText: afterNeed,
+        seen: seenInput.value,
+        need: needInput.value,
+      };
     }
     case "sample_hand_deterministic": {
       const deck = buildDeck({
