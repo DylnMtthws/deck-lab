@@ -140,7 +140,7 @@ Baseline lint on integration before redesign (`.cux/visual/baseline/summary.json
 
 | Task | Area | Agent | Status |
 |---|---|---|---|
-| D00 | Foundations (tokens, primitives, icons, area CSS, railSection tab) | HIGH | TODO |
+| D00 | Foundations (tokens, primitives, icons, area CSS, railSection tab) | HIGH | VERIFIED (9cab782) |
 | D01 | Header, toolbar, View popover, selection bar, export/deck menus | HIGH | TODO |
 | D02 | List rows, group headers, grid/spoiler | HIGH | TODO |
 | D03 | Rail tabs Card/Deck/Tools | HIGH | TODO |
@@ -148,3 +148,5 @@ Baseline lint on integration before redesign (`.cux/visual/baseline/summary.json
 | D05 | Stacks display | HIGH | TODO |
 | D06 | Playmat restyle + real-card feel | HIGH | TODO |
 | D07 | Dialogs + Research chips/query | LOW | TODO |
+- 2026-10-01: D00 VERIFIED → merged (9cab782). deck-lab.css change confined to :root; 1889 passed; ruff/black/mypy clean; no lint regressions vs baseline. HARNESS FIX (mine): the lint's <select> probe was being enhanced by deck-lab-shell.js and then removed, producing 'insertBefore' page errors attributed to the app; probes now live in a shadow root, and page errors now record stack traces. App had no such error.
+- 2026-10-01: D01–D07 launched in parallel (D01/D02/D03/D05/D06 Grok 4.7 Medium; D04/D07 DeepSeek), review ports 5311–5317.
