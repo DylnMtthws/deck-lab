@@ -105,9 +105,7 @@ def _result(
         games=20,
         objective_turn=3,
         metric="goldfish_turns_to_assembly",
-        measures=(
-            "turns until a declared pattern is assembled, playing alone"
-        ),
+        measures=("turns until a declared pattern is assembled, playing alone"),
         does_not_measure="deck strength, win rate, or card quality",
         assembly=(AssemblyPoint(turn=3, probability=probability),),
         censored_fraction=0.0,
@@ -260,9 +258,7 @@ def _save_candidate(path: Path, owner: str, probability: float, unseen: int) -> 
         commander_key=COMMANDER,
         commander_name="Kinnan",
         deck_sha256="c" * 64,
-        candidate_json=json.dumps(
-            {"provenance": provenance.model_dump(mode="json")}
-        ),
+        candidate_json=json.dumps({"provenance": provenance.model_dump(mode="json")}),
         simulation_status="simulated",
         simulation_json=_stored_result(probability, unseen),
     )
@@ -395,12 +391,8 @@ def test_conversion_uses_library_zones_and_existing_hash() -> None:
             CandidateCard(
                 oracle_id="sol", name="Sol Ring", role="acceleration", quantity=1
             ),
-            CandidateCard(
-                oracle_id="island", name="Island", role="land", quantity=96
-            ),
-            CandidateCard(
-                oracle_id="ponder", name="Ponder", role="flex", quantity=1
-            ),
+            CandidateCard(oracle_id="island", name="Island", role="land", quantity=96),
+            CandidateCard(oracle_id="ponder", name="Ponder", role="flex", quantity=1),
             CandidateCard(
                 oracle_id="preordain", name="Preordain", role="flex", quantity=1
             ),
@@ -428,9 +420,7 @@ def test_illegal_or_wrong_size_deck_not_simulated_with_reason(tmp_path, monkeypa
     )
     assert fake.calls == []
 
-    illegal_id = _seed_deck(
-        path, owner, library_quantity=99, library_color='["R"]'
-    )
+    illegal_id = _seed_deck(path, owner, library_quantity=99, library_color='["R"]')
     illegal = DeckDocumentRepo(path).get(owner, illegal_id)
     assert illegal["validation"]["legal"] is False
     assert illegal["validation"]["total_count"] == 100
@@ -438,8 +428,7 @@ def test_illegal_or_wrong_size_deck_not_simulated_with_reason(tmp_path, monkeypa
     _post(client, illegal_id)
     illegal_body = _latest(client, illegal_id)
     assert illegal_body["reason"] == (
-        "Not simulated: deck must be a legal 100-card list "
-        f"({illegal_issue})"
+        "Not simulated: deck must be a legal 100-card list " f"({illegal_issue})"
     )
     assert fake.calls == []
 
@@ -484,9 +473,7 @@ def test_run_job_stores_result_and_latest_endpoint_returns_it(tmp_path, monkeypa
 def test_delta_against_source_candidate_baseline(tmp_path, monkeypatch):
     client, path, owner = _client(tmp_path)
     candidate_id = _save_candidate(path, owner, 0.2, 7)
-    deck_id = _seed_deck(
-        path, owner, source_kind="candidate", source_id=candidate_id
-    )
+    deck_id = _seed_deck(path, owner, source_kind="candidate", source_id=candidate_id)
     _store_previous(path, owner, deck_id, 0.9, 1)
     fake = FakeSimulator(frozenset({COMMANDER}), probability=0.5, unseen=4)
     _install(monkeypatch, fake, ImmediateExecutor())
@@ -553,9 +540,7 @@ def test_stale_result_detected_after_edit(tmp_path, monkeypatch):
         conn.commit()
     stale = _latest(client, deck_id)
     assert stale["stale"] is True
-    assert stale["stale_message"] == (
-        "Out of date: the list changed since this run"
-    )
+    assert stale["stale_message"] == ("Out of date: the list changed since this run")
     assert stale["deck_sha256"] == fresh["deck_sha256"]
     current = candidate_from_document(
         DeckDocumentRepo(path).get(owner, deck_id),
@@ -615,9 +600,7 @@ def test_ui_states_running_result_delta_stale_and_absence() -> None:
     assert states["result"] == (
         "goldfish_turns_to_assembly: 0.400 probability by turn 3"
     )
-    assert states["delta"] == (
-        "goldfish_turns_to_assembly: 0.250 → 0.400 probability"
-    )
+    assert states["delta"] == ("goldfish_turns_to_assembly: 0.250 → 0.400 probability")
     assert states["unseen"] == "unseen_card_count: 7 → 4"
     assert states["rerunAfterResult"] == ""
 

@@ -14,8 +14,9 @@ MYPY=/Users/dylan/Projects/mtg/deck-lab/app/.venv/bin/mypy
 
 # Gate 1 — full test suite (baseline on the base commit: 1617 passed, 31 skipped, 0 failed)
 PYTHONPATH=src:. $PY -m pytest -q -p no:cacheprovider
-# Gate 2 — lint (baseline: "All checks passed!")
+# Gate 2 — lint AND format, exactly as CI runs them (baselines: "All checks passed!" and "... would be left unchanged.")
 $RUFF check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py
+/Users/dylan/Projects/mtg/deck-lab/app/.venv/bin/black --check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py
 # Gate 3 — types (baseline: "Success: no issues found")
 PYTHONPATH=src $MYPY src
 # Your task's own tests only (fast loop)

@@ -349,9 +349,7 @@ def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -
     if oracle_count <= 0:
         return cohort
     marks = ",".join("?" for _ in range(oracle_count))
-    return (
-        cohort
-        + f"""
+    return cohort + f"""
         UNION ALL
         SELECT 'card' AS kind, c.oracle_id AS oracle_id,
                COUNT(DISTINCT cohort.deck_id) AS lists
@@ -361,7 +359,6 @@ def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -
         WHERE c.oracle_id IN ({marks})
         GROUP BY c.oracle_id
     """
-    )
 
 
 class DeckEvidenceService:

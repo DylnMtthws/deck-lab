@@ -53,13 +53,22 @@ def test_type_bucket_precedence_table() -> None:
         )
     # Verify specific examples from the spec
     cases_map = {c["typeLine"]: c for c in results}
-    assert cases_map.get("Artifact Creature \u2014 Golem", {}).get("actual") == "Creature"
-    assert cases_map.get("Land Creature \u2014 Forest Dryad", {}).get("actual") == "Land"
-    assert cases_map.get("Legendary Enchantment Artifact", {}).get("actual") == "Artifact"
+    assert (
+        cases_map.get("Artifact Creature \u2014 Golem", {}).get("actual") == "Creature"
+    )
+    assert (
+        cases_map.get("Land Creature \u2014 Forest Dryad", {}).get("actual") == "Land"
+    )
+    assert (
+        cases_map.get("Legendary Enchantment Artifact", {}).get("actual") == "Artifact"
+    )
     assert cases_map.get("Kindred Instant \u2014 Elf", {}).get("actual") == "Instant"
     assert cases_map.get("", {}).get("actual") == "Other"
     # "Enchantment Creature" matches Creature first (Creature precedes Enchantment in the order)
-    assert cases_map.get("Enchantment Creature \u2014 Pegasus", {}).get("actual") == "Creature"
+    assert (
+        cases_map.get("Enchantment Creature \u2014 Pegasus", {}).get("actual")
+        == "Creature"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -198,4 +207,4 @@ def test_toolbar_deck_count_untouched() -> None:
     # The status script never references data-deck-count
     assert "data-deck-count" not in js
     # The toolbar deck count is in the template, and the status bar is separate
-    assert 'data-deck-count' in html.split('<footer class="dl-status-bar"')[0]
+    assert "data-deck-count" in html.split('<footer class="dl-status-bar"')[0]

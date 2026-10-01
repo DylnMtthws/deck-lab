@@ -48,7 +48,9 @@ def _prepare(tmp_path: Path, *, event_size: bool = False) -> Path:
     setup_database(path)
     with db.connect(path) as conn:
         if event_size:
-            conn.execute("ALTER TABLE tournament_results ADD COLUMN player_count INTEGER")
+            conn.execute(
+                "ALTER TABLE tournament_results ADD COLUMN player_count INTEGER"
+            )
         conn.commit()
     return path
 
@@ -145,7 +147,9 @@ def _document(*entries: dict, zones: list[dict] | None = None) -> dict:
     }
 
 
-def test_missing_staples_threshold_identity_and_legality_filters(tmp_path: Path) -> None:
+def test_missing_staples_threshold_identity_and_legality_filters(
+    tmp_path: Path,
+) -> None:
     path = _prepare(tmp_path, event_size=True)
     floor = load_cedh_settings().meta.min_event_size
     inside = date.today().isoformat()
@@ -154,14 +158,29 @@ def test_missing_staples_threshold_identity_and_legality_filters(tmp_path: Path)
         _insert_cards(
             conn,
             [
-                _card("kinnan", "oracle-kinnan", "Kinnan", colors=GREEN, commander=1, legal=1, type_line="Legendary Creature"),
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    colors=GREEN,
+                    commander=1,
+                    legal=1,
+                    type_line="Legendary Creature",
+                ),
                 _card("alpha", "oracle-alpha", "Alpha Staple", oracle="Add {C}."),
                 _card("mid", "oracle-mid", "Mid Staple", oracle="Add {C}."),
                 _card("low", "oracle-low", "Low Staple", oracle="Add {C}."),
-                _card("banned", "oracle-banned", "Banned Card", legal=0, oracle="Add {C}."),
+                _card(
+                    "banned", "oracle-banned", "Banned Card", legal=0, oracle="Add {C}."
+                ),
                 _card("red", "oracle-red", "Red Card", colors=RED, oracle="Add {R}."),
                 _card("library", "oracle-library", "Library Card", oracle="Add {C}."),
-                _card("considering", "oracle-considering", "Considering Card", oracle="Add {C}."),
+                _card(
+                    "considering",
+                    "oracle-considering",
+                    "Considering Card",
+                    oracle="Add {C}.",
+                ),
                 _card("old", "oracle-old", "Old Card", oracle="Add {C}."),
                 _card("floor", "oracle-floor", "Floor Card", oracle="Add {C}."),
             ],
@@ -225,7 +244,13 @@ def test_unplayed_requires_min_denominator(tmp_path: Path) -> None:
         _insert_cards(
             conn,
             [
-                _card("kinnan", "oracle-kinnan", "Kinnan", commander=1, type_line="Legendary Creature"),
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    commander=1,
+                    type_line="Legendary Creature",
+                ),
                 _card("played", "oracle-played", "Played Card"),
                 _card("lonely", "oracle-lonely", "Lonely Card"),
                 _card("side", "oracle-side", "Side Card"),
@@ -271,15 +296,29 @@ def test_alternatives_share_role_and_exclude_deck_cards_and_off_identity(
         _insert_cards(
             conn,
             [
-                _card("kinnan", "oracle-kinnan", "Kinnan", colors=GREEN, commander=1, type_line="Legendary Creature"),
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    colors=GREEN,
+                    commander=1,
+                    type_line="Legendary Creature",
+                ),
                 _card("target", "oracle-target", "Target Card", oracle="Add {G}."),
                 _card("high", "oracle-high", "High Ramp", oracle="Add {G}."),
                 _card("low", "oracle-low", "Low Ramp", oracle="Add {G}{G}."),
                 _card("draw", "oracle-draw", "Draw Card", oracle="Draw a card."),
                 _card("red", "oracle-red", "Red Ramp", colors=RED, oracle="Add {R}."),
-                _card("banned", "oracle-banned", "Banned Ramp", legal=0, oracle="Add {C}."),
+                _card(
+                    "banned", "oracle-banned", "Banned Ramp", legal=0, oracle="Add {C}."
+                ),
                 _card("held", "oracle-held", "Held Ramp", oracle="Add {W}."),
-                _card("stored-draw", "oracle-stored-draw", "Stored Draw", oracle="Add {G}."),
+                _card(
+                    "stored-draw",
+                    "oracle-stored-draw",
+                    "Stored Draw",
+                    oracle="Add {G}.",
+                ),
                 _card("stored-ramp", "oracle-stored-ramp", "Stored Ramp", oracle=""),
             ],
         )
@@ -341,13 +380,19 @@ def test_alternatives_needs_role_when_entry_has_no_role(tmp_path: Path) -> None:
     with db.connect(path) as conn:
         _insert_cards(
             conn,
-            [_card("kinnan", "oracle-kinnan", "Kinnan", commander=1, type_line="Legendary Creature")],
+            [
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    commander=1,
+                    type_line="Legendary Creature",
+                )
+            ],
         )
         conn.commit()
     document = _document(_entry("kinnan", "oracle-kinnan", "Kinnan", commander=True))
-    document["entries"].append(
-        _entry("blank", "oracle-blank", "Blank Card", role="")
-    )
+    document["entries"].append(_entry("blank", "oracle-blank", "Blank Card", role=""))
     result = DeckEvidenceService(path).alternatives(document, "oracle-blank", 30)
     assert result == {"needs_role": True}
 
@@ -366,7 +411,13 @@ def test_routes_owner_only(tmp_path: Path, monkeypatch) -> None:
         _insert_cards(
             conn,
             [
-                _card("kinnan", "oracle-kinnan", "Kinnan", commander=1, type_line="Legendary Creature"),
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    commander=1,
+                    type_line="Legendary Creature",
+                ),
                 _card("ring", "oracle-ring", "Sol Ring", oracle="Add {C}."),
             ],
         )
@@ -396,7 +447,9 @@ def test_routes_owner_only(tmp_path: Path, monkeypatch) -> None:
     assert anonymous.status_code != 200
     _login(client, other)
     assert client.get(f"/api/decks/{deck_id}/meta-diff").status_code == 404
-    assert client.get(f"/api/decks/{deck_id}/alternatives/oracle-ring").status_code == 404
+    assert (
+        client.get(f"/api/decks/{deck_id}/alternatives/oracle-ring").status_code == 404
+    )
     _login(client, owner)
     refused = client.get(f"/api/decks/{deck_id}/meta-diff?window=15")
     assert refused.status_code == 400
@@ -415,7 +468,7 @@ def test_routes_owner_only(tmp_path: Path, monkeypatch) -> None:
     assert needs_role.get_json() == {"needs_role": True}
     page = client.get(f"/build/deck/{deck_id}")
     html = page.get_data(as_text=True)
-    assert 'data-meta-compare-open' in html
+    assert "data-meta-compare-open" in html
     assert ">Compare to meta<" in html
     assert "data-meta-compare" in html
     assert html.index("deck-lab-builder.js") < html.index("deck-lab-meta-compare.js")
@@ -433,12 +486,14 @@ def test_dialog_add_staple_sends_add_command_to_destination() -> None:
     assert "≥ 16" in payload["statement"]
     assert payload["label"] == "Add Staple Card"
     assert payload["commands"] == [
-        [{
-            "type": "add_card",
-            "card_id": "card-staple",
-            "zone_id": "zone-side",
-            "quantity": 1,
-        }]
+        [
+            {
+                "type": "add_card",
+                "card_id": "card-staple",
+                "zone_id": "zone-side",
+                "quantity": 1,
+            }
+        ]
     ]
     assert payload["calls"] == ["/api/decks/deck-1/meta-diff?window=30"]
 
@@ -477,7 +532,10 @@ def test_meta_compare_never_shows_rate_without_denominator() -> None:
         assert "≥ 16" in blob
     assert seen_percent
     assert payload["absencePercents"] == 0
-    assert "No tournament evidence for this commander in the last 30 days" in payload["absence"]
+    assert (
+        "No tournament evidence for this commander in the last 30 days"
+        in payload["absence"]
+    )
     assert "%" not in payload["absence"]
 
 
@@ -495,7 +553,15 @@ def test_bounded_queries_for_meta_diff(tmp_path: Path, monkeypatch) -> None:
     with db.connect(path) as conn:
         _insert_cards(
             conn,
-            [_card("kinnan", "oracle-kinnan", "Kinnan", commander=1, type_line="Legendary Creature")],
+            [
+                _card(
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    commander=1,
+                    type_line="Legendary Creature",
+                )
+            ],
         )
         conn.commit()
     service = DeckEvidenceService(path)

@@ -57,7 +57,16 @@ def _prepare(tmp_path: Path, *, event_size: bool = False) -> Path:
             (id,oracle_id,name,cmc,type_line,color_identity,is_legal_commander,is_legal_in_99)
             VALUES(?,?,?,?,?,?,?,?)""",
             [
-                ("kinnan", "oracle-kinnan", "Kinnan", 2, "Legendary Creature", "[]", 1, 1),
+                (
+                    "kinnan",
+                    "oracle-kinnan",
+                    "Kinnan",
+                    2,
+                    "Legendary Creature",
+                    "[]",
+                    1,
+                    1,
+                ),
                 ("tymna", "oracle-tymna", "Tymna", 3, "Legendary Creature", "[]", 1, 1),
                 ("kraum", "oracle-kraum", "Kraum", 3, "Legendary Creature", "[]", 1, 1),
                 ("bogus", "oracle-bogus", "Bogus", 2, "Creature", "[]", 0, 1),
@@ -279,7 +288,9 @@ def _candidate_document(source_kind: str) -> dict:
     return document
 
 
-def test_candidate_deck_includes_explanations_from_stored_candidate(tmp_path: Path) -> None:
+def test_candidate_deck_includes_explanations_from_stored_candidate(
+    tmp_path: Path,
+) -> None:
     path = _prepare(tmp_path)
     explanation = DeckExplanation(
         game_plan="Present a combo.",
@@ -411,8 +422,7 @@ def test_badge_text_and_full_statement_title() -> None:
     badge = payload["badges"][0]
     assert badge["text"] == "71% · 143 lists"
     assert badge["title"] == (
-        "In 102 of 143 recorded Kinnan lists, last 30 days, "
-        "events with ≥ 16 players"
+        "In 102 of 143 recorded Kinnan lists, last 30 days, " "events with ≥ 16 players"
     )
     assert payload["statement"] == badge["title"]
     assert payload["role"] == "Ramp"
@@ -438,7 +448,13 @@ def test_window_selector_refetches_and_shows_denominator() -> None:
     initial = payload["initial"]
     assert initial["heading"] == "Tournament evidence"
     assert initial["label"] == "Tournament window"
-    assert [item["value"] for item in initial["options"]] == ["30", "60", "90", "180", "0"]
+    assert [item["value"] for item in initial["options"]] == [
+        "30",
+        "60",
+        "90",
+        "180",
+        "0",
+    ]
     assert initial["options"][-1]["label"] == "All time"
     assert initial["urls"] == ["/api/decks/deck-1/evidence?window=30"]
     assert initial["basis"] == "Based on 10 recorded lists"

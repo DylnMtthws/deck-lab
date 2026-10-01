@@ -10,16 +10,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILDER_JS = ROOT / "src" / "sabermetrics" / "ui" / "static" / "deck-lab-builder.js"
-CONSIDERING_JS = ROOT / "src" / "sabermetrics" / "ui" / "static" / "deck-lab-considering.js"
+CONSIDERING_JS = (
+    ROOT / "src" / "sabermetrics" / "ui" / "static" / "deck-lab-considering.js"
+)
 HARNESS = Path(__file__).with_name("considering_harness.mjs")
 BUILDER_TEMPLATE = (
-    ROOT
-    / "src"
-    / "sabermetrics"
-    / "ui"
-    / "templates"
-    / "deck_lab"
-    / "builder.html"
+    ROOT / "src" / "sabermetrics" / "ui" / "templates" / "deck_lab" / "builder.html"
 )
 
 
@@ -143,6 +139,7 @@ def test_builder_page_includes_script_after_builder(tmp_path: Path) -> None:
     repo = DeckDocumentRepo(db_path)
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
@@ -181,27 +178,27 @@ def test_builder_page_includes_script_after_builder(tmp_path: Path) -> None:
     script_re = re.compile(
         r'<script src="[^"]*/deck-lab-considering\.js" defer></script>'
     )
-    assert script_re.search(owner_html), (
-        "owner page must contain a real <script> element for deck-lab-considering.js"
-    )
+    assert script_re.search(
+        owner_html
+    ), "owner page must contain a real <script> element for deck-lab-considering.js"
     # It must appear after deck-lab-builder.js
     builder_idx = owner_html.index("/deck-lab-builder.js")
     considering_idx = owner_html.index("/deck-lab-considering.js")
-    assert considering_idx > builder_idx, (
-        "considering script must appear after builder script"
-    )
+    assert (
+        considering_idx > builder_idx
+    ), "considering script must appear after builder script"
     # No escaped script element
-    assert "&lt;script" not in owner_html, (
-        "owner page must not contain escaped script elements"
-    )
+    assert (
+        "&lt;script" not in owner_html
+    ), "owner page must not contain escaped script elements"
     # No fallback mixed-case variants
     assert "&lt;SCRIPT" not in owner_html
 
     # Shared page — script element must be absent
     shared_html = client.get(f"/shared/deck/{token}").data.decode()
-    assert not script_re.search(shared_html), (
-        "shared page must not contain the considering script element"
-    )
+    assert not script_re.search(
+        shared_html
+    ), "shared page must not contain the considering script element"
 
 
 # ---------------------------------------------------------------------------
@@ -213,15 +210,14 @@ def test_server_count_excludes_considering(tmp_path: Path) -> None:
     from sabermetrics.deck_documents import _PRIVATE_PUBLIC_ZONES, DeckDocumentRepo
     from scripts.setup_db import setup_database
 
-    assert "considering" in _PRIVATE_PUBLIC_ZONES, (
-        "Considering is in private zones"
-    )
+    assert "considering" in _PRIVATE_PUBLIC_ZONES, "Considering is in private zones"
 
     db_path = tmp_path / "test.db"
     setup_database(db_path)
     repo = DeckDocumentRepo(db_path)
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
@@ -283,9 +279,7 @@ def test_server_count_excludes_considering(tmp_path: Path) -> None:
 
     # total_count should be 100 (commander + 99 library), not counting the
     # 3 Considering cards
-    assert val["total_count"] == 100, (
-        f"expected 100, got {val['total_count']}"
-    )
+    assert val["total_count"] == 100, f"expected 100, got {val['total_count']}"
     assert val["library_count"] == 99
     assert val["commander_count"] == 1
 

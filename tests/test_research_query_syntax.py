@@ -30,32 +30,162 @@ def _seed_test_data(path: Path) -> None:
     rows = [
         # id, oracle_id, name, cmc, type_line, oracle_text, color_identity,
         # is_legal_commander, is_legal_in_99, image_uri, rarity
-        ("bolt", "o1", "Lightning Bolt", 1, "Instant",
-         "Deal 3 damage", '["R"]', 0, 1, "img", "common"),
-        ("opt", "o2", "Opt", 1, "Instant",
-         "Scry 1. Draw a card.", '["U"]', 0, 1, "img", "common"),
-        ("c-sphinx", "o3", "Consecrated Sphinx", 6, "Creature — Sphinx",
-         "Flying. Whenever an opponent draws a card, you may draw a card.",
-         '["U"]', 0, 1, "img", "mythic"),
-        ("d-vault", "o4", "Demonic Vault", 2, "Artifact",
-         "Tap: Add {C}.", "[]", 0, 1, "img", "rare"),
-        ("s-lotus", "o5", "Sapphire Lotus", 0, "Artifact",
-         "Tap: Add {U}.", "[]", 0, 1, "img", "rare"),
-        ("g-hydra", "o6", "Giant Hydra", 4, "Creature — Hydra",
-         "Trample. Power is equal to damage.", '["G"]', 0, 1, "img", "uncommon"),
-        ("w-angel", "o7", "Winged Angel", 5, "Creature — Angel",
-         "Flying, vigilance.", '["W"]', 0, 1, "img", "rare"),
-        ("b-demon", "o8", "Black Demon", 4, "Creature — Demon",
-         "Flying, trample.", '["B"]', 0, 1, "img", "rare"),
-        ("r-haste", "o9", "Raging Haste", 2, "Sorcery",
-         "Creatures you control gain haste.", '["R"]', 0, 1, "img", "uncommon"),
-        ("kinnan", "o10", "Kinnan", 2, "Legendary Creature — Human Druid",
-         "", '["G","U"]', 1, 1, "img", "mythic"),
-        ("solring", "o11", "Sol Ring", 1, "Artifact",
-         "Tap: Add {C}{C}.", "[]", 0, 1, "img", "uncommon"),
-        ("cm-pact", "o12", "Colorless Pact", 3, "Enchantment",
-         "At the beginning of your upkeep, draw a card.",
-         "[]", 0, 1, "img", "rare"),
+        (
+            "bolt",
+            "o1",
+            "Lightning Bolt",
+            1,
+            "Instant",
+            "Deal 3 damage",
+            '["R"]',
+            0,
+            1,
+            "img",
+            "common",
+        ),
+        (
+            "opt",
+            "o2",
+            "Opt",
+            1,
+            "Instant",
+            "Scry 1. Draw a card.",
+            '["U"]',
+            0,
+            1,
+            "img",
+            "common",
+        ),
+        (
+            "c-sphinx",
+            "o3",
+            "Consecrated Sphinx",
+            6,
+            "Creature — Sphinx",
+            "Flying. Whenever an opponent draws a card, you may draw a card.",
+            '["U"]',
+            0,
+            1,
+            "img",
+            "mythic",
+        ),
+        (
+            "d-vault",
+            "o4",
+            "Demonic Vault",
+            2,
+            "Artifact",
+            "Tap: Add {C}.",
+            "[]",
+            0,
+            1,
+            "img",
+            "rare",
+        ),
+        (
+            "s-lotus",
+            "o5",
+            "Sapphire Lotus",
+            0,
+            "Artifact",
+            "Tap: Add {U}.",
+            "[]",
+            0,
+            1,
+            "img",
+            "rare",
+        ),
+        (
+            "g-hydra",
+            "o6",
+            "Giant Hydra",
+            4,
+            "Creature — Hydra",
+            "Trample. Power is equal to damage.",
+            '["G"]',
+            0,
+            1,
+            "img",
+            "uncommon",
+        ),
+        (
+            "w-angel",
+            "o7",
+            "Winged Angel",
+            5,
+            "Creature — Angel",
+            "Flying, vigilance.",
+            '["W"]',
+            0,
+            1,
+            "img",
+            "rare",
+        ),
+        (
+            "b-demon",
+            "o8",
+            "Black Demon",
+            4,
+            "Creature — Demon",
+            "Flying, trample.",
+            '["B"]',
+            0,
+            1,
+            "img",
+            "rare",
+        ),
+        (
+            "r-haste",
+            "o9",
+            "Raging Haste",
+            2,
+            "Sorcery",
+            "Creatures you control gain haste.",
+            '["R"]',
+            0,
+            1,
+            "img",
+            "uncommon",
+        ),
+        (
+            "kinnan",
+            "o10",
+            "Kinnan",
+            2,
+            "Legendary Creature — Human Druid",
+            "",
+            '["G","U"]',
+            1,
+            1,
+            "img",
+            "mythic",
+        ),
+        (
+            "solring",
+            "o11",
+            "Sol Ring",
+            1,
+            "Artifact",
+            "Tap: Add {C}{C}.",
+            "[]",
+            0,
+            1,
+            "img",
+            "uncommon",
+        ),
+        (
+            "cm-pact",
+            "o12",
+            "Colorless Pact",
+            3,
+            "Enchantment",
+            "At the beginning of your upkeep, draw a card.",
+            "[]",
+            0,
+            1,
+            "img",
+            "rare",
+        ),
     ]
     with db.connect(path) as conn:
         conn.executemany(
@@ -129,33 +259,27 @@ class TestFormArgsOverrideParsedValues:
 
     def test_form_oracle_wins_over_parsed(self, client):
         """Explicit oracle_text=damage overrides parsed o:draw."""
-        html = _html(client.get(
-            "/research/?tab=cards&q=o:draw&oracle_text=damage"
-        ))
+        html = _html(client.get("/research/?tab=cards&q=o:draw&oracle_text=damage"))
         assert "Lightning Bolt" in html
         assert "Opt" not in html  # Opt has "draw a card" but not "damage"
 
     def test_form_type_wins_over_parsed(self, client):
         """Explicit card_type=Artifact overrides parsed t:instant."""
-        html = _html(client.get(
-            "/research/?tab=cards&q=t:instant&card_type=Artifact"
-        ))
+        html = _html(client.get("/research/?tab=cards&q=t:instant&card_type=Artifact"))
         assert "Sol Ring" in html
         assert "Lightning Bolt" not in html
 
     def test_empty_form_does_not_override_parsed(self, client):
         """Form arg with empty string does not block parsed value."""
-        html = _html(client.get(
-            "/research/?tab=cards&q=t:creature&card_type="
-        ))
+        html = _html(client.get("/research/?tab=cards&q=t:creature&card_type="))
         assert "Giant Hydra" in html
         assert "Lightning Bolt" not in html
 
     def test_color_form_override(self, client):
         """Explicit card_color=U overrides parsed c:R."""
-        html = _html(client.get(
-            "/research/?tab=cards&q=c:R&card_color=U&color_mode=include"
-        ))
+        html = _html(
+            client.get("/research/?tab=cards&q=c:R&card_color=U&color_mode=include")
+        )
         assert "Opt" in html  # U
         assert "Lightning Bolt" not in html  # R but form says U only
 
@@ -165,41 +289,37 @@ class TestUnsupportedNoticeRendered:
 
     def test_is_commander_shows_notice(self, client):
         html = _html(client.get("/research/?tab=cards&q=is:commander"))
-        assert 'data-query-unsupported' in html
+        assert "data-query-unsupported" in html
         assert "Not supported yet" in html
         assert "is:commander" in html
 
     def test_set_code_shows_notice(self, client):
         html = _html(client.get("/research/?tab=cards&q=set:mh3"))
-        assert 'data-query-unsupported' in html
+        assert "data-query-unsupported" in html
         assert "set:mh3" in html
 
     def test_applied_terms_show_notice(self, client):
-        html = _html(client.get(
-            "/research/?tab=cards&q=t:creature o:draw"
-        ))
-        assert 'data-query-applied' in html
+        html = _html(client.get("/research/?tab=cards&q=t:creature o:draw"))
+        assert "data-query-applied" in html
         assert "Applied from search" in html
 
     def test_mixed_applied_and_unsupported(self, client):
-        html = _html(client.get(
-            "/research/?tab=cards&q=t:creature o:draw is:commander set:mh3"
-        ))
-        assert 'data-query-applied' in html
-        assert 'data-query-unsupported' in html
+        html = _html(
+            client.get("/research/?tab=cards&q=t:creature o:draw is:commander set:mh3")
+        )
+        assert "data-query-applied" in html
+        assert "data-query-unsupported" in html
 
     def test_unsupported_notice_includes_all_terms(self, client):
-        html = _html(client.get(
-            "/research/?tab=cards&q=set:mh3 f:edh"
-        ))
+        html = _html(client.get("/research/?tab=cards&q=set:mh3 f:edh"))
         assert "set:mh3" in html
         assert "f:edh" in html
 
     def test_query_notices_absent_when_not_needed(self, client):
         """Plain name query has no notices."""
         html = _html(client.get("/research/?tab=cards&q=Lightning"))
-        assert 'data-query-applied' not in html
-        assert 'data-query-unsupported' not in html
+        assert "data-query-applied" not in html
+        assert "data-query-unsupported" not in html
 
 
 class TestPlainQueryUnchanged:
@@ -257,17 +377,15 @@ class TestSyntaxNotAppliedOnOtherTabs:
         routes.parse_query = lambda q: (parse_calls.append(q), ParsedQuery())[1]
 
         try:
-            html = _html(client.get(
-                "/research/?tab=commanders&q=mv<=2"
-            ))
+            html = _html(client.get("/research/?tab=commanders&q=mv<=2"))
         finally:
             routes.parse_query = original
 
-        assert parse_calls == [], (
-            "parse_query should not be called for the commanders tab"
-        )
-        assert 'data-query-applied' not in html
-        assert 'data-query-unsupported' not in html
+        assert (
+            parse_calls == []
+        ), "parse_query should not be called for the commanders tab"
+        assert "data-query-applied" not in html
+        assert "data-query-unsupported" not in html
 
     def test_metagame_tab_not_affected(self, client, monkeypatch):
         import sabermetrics.ui.research_routes as routes
@@ -278,17 +396,15 @@ class TestSyntaxNotAppliedOnOtherTabs:
         routes.parse_query = lambda q: (parse_calls.append(q), ParsedQuery())[1]
 
         try:
-            html = _html(client.get(
-                "/research/?tab=metagame&q=mv<=2"
-            ))
+            html = _html(client.get("/research/?tab=metagame&q=mv<=2"))
         finally:
             routes.parse_query = original
 
-        assert parse_calls == [], (
-            "parse_query should not be called for the metagame tab"
-        )
-        assert 'data-query-applied' not in html
-        assert 'data-query-unsupported' not in html
+        assert (
+            parse_calls == []
+        ), "parse_query should not be called for the metagame tab"
+        assert "data-query-applied" not in html
+        assert "data-query-unsupported" not in html
 
     def test_decks_tab_not_affected(self, client, monkeypatch):
         import sabermetrics.ui.research_routes as routes
@@ -299,16 +415,10 @@ class TestSyntaxNotAppliedOnOtherTabs:
         routes.parse_query = lambda q: (parse_calls.append(q), ParsedQuery())[1]
 
         try:
-            html = _html(client.get(
-                "/research/?tab=decks&q=mv<=2"
-            ))
+            html = _html(client.get("/research/?tab=decks&q=mv<=2"))
         finally:
             routes.parse_query = original
 
-        assert parse_calls == [], (
-            "parse_query should not be called for the decks tab"
-        )
-        assert 'data-query-applied' not in html
-        assert 'data-query-unsupported' not in html
-
-
+        assert parse_calls == [], "parse_query should not be called for the decks tab"
+        assert "data-query-applied" not in html
+        assert "data-query-unsupported" not in html

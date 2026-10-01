@@ -91,9 +91,13 @@ def test_pips_counting_rules_table() -> None:
     # Total colored pips = 5 (W=3, U=1, R=1, B=0, G=0)
     # G: 0/5 = 0%; U: 1/5 = 20%
     assert "G" in data, "expected G row (commander identity includes G)"
-    assert "0%" in data["G"]["text"], f"expected 0% share for G, got {data['G']['text']}"
+    assert (
+        "0%" in data["G"]["text"]
+    ), f"expected 0% share for G, got {data['G']['text']}"
     assert "U" in data, "expected U row (commander identity includes U)"
-    assert "20%" in data["U"]["text"], f"expected 20% share for U, got {data['U']['text']}"
+    assert (
+        "20%" in data["U"]["text"]
+    ), f"expected 20% share for U, got {data['U']['text']}"
     # W, R, B should NOT appear (not in commander identity)
     assert "W" not in data, "W should not appear (not in commander identity)"
     assert "R" not in data, "R should not appear (not in commander identity)"
@@ -196,9 +200,9 @@ def test_hypergeom_known_values() -> None:
 def test_odds_ui_updates_result_text() -> None:
     payload = _payload("odds_ui_update")
     assert "error" not in payload, payload.get("error", "")
-    assert payload["firstText"] != payload["secondText"], (
-        "changing inputs should produce different result text"
-    )
+    assert (
+        payload["firstText"] != payload["secondText"]
+    ), "changing inputs should produce different result text"
     assert "%" in payload["firstText"]
     assert "%" in payload["secondText"]
 
@@ -217,6 +221,7 @@ def test_sample_hand_deterministic_with_seeded_rng_and_no_replacement() -> None:
     assert len(names) == 7
     # Sol Ring has quantity 4, so it may appear up to 4 times
     from collections import Counter
+
     counts = Counter(names)
     ring_count = counts.get("Sol Ring", 0)
     assert ring_count <= 4, f"Sol Ring appears {ring_count} times but max is 4"
@@ -245,7 +250,7 @@ def test_sample_hand_short_library_message() -> None:
 
 def test_builder_page_includes_stats_script() -> None:
     html = BUILDER_TEMPLATE.read_text()
-    assert 'deck-lab-stats.js' in html
+    assert "deck-lab-stats.js" in html
     # Must be after deck-lab-builder.js
     builder_pos = html.index("deck-lab-builder.js")
     stats_pos = html.index("deck-lab-stats.js")
@@ -273,9 +278,13 @@ def test_pips_section_limited_to_commander_identity_and_states_rule() -> None:
     payload = _payload("pips_section_commander_identity")
     assert "error" not in payload, payload.get("error", "")
     # No commanders: should show all 5 colors
-    assert payload["noCmdrColors"] == ["B", "G", "R", "U", "W"], (
-        f"expected all 5 colors, got {payload['noCmdrColors']}"
-    )
+    assert payload["noCmdrColors"] == [
+        "B",
+        "G",
+        "R",
+        "U",
+        "W",
+    ], f"expected all 5 colors, got {payload['noCmdrColors']}"
     # Rule text should exist
     assert payload["ruleText"] is not None
 
@@ -305,10 +314,12 @@ def test_odds_inputs_survive_builder_render() -> None:
 def test_sample_hand_survives_curve_filter_click() -> None:
     payload = _payload("sample_hand_survives_curve_filter")
     assert "error" not in payload, payload.get("error", "")
-    assert payload["namesBefore"] == payload["namesAfter"], (
-        "drawn hand names should be identical before and after curve click"
-    )
-    assert len(payload["namesBefore"]) == 3, f"expected 3 cards, got {payload['namesBefore']}"
+    assert (
+        payload["namesBefore"] == payload["namesAfter"]
+    ), "drawn hand names should be identical before and after curve click"
+    assert (
+        len(payload["namesBefore"]) == 3
+    ), f"expected 3 cards, got {payload['namesBefore']}"
 
 
 # ---------------------------------------------------------------------------
@@ -319,5 +330,9 @@ def test_sample_hand_survives_curve_filter_click() -> None:
 def test_sample_hand_drops_removed_entries_on_render() -> None:
     payload = _payload("sample_hand_drops_removed_entries")
     assert "error" not in payload, payload.get("error", "")
-    assert payload["removedPresentBefore"] is True, "Lotus Petal should be in hand before removal"
-    assert payload["removedPresentAfter"] is False, "Lotus Petal should be gone after removal"
+    assert (
+        payload["removedPresentBefore"] is True
+    ), "Lotus Petal should be in hand before removal"
+    assert (
+        payload["removedPresentAfter"] is False
+    ), "Lotus Petal should be gone after removal"

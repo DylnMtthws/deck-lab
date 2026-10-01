@@ -169,14 +169,12 @@ def _database(tmp_path: Path) -> tuple[Path, str]:
         status="active",
     )
     with db.connect(path) as conn:
-        conn.execute(
-            """INSERT INTO cards
+        conn.execute("""INSERT INTO cards
             (id,oracle_id,name,mana_cost,cmc,type_line,oracle_text,color_identity,
              is_legal_commander,is_legal_in_99,image_uri)
             VALUES('kinnan','oracle-kinnan','Kinnan Test','{G}{U}',2,
              'Legendary Creature — Human Druid','Mana text','["G","U"]',1,1,
-             'https://images.example.test/kinnan.jpg')"""
-        )
+             'https://images.example.test/kinnan.jpg')""")
         conn.commit()
     return path, owner
 

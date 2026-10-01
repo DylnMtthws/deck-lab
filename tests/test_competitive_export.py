@@ -26,6 +26,7 @@ BUILDER_TEMPLATE = (
 # Fixture documents
 # ---------------------------------------------------------------------------
 
+
 def _fixture_document() -> dict[str, Any]:
     return {
         "id": "fixture-1",
@@ -40,44 +41,76 @@ def _fixture_document() -> dict[str, Any]:
         ],
         "entries": [
             {
-                "id": "e-cmd", "name": "Kinnan, Bonder Prodigy",
-                "is_commander": True, "quantity": 1, "zone_id": None,
-                "type_line": "Legendary Creature", "color_identity": ["G", "U"],
+                "id": "e-cmd",
+                "name": "Kinnan, Bonder Prodigy",
+                "is_commander": True,
+                "quantity": 1,
+                "zone_id": None,
+                "type_line": "Legendary Creature",
+                "color_identity": ["G", "U"],
             },
             {
-                "id": "e-sol", "name": "Sol Ring",
-                "is_commander": False, "quantity": 1, "zone_id": "z-main",
-                "type_line": "Artifact", "color_identity": [],
+                "id": "e-sol",
+                "name": "Sol Ring",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-main",
+                "type_line": "Artifact",
+                "color_identity": [],
             },
             {
-                "id": "e-ring2", "name": "Sol Ring",
-                "is_commander": False, "quantity": 1, "zone_id": "z-ramp",
-                "type_line": "Artifact", "color_identity": [],
+                "id": "e-ring2",
+                "name": "Sol Ring",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-ramp",
+                "type_line": "Artifact",
+                "color_identity": [],
             },
             {
-                "id": "e-isochron", "name": "Isochron Scepter",
-                "is_commander": False, "quantity": 1, "zone_id": "z-main",
-                "type_line": "Artifact", "color_identity": [],
+                "id": "e-isochron",
+                "name": "Isochron Scepter",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-main",
+                "type_line": "Artifact",
+                "color_identity": [],
             },
             {
-                "id": "e-abrade", "name": "Abrade",
-                "is_commander": False, "quantity": 1, "zone_id": "z-main",
-                "type_line": "Instant", "color_identity": ["R"],
+                "id": "e-abrade",
+                "name": "Abrade",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-main",
+                "type_line": "Instant",
+                "color_identity": ["R"],
             },
             {
-                "id": "e-maybe1", "name": "Jace, Wielder of Mysteries",
-                "is_commander": False, "quantity": 1, "zone_id": "z-maybe",
-                "type_line": "Legendary Planeswalker", "color_identity": ["U"],
+                "id": "e-maybe1",
+                "name": "Jace, Wielder of Mysteries",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-maybe",
+                "type_line": "Legendary Planeswalker",
+                "color_identity": ["U"],
             },
             {
-                "id": "e-side1", "name": "Leyline of Anticipation",
-                "is_commander": False, "quantity": 1, "zone_id": "z-side",
-                "type_line": "Enchantment", "color_identity": ["U"],
+                "id": "e-side1",
+                "name": "Leyline of Anticipation",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-side",
+                "type_line": "Enchantment",
+                "color_identity": ["U"],
             },
             {
-                "id": "e-cons1", "name": "Questing Beast",
-                "is_commander": False, "quantity": 1, "zone_id": "z-consider",
-                "type_line": "Legendary Creature", "color_identity": ["G"],
+                "id": "e-cons1",
+                "name": "Questing Beast",
+                "is_commander": False,
+                "quantity": 1,
+                "zone_id": "z-consider",
+                "type_line": "Legendary Creature",
+                "color_identity": ["G"],
             },
         ],
     }
@@ -86,6 +119,7 @@ def _fixture_document() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Flask fixtures for route tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def db_path(tmp_path):
@@ -122,6 +156,7 @@ def _login(client, user_id: str) -> None:
 # AC-1: sections format unchanged
 # ---------------------------------------------------------------------------
 
+
 def test_sections_format_unchanged() -> None:
     doc = _fixture_document()
     expected = (
@@ -154,6 +189,7 @@ def test_sections_format_unchanged() -> None:
 # ---------------------------------------------------------------------------
 # AC-2: plain format
 # ---------------------------------------------------------------------------
+
 
 def test_plain_format_commander_first_sorted_merged_no_private_zones() -> None:
     doc = _fixture_document()
@@ -188,6 +224,7 @@ def test_plain_format_commander_first_sorted_merged_no_private_zones() -> None:
 # AC-3: Archidekt format
 # ---------------------------------------------------------------------------
 
+
 def test_archidekt_format_marks_commanders() -> None:
     doc = _fixture_document()
     result = DeckDocumentRepo.export_text(doc, fmt="archidekt")
@@ -203,10 +240,12 @@ def test_archidekt_format_marks_commanders() -> None:
 # AC-4/AC-5: route tests (Flask test client)
 # ---------------------------------------------------------------------------
 
+
 def test_route_format_param_plain_and_archidekt(
     export_app, export_client, db_path
 ) -> None:
     from sabermetrics import db
+
     uid = db.UsersRepo(db_path).create(
         email="export@local",
         display_name="export",
@@ -219,17 +258,14 @@ def test_route_format_param_plain_and_archidekt(
     assert resp.status_code == 201
     deck_id = resp.get_json()["id"]
     for fmt in ("plain", "archidekt"):
-        resp = export_client.get(
-            f"/build/deck/{deck_id}/export.txt?format={fmt}"
-        )
+        resp = export_client.get(f"/build/deck/{deck_id}/export.txt?format={fmt}")
         assert resp.status_code == 200, f"format={fmt} failed"
         assert resp.mimetype == "text/plain"
 
 
-def test_route_rejects_unknown_format(
-    export_app, export_client, db_path
-) -> None:
+def test_route_rejects_unknown_format(export_app, export_client, db_path) -> None:
     from sabermetrics import db
+
     uid = db.UsersRepo(db_path).create(
         email="badfmt@local",
         display_name="badfmt",
@@ -249,13 +285,17 @@ def test_route_rejects_unknown_format(
 # AC-6: plain matches client copy-list (Node harness)
 # ---------------------------------------------------------------------------
 
+
 def _harness_payload() -> dict:
     node = shutil.which("node")
     if not node:
         pytest.skip("node is required to execute the export harness")
     result = subprocess.run(
         [node, str(HARNESS), str(EXPORT_JS)],
-        text=True, capture_output=True, check=False, timeout=30,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or "export harness failed")
@@ -277,6 +317,7 @@ def test_plain_matches_client_copy_list() -> None:
 # AC-8: client Archidekt output matches server
 # ---------------------------------------------------------------------------
 
+
 def test_client_archidekt_lines() -> None:
     payload = _harness_payload()
     doc = _fixture_document()
@@ -292,6 +333,7 @@ def test_client_archidekt_lines() -> None:
 # AC-7: builder menu has archidekt copy and download
 # ---------------------------------------------------------------------------
 
+
 def test_builder_menu_has_archidekt_copy_and_download() -> None:
     html = BUILDER_TEMPLATE.read_text()
     assert "data-export-copy-archidekt" in html
@@ -302,6 +344,7 @@ def test_builder_menu_has_archidekt_copy_and_download() -> None:
 # AC-9: Archidekt button copies text and sets status
 # ---------------------------------------------------------------------------
 
+
 def _builder_harness_payload(scenario: str = "boot") -> dict:
     node = shutil.which("node")
     if not node:
@@ -310,7 +353,10 @@ def _builder_harness_payload(scenario: str = "boot") -> dict:
     HARNESS = ROOT / "tests" / "export_builder_harness.mjs"
     result = subprocess.run(
         [node, str(HARNESS), str(EXPORT_JS), str(BUILDER_JS), scenario],
-        text=True, capture_output=True, check=False, timeout=30,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or f"harness {scenario} failed")
@@ -330,6 +376,7 @@ def test_archidekt_button_copies_text_and_sets_status() -> None:
 # AC-10: Archidekt button fallback when clipboard fails
 # ---------------------------------------------------------------------------
 
+
 def test_archidekt_button_falls_back_when_clipboard_fails() -> None:
     payload = _builder_harness_payload("ac10")
     doc = _fixture_document()
@@ -343,6 +390,7 @@ def test_archidekt_button_falls_back_when_clipboard_fails() -> None:
 # ---------------------------------------------------------------------------
 # AC-11: Export items blocked while save pending
 # ---------------------------------------------------------------------------
+
 
 def test_export_items_blocked_while_save_pending() -> None:
     payload = _builder_harness_payload("ac11")

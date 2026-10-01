@@ -2279,9 +2279,7 @@ class DeckDocumentRepo:
         return merged
 
     @staticmethod
-    def export_text(
-        document: dict[str, Any], fmt: str = "sections"
-    ) -> str:
+    def export_text(document: dict[str, Any], fmt: str = "sections") -> str:
         if fmt == "sections":
             lines: list[str] = [f"// {document['title']}", ""]
             commanders = [e for e in document["entries"] if e["is_commander"]]
@@ -2310,15 +2308,16 @@ class DeckDocumentRepo:
 
         if fmt == "plain":
             rows = DeckDocumentRepo._export_plain(document)
-            return "\n".join(
-                f"{qty} {name}" for name, qty, _ in rows
-            ) + "\n"
+            return "\n".join(f"{qty} {name}" for name, qty, _ in rows) + "\n"
 
         if fmt == "archidekt":
             rows = DeckDocumentRepo._export_plain(document)
-            return "\n".join(
-                f"{qty}x {name}{' [Commander]' if is_cmd else ''}"
-                for name, qty, is_cmd in rows
-            ) + "\n"
+            return (
+                "\n".join(
+                    f"{qty}x {name}{' [Commander]' if is_cmd else ''}"
+                    for name, qty, is_cmd in rows
+                )
+                + "\n"
+            )
 
         raise ValueError(f"Unknown export format: {fmt!r}")

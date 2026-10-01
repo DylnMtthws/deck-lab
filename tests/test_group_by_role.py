@@ -47,16 +47,10 @@ def _run_harness(scenario: str) -> dict:
 def test_update_view_accepts_role_and_rejects_unknown() -> None:
     """Validate the DeckDocumentRepo command validator."""
     # We assert the option_sets in deck_documents.py by reading the source.
-    src = (
-        ROOT / "src" / "sabermetrics" / "deck_documents.py"
-    ).read_text()
-    match = re.search(
-        r"\"group_mode\":\s*\{(.+?)\}", src, re.MULTILINE | re.DOTALL
-    )
+    src = (ROOT / "src" / "sabermetrics" / "deck_documents.py").read_text()
+    match = re.search(r"\"group_mode\":\s*\{(.+?)\}", src, re.MULTILINE | re.DOTALL)
     assert match, "group_mode option set not found"
-    valid = set(
-        re.findall(r'"([^"]+)"', match.group(1))
-    )
+    valid = set(re.findall(r'"([^"]+)"', match.group(1)))
     assert "role" in valid, '"role" must be in group_mode valid values'
     assert "zone" in valid
     assert "type" in valid
@@ -85,7 +79,11 @@ def test_role_groups_order_labels_and_no_role_last() -> None:
 
     # No-role group exists after all role groups
     no_role_idx = group_ids.index("role-none")
-    role_ids = [gid for gid in group_ids if gid.startswith("role-") and gid not in ("role-none", "role-private")]
+    role_ids = [
+        gid
+        for gid in group_ids
+        if gid.startswith("role-") and gid not in ("role-none", "role-private")
+    ]
     last_role_idx = max(group_ids.index(rid) for rid in role_ids)
     assert no_role_idx > last_role_idx, "No role group should be after all role groups"
 
@@ -125,7 +123,9 @@ def test_sort_applies_within_role_groups() -> None:
     entry_ids = payload["rampEntryIds"]
     # Both have mana_value=1, so tie goes to alphabetical: "Birds of Paradise" < "Sol Ring"
     assert len(entry_ids) == 2
-    assert entry_ids[0] == "entry-arbor", "Birds of Paradise should come first alphabetically"
+    assert (
+        entry_ids[0] == "entry-arbor"
+    ), "Birds of Paradise should come first alphabetically"
     assert entry_ids[1] == "entry-sol"
 
 
@@ -182,7 +182,11 @@ def test_zone_and_type_grouping_unchanged() -> None:
 
     # Type grouping: commander + types, sorted
     assert type_names == [
-        "Commander", "Artifact", "Basic Land", "Creature", "Enchantment"
+        "Commander",
+        "Artifact",
+        "Basic Land",
+        "Creature",
+        "Enchantment",
     ]
 
 
@@ -220,8 +224,12 @@ def test_role_grouping_shows_every_entry_exactly_once() -> None:
     payload = _run_harness("all_entries_visible")
     all_ids = payload["allEntryIds"]
     expected = [
-        "entry-cmd", "entry-ramp", "entry-draw",
-        "entry-carddraw", "entry-finisher", "entry-norole",
+        "entry-cmd",
+        "entry-ramp",
+        "entry-draw",
+        "entry-carddraw",
+        "entry-finisher",
+        "entry-norole",
         "entry-private",
     ]
     assert sorted(all_ids) == sorted(expected)
@@ -242,7 +250,9 @@ def test_single_other_group_when_other_and_unknown_roles_coexist() -> None:
 
     # Count role-other groups: must be exactly 1
     other_groups = [g for g in groups if g["id"] == "role-other"]
-    assert len(other_groups) == 1, f"Expected exactly one role-other group, got {len(other_groups)}"
+    assert (
+        len(other_groups) == 1
+    ), f"Expected exactly one role-other group, got {len(other_groups)}"
 
     other_group = other_groups[0]
     assert other_group["name"] == "Other"
@@ -254,6 +264,9 @@ def test_single_other_group_when_other_and_unknown_roles_coexist() -> None:
     # The group is at the position of "other" in roleOptions (after utility, before role-none and private)
     other_idx = group_ids.index("role-other")
     # There should be no other role-* group after this one besides role-none and role-private
-    remaining = group_ids[other_idx + 1:]
+    remaining = group_ids[other_idx + 1 :]
     for rid in remaining:
-        assert rid in ("role-none", "role-private"), f"Unexpected group {rid} after role-other"
+        assert rid in (
+            "role-none",
+            "role-private",
+        ), f"Unexpected group {rid} after role-other"

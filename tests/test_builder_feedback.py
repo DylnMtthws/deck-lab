@@ -69,7 +69,9 @@ def _seed_card(db_path, card_id="kinnan", oracle_id="o-kinnan", name="Kinnan"):
         conn.commit()
 
 
-def _seed_card_for_library(db_path, card_id="c-ring", oracle_id="o-ring", name="Sol Ring"):
+def _seed_card_for_library(
+    db_path, card_id="c-ring", oracle_id="o-ring", name="Sol Ring"
+):
     """Insert a card legal in the 99."""
     with db.connect(db_path) as conn:
         conn.execute(
@@ -88,6 +90,7 @@ def _create_deck(db_path, owner_id):
     _seed_card(db_path)
     _seed_card_for_library(db_path)
     from sabermetrics.deck_documents import DeckDocumentRepo
+
     repo = DeckDocumentRepo(db_path)
     deck_id = repo.create(owner_id, title="Test Deck", commander_card_id="kinnan")
     # Find the Unsorted zone ID
@@ -100,14 +103,18 @@ def _create_deck(db_path, owner_id):
         conn.commit()
     # Add a non-commander entry
     repo.apply_commands(
-        owner_id, deck_id, expected_revision=0,
+        owner_id,
+        deck_id,
+        expected_revision=0,
         mutation_id="add-entry",
-        commands=[{
-            "type": "add_card",
-            "card_id": "c-ring",
-            "zone_id": unsorted_id,
-            "quantity": 1,
-        }],
+        commands=[
+            {
+                "type": "add_card",
+                "card_id": "c-ring",
+                "zone_id": unsorted_id,
+                "quantity": 1,
+            }
+        ],
     )
     return deck_id
 
@@ -124,7 +131,9 @@ def test_tables_created_on_fresh_and_existing_db(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
             ("deck_document_card_feedback",),
         )
-        assert cursor.fetchone() is not None, "deck_document_card_feedback table missing"
+        assert (
+            cursor.fetchone() is not None
+        ), "deck_document_card_feedback table missing"
         cursor = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
             ("deck_document_feedback",),
@@ -208,7 +217,10 @@ def _seed_deck_doc(db_path, owner_id):
     _seed_card(db_path)
     _seed_card_for_library(db_path)
     from sabermetrics.deck_documents import DeckDocumentRepo
-    did = DeckDocumentRepo(db_path).create(owner_id, title="Route Deck", commander_card_id="kinnan")
+
+    did = DeckDocumentRepo(db_path).create(
+        owner_id, title="Route Deck", commander_card_id="kinnan"
+    )
     with db.connect(db_path) as conn:
         zone = conn.execute(
             "SELECT id FROM deck_zones WHERE deck_id=? AND name='Unsorted'",
@@ -217,19 +229,20 @@ def _seed_deck_doc(db_path, owner_id):
         unsorted_id = str(zone["id"])
         conn.commit()
     DeckDocumentRepo(db_path).apply_commands(
-        owner_id, did, expected_revision=0,
+        owner_id,
+        did,
+        expected_revision=0,
         mutation_id="add-entry",
-        commands=[{
-            "type": "add_card",
-            "card_id": "c-ring",
-            "zone_id": unsorted_id,
-            "quantity": 1,
-        }],
+        commands=[
+            {
+                "type": "add_card",
+                "card_id": "c-ring",
+                "zone_id": unsorted_id,
+                "quantity": 1,
+            }
+        ],
     )
     return did
-
-
-
 
 
 # --- AC-4: Owner-only routes ---
@@ -396,7 +409,10 @@ def _run_harness(scenario: str) -> dict:
         pytest.skip("node is required for JS harness tests")
     result = subprocess.run(
         [node, str(HARNESS), str(BUILDER_JS), str(FEEDBACK_JS), scenario],
-        text=True, capture_output=True, check=False, timeout=30,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         pytest.fail(f"Harness failed (scenario={scenario}): {result.stderr}")
@@ -449,6 +465,7 @@ def test_verdict_section_saves_and_debounces_comment():
 def test_script_not_loaded_on_shared_page(db_path, app):
     """AC-12: Feedback JS is not loaded when shared=True."""
     from sabermetrics.deck_documents import DeckDocumentRepo
+
     uid = _user(db_path, "owner@local")
     did = _seed_deck_doc(db_path, uid)
     token = DeckDocumentRepo(db_path).create_share(uid, did)

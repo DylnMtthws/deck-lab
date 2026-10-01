@@ -30,7 +30,10 @@ def _payload() -> dict:
         pytest.skip("node is required to execute the harness")
     result = subprocess.run(
         [node, str(HARNESS), str(MANA_JS), str(BUILDER_JS)],
-        text=True, capture_output=True, check=False, timeout=30,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or "harness failed")
@@ -66,9 +69,9 @@ def test_file_name_mapping_table(input_sym, expected_file) -> None:
     payload = _payload()
     for case in payload["fileNameCases"]:
         if case["input"] == input_sym:
-            assert case["pass"] is True, (
-                f"fileName({input_sym!r}): expected {expected_file!r}, got {case['actual']!r}"
-            )
+            assert (
+                case["pass"] is True
+            ), f"fileName({input_sym!r}): expected {expected_file!r}, got {case['actual']!r}"
             return
     pytest.fail(f"Input {input_sym!r} not found in payload")
 
@@ -213,15 +216,13 @@ def test_server_templates_use_macro(tmp_path, monkeypatch) -> None:
         ("/research?tab=cards", "Research cards tab"),
     ]:
         resp = client.get(url)
-        assert resp.status_code == 200, (
-            f"{label} ({url}) returned {resp.status_code}"
-        )
+        assert resp.status_code == 200, f"{label} ({url}) returned {resp.status_code}"
         html = resp.get_data(as_text=True)
 
         # Server-rendered SVG symbols from the macro
-        assert "svgs.scryfall.io/card-symbols/" in html, (
-            f"{label} ({url}): no Scryfall SVG found"
-        )
+        assert (
+            "svgs.scryfall.io/card-symbols/" in html
+        ), f"{label} ({url}): no Scryfall SVG found"
 
         # No old-style mana pips outside exempt label chips
         for match in re.finditer(
@@ -232,7 +233,10 @@ def test_server_templates_use_macro(tmp_path, monkeypatch) -> None:
             exempt = False
             label_open = preceding.rfind("<label")
             label_close = preceding.rfind("</label>")
-            if label_open > label_close and "dl-color-filter-chip" in preceding[label_open:]:
+            if (
+                label_open > label_close
+                and "dl-color-filter-chip" in preceding[label_open:]
+            ):
                 exempt = True
             if not exempt:
                 pytest.fail(
@@ -264,13 +268,11 @@ def test_pages_with_color_pips_render_200(tmp_path, monkeypatch) -> None:
         ("/research?tab=cards", "Research cards tab"),
     ]:
         resp = client.get(url)
-        assert resp.status_code == 200, (
-            f"{label} ({url}) returned {resp.status_code}"
-        )
+        assert resp.status_code == 200, f"{label} ({url}) returned {resp.status_code}"
         html = resp.get_data(as_text=True)
-        assert "svgs.scryfall.io/card-symbols/" in html, (
-            f"{label} ({url}): no Scryfall SVG symbol found"
-        )
+        assert (
+            "svgs.scryfall.io/card-symbols/" in html
+        ), f"{label} ({url}): no Scryfall SVG symbol found"
 
 
 # ---------------------------------------------------------------------------
