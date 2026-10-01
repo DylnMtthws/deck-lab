@@ -49,7 +49,7 @@ The program is DONE only when every box is checked:
 | 9 | Evidence badges + "Why this card?" | T12 | HIGH | VERIFIED (a9b3e27) |
 | 10 | Compare to the meta | T13 | HIGH | TODO |
 | 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
-| 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | TODO |
+| 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | VERIFIED |
 | 13 | Per-card + deck feedback in the builder | T07 | LOW | TODO |
 | 14 | Group by role + remembered view/group/sort | T11 | LOW | VERIFIED (e7ef49d); persistence PRE-EXISTING |
 | 15 | Scryfall syntax in Research search | T03 | LOW | VERIFIED (e94c127) |
@@ -112,3 +112,5 @@ all gates after every merge.
 - 2026-10-01: T07 review → REWORK. Implementation sound (owner-scoped routes, card_key validation, CSRF). SPEC ERROR (mine): I specified ON DELETE CASCADE on deck_id, but DeckDocumentRepo enables FKs → deleting a deck would erase testers' research feedback, contradicting CLAUDE.md (feedback kept on delete); plain FK would instead block deletion. Amendment-1: deck_id without FK + AC-15 survival test; also revert T07's edit to an existing test (integration already satisfies the original).
 - 2026-10-01: T12 VERIFIED → merged (a9b3e27). Reuses ResearchRepo._scope (no re-derived window); single aggregate query; event-size column probed at runtime (none locally → floor reported as "event size not recorded"); unknown commander → unavailable, not 0; explanations only from the deck's own source candidate (owner-scoped). Noted (non-blocking): relies on SQLite emitting UNION ALL rows in order. Mutation dropping the denominator from badge text fails 3 tests. Gates: 1838 passed / ruff / mypy clean. (Orchestrator slip: first merge attempt ran inside cux-T12 — a no-op; redone in integration.)
 - 2026-10-01: T13 launched (Grok 4.7 Medium) from integration HEAD.
+- 2026-10-01: T14 VERIFIED → merged. Table has no FK on deck_id (deck deletion unaffected); hash via existing DeckCandidate.deck_sha256; simulator-returned hash compared against ours (integrity contract); client only via build_simulator_client; bounded executor, 202 + status URL. Mutation running simulation on the request thread fails the latch test. builder_routes add/add conflict with T12 hand-resolved. Gates: 1849 passed / ruff / mypy clean.
+- 2026-10-01: TODO (orchestrator, end): format-only `ruff format` commit for files with drift from T01/T03/T12/T14 (deck_documents.py, deck_evidence.py, research_routes.py, scryfall_query.py) — CI does not enforce format, but base files were formatted.
