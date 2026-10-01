@@ -285,30 +285,34 @@ class TestFormArgsOverrideParsedValues:
 
 
 class TestUnsupportedNoticeRendered:
-    """AC-12: Unsupported syntax terms render a notice."""
+    """AC-12: Unsupported syntax terms render as chips."""
 
     def test_is_commander_shows_notice(self, client):
         html = _html(client.get("/research/?tab=cards&q=is:commander"))
-        assert "data-query-unsupported" in html
-        assert "Not supported yet" in html
+        assert 'class="dl-chip dl-syntax-chip is-warn"' in html
+        assert 'title="Not supported yet"' in html
         assert "is:commander" in html
 
     def test_set_code_shows_notice(self, client):
         html = _html(client.get("/research/?tab=cards&q=set:mh3"))
-        assert "data-query-unsupported" in html
+        assert 'class="dl-chip dl-syntax-chip is-warn"' in html
         assert "set:mh3" in html
 
     def test_applied_terms_show_notice(self, client):
         html = _html(client.get("/research/?tab=cards&q=t:creature o:draw"))
-        assert "data-query-applied" in html
-        assert "Applied from search" in html
+        assert 'class="dl-chip dl-syntax-chip is-ok"' in html
+        assert 'data-syntax-term="t:creature"' in html
+        assert 'data-syntax-term="o:draw"' in html
 
     def test_mixed_applied_and_unsupported(self, client):
         html = _html(
             client.get("/research/?tab=cards&q=t:creature o:draw is:commander set:mh3")
         )
-        assert "data-query-applied" in html
-        assert "data-query-unsupported" in html
+        assert 'class="dl-chip dl-syntax-chip is-ok"' in html
+        assert 'class="dl-chip dl-syntax-chip is-warn"' in html
+        assert 'data-syntax-term="t:creature"' in html
+        assert "is:commander" in html
+        assert "set:mh3" in html
 
     def test_unsupported_notice_includes_all_terms(self, client):
         html = _html(client.get("/research/?tab=cards&q=set:mh3 f:edh"))
@@ -316,10 +320,10 @@ class TestUnsupportedNoticeRendered:
         assert "f:edh" in html
 
     def test_query_notices_absent_when_not_needed(self, client):
-        """Plain name query has no notices."""
+        """Plain name query has no chips."""
         html = _html(client.get("/research/?tab=cards&q=Lightning"))
-        assert "data-query-applied" not in html
-        assert "data-query-unsupported" not in html
+        assert 'class="dl-chip dl-syntax-chip' not in html
+        assert "<dl-syntax-chips" not in html
 
 
 class TestPlainQueryUnchanged:
@@ -384,8 +388,8 @@ class TestSyntaxNotAppliedOnOtherTabs:
         assert (
             parse_calls == []
         ), "parse_query should not be called for the commanders tab"
-        assert "data-query-applied" not in html
-        assert "data-query-unsupported" not in html
+        assert 'data-syntax-term="' not in html
+        assert 'class="dl-chip dl-syntax-chip' not in html
 
     def test_metagame_tab_not_affected(self, client, monkeypatch):
         import sabermetrics.ui.research_routes as routes
@@ -403,8 +407,8 @@ class TestSyntaxNotAppliedOnOtherTabs:
         assert (
             parse_calls == []
         ), "parse_query should not be called for the metagame tab"
-        assert "data-query-applied" not in html
-        assert "data-query-unsupported" not in html
+        assert 'data-syntax-term="' not in html
+        assert 'class="dl-chip dl-syntax-chip' not in html
 
     def test_decks_tab_not_affected(self, client, monkeypatch):
         import sabermetrics.ui.research_routes as routes
@@ -420,5 +424,5 @@ class TestSyntaxNotAppliedOnOtherTabs:
             routes.parse_query = original
 
         assert parse_calls == [], "parse_query should not be called for the decks tab"
-        assert "data-query-applied" not in html
-        assert "data-query-unsupported" not in html
+        assert 'data-syntax-term="' not in html
+        assert 'class="dl-chip dl-syntax-chip' not in html

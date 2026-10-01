@@ -414,14 +414,13 @@ def _load_index_state() -> dict[str, Any]:
         "rarity": request.args.get("rarity", ""),
     }
 
-    # When the parser recognised any syntax terms (applied or unsupported),
-    # the name search comes from the parsed name_terms only, NOT from
-    # the raw query string.  If the parser recognised nothing at all it is
-    # a plain name query and raw_query is used as-is.
+    # Keep the user's full query for the search field (AC-3).
+    # Compute a separate name_query for data lookups when syntax is detected.
     query = raw_query
+    name_query = raw_query
     if parsed is not None:
         if parsed.filters or parsed.unsupported:
-            query = " ".join(parsed.name_terms)[:120]
+            name_query = " ".join(parsed.name_terms)[:120]
             if parsed.filters:
                 _merge_parsed_filters(card_filters, parsed)
                 query_applied = parsed.applied_terms
@@ -449,7 +448,7 @@ def _load_index_state() -> dict[str, Any]:
     deck_filters = _deck_filter_args()
     data: dict[str, Any]
     if tab == "cards":
-        data = _research().cards(query, page=page, **card_filters)
+        data = _research().cards(name_query, page=page, **card_filters)
     elif tab == "decks":
         requested_partner = deck_filters["partner"]
         deck_filters.update(
@@ -458,7 +457,7 @@ def _load_index_state() -> dict[str, Any]:
             )
         )
         data = _documents().list_public(
-            query=query,
+            query=name_query,
             page=page,
             colors=deck_filters["colors"],
             color_mode=deck_filters["color_mode"],
@@ -467,7 +466,7 @@ def _load_index_state() -> dict[str, Any]:
         )
     elif tab == "commanders":
         catalog_filters = {
-            "query": query,
+            "query": name_query,
             "colors": _selected_commander_colors(),
             "color_mode": commander_filters["color_mode"],
             "mana_min_bound": _bound_arg("mana_min"),
@@ -477,7 +476,7 @@ def _load_index_state() -> dict[str, Any]:
             "page": page,
         }
         data = _research().commander_catalog(**catalog_filters)
-    elif _is_default_cohort(tab, query, page, window_days, commander_filters):
+    elif _is_default_cohort(tab, name_query, page, window_days, commander_filters):
         cache = _cache()
         view = cache.try_serve()
         if view is None and _force_full_results() and not _wants_fragment():
@@ -505,7 +504,7 @@ def _load_index_state() -> dict[str, Any]:
                 cache.request_refresh()
     else:
         data = _research().commanders(
-            query=query,
+            query=name_query,
             colors=_selected_commander_colors(),
             favorites=fav_ids,
             favorite_only=request.args.get("favorites") == "1",
