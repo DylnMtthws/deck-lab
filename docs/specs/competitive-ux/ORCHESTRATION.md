@@ -43,9 +43,9 @@ The program is DONE only when every box is checked:
 | 3 | Keyboard editing + undo/redo | T09 | HIGH | TODO |
 | 4 | "Considering" zone | T04 | LOW | PARTIAL PRE-EXISTING: private zone names excluded from count/copy (`deck_documents.py:64-71`, `deck-lab-export.js` PRIVATE_ZONE_NAMES) — T04 adds the workflow |
 | 5 | Interactive stats (curve filter, pips vs sources, odds, sample hand) | T06 | LOW | TODO |
-| 6 | Paste-ready export for Moxfield/Archidekt | T01 | LOW | PARTIAL PRE-EXISTING: "Copy list" (b46f209) — T01 adds formats + download |
-| 7 | Real mana symbols | T02 | LOW | TODO |
-| 8 | Generation in the new-deck flow + real progress | T10 | HIGH | TODO |
+| 6 | Paste-ready export for Moxfield/Archidekt | T01 | LOW | VERIFIED (2789c4d); builds on pre-existing "Copy list" (b46f209) |
+| 7 | Real mana symbols | T02 | LOW | VERIFIED (97125df) |
+| 8 | Generation in the new-deck flow + real progress | T10 | HIGH | VERIFIED (56e2077) |
 | 9 | Evidence badges + "Why this card?" | T12 | HIGH | TODO |
 | 10 | Compare to the meta | T13 | HIGH | TODO |
 | 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
@@ -92,3 +92,8 @@ all gates after every merge.
 - 2026-10-01: T03 review → ONE FIX. Parser/merge/notices/color mapping good; exact-test-name rule WAIVED (one Test<AcName> class per AC, 1:1). Defect: syntax parsed on every Research tab (commanders tab mana bounds affected). Amendment-1 + AC-14. Relaunched (DeepSeek).
 - 2026-10-01: Verifier fixed to read all spec files per task (it missed original names when an amendment existed).
 - 2026-10-01: Wave B launched from merged T00: T04, T05, T06, T07, T11 (DeepSeek); T08, T09 (Grok 4.7 Medium).
+- 2026-10-01: T02 VERIFIED → merged (97125df). Rework fixed the Jinja crash; 3 existing tests edited only to follow the mandated markup change (pip class → SVG URL; one regex gained re.DOTALL); disclosed in report — WAIVED as a necessary consequence of the spec. Mutation: reverting macro use fails 2 tests. onerror injection checked: img branch only for [0-9WUBRGCSXYZTQPE/½∞].
+- 2026-10-01: T01 VERIFIED → merged (2789c4d). Archidekt copy, download blocking wired. Note: clipboard try-block duplicated rather than shared (style, not blocking). Mutation: removing click binding fails 2 tests.
+- 2026-10-01: T10 review → rework (remove speculative `_recorded_steps` dead code; add AC-13 test) → VERIFIED → merged (56e2077), conflicts with T02 in commander.html/deck-lab.css resolved by orchestrator. NOTABLE: T10 found and fixed a latent main bug — `import_candidate` read `library`/`commander_oracle_ids`, but stored candidates use `cards`/`commander.oracle_ids`, so imported decks lost their 99. Mutation: breaking a role mapping fails 1 test.
+- 2026-10-01: Integration gates after T00+T01+T02+T10: 1676 passed / 31 skipped; ruff clean; mypy clean.
+- 2026-10-01: T14 launched (Grok 4.7 Medium) from 56e2077 — depends only on T10.
