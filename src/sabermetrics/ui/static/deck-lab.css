@@ -649,3 +649,79 @@ a.dl-card-name:hover{color:var(--brand-text)}
 @media (hover: none) {
   [data-dl-tip]::after { content: none; }
 }
+
+/* --- Card feedback (T07) --- */
+.dl-card-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.dl-fb-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: calc(var(--radius) - 5px);
+  opacity: .5;
+  transition: opacity .1s, background .1s;
+}
+.dl-fb-btn:hover { opacity: .8; background: var(--surface); }
+.dl-fb-btn[aria-pressed="true"] { opacity: 1; }
+.dl-fb-up[aria-pressed="true"] { background: color-mix(in srgb, var(--green) 20%, transparent); }
+.dl-fb-down[aria-pressed="true"] { background: color-mix(in srgb, var(--red) 20%, transparent); }
+.dl-fb-comment[data-has-comment] { opacity: 1; }
+.dl-fb-comment[data-has-comment]::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 1px;
+  vertical-align: super;
+}
+
+/* Feedback status */
+.dl-feedback-status {
+  font: 12px var(--mono);
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+/* Verdict controls in rail */
+.dl-feedback-verdict {
+  padding: 0 0 8px 0;
+}
+.dl-feedback-verdict-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 5px);
+  background: var(--surface);
+  color: var(--body);
+  cursor: pointer;
+  transition: background .1s;
+}
+.dl-feedback-verdict-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.dl-feedback-verdict-btn + .dl-feedback-verdict-btn { margin-left: 4px; }
+.dl-fb-verdict-comment-label {
+  display: block;
+  margin-top: 8px;
+}
+.dl-fb-verdict-comment-label .dl-field {
+  min-height: 56px;
+  font-size: 12px;
+  resize: vertical;
+}
+.dl-fb-privacy {
+  font-size: 11px;
+  margin-top: 4px;
+}

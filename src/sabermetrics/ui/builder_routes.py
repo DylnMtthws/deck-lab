@@ -508,6 +508,68 @@ def playmat_image(deck_id: str):
     return response
 
 
+def _feedback_repo():
+    return db.DeckDocumentFeedbackRepo(Path(current_app.config["DB_PATH"]))
+
+
+@bp.get("/api/decks/<deck_id>/feedback")
+def get_feedback(deck_id: str):
+    repo = _repo()
+    try:
+        repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
+@bp.put("/api/decks/<deck_id>/feedback/cards/<card_key>")
+def put_card_feedback(deck_id: str, card_key: str):
+    repo = _repo()
+    try:
+        doc = repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    entries = doc.get("entries", [])
+    if not any(
+        entry.get("oracle_id") == card_key
+        or (entry.get("card_id") and card_key == f"card:{entry['card_id']}")
+        for entry in entries
+    ):
+        return jsonify(error="card_key_not_in_deck"), 400
+    body = request.get_json(silent=True) or {}
+    card_name = str(body.get("card_name") or "").strip()
+    vote = body.get("vote")
+    comment = body.get("comment")
+    if vote is not None and vote not in ("up", "down"):
+        return jsonify(error="invalid_vote"), 400
+    if comment is not None:
+        comment = str(comment)
+    if not card_name:
+        return jsonify(error="card_name_required"), 400
+    _feedback_repo().upsert_card(
+        current_user.id, deck_id, card_key, card_name, vote, comment
+    )
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
+@bp.put("/api/decks/<deck_id>/feedback/deck")
+def put_deck_feedback(deck_id: str):
+    repo = _repo()
+    try:
+        repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    body = request.get_json(silent=True) or {}
+    verdict = body.get("verdict")
+    comment = body.get("comment")
+    if verdict is not None and verdict not in ("good", "mixed", "bad"):
+        return jsonify(error="invalid_verdict"), 400
+    if comment is not None:
+        comment = str(comment)
+    _feedback_repo().upsert_deck(current_user.id, deck_id, verdict, comment)
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
 @bp.get("/shared/deck/<token>")
 def shared(token: str):
     try:
