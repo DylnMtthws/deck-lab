@@ -3,7 +3,9 @@ import vm from "node:vm";
 
 const builderPath = process.argv[2];
 const consideringPath = process.argv[3];
+const iconsPath = process.argv[4];
 const source = fs.readFileSync(builderPath, "utf8");
+const iconsSource = iconsPath ? fs.readFileSync(iconsPath, "utf8") : "";
 const consideringSource = fs.readFileSync(consideringPath, "utf8");
 
 class ClassList {
@@ -336,6 +338,7 @@ const context = {
 context.window = windowObj;
 windowObj.document = document;
 await (async function boot() {
+  if (iconsSource) vm.runInContext(iconsSource, vm.createContext(context), { filename: iconsPath });
   vm.runInContext(source, vm.createContext(context), { filename: builderPath });
   vm.runInContext(consideringSource, vm.createContext(context), { filename: consideringPath });
   for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
@@ -351,6 +354,7 @@ sort.dispatchEvent(makeEvent("change", { target: sort }));
 await flush();
 document.querySelector('[data-display="stacks"]').dispatchEvent(makeEvent("click", { target: document.querySelector('[data-display="stacks"]') }));
 await flush();
+const stacksPressed = document.querySelector('[data-display="stacks"]').getAttribute("aria-pressed");
 document.querySelector('[data-density="comfortable"]').dispatchEvent(makeEvent("click"));
 await flush();
 const viewCommands = commands.slice(before).filter((cmd) => cmd.type === "update_view");
@@ -381,6 +385,9 @@ viewBtn.dispatchEvent(makeEvent("click", { target: viewBtn }));
 body.dispatchEvent(makeEvent("click", { target: body }));
 const afterOutside = { hidden: !!popover.hidden, focus: document.activeElement === viewBtn };
 
+// Stacks mode hands row rendering to deck-lab-stacks.js (not loaded here); return to List rows for the selection checks.
+document.querySelector('[data-display="text"]').dispatchEvent(makeEvent("click", { target: document.querySelector('[data-display="text"]') }));
+await flush();
 const atRest = { barHidden: !!selection.hidden, mainHidden: !!main.hidden };
 const boxes = document.querySelectorAll(".dl-row-select");
 boxes[0].checked = true;
@@ -443,7 +450,7 @@ await flush();
 console.log(JSON.stringify({
   label: viewLabel.textContent,
   viewCommands,
-  displayPressed: document.querySelector('[data-display="stacks"]').getAttribute("aria-pressed"),
+  displayPressed: stacksPressed,
   densityPressed: document.querySelector('[data-density="comfortable"]').getAttribute("aria-pressed"),
   playmatShown,
   opened,

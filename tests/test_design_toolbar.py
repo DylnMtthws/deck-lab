@@ -24,6 +24,7 @@ BUILDER_HTML = (
 HARNESS = Path(__file__).with_name("design_toolbar_harness.mjs")
 LAYOUT_HARNESS = Path(__file__).with_name("design_toolbar_layout.mjs")
 STATIC = ROOT / "src" / "sabermetrics" / "ui" / "static"
+ICONS_JS = STATIC / "deck-lab-icons.js"
 
 
 def _payload() -> dict:
@@ -31,7 +32,7 @@ def _payload() -> dict:
     if not node:
         pytest.skip("node is required to execute the toolbar harness")
     result = subprocess.run(
-        [node, str(HARNESS), str(BUILDER_JS), str(CONSIDERING_JS)],
+        [node, str(HARNESS), str(BUILDER_JS), str(CONSIDERING_JS), str(ICONS_JS)],
         text=True,
         capture_output=True,
         check=False,
