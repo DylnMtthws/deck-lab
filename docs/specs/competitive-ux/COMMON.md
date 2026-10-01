@@ -58,6 +58,11 @@ different checkout, and without it you test the wrong code.
    `node:vm` (see `tests/builder_selection_harness.mjs` and
    `tests/test_builder_selection_and_preview.py`), driven from a pytest test.
 
+9. **Extension modules must work when loaded late.** Builder scripts are `defer` and run in order, so `deck-lab-builder.js` has ALREADY rendered and dispatched `deck-lab:ready` before your module runs.
+   - If `window.DeckLabBuilder` exists at load: initialize and render immediately from `getState()`, and register `onRender`.
+   - Only listen for `deck-lab:ready` when the API is absent.
+   - Every builder extension task must include a test that loads your module AFTER the builder has rendered and fired ready, with no further events, and asserts that your UI is populated.
+
 ## Definition of done (every task)
 
 A task is DONE only when ALL of these are true:
