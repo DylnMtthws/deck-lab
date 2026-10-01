@@ -757,4 +757,10 @@ a.dl-card-name:hover{color:var(--brand-text)}
 .dl-status-type, .dl-status-role { color: var(--muted); }
 @media (max-width: 767px) {
   .dl-status-bar { display: none; }
+.dl-considering-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  margin-left: 0.5em;
+  white-space: nowrap;
 }

@@ -167,11 +167,16 @@ def test_card_image_dialog_markup_exists_for_owners_and_shared_viewers() -> None
         r'data-card-image-original[^>]*target="_blank"[^>]*rel="noopener"', markup
     )
     # Shared (read-only) decks render preview controls too, so the dialog must
-    # live outside the `{% if not shared %}` block.
-    shared_only, _, rest = html.partition("{% if not shared %}")
-    body = rest.split("{% endif %}")
-    assert "card-image-dialog" in "".join(body[-1:]) or "card-image-dialog" in (
-        shared_only
+    # live outside every `{% if not shared %}...{% endif %}` block.
+    # Strip all not-shared blocks (including nested) and verify the dialog
+    # remains in the remaining template text.
+    remaining = html
+    while "{% if not shared %}" in remaining:
+        before, _, after = remaining.partition("{% if not shared %}")
+        _inner, _, tail = after.partition("{% endif %}")
+        remaining = before + tail
+    assert "card-image-dialog" in remaining, (
+        "dialog must survive after stripping all not-shared blocks"
     )
 
 
