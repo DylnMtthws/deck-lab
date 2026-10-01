@@ -682,8 +682,15 @@
     if (!menu || !api) return;
     var text = api.exportText(state), empty = !text, blocked = empty || exportBlocked();
     var copyBtn = menu.querySelector("[data-export-copy]"), buy = menu.querySelector("[data-export-buy]");
+    var archBtn = menu.querySelector("[data-export-copy-archidekt]");
+    var dlLink = menu.querySelector("[data-export-download]");
     var status = menu.querySelector("[data-export-status]");
     if (copyBtn) copyBtn.disabled = blocked;
+    if (archBtn) archBtn.disabled = blocked;
+    if (dlLink) {
+      if (blocked) { dlLink.setAttribute("aria-disabled", "true"); }
+      else { dlLink.removeAttribute("aria-disabled"); }
+    }
     if (buy) {
       if (blocked) { buy.removeAttribute("href"); buy.setAttribute("aria-disabled", "true"); buy.tabIndex = -1; }
       else { buy.setAttribute("href", api.manaPoolUrl(text)); buy.removeAttribute("aria-disabled"); buy.tabIndex = 0; }
@@ -718,12 +725,33 @@
       else succeed();
     } catch (_) { fail(); }
   }
+  function copyExportArchidekt() {
+    var api = window.DeckLabExport, status = document.querySelector("[data-export-status]");
+    if (!api || exportBlocked()) return;
+    var text = api.exportArchidektText(state) + "\n";
+    if (!text.trim()) return;
+    function succeed() { if (status) { status.dataset.exportNotice = "copied"; status.textContent = "Copied for Archidekt"; } }
+    function fail() { if (status) { status.dataset.exportNotice = "error"; status.textContent = "Copy unavailable. Select the list to copy."; } showExportFallback(text); }
+    try {
+      var clip = navigator.clipboard;
+      if (!clip || typeof clip.writeText !== "function") return fail();
+      var result = clip.writeText(text);
+      if (result && typeof result.then === "function") result.then(succeed).catch(fail);
+      else succeed();
+    } catch (_) { fail(); }
+  }
   function bindExportMenu() {
     var menu = document.querySelector("[data-export-menu]");
     if (!menu) return;
     var copyBtn = menu.querySelector("[data-export-copy]"), buy = menu.querySelector("[data-export-buy]");
+    var archBtn = menu.querySelector("[data-export-copy-archidekt]");
+    var dlLink = menu.querySelector("[data-export-download]");
     menu.addEventListener("toggle", function () { if (menu.open) syncExport(); });
     if (copyBtn) copyBtn.addEventListener("click", function () { copyExportList(); });
+    if (archBtn) archBtn.addEventListener("click", function () { copyExportArchidekt(); });
+    if (dlLink) dlLink.addEventListener("click", function (event) {
+      if (exportBlocked() || dlLink.getAttribute("aria-disabled") === "true") { event.preventDefault(); }
+    });
     if (buy) buy.addEventListener("click", function (event) {
       var api = window.DeckLabExport;
       if (!api || exportBlocked() || !api.exportText(state)) { event.preventDefault(); return; }

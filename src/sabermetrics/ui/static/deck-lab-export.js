@@ -58,6 +58,26 @@
     return exportLines(document).join("\n");
   }
 
+  function exportArchidektText(document, commanders) {
+    var entries = (document && document.entries) || [];
+    var cmdNames = Object.create(null);
+    if (commanders) {
+      commanders.forEach(function (c) { cmdNames[c] = 1; });
+    } else {
+      entries.forEach(function (entry) {
+        if (entry.is_commander && entry.name) cmdNames[entry.name] = 1;
+      });
+    }
+    var plain = exportLines(document);
+    return plain.map(function (line) {
+      var qtyMatch = line.match(/^(\d+) (.+)$/);
+      if (!qtyMatch) return line;
+      var name = qtyMatch[2];
+      var suffix = cmdNames[name] ? " [Commander]" : "";
+      return qtyMatch[1] + "x " + name + suffix;
+    }).join("\n");
+  }
+
   function utf8ToBase64(text) {
     var bytes = new TextEncoder().encode(text);
     var binary = "";
@@ -77,6 +97,7 @@
   var api = {
     exportLines: exportLines,
     exportText: exportText,
+    exportArchidektText: exportArchidektText,
     encodeDeckParam: encodeDeckParam,
     manaPoolUrl: manaPoolUrl
   };

@@ -379,11 +379,14 @@ def export(deck_id: str):
         document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         abort(404)
+    fmt = (request.args.get("format") or "sections").strip().lower()
+    if fmt not in {"sections", "plain", "archidekt"}:
+        return Response("Unknown export format", status=400)
     filename = "".join(
         c if c.isalnum() or c in "-_" else "-" for c in document["title"]
     )
     return Response(
-        _repo().export_text(document),
+        _repo().export_text(document, fmt=fmt),
         mimetype="text/plain",
         headers={
             "Content-Disposition": f'attachment; filename="{filename or "deck"}.txt"'

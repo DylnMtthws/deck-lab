@@ -2178,28 +2178,85 @@ class DeckDocumentRepo:
         return leftover
 
     @staticmethod
-    def export_text(document: dict[str, Any]) -> str:
-        lines: list[str] = [f"// {document['title']}", ""]
-        commanders = [e for e in document["entries"] if e["is_commander"]]
-        if commanders:
-            lines.append("Commander")
-            lines.extend(f"{e['quantity']} {e['name']}" for e in commanders)
-            lines.append("")
-        entries_by_zone: dict[str, list[dict[str, Any]]] = {}
-        zone_names = {z["id"]: z["name"] for z in document["zones"]}
-        for entry in document["entries"]:
-            if not entry["is_commander"]:
-                entries_by_zone.setdefault(
-                    zone_names.get(entry["zone_id"], "Unsorted"), []
-                ).append(entry)
-        for zone in document["zones"]:
-            entries = entries_by_zone.get(zone["name"], [])
-            if not entries:
+    def _export_plain(document: dict[str, Any]) -> list[tuple[str, int, bool]]:
+        """Return (name, quantity, is_commander) tuples in plain/archidekt order.
+
+        Commanders first (document order), then library cards sorted case-insensitively
+        by name. If a commander name also appears in the library, the quantities are
+        merged into the commander entry. Private zones are excluded.
+        """
+        entries = document.get("entries", [])
+        zone_names = {z["id"]: z["name"] for z in document.get("zones", [])}
+
+        commander_names: dict[str, int] = {}
+        commander_order: list[str] = []
+        library_names: dict[str, int] = {}
+
+        for entry in entries:
+            name = entry.get("name", "")
+            qty = int(entry.get("quantity") or 0)
+            if not name or not qty:
                 continue
-            lines.append(zone["name"])
-            lines.extend(
-                f"{e['quantity']} {e['name']}"
-                for e in sorted(entries, key=lambda item: item["name"].casefold())
-            )
-            lines.append("")
-        return "\n".join(lines).rstrip() + "\n"
+            if entry.get("is_commander"):
+                if name not in commander_names:
+                    commander_order.append(name)
+                commander_names[name] = commander_names.get(name, 0) + qty
+            elif _is_public_library_zone(
+                zone_names.get(entry.get("zone_id"), "Unsorted")
+            ):
+                library_names[name] = library_names.get(name, 0) + qty
+
+        merged: list[tuple[str, int, bool]] = []
+        for name in commander_order:
+            total_qty = commander_names[name] + library_names.pop(name, 0)
+            merged.append((name, total_qty, True))
+
+        for name in sorted(library_names.keys(), key=lambda n: n.casefold()):
+            merged.append((name, library_names[name], False))
+
+        return merged
+
+    @staticmethod
+    def export_text(
+        document: dict[str, Any], fmt: str = "sections"
+    ) -> str:
+        if fmt == "sections":
+            lines: list[str] = [f"// {document['title']}", ""]
+            commanders = [e for e in document["entries"] if e["is_commander"]]
+            if commanders:
+                lines.append("Commander")
+                lines.extend(f"{e['quantity']} {e['name']}" for e in commanders)
+                lines.append("")
+            entries_by_zone: dict[str, list[dict[str, Any]]] = {}
+            zone_names = {z["id"]: z["name"] for z in document["zones"]}
+            for entry in document["entries"]:
+                if not entry["is_commander"]:
+                    entries_by_zone.setdefault(
+                        zone_names.get(entry["zone_id"], "Unsorted"), []
+                    ).append(entry)
+            for zone in document["zones"]:
+                entries = entries_by_zone.get(zone["name"], [])
+                if not entries:
+                    continue
+                lines.append(zone["name"])
+                lines.extend(
+                    f"{e['quantity']} {e['name']}"
+                    for e in sorted(entries, key=lambda item: item["name"].casefold())
+                )
+                lines.append("")
+            return "\n".join(lines).rstrip() + "\n"
+
+        if fmt == "plain":
+            rows = DeckDocumentRepo._export_plain(document)
+            return "\n".join(
+                f"{qty} {name}" for name, qty, _ in rows
+            ) + "\n"
+
+        if fmt == "archidekt":
+            rows = DeckDocumentRepo._export_plain(document)
+            return "\n".join(
+                f"{qty}x {name}{' [Commander]' if is_cmd else ''}"
+                for name, qty, is_cmd in rows
+            ) + "\n"
+
+        raise ValueError(f"Unknown export format: {fmt!r}")
