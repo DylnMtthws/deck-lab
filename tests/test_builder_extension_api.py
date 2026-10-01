@@ -14,6 +14,7 @@ HARNESS = Path(__file__).with_name("builder_api_harness.mjs")
 EXPECTED_KEYS = [
     "command",
     "focusEntry",
+    "freeZonePosition",
     "getSelection",
     "getState",
     "onRender",
