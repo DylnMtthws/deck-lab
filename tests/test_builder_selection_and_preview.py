@@ -83,17 +83,17 @@ def _payload() -> dict:
 def test_bulk_bar_ships_visible_and_disabled_in_the_toolbar() -> None:
     html = BUILDER_TEMPLATE.read_text()
     bar = re.search(r'<div class="dl-bulk-controls[^>]*>.*?</div>', html, re.DOTALL)
-    assert bar, "missing .dl-bulk-controls group"
+    assert bar is None, "the always-visible bulk bar was replaced by the selection bar"
+    bar = re.search(r'<div class="dl-selection-bar[^>]*>.*?</div>', html, re.DOTALL)
+    assert bar, "missing .dl-selection-bar"
     markup = bar.group(0)
-
-    # The container is no longer hidden; every action inside starts disabled.
-    assert not re.search(r"\bhidden\b", markup.split(">", 1)[0])
-    assert "is-empty" in markup
-    assert "desktop-only" in markup and "data-table-only" in markup
-    assert "0 cards selected" in markup
-    assert re.search(r"data-bulk-zone[^>]*\bdisabled\b", markup)
-    assert re.search(r"data-bulk-move\b[^>]*\bdisabled\b", markup)
-    assert re.search(r"data-clear-selection[^>]*\bdisabled\b", markup)
+    assert re.search(r"\bhidden\b", markup.split(">", 1)[0])
+    assert "0 selected" in markup
+    assert "data-bulk-zone" in markup
+    assert "data-selection-role" in markup
+    assert "data-selection-remove" in markup
+    assert "data-clear-selection" in markup
+    assert "data-bulk-controls" not in html
 
 
 def test_bulk_bar_css_is_an_inline_toolbar_group_not_a_floating_overlay() -> None:
@@ -280,8 +280,8 @@ def test_no_tip_is_empty_and_no_labelled_control_lost_its_aria_label() -> None:
     # Every template tip sits on a control that still has an accessible name.
     for match in re.finditer(r"<(?:a|button|summary)\b[^>]*data-dl-tip=[^>]*>", html):
         assert "aria-label=" in match.group(0), match.group(0)
-    # Controls with visible text keep their label only -- no duplicate tooltip.
-    assert 'data-new-zone aria-label="Create a new zone"><span' in html
+    # The New zone menu item keeps an accessible name. Its old plus-icon span left the toolbar.
+    assert 'data-new-zone aria-label="Create a new zone">New zone</button>' in html
     assert "dl-card-name" in js and 'name.setAttribute("data-dl-tip"' not in js
 
 

@@ -39,8 +39,12 @@
   }
   function setSaving(label, error) {
     if (saveState) {
-      saveState.textContent = label;
+      var text = saveState.querySelector("[data-save-label]");
+      if (text) text.textContent = label;
+      else saveState.textContent = label;
       saveState.classList.toggle("error", !!error);
+      saveState.classList.toggle("is-ok", !error && label === "Saved");
+      saveState.classList.toggle("is-warn", !!error);
     }
     syncExport();
   }
@@ -207,11 +211,16 @@
   function syncSelection() {
     var live = new Set(state.entries.map(function (entry) { return entry.id; })); selectedEntries.forEach(function (id) { if (!live.has(id)) selectedEntries.delete(id); });
     var count = document.querySelector("[data-selected-count]"), button = document.querySelector("[data-bulk-move]"), controls = document.querySelector("[data-bulk-controls]"), bulkZone = document.querySelector("[data-bulk-zone]"), clearSelection = document.querySelector("[data-clear-selection]"), noSelection = !selectedEntries.size;
-    if (count) count.textContent = selectedEntries.size + (selectedEntries.size === 1 ? " card selected" : " cards selected");
+    var countInBar = count && count.closest && count.closest("[data-selection-bar]");
+    if (count) count.textContent = countInBar ? (selectedEntries.size + " selected") : (selectedEntries.size + (selectedEntries.size === 1 ? " card selected" : " cards selected"));
     if (button) button.disabled = noSelection;
     if (clearSelection) clearSelection.disabled = noSelection;
     if (bulkZone) { bulkZone.disabled = noSelection; if (bulkZone._dlSelectTrigger) bulkZone._dlSelectTrigger.disabled = noSelection; }
     if (controls) controls.classList.toggle("is-empty", noSelection);
+    var selectionBar = document.querySelector("[data-selection-bar]"), toolbarMain = document.querySelector("[data-toolbar-main]");
+    if (selectionBar) selectionBar.hidden = noSelection;
+    if (toolbarMain) toolbarMain.hidden = !noSelection;
+    if (!noSelection) closeDismissPanels();
     document.querySelectorAll(".dl-deck-row[data-entry-id]").forEach(function (row) { row.classList.toggle("selected", selectedEntries.has(row.dataset.entryId)); });
     var snapshot = Array.from(selectedEntries).sort().join(",");
     if (snapshot !== _lastSelectionSnapshot) {
@@ -423,7 +432,79 @@
     document.querySelectorAll("[data-bulk-zone]").forEach(function (select) { var current = select.value; select.replaceChildren(); state.zones.forEach(function (zone) { var option = node("option", "", zone.name); option.value = zone.id; select.appendChild(option); }); if (state.zones.some(function (zone) { return zone.id === current; })) select.value = current; else if (state.zones[0]) select.value = state.zones[0].id; refreshSelect(select); });
     syncAddDestination();
     document.querySelectorAll("[data-surface]").forEach(function (button) { button.classList.toggle("active", !(state.presentation || {}).playmat_id && button.dataset.surface === ((state.presentation || {}).surface || "slate-grid")); }); document.querySelectorAll("[data-playmat-id]").forEach(function (button) { button.classList.toggle("active", !!((state.presentation || {}).playmat_id) && button.dataset.playmatId === String((state.presentation || {}).playmat_id)); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.checked = !!(state.presentation || {})[input.dataset.setting]; }); var size = document.querySelector("[data-playmat-size]"); if (size) { size.value = Number((state.presentation || {}).canvas_width || 1600) + "x" + Number((state.presentation || {}).canvas_height || 900); refreshSelect(size); }
+    fillSelectionRole();
+    syncViewChrome();
+    if (typeof renderMyPlaymats === "function") renderMyPlaymats();
     syncRails();
+  }
+  function selectLabel(select, fallback) {
+    if (!select) return fallback;
+    var value = select.value, label = fallback;
+    var options = select.querySelectorAll ? select.querySelectorAll("option") : [];
+    Array.prototype.forEach.call(options, function (option) { if (String(option.value) === String(value)) label = option.textContent; });
+    return label;
+  }
+  function syncViewChrome() {
+    var decklist = activeView() !== "playmat";
+    document.querySelectorAll("[data-view-decklist]").forEach(function (el) { el.hidden = !decklist; });
+    document.querySelectorAll("[data-view-playmat]").forEach(function (el) { el.hidden = decklist; });
+    var label = document.querySelector("[data-view-label]");
+    if (!label) return;
+    if (!decklist) {
+      var names = { "slate-grid": "Slate Grid", "felt-weave": "Felt Weave", "deep-field": "Deep Field", "graph-paper": "Graph Paper", "void": "Void", "custom": "Custom", "library": "My playmat" };
+      var presentation = state.presentation || {};
+      var surface = presentation.playmat_id ? "My playmat" : (names[presentation.surface || "slate-grid"] || "Slate Grid");
+      label.textContent = "Mat · " + surface;
+      return;
+    }
+    label.textContent = "View · " + selectLabel(document.querySelector("[data-group]"), "Zone") + " · " + selectLabel(document.querySelector("[data-sort]"), "Manual");
+  }
+  function fillSelectionRole() {
+    var select = document.querySelector("[data-selection-role]");
+    if (!select) return;
+    var current = select.value;
+    select.replaceChildren();
+    roleOptions.forEach(function (item) { if (!item[0]) return; var option = node("option", "", item[1]); option.value = item[0]; select.appendChild(option); });
+    if (current && Array.prototype.some.call(select.querySelectorAll("option"), function (option) { return option.value === current; })) select.value = current;
+    refreshSelect(select);
+  }
+  var dismissPanels = [];
+  function closeDismissPanels(except) {
+    dismissPanels.forEach(function (panel) { if (panel !== except) panel.close(false); });
+  }
+  function bindDismissPanel(opener, panel, opts) {
+    if (!opener || !panel) return;
+    opts = opts || {};
+    panel.hidden = true;
+    opener.setAttribute("aria-expanded", "false");
+    var record = { close: function (restore) {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      opener.setAttribute("aria-expanded", "false");
+      if (restore !== false && opener.focus) opener.focus();
+    } };
+    function openPanel() {
+      closeDismissPanels(record);
+      panel.hidden = false;
+      opener.setAttribute("aria-expanded", "true");
+      if (opts.onOpen) opts.onOpen();
+    }
+    opener.addEventListener("click", function (event) {
+      if (event.stopPropagation) event.stopPropagation();
+      if (panel.hidden) openPanel(); else record.close(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || panel.hidden) return;
+      event.preventDefault();
+      record.close(true);
+    });
+    document.addEventListener("click", function (event) {
+      if (panel.hidden) return;
+      var target = event.target;
+      if (!target || (panel.contains && panel.contains(target)) || (opener.contains && opener.contains(target))) return;
+      record.close(true);
+    });
+    dismissPanels.push(record);
   }
   var _onRenderListeners = [], _entryFilterFn = null, _entryFilterLabel = "", _lastSelectionSnapshot = "";
   function _dispatchBuilderEvent(name, detail) {
@@ -480,7 +561,19 @@
   document.querySelectorAll(".dl-decklist-more button").forEach(function (button) { button.addEventListener("click", function () { var menu = button.closest("details"); if (menu) menu.open = false; }); });
   var groupControl = document.querySelector("[data-group]"); if (groupControl) groupControl.addEventListener("change", function () { command([{ type: "update_view", group_mode: groupControl.value }]); }); var sortControl = document.querySelector("[data-sort]"); if (sortControl) sortControl.addEventListener("change", function () { command([{ type: "update_view", sort_mode: sortControl.value }]); });
   var bulkMove = document.querySelector("[data-bulk-move]"); if (bulkMove) bulkMove.addEventListener("click", function () { var zone = document.querySelector("[data-bulk-zone]"); if (!zone || !selectedEntries.size) return; var changes = Array.from(selectedEntries).map(function (id, index) { return { type: "move_entry", entry_id: id, zone_id: zone.value, sort_order: 999 + index }; }); selectedEntries.clear(); command(changes); });
-  var clearSelection = document.querySelector("[data-clear-selection]"); if (clearSelection) clearSelection.addEventListener("click", function () { selectedEntries.clear(); renderTable(); syncSelection(); });
+  var clearSelection = document.querySelector("[data-clear-selection]"); if (clearSelection) clearSelection.addEventListener("click", function () { selectedEntries.clear(); renderTable(); renderPlaymat(); syncSelection(); });
+  document.querySelectorAll("[data-bulk-zone]").forEach(function (zone) { zone.addEventListener("change", function () { if (!zone.closest || !zone.closest("[data-selection-bar]") || !selectedEntries.size) return; var changes = []; selectedEntries.forEach(function (id) { var entry = state.entries.find(function (item) { return item.id === id; }); if (!entry || entry.is_commander) return; changes.push({ type: "move_entry", entry_id: id, zone_id: zone.value, sort_order: 999 + changes.length }); }); if (!changes.length) return; selectedEntries.clear(); command(changes); }); });
+  var selectionRole = document.querySelector("[data-selection-role]"); if (selectionRole) selectionRole.addEventListener("change", function () { var changes = []; selectedEntries.forEach(function (id) { var entry = state.entries.find(function (item) { return item.id === id; }); if (!entry || entry.is_commander) return; changes.push({ type: "set_role", entry_id: id, role: selectionRole.value }); }); if (changes.length) command(changes); });
+  var removeSelected = document.querySelector("[data-selection-remove]"); if (removeSelected) removeSelected.addEventListener("click", function () { var changes = Array.from(selectedEntries).map(function (id) { return { type: "remove_entry", entry_id: id }; }); selectedEntries.clear(); if (changes.length) command(changes); });
+  bindDismissPanel(document.querySelector("[data-view-options]"), document.querySelector("[data-view-popover]"), { onOpen: function () { if (typeof renderMyPlaymats === "function") renderMyPlaymats(); } });
+  bindDismissPanel(document.querySelector("[data-add-destination-toggle]"), document.querySelector("[data-add-destination-menu]"), { onOpen: function () {
+    var menu = document.querySelector("[data-add-destination-menu]"); if (!menu) return; menu.replaceChildren();
+    state.zones.forEach(function (zone) { var item = node("button", "dl-menu-item", zone.name); item.type = "button"; item.setAttribute("role", "menuitem"); item.addEventListener("click", function () { setAddDestination(zone.id); var select = document.querySelector("[data-add-zone]"); if (select) select.dispatchEvent(new Event("change")); }); menu.appendChild(item); });
+  } });
+  document.querySelectorAll("[data-view-popover] [data-surface]").forEach(function (button) { button.addEventListener("click", function () { if (pickerDraft) return; command([{ type: "update_presentation", surface: button.dataset.surface, playmat_id: "" }]); }); });
+  document.querySelectorAll("[data-view-popover] [data-setting]").forEach(function (input) { input.addEventListener("change", function () { if (pickerDraft) return; var change = { type: "update_presentation" }; change[input.dataset.setting] = !!input.checked; command([change]); }); });
+  document.querySelectorAll("[data-share-deck]").forEach(function (button) { button.addEventListener("click", function () { var original = button.textContent; button.disabled = true; fetch("/api/decks/" + encodeURIComponent(button.dataset.deckId) + "/share", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" } }).then(function (response) { if (!response.ok) throw new Error(); return response.json(); }).then(function (body) { var clip = navigator.clipboard; if (!clip || typeof clip.writeText !== "function") { window.prompt("Copy this read-only deck link", body.url); return; } return clip.writeText(body.url).then(function () { button.textContent = "Link copied"; }); }).catch(function () { button.textContent = "Could not share"; }).finally(function () { window.setTimeout(function () { button.textContent = original; button.disabled = false; }, 1800); }); }); });
+  document.querySelectorAll(".dl-deck-delete-form").forEach(function (form) { form.addEventListener("submit", function (event) { if (!window.confirm("Delete “" + (form.dataset.deckTitle || "this deck") + "”? This permanently removes this deck.")) event.preventDefault(); }); });
 
   var zoneDialog = document.getElementById("zone-dialog"), zoneDialogTarget = null, zoneSaving = false;
   function openZoneDialog(zone) { if (!zoneDialog) return; zoneDialogTarget = zone || null; zoneDialog.querySelector("h2").textContent = zone ? "Rename zone" : "New zone"; var input = zoneDialog.querySelector("[data-zone-name]"), error = zoneDialog.querySelector("[data-zone-error]"); input.value = zone ? zone.name : ""; if (error) error.textContent = ""; zoneDialog.showModal(); input.focus(); }
@@ -518,6 +611,8 @@
     refreshSelect(select);
     var hint = document.querySelector("[data-add-destination-hint]");
     if (hint) hint.textContent = "Cards you add go to " + destinationName(next) + ".";
+    var destinationNameEl = document.querySelector("[data-add-destination-name]");
+    if (destinationNameEl) destinationNameEl.textContent = destinationName(next);
     syncResultDestinations();
     if (dropped) searchStatus("That category is gone. Cards you add now go to " + destinationName(next) + ".");
     return next;
@@ -671,7 +766,7 @@
   var tagsDialog = document.getElementById("deck-tags-dialog"), tagInput = document.querySelector("[data-tag-input]"), tagError = document.querySelector("[data-tag-error]"), tagSearchTimer, tagSearchController; function tagMessage(message) { if (tagError) tagError.textContent = message || ""; } function addTag() { if (!tagInput) return; var name = tagInput.value.normalize("NFKC").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 32) return tagMessage("Use between 2 and 32 characters."); if ((state.tags || []).some(function (tag) { return tag.name.toLowerCase() === name.toLowerCase(); })) return tagMessage("That tag is already on this deck."); if ((state.tags || []).length >= 6) return tagMessage("A deck can have up to six tags."); tagMessage(""); tagInput.value = ""; command([{ type: "add_tag", name: name }]); }
   document.querySelectorAll("[data-tags-open]").forEach(function (button) { button.addEventListener("click", function () { tagMessage(""); tagsDialog.showModal(); if (tagInput) tagInput.focus(); }); }); var tagAdd = document.querySelector("[data-tag-add]"); if (tagAdd) tagAdd.addEventListener("click", addTag); if (tagInput) { tagInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); addTag(); } }); tagInput.addEventListener("input", function () { clearTimeout(tagSearchTimer); tagSearchTimer = setTimeout(function () { if (tagSearchController) tagSearchController.abort(); tagSearchController = new AbortController(); fetch("/api/deck-tags?q=" + encodeURIComponent(tagInput.value), { signal: tagSearchController.signal }).then(function (response) { return response.json(); }).then(function (body) { populateTagOptions(body.results || []); }); }, 180); }); }
 
-  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grid = document.querySelector("[data-my-playmats]"), empty = document.querySelector("[data-my-playmats-empty]"), mats = state.playmats || []; if (!grid) return; grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (!pickerDraft) return; pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); }); grid.appendChild(button); }); if (empty) empty.hidden = mats.length > 0; } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); }); }); }
+  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grids = document.querySelectorAll("[data-my-playmats]"), empties = document.querySelectorAll("[data-my-playmats-empty]"), mats = state.playmats || []; Array.prototype.forEach.call(grids, function (grid) { grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (pickerDraft) { pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); return; } command([{ type: "update_presentation", surface: "library", playmat_id: mat.id }]); }); grid.appendChild(button); }); }); Array.prototype.forEach.call(empties, function (empty) { empty.hidden = mats.length > 0; }); } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); }); }); }
   document.querySelectorAll("[data-playmat-picker]").forEach(function (button) { button.addEventListener("click", function () { pickerOriginal = Object.assign({}, state.presentation || {}); pickerDraft = Object.assign({}, pickerOriginal); pendingUpload = null; picker.returnValue = ""; if (upload) upload.value = ""; renderMyPlaymats(); picker.showModal(); syncControls(); }); }); document.querySelectorAll("[data-surface]").forEach(function (button) { button.addEventListener("click", function () { if (!pickerDraft) return; pickerDraft.surface = button.dataset.surface; pickerDraft.playmat_id = null; pendingUpload = null; previewPicker(); }); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.addEventListener("change", function () { if (!pickerDraft) return; pickerDraft[input.dataset.setting] = input.checked; previewPicker(); }); }); var sizePicker = document.querySelector("[data-playmat-size]"); if (sizePicker) sizePicker.addEventListener("change", function () { if (!pickerDraft) return; var parts = sizePicker.value.split("x"); pickerDraft.canvas_width = Number(parts[0]); pickerDraft.canvas_height = Number(parts[1]); previewPicker(); }); if (upload) upload.addEventListener("change", function () { pendingUpload = upload.files.length ? upload.files[0] : null; if (uploadStatus) uploadStatus.textContent = pendingUpload ? upload.files[0].name + " is ready to upload." : ""; }); if (picker) picker.addEventListener("close", function () { if (picker.returnValue === "done" && pickerDraft) { var change = { type: "update_presentation", canvas_width: pickerDraft.canvas_width || 1600, canvas_height: pickerDraft.canvas_height || 900 }; ["snap_to_grid", "show_zone_outlines", "dim_inactive"].forEach(function (key) { change[key] = !!pickerDraft[key]; }); if (!pendingUpload) { change.surface = pickerDraft.surface || "slate-grid"; change.playmat_id = pickerDraft.playmat_id || ""; } command([change]); if (pendingUpload) uploadPlaymat(pendingUpload); } else if (pickerOriginal) { state.presentation = pickerOriginal; render(); } pickerOriginal = pickerDraft = pendingUpload = null; });
   var cardImageDialog = document.getElementById("card-image-dialog"), cardImageOpener = null, cardImageOpenerKey = null;
   function returnCardImageFocus() {

@@ -157,7 +157,7 @@ def test_group_select_has_role_option_and_reflects_saved_preference() -> None:
     # Template check: the HTML includes a role option.
     html = BUILDER_TEMPLATE.read_text()
     assert (
-        '<option value="role">Group: Role</option>' in html
+        '<option value="role">Role</option>' in html
     ), "Role option must be in the group select"
 
     # Harness check: the select value reflects the saved group_mode.

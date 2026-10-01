@@ -163,7 +163,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b'placeholder="Add or find a card"' in builder
     assert b'aria-label="Decklist display"' in builder
     assert b'data-density="compact"' in builder
-    assert b"data-bulk-controls" in builder
+    assert b"data-selection-bar" in builder
     assert b'data-toggle-rail="left"' not in builder
     assert b'data-toggle-rail="right"' in builder
     assert b"dl-add-panel" not in builder
@@ -175,7 +175,7 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b"11 + 1" not in builder
     assert b"data-tags-open" in builder
     assert b'aria-label="Deck options"' in builder
-    assert b"Choose commanders / partner" in builder
+    assert "Commanders…".encode() in builder
     assert b"Find or create a tag" in builder
     assert b"My playmats" in builder
     assert b'data-surface="night-ritual"' not in builder
