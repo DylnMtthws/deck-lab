@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Direction B — Visual workbench</title>
+<link rel="stylesheet" href="foundations.css">
+<style>
+.app{display:grid;grid-template-rows:56px 76px 1fr;height:100vh}
+header{display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);border-bottom:1px solid var(--line-soft);background:var(--panel)}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:800}
+.crumb{display:flex;gap:var(--s-2);align-items:center} .crumb b{font-weight:600} .push{flex:1}
+.saved{display:inline-flex;align-items:center;gap:6px;color:var(--success);font-size:var(--t-12)} .sep{width:1px;height:16px;background:var(--line)}
+.summary{display:flex;align-items:center;gap:var(--s-5);padding:0 var(--s-4);border-bottom:1px solid var(--line-soft)}
+.metric{display:flex;flex-direction:column;gap:6px} .metric .v{font:600 var(--t-20)/1 var(--sans);font-variant-numeric:tabular-nums} .metric .v small{font-size:var(--t-13);color:var(--faint);font-weight:500}
+.spark{display:flex;align-items:end;gap:3px;height:34px} .spark i{width:9px;border-radius:2px;background:#56628f} .spark i.hi{background:var(--brand)}
+.cbar{display:flex;width:120px;height:8px;border-radius:4px;overflow:hidden;gap:2px}
+.summary .field{width:340px;margin-left:auto}
+main{display:grid;grid-template-columns:208px 1fr 340px;min-height:0}
+nav{border-right:1px solid var(--line-soft);padding:var(--s-3);overflow:auto}
+nav a{display:flex;align-items:center;gap:var(--s-2);height:32px;padding:0 var(--s-2);border-radius:var(--r-sm);color:var(--muted);font-size:var(--t-13);text-decoration:none}
+nav a:hover{background:var(--panel)} nav a.on{background:var(--panel-2);color:var(--body)} nav a .n{margin-left:auto;font:500 var(--t-12) var(--mono);color:var(--faint)}
+nav a .sw{width:8px;height:8px;border-radius:2px}
+nav .eyebrow{margin:var(--s-4) var(--s-2) var(--s-2)}
+.board{overflow:auto;padding:var(--s-4);display:flex;flex-wrap:wrap;gap:var(--s-5) var(--s-4);align-items:flex-start;align-content:flex-start}
+.col{width:172px;flex:0 0 172px}
+.col h4{display:flex;align-items:center;gap:6px;margin:0 0 var(--s-2);font-size:var(--t-13);font-weight:600} .col h4 span{color:var(--faint);font-weight:500}
+.stack{display:flex;flex-direction:column}
+.stack .c{width:172px;aspect-ratio:488/680;border-radius:8px;background:var(--panel-2) center/cover;box-shadow:0 -2px 8px rgba(0,0,0,.45);margin-bottom:-212px;position:relative;transition:transform .15s var(--ease)}
+.stack .c:last-child{margin-bottom:0} .stack .c.hover{transform:translateX(10px);z-index:2;outline:2px solid var(--brand);outline-offset:1px}
+.stack .c .q{position:absolute;right:6px;top:6px;padding:2px 6px;border-radius:6px;background:rgba(6,8,13,.85);font:600 var(--t-11) var(--mono)}
+.stack .c .up{position:absolute;right:6px;top:30px;width:20px;height:20px;border-radius:6px;background:rgba(6,8,13,.85);display:grid;place-items:center;color:var(--brand-text)}
+aside{border-left:1px solid var(--line-soft);background:var(--panel);padding:var(--s-4);overflow:auto}
+.cardimg{width:100%;aspect-ratio:488/680;border-radius:4.5%/3.2%;background:var(--panel-2) center/cover;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ctitle{display:flex;justify-content:space-between;align-items:baseline;margin-top:var(--s-3)} .ctitle h3{margin:0;font-size:var(--t-16);font-weight:600}
+.row2{display:flex;align-items:center;justify-content:space-between;margin-top:var(--s-3)}
+.fb{display:flex;gap:2px} .fb .icon-btn{width:28px;height:28px}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-sm)} .qty button{width:26px;height:26px;border:0;background:transparent;color:var(--muted)} .qty b{width:22px;text-align:center;font:500 var(--t-13) var(--mono)}
+</style></head>
+<body><div class="app">
+<header>
+  <button class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div class="logo">D</div>
+  <div class="crumb"><span class="muted">Build</span><span class="faint">/</span><b>Kinnan Turbo — v3</b></div>
+  <span class="saved"><span class="dot"></span>Saved</span><span class="sep"></span>
+  <button class="icon-btn" title="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg></button>
+  <button class="icon-btn" style="opacity:.4"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg></button>
+  <span class="push"></span>
+  <div class="seg"><button>Playmat</button><button class="on">Stacks</button><button>List</button></div>
+  <button class="btn">Export <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2b3a6b,#5b3b7a)"></div>
+</header>
+<div class="summary">
+  <div class="metric"><span class="eyebrow">Cards</span><span class="v">87<small> / 100</small></span></div>
+  <div class="metric"><span class="eyebrow">Legality</span><span class="chip warn"><span class="dot"></span>2 issues</span></div>
+  <div class="metric"><span class="eyebrow">Curve · avg 1.6</span><div class="spark"><i style="height:9px"></i><i class="hi" style="height:34px"></i><i style="height:23px"></i><i style="height:12px"></i><i style="height:4px"></i><i style="height:4px"></i><i style="height:4px"></i></div></div>
+  <div class="metric"><span class="eyebrow">Colors · pips / sources</span><div style="display:flex;align-items:center;gap:8px"><span class="cbar"><i style="flex:46;background:#57d39b"></i><i style="flex:54;background:#5aa6f0"></i></span><span class="muted" style="font-size:var(--t-12)">7 · 9 sources</span></div></div>
+  <div class="metric"><span class="eyebrow">Your verdict</span><div class="seg"><button>Good</button><button>Mixed</button><button>Bad</button></div></div>
+  <div class="field"><svg viewBox="0 0 24 24" width="16" height="16" style="stroke:var(--faint);fill:none;stroke-width:1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><span class="faint" style="flex:1">Add or find a card</span><span class="kbd">/</span></div>
+</div>
+<main>
+  <nav id="nav"></nav>
+  <section class="board" id="board"></section>
+  <aside id="panel"></aside>
+</main>
+</div>
+<script src="data.js"></script>
+<script>
+const colors = { Commander: "#e94560", Ramp: "#57d39b", Draw: "#5aa6f0", Tutor: "#b48cf0", Interaction: "#f0bd67", "Win condition": "#ff8093", Land: "#98a0bd", Considering: "#6b7394" };
+const groups = [{ role: "Commander", cards: [[DECK.commander.name, DECK.commander.cost, DECK.commander.type, 1]] }].concat(DECK.groups, [{ role: "Considering", cards: DECK.considering }]);
+document.getElementById("nav").innerHTML = '<div class="eyebrow" style="margin-top:0">Group by role</div>' + groups.map((g, i) => '<a class="' + (i === 2 ? "on" : "") + '"><span class="sw" style="background:' + colors[g.role] + '"></span>' + g.role + '<span class="n">' + g.cards.reduce((n, c) => n + c[3], 0) + '</span></a>').join("") + '<div class="eyebrow">Filters</div><a>Has feedback<span class="n">2</span></a><a>Not legal<span class="n">1</span></a>';
+const up = svg => '<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:currentColor;fill:none;stroke-width:2"><path d="M7 11v9H4v-9h3zm0 0l4-7a2 2 0 012 2v3h5a2 2 0 012 2l-1.5 7a2 2 0 01-2 1.6H7"/></svg>';
+document.getElementById("board").innerHTML = groups.map(g => '<div class="col"><h4><span class="sw" style="width:8px;height:8px;border-radius:2px;background:' + colors[g.role] + '"></span>' + g.role + ' <span>' + g.cards.reduce((n, c) => n + c[3], 0) + '</span></h4><div class="stack">' + g.cards.map(c => '<div class="c' + (c[0] === "Rhystic Study" ? " hover" : "") + '" style="background-image:url(\'' + img(c[0]) + '\')">' + (c[3] > 1 ? '<span class="q">' + c[3] + '×</span>' : "") + (c[0] === "Mana Crypt" ? '<span class="up">' + up() + '</span>' : "") + '</div>').join("") + '</div></div>').join("");
+document.getElementById("panel").innerHTML = '<div class="cardimg" style="background-image:url(\'' + img("Rhystic Study") + '\')"></div><div class="ctitle"><h3>Rhystic Study</h3><span>' + sym("{2}{U}") + '</span></div><div class="muted" style="font-size:var(--t-13)">Enchantment · Draw</div><div class="row2"><span class="qty"><button>−</button><b>1</b><button>+</button></span><span class="fb"><button class="icon-btn" title="Good pick"><svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9h3zm0 0l4-7a2 2 0 012 2v3h5a2 2 0 012 2l-1.5 7a2 2 0 01-2 1.6H7"/></svg></button><button class="icon-btn" title="Bad pick"><svg viewBox="0 0 24 24"><path d="M17 13V4h3v9h-3zm0 0l-4 7a2 2 0 01-2-2v-3H6a2 2 0 01-2-2l1.5-7A2 2 0 017.5 4H17"/></svg></button><button class="icon-btn" title="Comment"><svg viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4V5z"/></svg></button></span></div><div class="row2"><select class="select"><option>Main deck</option></select><select class="select"><option>Draw</option></select><button class="btn sm ghost">Move to Considering</button></div>';
+</script></body></html>
