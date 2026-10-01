@@ -683,3 +683,11 @@ a.dl-card-name:hover{color:var(--brand-text)}
 .dl-card-panel-issues{margin:0;padding-left:16px;color:var(--brand-text);font-size:12px;line-height:1.4}
 .dl-card-panel-pin{justify-self:start;min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font:11px var(--mono);cursor:pointer}
 .dl-card-panel-pin[aria-pressed="true"]{border-color:var(--brand);color:var(--body)}
+
+.dl-evidence-badge{display:inline-flex;align-items:center;margin-right:6px;padding:1px 6px;border:1px solid var(--line);border-radius:999px;background:var(--panel-2);color:var(--muted);font:10px var(--mono);letter-spacing:.01em;white-space:nowrap}
+.dl-evidence-why{display:grid;gap:6px;margin-top:4px}
+.dl-evidence-why h3{margin:0;color:var(--muted);font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.dl-evidence-why p{margin:0;font-size:12px;line-height:1.45}
+.dl-evidence-window{display:grid;gap:6px;margin:0 0 8px}
+.dl-evidence-window select{min-height:36px}
+.dl-evidence-basis{margin:0;color:var(--muted);font:11px var(--mono);line-height:1.4}
