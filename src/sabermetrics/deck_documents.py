@@ -1773,7 +1773,7 @@ class DeckDocumentRepo:
             option_sets = {
                 "view_mode": {"table", "playmat"},
                 "display_mode": {"text", "grid", "spoiler"},
-                "group_mode": {"zone", "type"},
+                "group_mode": {"zone", "type", "role"},
                 "sort_mode": {"manual", "name", "mana_value"},
                 "density": {"compact", "comfortable"},
             }

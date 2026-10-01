@@ -174,6 +174,29 @@
       var types = {};
       state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var name = (entry.type_line || "Other").split(/[—-]/)[0].trim() || "Other"; (types[name] || (types[name] = [])).push(entry); });
       Object.keys(types).sort().forEach(function (name) { result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
+    } else if (preference("group_mode", "zone") === "role") {
+      var roles = {}, noRole = [], privateEntries = [];
+      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {
+        if (!isLibraryZone(entry.zone_id)) { privateEntries.push(entry); return; }
+        var role = String(entry.role || "").toLowerCase();
+        if (!role) { noRole.push(entry); return; }
+        (roles[role] || (roles[role] = [])).push(entry);
+      });
+      Object.keys(roles).forEach(function (key) {
+        if (key !== "other" && roleOptions.every(function (item) { return item[0] !== key; })) {
+          (roles["other"] || (roles["other"] = [])).push.apply(roles["other"], roles[key]);
+          delete roles[key];
+        }
+      });
+      var roleOptionMap = {};
+      roleOptions.forEach(function (item) { if (item[0]) roleOptionMap[item[0]] = item[1]; });
+      roleOptions.forEach(function (item) {
+        if (!item[0]) return;
+        var entries = roles[item[0]];
+        if (entries && entries.length) result.push({ id: "role-" + item[0], name: roleOptionMap[item[0]], entries: entries, permanent: true });
+      });
+      if (noRole.length) result.push({ id: "role-none", name: "No role", entries: noRole, permanent: true });
+      if (privateEntries.length) result.push({ id: "role-private", name: "Considering & other private zones", entries: privateEntries, permanent: true });
     } else state.zones.forEach(function (zone) { result.push({ id: zone.id, name: zone.name, zone: zone, entries: zoneEntries(zone.id) }); });
     var sort = preference("sort_mode", "manual");
     result.forEach(function (group) { group.entries.sort(function (a, b) { if (sort === "name") return a.name.localeCompare(b.name); if (sort === "mana_value") return Number(a.mana_value || 0) - Number(b.mana_value || 0) || a.name.localeCompare(b.name); return Number(a.sort_order || 0) - Number(b.sort_order || 0); }); });
