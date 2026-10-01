@@ -649,3 +649,11 @@ a.dl-card-name:hover{color:var(--brand-text)}
 @media (hover: none) {
   [data-dl-tip]::after { content: none; }
 }
+
+.dl-history-button { min-height: 28px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+.dl-history-button:not(:disabled):hover { color: var(--body); background: rgba(255,255,255,.04); }
+.dl-history-button:disabled { opacity: .4; cursor: default; }
+.dl-hotkeys-help { width: min(460px, calc(100% - 28px)); }
+.dl-hotkeys-list { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
+.dl-hotkeys-list li { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 13px; }
+.dl-hotkeys-list kbd { padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); color: var(--body); font: 11px var(--mono); }
