@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
 from urllib.parse import urlsplit
 
@@ -35,6 +37,7 @@ from sabermetrics.deck_documents import (
     RevisionConflict,
 )
 from sabermetrics.deck_evidence import DeckEvidenceService
+from sabermetrics.deck_simulation import execute_simulation, simulation_view
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
     DeckTextImportError,
@@ -46,6 +49,8 @@ _NO_PACK = "No strategy pack supports this commander yet."
 _EVIDENCE_WINDOWS = frozenset({0, 30, 60, 90, 180})
 
 bp = Blueprint("builder", __name__)
+logger = logging.getLogger(__name__)
+_SIM_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="deck-sim")
 
 
 def _repo() -> DeckDocumentRepo:
@@ -63,6 +68,15 @@ def _evidence_window() -> int:
     if value not in _EVIDENCE_WINDOWS:
         abort(400)
     return value
+
+
+def _with_simulation(document: dict) -> dict:
+    """Attach the latest goldfish view for the page JSON."""
+    enriched = dict(document)
+    enriched["simulation_view"] = simulation_view(
+        Path(current_app.config["DB_PATH"]), str(document["id"])
+    )
+    return enriched
 
 
 @bp.before_request
@@ -322,7 +336,11 @@ def deck(deck_id: str):
         document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         abort(404)
-    return render_template("deck_lab/builder.html", document=document, shared=False)
+    return render_template(
+        "deck_lab/builder.html",
+        document=_with_simulation(document),
+        shared=False,
+    )
 
 
 @bp.get("/api/decks/<deck_id>")
@@ -343,6 +361,48 @@ def deck_evidence(deck_id: str):
         document, _evidence_window()
     )
     return jsonify(payload)
+
+
+@bp.post("/api/decks/<deck_id>/simulate")
+def simulate_deck(deck_id: str):
+    """Queue a goldfish run for the owner's current list.
+
+    The simulator call itself runs on ``_SIM_EXECUTOR``. This handler only
+    inserts the queued row and returns 202 with the status URL.
+    """
+    try:
+        _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    db_path = Path(current_app.config["DB_PATH"])
+    simulations = db.DeckDocumentSimulationsRepo(db_path)
+    simulation_id = simulations.insert(deck_id=deck_id, owner_id=str(current_user.id))
+    try:
+        _SIM_EXECUTOR.submit(execute_simulation, str(db_path), simulation_id)
+    except RuntimeError as exc:
+        logger.exception("deck simulation %s could not be queued", simulation_id)
+        simulations.update(
+            simulation_id,
+            status="not_simulated",
+            reason=f"Not simulated: {exc}",
+        )
+        return jsonify(error="enqueue_failed", id=simulation_id), 503
+    status_url = url_for("builder.simulation_latest", deck_id=deck_id)
+    return (
+        jsonify(id=simulation_id, status="queued", status_url=status_url),
+        202,
+        {"Location": status_url},
+    )
+
+
+@bp.get("/api/decks/<deck_id>/simulations/latest")
+def simulation_latest(deck_id: str):
+    """Return the newest stored run, including delta and staleness."""
+    try:
+        _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    return jsonify(simulation_view(Path(current_app.config["DB_PATH"]), deck_id))
 
 
 @bp.get("/api/deck-tags")
@@ -615,7 +675,11 @@ def shared(token: str):
         document = _repo().get_shared(token)
     except DeckNotFound:
         abort(404)
-    return render_template("deck_lab/builder.html", document=document, shared=True)
+    return render_template(
+        "deck_lab/builder.html",
+        document=_with_simulation(document),
+        shared=True,
+    )
 
 
 @bp.get("/shared/deck/<token>/playmat")

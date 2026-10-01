@@ -808,6 +808,23 @@ def ensure_deck_document_schema(conn: sqlite3.Connection) -> None:
     from sabermetrics.account_playmats import ensure_account_playmat_schema
 
     ensure_account_playmat_schema(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS deck_document_simulations (
+            id TEXT PRIMARY KEY,
+            deck_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            deck_sha256 TEXT NOT NULL DEFAULT '',
+            revision INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            result_json TEXT,
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_deck_document_simulations_deck_created "
+        "ON deck_document_simulations(deck_id, created_at)"
+    )
     conn.commit()
 
 

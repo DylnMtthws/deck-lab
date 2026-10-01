@@ -28,8 +28,9 @@ import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error
@@ -1350,3 +1351,96 @@ class BuildJobsRepo:
             if "no such table" not in str(exc):
                 raise
             return 0
+
+
+class DeckDocumentSimulationsRepo:
+    """Stored goldfish runs for an edited deck document.
+
+    One row is one attempt. ``status`` is ``queued``, ``running``, ``done``,
+    or ``not_simulated``. A ``done`` row's ``result_json`` holds a
+    ``SimulationResult``. ``deck_sha256`` and ``revision`` record the list
+    the run measured, so a later edit can be shown as out of date.
+    """
+
+    def __init__(self, db_path: str | Path) -> None:
+        self.db_path = Path(db_path)
+
+    def insert(self, *, deck_id: str, owner_id: str) -> str:
+        """Queue one simulation and return its id."""
+        simulation_id = new_id()
+        created_at = datetime.now(UTC).isoformat(timespec="microseconds")
+        with connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO deck_document_simulations "
+                "(id, deck_id, owner_id, deck_sha256, revision, status, "
+                "result_json, reason, created_at) "
+                "VALUES (?, ?, ?, '', 0, 'queued', NULL, '', ?)",
+                (simulation_id, deck_id, owner_id, created_at),
+            )
+            conn.commit()
+        return simulation_id
+
+    def get(self, simulation_id: str) -> dict[str, Any] | None:
+        """Fetch one simulation row, or None."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations WHERE id=?",
+                (simulation_id,),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None
+
+    def update(
+        self,
+        simulation_id: str,
+        *,
+        status: str,
+        deck_sha256: str | None = None,
+        revision: int | None = None,
+        result_json: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Move a simulation to ``status`` and record whatever was measured."""
+        assignments = ["status=?"]
+        params: list[Any] = [status]
+        if deck_sha256 is not None:
+            assignments.append("deck_sha256=?")
+            params.append(deck_sha256)
+        if revision is not None:
+            assignments.append("revision=?")
+            params.append(revision)
+        if result_json is not None:
+            assignments.append("result_json=?")
+            params.append(result_json)
+        if reason is not None:
+            assignments.append("reason=?")
+            params.append(reason)
+        params.append(simulation_id)
+        with connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE deck_document_simulations SET "
+                + ", ".join(assignments)
+                + " WHERE id=?",
+                params,
+            )
+            conn.commit()
+
+    def latest(self, deck_id: str) -> dict[str, Any] | None:
+        """Return the newest simulation for a deck, or None."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations WHERE deck_id=? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (deck_id,),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None
+
+    def previous_done(self, deck_id: str, exclude_id: str) -> dict[str, Any] | None:
+        """Return the newest successful run other than ``exclude_id``."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations "
+                "WHERE deck_id=? AND status='done' AND id!=? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (deck_id, exclude_id),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None
