@@ -39,7 +39,7 @@ The program is DONE only when every box is checked:
 | # | Recommendation | Task | Agent | Status |
 |---|---|---|---|---|
 | 1 | Hover/focus card panel | T08 | HIGH | VERIFIED (25a33ff) |
-| 2 | Pinned deck status bar | T05 | LOW | TODO |
+| 2 | Pinned deck status bar | T05 | LOW | VERIFIED |
 | 3 | Keyboard editing + undo/redo | T09 | HIGH | VERIFIED (afcda14) |
 | 4 | "Considering" zone | T04 | LOW | PARTIAL PRE-EXISTING: private zone names excluded from count/copy (`deck_documents.py:64-71`, `deck-lab-export.js` PRIVATE_ZONE_NAMES) — T04 adds the workflow |
 | 5 | Interactive stats (curve filter, pips vs sources, odds, sample hand) | T06 | LOW | TODO |
@@ -51,7 +51,7 @@ The program is DONE only when every box is checked:
 | 11 | "Replace with…" same-role alternatives | T13 | HIGH | TODO |
 | 12 | Re-simulate after edits, show delta / "not simulated" | T14 | HIGH | TODO |
 | 13 | Per-card + deck feedback in the builder | T07 | LOW | TODO |
-| 14 | Group by role + remembered view/group/sort | T11 | LOW | TODO |
+| 14 | Group by role + remembered view/group/sort | T11 | LOW | VERIFIED (e7ef49d); persistence PRE-EXISTING |
 | 15 | Scryfall syntax in Research search | T03 | LOW | VERIFIED (e94c127) |
 | 16 | Tester polish DYL-55–71 | — | — | PRE-EXISTING: merged on main (2b9918e, ccf5d8b, 5df306e, f3b5595, 84a807b, 1884ede, bc61a26) — verify only |
 
@@ -105,3 +105,5 @@ all gates after every merge.
 - 2026-10-01: T06 review → ONE BUG: odds inputs and drawn sample hand were rebuilt (reset) on every builder render, including curve-bar clicks. Amendment-1 + AC-12..14. Relaunched.
 - 2026-10-01: T11 amendment-1 result → remaining bug: duplicate `role-other` group when real `other` + unknown roles coexist. Amendment-2 + AC-10. Relaunched.
 - 2026-10-01: T09 VERIFIED → merged (afcda14). Dual capture (wrapped command + render-diff) with applying/pending suppression; mutation removing the suppression guard fails 4 tests. 409 detected via save-state title (brittle; accepted given builder.js was off-limits). MERGE INCIDENT (mine): resolver initially dropped T09's `{% if not shared %}` wrapper AND the card-image dialog (T09 had moved it to the end of the scripts block deliberately, because an existing test requires it after the last `{% endif %}`). Caught by element-count check + suite; hand-resolved to T09's arrangement; resolver now inserts scripts before the trailing <dialog>. One unexplained single failure during resolution; two subsequent full runs clean (1783 passed) — watching for flakiness.
+- 2026-10-01: T11 VERIFIED → merged (e7ef49d) after 2 reworks; mutation removing unknown→other fold fails 3 tests.
+- 2026-10-01: T05 VERIFIED → merged (see merge commit). Late-load fixed; mutation removing immediate render fails 3 tests. Deviation accepted: footer placed after the owner-only block in content (not inside .dl-builder grid) — CSS designed for that. MERGE INCIDENT (mine, #2): resolver silently dropped T05's footer because it shared the conflict hunk with the scripts line. Restored. Resolver now refuses hunks where theirs adds non-script lines; new `.cux/presence_check.sh` asserts every template line a branch added survives the merge — run retroactively on T01/T02/T03/T08/T09/T10/T11: all present. Gates: 1802 passed, ruff/mypy clean.
