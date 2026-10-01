@@ -40,7 +40,7 @@ The program is DONE only when every box is checked:
 |---|---|---|---|---|
 | 1 | Hover/focus card panel | T08 | HIGH | VERIFIED (25a33ff) |
 | 2 | Pinned deck status bar | T05 | LOW | TODO |
-| 3 | Keyboard editing + undo/redo | T09 | HIGH | TODO |
+| 3 | Keyboard editing + undo/redo | T09 | HIGH | VERIFIED (afcda14) |
 | 4 | "Considering" zone | T04 | LOW | PARTIAL PRE-EXISTING: private zone names excluded from count/copy (`deck_documents.py:64-71`, `deck-lab-export.js` PRIVATE_ZONE_NAMES) — T04 adds the workflow |
 | 5 | Interactive stats (curve filter, pips vs sources, odds, sample hand) | T06 | LOW | TODO |
 | 6 | Paste-ready export for Moxfield/Archidekt | T01 | LOW | VERIFIED (2789c4d); builds on pre-existing "Copy list" (b46f209) |
