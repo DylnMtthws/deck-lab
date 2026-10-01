@@ -649,3 +649,10 @@ a.dl-card-name:hover{color:var(--brand-text)}
 @media (hover: none) {
   [data-dl-tip]::after { content: none; }
 }
+.dl-considering-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
