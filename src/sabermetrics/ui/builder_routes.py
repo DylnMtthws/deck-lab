@@ -26,6 +26,8 @@ from sabermetrics.account_playmats import (
     PlaymatNotFound,
     orphan_custom_path,
 )
+from sabermetrics.cedh.factory import build_default_lab
+from sabermetrics.cedh.packs import PackSummary
 from sabermetrics.deck_documents import (
     DeckDocumentRepo,
     DeckNotFound,
@@ -38,6 +40,8 @@ from sabermetrics.deck_text_import import (
     oversized_request_error,
 )
 from sabermetrics.ui.feedback_images import sanitize_image
+
+_NO_PACK = "No strategy pack supports this commander yet."
 
 bp = Blueprint("builder", __name__)
 
@@ -221,13 +225,80 @@ def import_generated(generated_id: str):
     return redirect(url_for("builder.deck", deck_id=deck_id))
 
 
+def _wants_deck_json() -> bool:
+    """Return whether this request asked for a JSON deck body."""
+    return bool(request.is_json or request.accept_mimetypes.best == "application/json")
+
+
+def _commander_name(card_id: str) -> str | None:
+    """Resolve a builder card id to the display name packs are authored under."""
+    with db.connect(current_app.config["DB_PATH"]) as conn:
+        row = conn.execute(
+            "SELECT name FROM cards WHERE id = ?",
+            (card_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    name = str(row["name"] or "").strip()
+    return name or None
+
+
+def _pack_matches(summary: PackSummary, commander_name: str) -> bool:
+    """Return whether this pack is for the chosen commander."""
+    wanted = commander_name.casefold()
+    return any(name.casefold() == wanted for name in summary.commander_names)
+
+
+def _pack_payload(summary: PackSummary) -> dict[str, object]:
+    """JSON for one pack summary, including packs that do not resolve."""
+    return {
+        "pack_id": summary.pack_id,
+        "name": summary.name,
+        "commander_names": list(summary.commander_names),
+        "summary": summary.summary,
+        "supported": summary.supported,
+        "detail": summary.detail,
+        "simulator_supported": summary.simulator_supported,
+        "missing_names": list(summary.missing_names),
+    }
+
+
+@bp.get("/api/generate/packs")
+def generate_packs():
+    """List strategy packs, filtered when a commander card id is supplied.
+
+    Unsupported packs stay in the list with ``supported`` false. An empty
+    list is the visible absence for a commander no pack names.
+    """
+    commander_id = (request.args.get("commander") or "").strip()
+    lab, _modes = build_default_lab(db_path=str(current_app.config["DB_PATH"]))
+    summaries = list(lab.pack_summaries())
+    message = None
+    if commander_id:
+        name = _commander_name(commander_id)
+        if name is None:
+            summaries = []
+            message = _NO_PACK
+        else:
+            summaries = [item for item in summaries if _pack_matches(item, name)]
+            if not summaries:
+                message = _NO_PACK
+    return jsonify(
+        packs=[_pack_payload(item) for item in summaries],
+        message=message,
+    )
+
+
 @bp.post("/build/import/candidate/<candidate_id>")
 def import_candidate(candidate_id: str):
     try:
         deck_id = _repo().import_candidate(current_user.id, candidate_id)
     except DeckNotFound:
         abort(404)
-    return redirect(url_for("builder.deck", deck_id=deck_id))
+    deck_url = url_for("builder.deck", deck_id=deck_id)
+    if _wants_deck_json():
+        return jsonify(id=deck_id, url=deck_url)
+    return redirect(deck_url)
 
 
 @bp.get("/build/deck/<deck_id>")
