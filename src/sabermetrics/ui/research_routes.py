@@ -38,6 +38,55 @@ from sabermetrics.research_cache import (
     ResearchDefaultCache,
     apply_favorites,
 )
+from sabermetrics.ui.scryfall_query import ParsedQuery, parse_query
+
+# Filter keys in card_filters that can be populated from a parsed query.
+# Explicit form-query values always win over parsed values.
+_PARSED_CARD_KEYS = frozenset(
+    {
+        "oracle_text",
+        "super_type",
+        "super_op",
+        "card_type",
+        "type_op",
+        "sub_type",
+        "sub_op",
+        "colors",
+        "color_mode",
+        "mana_min_bound",
+        "mana_max_bound",
+        "power_min_bound",
+        "power_max_bound",
+        "toughness_min_bound",
+        "toughness_max_bound",
+        "rarity",
+    }
+)
+
+# Form-query parameter names that, when present in the request, prevent a
+# parsed value from overriding.
+_CARD_FORM_PARAMS = frozenset(
+    {
+        "oracle_text",
+        "super_type",
+        "super_op",
+        "card_type",
+        "type_op",
+        "sub_type",
+        "sub_op",
+        "card_color",
+        "color_mode",
+        "mana_operator",
+        "mana_value",
+        "mana_min",
+        "mana_max",
+        "power_min",
+        "power_max",
+        "toughness_min",
+        "toughness_max",
+        "rarity",
+    }
+)
 
 bp = Blueprint("research", __name__, url_prefix="/research")
 
@@ -236,6 +285,83 @@ def _research_back_url() -> str:
     return f"{index}?{encoded}"
 
 
+def _has_form_arg(name: str) -> bool:
+    """True if *name* was explicitly provided as a form/query parameter."""
+    return name in request.args and request.args.get(name) != ""
+
+
+def _has_form_arg_list(name: str) -> bool:
+    """True if *name* (a multi-value parameter) has at least one value."""
+    return name in request.args and bool(request.args.getlist(name))
+
+
+def _merge_parsed_filters(
+    card_filters: dict[str, Any],
+    parsed: ParsedQuery,
+) -> None:
+    """Merge parsed query filters into *card_filters*.
+
+    Explicit form-query args always win: if the request arg for a given
+    filter key is present, we keep the form value. Otherwise we fill from
+    the parsed query.
+    """
+    pf = parsed.filters
+
+    # oracle_text
+    if not _has_form_arg("oracle_text") and "oracle_text" in pf:
+        card_filters["oracle_text"] = pf["oracle_text"]
+
+    # type_line (not typically set from Scryfall syntax)
+    if not _has_form_arg("type_line") and "type_line" in pf:
+        card_filters["type_line"] = pf["type_line"]
+
+    # super_type / super_op
+    if not _has_form_arg("super_type") and "super_type" in pf:
+        card_filters["super_type"] = pf["super_type"]
+    if not _has_form_arg("super_op") and "super_op" in pf:
+        card_filters["super_op"] = pf["super_op"]
+
+    # card_type / type_op
+    if not _has_form_arg("card_type") and "card_type" in pf:
+        card_filters["card_type"] = pf["card_type"]
+    if not _has_form_arg("type_op") and "type_op" in pf:
+        card_filters["type_op"] = pf["type_op"]
+
+    # sub_type / sub_op
+    if not _has_form_arg("sub_type") and "sub_type" in pf:
+        card_filters["sub_type"] = pf["sub_type"]
+    if not _has_form_arg("sub_op") and "sub_op" in pf:
+        card_filters["sub_op"] = pf["sub_op"]
+
+    # colors / color_mode
+    if not _has_form_arg_list("card_color") and "colors" in pf:
+        card_filters["colors"] = pf["colors"]
+    if not _has_form_arg("color_mode") and "color_mode" in pf:
+        card_filters["color_mode"] = pf["color_mode"]
+
+    # mana bounds
+    if not _has_form_arg("mana_min") and "mana_min_bound" in pf:
+        card_filters["mana_min_bound"] = pf["mana_min_bound"]
+    if not _has_form_arg("mana_max") and "mana_max_bound" in pf:
+        card_filters["mana_max_bound"] = pf["mana_max_bound"]
+
+    # power bounds
+    if not _has_form_arg("power_min") and "power_min_bound" in pf:
+        card_filters["power_min_bound"] = pf["power_min_bound"]
+    if not _has_form_arg("power_max") and "power_max_bound" in pf:
+        card_filters["power_max_bound"] = pf["power_max_bound"]
+
+    # toughness bounds
+    if not _has_form_arg("toughness_min") and "toughness_min_bound" in pf:
+        card_filters["toughness_min_bound"] = pf["toughness_min_bound"]
+    if not _has_form_arg("toughness_max") and "toughness_max_bound" in pf:
+        card_filters["toughness_max_bound"] = pf["toughness_max_bound"]
+
+    # rarity
+    if not _has_form_arg("rarity") and "rarity" in pf:
+        card_filters["rarity"] = pf["rarity"]
+
+
 def _full_results_href() -> str:
     args = request.args.to_dict(flat=False)
     args["results"] = ["full"]
@@ -248,7 +374,13 @@ def _load_index_state() -> dict[str, Any]:
     tab = request.args.get("tab", DEFAULT_TAB)
     if tab not in _RESEARCH_TABS:
         tab = DEFAULT_TAB
-    query = (request.args.get("q") or "").strip()[:120]
+    raw_query = (request.args.get("q") or "").strip()[:120]
+    parsed: ParsedQuery | None = None
+    query_applied: tuple[str, ...] = ()
+    query_unsupported: tuple[str, ...] = ()
+    if raw_query and tab == "cards":
+        parsed = parse_query(raw_query)
+        query_unsupported = parsed.unsupported
     page = max(1, _int_arg("page", 1))
     window_days = _window_arg()
     fav_ids = db.FavoritesRepo(current_app.config["DB_PATH"]).commander_ids(
@@ -281,6 +413,17 @@ def _load_index_state() -> dict[str, Any]:
         "toughness_max_bound": _bound_arg("toughness_max"),
         "rarity": request.args.get("rarity", ""),
     }
+
+    # Keep the user's full query for the search field (AC-3).
+    # Compute a separate name_query for data lookups when syntax is detected.
+    query = raw_query
+    name_query = raw_query
+    if parsed is not None:
+        if parsed.filters or parsed.unsupported:
+            name_query = " ".join(parsed.name_terms)[:120]
+            if parsed.filters:
+                _merge_parsed_filters(card_filters, parsed)
+                query_applied = parsed.applied_terms
     meta_min_percent = _optional_float_arg("meta_min")
     meta_max_percent = _optional_float_arg("meta_max")
     mana_lo, mana_hi = _bound_arg("mana_min"), _bound_arg("mana_max")
@@ -305,7 +448,7 @@ def _load_index_state() -> dict[str, Any]:
     deck_filters = _deck_filter_args()
     data: dict[str, Any]
     if tab == "cards":
-        data = _research().cards(query, page=page, **card_filters)
+        data = _research().cards(name_query, page=page, **card_filters)
     elif tab == "decks":
         requested_partner = deck_filters["partner"]
         deck_filters.update(
@@ -314,7 +457,7 @@ def _load_index_state() -> dict[str, Any]:
             )
         )
         data = _documents().list_public(
-            query=query,
+            query=name_query,
             page=page,
             colors=deck_filters["colors"],
             color_mode=deck_filters["color_mode"],
@@ -323,7 +466,7 @@ def _load_index_state() -> dict[str, Any]:
         )
     elif tab == "commanders":
         catalog_filters = {
-            "query": query,
+            "query": name_query,
             "colors": _selected_commander_colors(),
             "color_mode": commander_filters["color_mode"],
             "mana_min_bound": _bound_arg("mana_min"),
@@ -333,7 +476,7 @@ def _load_index_state() -> dict[str, Any]:
             "page": page,
         }
         data = _research().commander_catalog(**catalog_filters)
-    elif _is_default_cohort(tab, query, page, window_days, commander_filters):
+    elif _is_default_cohort(tab, name_query, page, window_days, commander_filters):
         cache = _cache()
         view = cache.try_serve()
         if view is None and _force_full_results() and not _wants_fragment():
@@ -361,7 +504,7 @@ def _load_index_state() -> dict[str, Any]:
                 cache.request_refresh()
     else:
         data = _research().commanders(
-            query=query,
+            query=name_query,
             colors=_selected_commander_colors(),
             favorites=fav_ids,
             favorite_only=request.args.get("favorites") == "1",
@@ -393,6 +536,8 @@ def _load_index_state() -> dict[str, Any]:
         "super_options": SUPERTYPES,
         "rarity_options": RARITIES,
         "range_max": RANGE_MAX,
+        "query_applied": query_applied,
+        "query_unsupported": query_unsupported,
     }
 
 

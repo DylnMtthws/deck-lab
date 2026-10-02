@@ -1,0 +1,150 @@
+/* Owner: D05 — stacks display mode. */
+.dl-stacks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: var(--s-5) var(--s-4);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--s-4);
+  box-sizing: border-box;
+}
+.dl-stack-col {
+  width: 172px;
+  flex: 0 0 172px;
+  max-width: 100%;
+  min-width: 0;
+}
+.dl-stack-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-2);
+  min-width: 0;
+  color: var(--body);
+  font-size: var(--t-13);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.dl-stack-swatch {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+}
+.dl-stack-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dl-stack-count {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.dl-stack {
+  display: flex;
+  flex-direction: column;
+}
+.dl-stack-card {
+  position: relative;
+  display: block;
+  width: 172px;
+  max-width: 100%;
+  aspect-ratio: 488 / 680;
+  margin: 0 0 calc(28px - (172px * 680 / 488));
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--panel-2) center / cover no-repeat;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, .45);
+  color: var(--body);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.dl-stack-card:last-child { margin-bottom: 0; }
+.dl-stack-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.dl-stack-fallback {
+  display: block;
+  height: 28px;
+  padding: 4px 8px 0;
+  overflow: hidden;
+  color: var(--body);
+  font-size: var(--t-12);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dl-stack-card:hover,
+.dl-stack-card:focus-visible,
+.dl-stack-card.is-lifted {
+  z-index: 2;
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+  box-shadow: var(--shadow-card-lift);
+  transform: translateX(10px);
+}
+.dl-stack-card:focus-visible { box-shadow: var(--focus), var(--shadow-card-lift); }
+.dl-stack-card.is-selected { outline: 2px solid var(--brand); outline-offset: 1px; }
+.dl-stack-qty,
+.dl-stack-feedback {
+  position: absolute;
+  right: 6px;
+  z-index: 1;
+  border-radius: 6px;
+  background: rgba(6, 8, 13, .85);
+  color: var(--body);
+}
+.dl-stack-qty {
+  top: 6px;
+  padding: 2px 6px;
+  font: 600 var(--t-11) / 1.2 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.dl-stack-feedback {
+  top: 6px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: var(--brand-text);
+}
+.dl-stack-card:has(.dl-stack-qty) .dl-stack-feedback { top: 30px; }
+.dl-stack-feedback svg { width: 13px; height: 13px; }
+.dl-stack-col.drop-target {
+  border-radius: var(--r-sm);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  background: var(--brand-soft);
+}
+.dl-stack-card.drag-source { opacity: .4; }
+/* List-row feedback controls are appended to every entry. Stacks draws its own badge. */
+.dl-stack-card .dl-card-feedback { display: none !important; }
+body.dl-has-stacks .dl-bulk-controls.is-empty { display: none; }
+.dl-stacks.is-dragging.is-group-type .dl-stack-col,
+.dl-stacks.is-dragging.is-group-type .dl-stack-card,
+.dl-stack-col.is-drop-disallowed { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .dl-stack-card,
+  .dl-stack-card:hover,
+  .dl-stack-card:focus,
+  .dl-stack-card:focus-visible,
+  .dl-stack-card.is-lifted {
+    transform: none;
+    transition: none;
+    animation: none;
+  }
+}

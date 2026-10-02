@@ -805,9 +805,53 @@ def ensure_deck_document_schema(conn: sqlite3.Connection) -> None:
             "ALTER TABLE deck_zones ADD COLUMN layer INTEGER NOT NULL DEFAULT 0"
         )
     ensure_schema(conn)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS deck_document_card_feedback (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            deck_id TEXT NOT NULL,
+            card_key TEXT NOT NULL,
+            card_name TEXT NOT NULL,
+            vote TEXT CHECK (vote IN ('up','down') OR vote IS NULL),
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, deck_id, card_key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ddcf_deck ON deck_document_card_feedback(deck_id);
+        CREATE INDEX IF NOT EXISTS idx_ddcf_card_name ON deck_document_card_feedback(card_name);
+        CREATE TABLE IF NOT EXISTS deck_document_feedback (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            deck_id TEXT NOT NULL,
+            verdict TEXT CHECK (verdict IN ('good','mixed','bad') OR verdict IS NULL),
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, deck_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ddf_deck ON deck_document_feedback(deck_id);
+    """)
     from sabermetrics.account_playmats import ensure_account_playmat_schema
 
     ensure_account_playmat_schema(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS deck_document_simulations (
+            id TEXT PRIMARY KEY,
+            deck_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            deck_sha256 TEXT NOT NULL DEFAULT '',
+            revision INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            result_json TEXT,
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_deck_document_simulations_deck_created "
+        "ON deck_document_simulations(deck_id, created_at)"
+    )
     conn.commit()
 
 

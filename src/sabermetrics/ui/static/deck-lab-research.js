@@ -464,6 +464,20 @@
       }
       return;
     }
+    var removeSyntax = node.closest("[data-remove-syntax]");
+    if (removeSyntax) {
+      event.preventDefault();
+      var term = removeSyntax.getAttribute("data-remove-syntax");
+      if (!term) return;
+      var url = new URL(location.href);
+      var currentQ = url.searchParams.get("q") || "";
+      var pattern = new RegExp("\\b" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g");
+      var newQ = currentQ.replace(pattern, "").replace(/\s+/g, " ").trim();
+      url.searchParams.set("q", newQ);
+      url.searchParams.delete("page");
+      navigate(url, true);
+      return;
+    }
     var fav = node.closest("[data-fav-commander]");
     if (fav) {
       event.preventDefault();

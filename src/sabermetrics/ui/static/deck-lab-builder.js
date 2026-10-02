@@ -39,8 +39,12 @@
   }
   function setSaving(label, error) {
     if (saveState) {
-      saveState.textContent = label;
+      var text = saveState.querySelector("[data-save-label]");
+      if (text) text.textContent = label;
+      else saveState.textContent = label;
       saveState.classList.toggle("error", !!error);
+      saveState.classList.toggle("is-ok", !error && label === "Saved");
+      saveState.classList.toggle("is-warn", !!error);
     }
     syncExport();
   }
@@ -127,11 +131,17 @@
     });
   }
   function zoneName(zoneId) { var zone = state.zones.find(function (item) { return item.id === zoneId; }); return zone ? zone.name : "Unsorted"; }
-  function manaToken(symbol) {
-    var upper = String(symbol || "").toUpperCase(), token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
-    if (/^[WUBRGC]$/.test(upper)) token.classList.add("mana", "mana-" + upper);
-    else token.classList.add("dl-mana-generic");
-    token.setAttribute("aria-hidden", "true");
+  function manaToken(sym, kind) {
+    var token;
+    if (window.DeckLabMana) token = window.DeckLabMana.symbol(sym, { decorative: true });
+    else {
+      var upper = String(sym || "").toUpperCase();
+      token = node("i", "dl-mana-symbol", upper.replace("/", "⁄"));
+      if (/^[WUBRGC]$/.test(upper)) token.classList.add("mana", "mana-" + upper);
+      else token.classList.add("dl-mana-generic");
+      token.setAttribute("aria-hidden", "true");
+    }
+    if (token && token.classList) token.classList.add(kind === "inline" ? "dl-mana-text" : "dl-mana-pip");
     return token;
   }
   function appendManaText(container, text) {
@@ -145,7 +155,7 @@
     while ((match = pattern.exec(raw))) {
       if (match.index > last) appendPlain(raw.slice(last, match.index));
       var wrap = node("span", "dl-mana-inline");
-      wrap.appendChild(manaToken(match[1]));
+      wrap.appendChild(manaToken(match[1], "inline"));
       wrap.appendChild(node("span", "dl-visually-hidden", match[0]));
       container.appendChild(wrap);
       last = match.index + match[0].length;
@@ -156,8 +166,37 @@
     var wrap = node("span", "dl-mana-cost"), raw = String(entry.mana_cost || "").trim(), matches = Array.from(raw.matchAll(/\{([^}]+)\}/g));
     wrap.setAttribute("aria-label", raw ? "Mana cost " + raw.replace(/[{}]/g, " ").trim() : "No mana cost");
     if (!matches.length) { wrap.textContent = "—"; return wrap; }
-    matches.forEach(function (match) { wrap.appendChild(manaToken(match[1])); });
+    matches.forEach(function (match) { wrap.appendChild(manaToken(match[1], "cost")); });
     return wrap;
+  }
+  function roleLabel(role) {
+    var current = String(role || "").toLowerCase(), found = "";
+    roleOptions.forEach(function (item) { if (item[0] === current) found = item[1]; });
+    if (current && found) return found;
+    if (!current) return "";
+    return current.replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+  }
+  function groupUncounted(group) {
+    if (group.id === "role-private") return true;
+    return !!(group.zone && !isLibraryZone(group.zone.id));
+  }
+  function libraryTotal() {
+    return qty(state.entries.filter(function (entry) {
+      return entry.is_commander || isLibraryZone(entry.zone_id);
+    }));
+  }
+  function shareBar(group) {
+    if (groupUncounted(group)) return null;
+    var bar = node("span", "dl-share"), fill = node("i");
+    var total = libraryTotal(), portion = total ? qty(group.entries) / total : 0;
+    bar.setAttribute("aria-hidden", "true");
+    fill.style.width = Math.max(0, Math.min(100, Math.round(portion * 100))) + "%";
+    bar.appendChild(fill);
+    return bar;
+  }
+  function paintIcon(button, iconName, glyph) {
+    if (window.DeckLabIcons) button.appendChild(window.DeckLabIcons.svg(iconName, { size: 14 }));
+    else button.textContent = glyph;
   }
   function roleSelect(entry) {
     var select = node("select", "dl-role-select"), current = String(entry.role || "").toLowerCase();
@@ -174,6 +213,29 @@
       var types = {};
       state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var name = (entry.type_line || "Other").split(/[—-]/)[0].trim() || "Other"; (types[name] || (types[name] = [])).push(entry); });
       Object.keys(types).sort().forEach(function (name) { result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
+    } else if (preference("group_mode", "zone") === "role") {
+      var roles = {}, noRole = [], privateEntries = [];
+      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {
+        if (!isLibraryZone(entry.zone_id)) { privateEntries.push(entry); return; }
+        var role = String(entry.role || "").toLowerCase();
+        if (!role) { noRole.push(entry); return; }
+        (roles[role] || (roles[role] = [])).push(entry);
+      });
+      Object.keys(roles).forEach(function (key) {
+        if (key !== "other" && roleOptions.every(function (item) { return item[0] !== key; })) {
+          (roles["other"] || (roles["other"] = [])).push.apply(roles["other"], roles[key]);
+          delete roles[key];
+        }
+      });
+      var roleOptionMap = {};
+      roleOptions.forEach(function (item) { if (item[0]) roleOptionMap[item[0]] = item[1]; });
+      roleOptions.forEach(function (item) {
+        if (!item[0]) return;
+        var entries = roles[item[0]];
+        if (entries && entries.length) result.push({ id: "role-" + item[0], name: roleOptionMap[item[0]], entries: entries, permanent: true });
+      });
+      if (noRole.length) result.push({ id: "role-none", name: "No role", entries: noRole, permanent: true });
+      if (privateEntries.length) result.push({ id: "role-private", name: "Considering & other private zones", entries: privateEntries, permanent: true });
     } else state.zones.forEach(function (zone) { result.push({ id: zone.id, name: zone.name, zone: zone, entries: zoneEntries(zone.id) }); });
     var sort = preference("sort_mode", "manual");
     result.forEach(function (group) { group.entries.sort(function (a, b) { if (sort === "name") return a.name.localeCompare(b.name); if (sort === "mana_value") return Number(a.mana_value || 0) - Number(b.mana_value || 0) || a.name.localeCompare(b.name); return Number(a.sort_order || 0) - Number(b.sort_order || 0); }); });
@@ -183,52 +245,89 @@
   function syncSelection() {
     var live = new Set(state.entries.map(function (entry) { return entry.id; })); selectedEntries.forEach(function (id) { if (!live.has(id)) selectedEntries.delete(id); });
     var count = document.querySelector("[data-selected-count]"), button = document.querySelector("[data-bulk-move]"), controls = document.querySelector("[data-bulk-controls]"), bulkZone = document.querySelector("[data-bulk-zone]"), clearSelection = document.querySelector("[data-clear-selection]"), noSelection = !selectedEntries.size;
-    if (count) count.textContent = selectedEntries.size + (selectedEntries.size === 1 ? " card selected" : " cards selected");
+    var countInBar = count && count.closest && count.closest("[data-selection-bar]");
+    if (count) count.textContent = countInBar ? (selectedEntries.size + " selected") : (selectedEntries.size + (selectedEntries.size === 1 ? " card selected" : " cards selected"));
     if (button) button.disabled = noSelection;
     if (clearSelection) clearSelection.disabled = noSelection;
     if (bulkZone) { bulkZone.disabled = noSelection; if (bulkZone._dlSelectTrigger) bulkZone._dlSelectTrigger.disabled = noSelection; }
     if (controls) controls.classList.toggle("is-empty", noSelection);
+    var selectionBar = document.querySelector("[data-selection-bar]"), toolbarMain = document.querySelector("[data-toolbar-main]");
+    if (selectionBar) selectionBar.hidden = noSelection;
+    if (toolbarMain) toolbarMain.hidden = !noSelection;
+    if (!noSelection) closeDismissPanels();
     document.querySelectorAll(".dl-deck-row[data-entry-id]").forEach(function (row) { row.classList.toggle("selected", selectedEntries.has(row.dataset.entryId)); });
+    var snapshot = Array.from(selectedEntries).sort().join(",");
+    if (snapshot !== _lastSelectionSnapshot) {
+      _lastSelectionSnapshot = snapshot;
+      _dispatchBuilderEvent("deck-lab:selection", { ids: Array.from(selectedEntries) });
+    }
   }
 
   function renderText(group, container) {
-    var rows = node("div", "dl-zone-rows");
-    group.entries.forEach(function (entry) {
-      var row = node("div", "dl-deck-row"), q = node("div", "dl-qty");
+    var rows = node("div", "dl-zone-rows"), groupMode = preference("group_mode", "zone");
+    group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) {
+      var row = node("div", "dl-deck-row"), q = node("div", "dl-qty"), imageUrl = cardImage(entry);
+      var name = imageUrl ? node("a", "dl-card-name", "") : node("span", "dl-card-name", "");
+      var cardCell = node("span", "dl-card-cell");
       row.dataset.entryId = entry.id; row.classList.toggle("selected", selectedEntries.has(entry.id));
-      if (!shared && !entry.is_commander) { var minus = node("button", "", "−"); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + entry.name); minus.setAttribute("data-dl-tip", "Remove one " + entry.name); minus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: -1 }]); }); q.appendChild(minus); }
+      name.appendChild(node("span", "dl-card-name-text", entry.name));
+      if (imageUrl) {
+        name.href = imageUrl; name.rel = "noopener"; name.dataset.cardFocusKey = "name:" + entry.id;
+        name.setAttribute("aria-label", entry.name);
+        name.addEventListener("click", function (event) { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); });
+      }
+      cardCell.appendChild(name);
+      if ((groupMode === "role" || groupMode === "type") && !entry.is_commander && !isLibraryZone(entry.zone_id)) cardCell.appendChild(node("span", "dl-chip dl-zone-chip", zoneName(entry.zone_id)));
+      if (groupMode === "zone" && !entry.is_commander && roleLabel(entry.role)) cardCell.appendChild(node("span", "dl-chip dl-role-chip", roleLabel(entry.role)));
+      if (!shared && !entry.is_commander) {
+        var minus = node("button", "dl-step", ""); minus.type = "button"; minus.setAttribute("aria-label", "Remove one " + entry.name); minus.setAttribute("data-dl-tip", "Remove one " + entry.name); paintIcon(minus, "minus", "−"); minus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: -1 }]); }); q.appendChild(minus);
+      }
       q.appendChild(node("span", "", entry.quantity));
-      if (!shared && !entry.is_commander) { var plus = node("button", "", "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add one " + entry.name); plus.setAttribute("data-dl-tip", "Add one " + entry.name); plus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: 1 }]); }); q.appendChild(plus); }
-      var imageUrl = cardImage(entry), name = imageUrl ? node("a", "dl-card-name", entry.name) : node("span", "dl-card-name", entry.name);
-      if (imageUrl) { name.href = imageUrl; name.rel = "noopener"; name.dataset.cardFocusKey = "name:" + entry.id; name.setAttribute("aria-label", entry.name + ". View card image"); name.addEventListener("click", function (event) { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); openCardImage(entry.name, imageUrl, name); }); }
+      if (!shared && !entry.is_commander) {
+        var plus = node("button", "dl-step", ""); plus.type = "button"; plus.setAttribute("aria-label", "Add one " + entry.name); plus.setAttribute("data-dl-tip", "Add one " + entry.name); paintIcon(plus, "plus", "+"); plus.addEventListener("click", function () { command([{ type: "adjust_quantity", entry_id: entry.id, delta: 1 }]); }); q.appendChild(plus);
+      }
       if (!entry.is_commander && !shared) { var choose = node("input", "dl-row-select"); choose.type = "checkbox"; choose.checked = selectedEntries.has(entry.id); choose.setAttribute("aria-label", "Select " + entry.name); choose.addEventListener("change", function () { if (choose.checked) selectedEntries.add(entry.id); else selectedEntries.delete(entry.id); syncSelection(); }); row.appendChild(choose); } else row.appendChild(node("span", "dl-row-select-space"));
-      row.append(q, name, manaCost(entry), node("span", "dl-card-type", entry.type_line || "—"));
-      if (entry.is_commander) row.appendChild(node("span", "dl-zone-value", "Commander"));
-      else if (!shared) { var select = zoneOptions(entry.zone_id, "dl-inline-zone-select"); select.setAttribute("aria-label", "Move " + entry.name + " to zone"); select.addEventListener("change", function () { command([{ type: "move_entry", entry_id: entry.id, zone_id: select.value, sort_order: 999 }]); }); row.appendChild(select); }
-      else row.appendChild(node("span", "dl-zone-value", zoneName(entry.zone_id)));
-      if (entry.is_commander) row.appendChild(node("span", "dl-role-empty", "—")); else if (!shared) row.appendChild(roleSelect(entry)); else row.appendChild(node("span", entry.role ? "dl-role-chip" : "dl-role-empty", entry.role || "—"));
-      var actions = node("div", "dl-row-actions"), imageUrl = cardImage(entry);
-      if (imageUrl) { var preview = node("button", "dl-icon-button dl-card-preview", ""); preview.type = "button"; preview.dataset.cardFocusKey = "preview:" + entry.id; preview.setAttribute("aria-label", "View card image for " + entry.name); preview.setAttribute("data-dl-tip", "View card image"); preview.addEventListener("click", function () { openCardImage(entry.name, imageUrl, preview); }); preview.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="10" height="14" rx="1.5"/><path d="M7 6h10v11a1 1 0 0 1-1 1H7z"/></svg>'; actions.appendChild(preview); }
-      if (!shared) { var remove = node("button", "dl-icon-button", "×"); remove.type = "button"; remove.setAttribute("aria-label", "Remove " + entry.name); remove.setAttribute("data-dl-tip", "Remove " + entry.name); remove.addEventListener("click", function () { command([{ type: "remove_entry", entry_id: entry.id }]); }); actions.appendChild(remove); }
-      var issueMark = applyCardValidity(row, entry, entry.name); if (issueMark) actions.appendChild(issueMark); row.appendChild(actions); rows.appendChild(row);
+      row.append(q, cardCell, manaCost(entry), node("span", "dl-card-type", entry.type_line || "—"));
+      var actions = node("div", "dl-row-actions");
+      if (imageUrl) { var preview = node("button", "dl-icon-button dl-card-preview", ""); preview.type = "button"; preview.dataset.cardFocusKey = "preview:" + entry.id; preview.setAttribute("aria-label", "View card image for " + entry.name); preview.setAttribute("data-dl-tip", "View card image"); preview.addEventListener("click", function () { openCardImage(entry.name, imageUrl, preview); }); paintIcon(preview, "image", ""); actions.appendChild(preview); }
+      if (!shared) { var remove = node("button", "dl-icon-button dl-row-remove", ""); remove.type = "button"; remove.setAttribute("aria-label", "Remove " + entry.name); remove.setAttribute("data-dl-tip", "Remove " + entry.name); paintIcon(remove, "x", "×"); remove.addEventListener("click", function () { command([{ type: "remove_entry", entry_id: entry.id }]); }); actions.appendChild(remove); }
+      var issueMark = applyCardValidity(row, entry, entry.name); if (issueMark) actions.appendChild(issueMark); row.appendChild(actions);
+      if (!entry.is_commander && !shared) { var select = zoneOptions(entry.zone_id, "dl-inline-zone-select"); select.setAttribute("aria-label", "Move " + entry.name + " to zone"); select.addEventListener("change", function () { command([{ type: "move_entry", entry_id: entry.id, zone_id: select.value, sort_order: 999 }]); }); row.appendChild(select); }
+      row.addEventListener("click", function (event) {
+        var target = event.target;
+        if (target && target.closest && target.closest("button, input, select, textarea")) return;
+        if (window.DeckLabBuilder && window.DeckLabBuilder.focusEntry) window.DeckLabBuilder.focusEntry(entry.id);
+      });
+      row.addEventListener("dblclick", function (event) {
+        var target = event.target;
+        if (target && target.closest && target.closest("button, input, select, textarea")) return;
+        if (imageUrl) openCardImage(entry.name, imageUrl, name);
+      });
+      rows.appendChild(row);
     }); container.appendChild(rows);
   }
-  function renderGrid(group, container) { var grid = node("div", "dl-grid-display"); group.entries.forEach(function (entry) { var card = node("div", "dl-grid-card"); card.dataset.entryId = entry.id; card.title = entry.name; var url = cardImage(entry); if (url) { var img = node("img"); img.src = url; img.alt = entry.name; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "fallback", entry.name)); card.appendChild(node("b", "", entry.quantity + "×")); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); grid.appendChild(card); }); container.appendChild(grid); }
-  function renderSpoiler(group, container) { var grid = node("div", "dl-spoiler-display"); group.entries.forEach(function (entry) { var card = node("article", "dl-spoiler-card"), url = cardImage(entry); card.dataset.entryId = entry.id; if (url) { var img = node("img"); img.src = url; img.alt = ""; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "dl-card-art")); var body = node("div"), rules = node("p"); appendManaText(rules, entry.oracle_text || entry.type_line || "Card details unavailable."); body.append(node("strong", "", entry.quantity + "× " + entry.name), rules); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); card.appendChild(body); grid.appendChild(card); }); container.appendChild(grid); }
+  function renderGrid(group, container) { var grid = node("div", "dl-grid-display"); group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) { var card = node("div", "dl-grid-card"); card.dataset.entryId = entry.id; card.title = entry.name; var url = cardImage(entry); if (url) { var img = node("img"); img.src = url; img.alt = entry.name; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "fallback", entry.name)); card.appendChild(node("b", "", entry.quantity + "×")); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); grid.appendChild(card); }); container.appendChild(grid); }
+  function renderSpoiler(group, container) { var grid = node("div", "dl-spoiler-display"); group.entries.filter(function (e) { return _entryMatches(e); }).forEach(function (entry) { var card = node("article", "dl-spoiler-card"), url = cardImage(entry); card.dataset.entryId = entry.id; if (url) { var img = node("img"); img.src = url; img.alt = ""; img.loading = "lazy"; card.appendChild(img); } else card.appendChild(node("div", "dl-card-art")); var body = node("div"), rules = node("p"); appendManaText(rules, entry.oracle_text || entry.type_line || "Card details unavailable."); body.append(node("strong", "", entry.quantity + "× " + entry.name), rules); var mark = applyCardValidity(card, entry, entry.name); if (mark) card.appendChild(mark); card.appendChild(body); grid.appendChild(card); }); container.appendChild(grid); }
   function renderTable() {
     var view = document.getElementById("table-view"); if (!view) return; view.replaceChildren();
     var collapsed = []; try { collapsed = JSON.parse(preference("collapsed_json", "[]")); } catch (_) {}
-    var display = preference("display_mode", "text"), density = preference("density", "compact"), surface = node("div", "dl-decklist-surface dl-density-" + density + " dl-display-" + display);
+    var display = preference("display_mode", "text"), density = preference("density", "compact");
+    if (display === "stacks") {
+      if (window.DeckLabStacks && window.DeckLabStacks.render) window.DeckLabStacks.render(groups().map(function (group) { return { id: group.id, name: group.name, zone: group.zone || null, permanent: !!group.permanent, entries: group.entries.filter(_entryMatches) }; }), view, window.DeckLabBuilder || null);
+      if (!state.entries.length) view.appendChild(node("div", "dl-empty", "Choose a commander or add cards to begin."));
+      return;
+    }
+    var surface = node("div", "dl-decklist-surface dl-density-" + density + " dl-display-" + display);
     if (display === "text") {
       var columns = node("div", "dl-decklist-columns");
-      ["", "Qty", "Name", "Cost", "Type", "Zone", "Role", ""].forEach(function (label, index) { var heading = node("span", index === 0 ? "dl-column-select" : "", label); if (label) heading.setAttribute("role", "columnheader"); columns.appendChild(heading); });
+      ["", "Qty", "Card", "Cost", "Type", ""].forEach(function (label, index) { var heading = node("span", index === 0 ? "dl-column-select" : "", label); if (label) heading.setAttribute("role", "columnheader"); columns.appendChild(heading); });
       surface.appendChild(columns);
     }
     groups().forEach(function (group) {
-      var isCollapsed = collapsed.indexOf(group.id) >= 0, section = node("section", "dl-zone-section" + (group.id === "commander" ? " commander" : "") + (isCollapsed ? " collapsed" : "")), head = node("div", "dl-zone-heading"), toggle = node("button", "dl-zone-collapse", isCollapsed ? "▸" : "▾"), selectCell = node("span", "dl-heading-select"), title = node("div", "dl-heading-title"); section.id = "zone-" + group.id; toggle.type = "button"; toggle.setAttribute("aria-label", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("data-dl-tip", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+      var isCollapsed = collapsed.indexOf(group.id) >= 0, section = node("section", "dl-zone-section" + (group.id === "commander" ? " commander" : "") + (isCollapsed ? " collapsed" : "")), head = node("div", "dl-zone-heading"), toggle = node("button", "dl-zone-collapse" + (isCollapsed ? " is-collapsed" : ""), ""), selectCell = node("span", "dl-heading-select"), title = node("div", "dl-heading-title"), heading = node("h2"), countLabel = String(qty(group.entries)); section.id = "zone-" + group.id; toggle.type = "button"; paintIcon(toggle, "chevron-down", isCollapsed ? "▸" : "▾"); toggle.setAttribute("aria-label", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("data-dl-tip", (isCollapsed ? "Expand " : "Collapse ") + group.name); toggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true"); if (group.id === "commander") heading.appendChild(node("span", "dl-chip dl-commander-chip", "Commander")); else heading.textContent = group.name; if (groupUncounted(group)) countLabel += " · not counted";
       var selectable = group.entries.filter(function (entry) { return !entry.is_commander; });
       if (selectable.length && !shared) { var selectAll = node("input", "dl-group-select"); selectAll.type = "checkbox"; selectAll.checked = selectable.every(function (entry) { return selectedEntries.has(entry.id); }); selectAll.indeterminate = !selectAll.checked && selectable.some(function (entry) { return selectedEntries.has(entry.id); }); selectAll.setAttribute("aria-label", "Select all cards in " + group.name); selectAll.addEventListener("click", function (event) { event.stopPropagation(); }); selectAll.addEventListener("change", function () { selectable.forEach(function (entry) { if (selectAll.checked) selectedEntries.add(entry.id); else selectedEntries.delete(entry.id); }); renderTable(); syncSelection(); }); selectCell.appendChild(selectAll); }
-      title.append(toggle, node("h2", "", group.name), node("span", "dl-zone-count", qty(group.entries))); head.append(selectCell, title);
+      title.append(toggle, heading, node("span", "dl-zone-count", countLabel)); var bar = shareBar(group); if (bar) title.appendChild(bar); head.append(selectCell, title);
       section.appendChild(head); var body = node("div"); body.hidden = collapsed.indexOf(group.id) >= 0; section.appendChild(body);
       toggle.addEventListener("click", function () { var next = collapsed.indexOf(group.id) >= 0 ? collapsed.filter(function (id) { return id !== group.id; }) : collapsed.concat([group.id]); command([{ type: "update_view", collapsed: next }]); });
       if (display === "grid") renderGrid(group, body); else if (display === "spoiler") renderSpoiler(group, body); else renderText(group, body); surface.appendChild(section);
@@ -239,15 +338,13 @@
 
   function renderStats() {
     var curve = document.getElementById("mana-curve"), colors = document.getElementById("color-stats"), zones = document.getElementById("zone-stats"); if (!curve) return;
-    curve.replaceChildren(); colors.replaceChildren(); zones.replaceChildren();
-    var bins = [0, 0, 0, 0, 0, 0];
-    state.entries.filter(function (entry) { return !entry.is_commander && !/Land/i.test(entry.type_line || ""); }).forEach(function (entry) { var mv = Math.max(0, Math.floor(Number(entry.mana_value || 0))); bins[Math.min(5, mv)] += Number(entry.quantity || 0); });
-    var high = Math.max.apply(Math, bins.concat([1])); bins.forEach(function (count, index) { var item = node("div", "dl-curve-bin"); var bar = node("i"); bar.style.height = Math.max(count ? 12 : 2, count / high * 72) + "px"; item.append(bar, node("span", "", index === 5 ? "5+" : String(index))); curve.appendChild(item); });
-    var colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
-    state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var ids = entry.color_identity || []; if (!ids.length) colorCounts.C += Number(entry.quantity || 0); else ids.forEach(function (color) { if (colorCounts[color] !== undefined) colorCounts[color] += Number(entry.quantity || 0); }); });
-    Object.keys(colorCounts).forEach(function (color) { if (!colorCounts[color]) return; var item = node("div"); item.append(node("i", "mana mana-" + color, color), node("span", "", colorCounts[color])); colors.appendChild(item); });
-    var commanders = state.entries.filter(function (entry) { return !!entry.is_commander; }); if (commanders.length) zones.appendChild(statRow("Commander", qty(commanders), null));
-    state.zones.forEach(function (zone) { zones.appendChild(statRow(zone.name, qty(zoneEntries(zone.id)), zone.id)); });
+    curve.replaceChildren(); if (colors) colors.replaceChildren(); if (zones) zones.replaceChildren();
+    var bins = [0, 0, 0, 0, 0, 0], spellQty = 0, spellMv = 0;
+    state.entries.filter(function (entry) { return !entry.is_commander && !/Land/i.test(entry.type_line || ""); }).forEach(function (entry) { var count = Number(entry.quantity || 0), mv = Math.max(0, Number(entry.mana_value || 0)); bins[Math.min(5, Math.floor(mv))] += count; spellQty += count; spellMv += mv * count; });
+    var heading = document.getElementById("mana-curve-heading"); if (heading) heading.textContent = "Mana curve · avg " + (spellQty ? spellMv / spellQty : 0).toFixed(1);
+    var high = Math.max.apply(Math, bins.concat([1])); bins.forEach(function (count, index) { var item = node("div", "dl-curve-bin"); var label = index === 5 ? "5+" : String(index); item.setAttribute("data-mana-bucket", String(index)); item.setAttribute("role", "button"); item.setAttribute("tabindex", "0"); item.setAttribute("aria-label", count + " cards at mana value " + label); var bar = node("i"); bar.style.height = Math.max(count ? 12 : 2, count / high * 64) + "px"; item.append(node("b", "dl-curve-count", String(count)), bar, node("span", "", label)); curve.appendChild(item); });
+    if (colors) { var colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }; state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var ids = entry.color_identity || []; if (!ids.length) colorCounts.C += Number(entry.quantity || 0); else ids.forEach(function (color) { if (colorCounts[color] !== undefined) colorCounts[color] += Number(entry.quantity || 0); }); }); Object.keys(colorCounts).forEach(function (color) { if (!colorCounts[color]) return; var item = node("div"); item.append(node("i", "mana mana-" + color, color), node("span", "", colorCounts[color])); colors.appendChild(item); }); }
+    if (zones) { var commanders = state.entries.filter(function (entry) { return !!entry.is_commander; }); if (commanders.length) { var commandRow = statRow("Commander", qty(commanders), null); commandRow.classList.add("dl-zone-stat"); zones.appendChild(commandRow); } state.zones.forEach(function (zone) { var row = statRow(zone.name, qty(zoneEntries(zone.id)), zone.id); row.classList.add("dl-zone-stat"); zones.appendChild(row); }); }
     var title = document.getElementById("deck-title"); if (title) title.textContent = state.title;
   }
   function statRow(label, count, zoneId) { var button = node("button", "", ""); button.type = "button"; button.append(node("span", "", label), node("b", "", count)); if (zoneId) button.addEventListener("click", function () { activeZoneId = zoneId; renderPlaymat(); focusZone(zoneId); }); else button.disabled = true; return button; }
@@ -342,8 +439,97 @@
       handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
     });
   }
+  function playmatIcon(name) {
+    if (window.DeckLabIcons && typeof window.DeckLabIcons.svg === "function") return window.DeckLabIcons.svg(name, { size: 16 });
+    var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  }
+  function prefersReducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (_) { return false; }
+  }
+  function cardRect(card) {
+    if (!card || typeof card.getBoundingClientRect !== "function") return null;
+    var rect = card.getBoundingClientRect();
+    if (!rect || rect.left == null || rect.top == null) return null;
+    return rect;
+  }
+  function captureZoneFlip(zoneId) {
+    var mat = document.getElementById("playmat");
+    if (!mat) return;
+    if (prefersReducedMotion()) { mat._dlFlip = null; return; }
+    var box = null;
+    mat.querySelectorAll(".dl-mat-zone").forEach(function (el) { if (el.dataset.zoneId === zoneId) box = el; });
+    if (!box) { mat._dlFlip = null; return; }
+    var first = {};
+    box.querySelectorAll(".dl-mat-card").forEach(function (card) {
+      var id = card.dataset.entryId, rect = cardRect(card);
+      if (id && rect) first[id] = { left: rect.left, top: rect.top };
+    });
+    mat._dlFlip = { zoneId: zoneId, first: first };
+  }
+  function applyZoneFlip() {
+    var mat = document.getElementById("playmat");
+    if (!mat || !mat._dlFlip) return;
+    var flip = mat._dlFlip;
+    mat._dlFlip = null;
+    if (prefersReducedMotion()) return;
+    var box = null;
+    mat.querySelectorAll(".dl-mat-zone").forEach(function (el) { if (el.dataset.zoneId === flip.zoneId) box = el; });
+    if (!box) return;
+    var moved = false;
+    box.querySelectorAll(".dl-mat-card").forEach(function (card) {
+      var from = flip.first[card.dataset.entryId], rect = cardRect(card);
+      if (!from || !rect) return;
+      var dx = Math.round(from.left - rect.left), dy = Math.round(from.top - rect.top);
+      if (!dx && !dy) return;
+      moved = true;
+      card.classList.add("dl-flip");
+      card.setAttribute("data-flip", "1");
+      card.style.transform = "translate(" + dx + "px," + dy + "px)";
+    });
+    if (!moved) return;
+    var run = function () {
+      box.querySelectorAll(".dl-mat-card.dl-flip").forEach(function (card) {
+        card.classList.add("dl-flip-run");
+        card.style.transform = "";
+      });
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(function () { requestAnimationFrame(run); });
+    else setTimeout(run, 0);
+  }
+  function bindStackPeek(box, cards) {
+    var timer = null;
+    function cancel() { if (timer) { clearTimeout(timer); timer = null; } }
+    function openPeek() { cancel(); cards.classList.add("is-peek"); }
+    function focusedInside() {
+      var active = document.activeElement;
+      return !!(active && box.contains(active));
+    }
+    function closePeek() {
+      cancel();
+      if (focusedInside()) return;
+      cards.classList.remove("is-peek");
+    }
+    cards.addEventListener("pointerenter", function () { cancel(); timer = setTimeout(openPeek, 300); });
+    cards.addEventListener("pointerleave", function (event) {
+      if (event.relatedTarget && box.contains(event.relatedTarget)) return;
+      closePeek();
+    });
+    box.addEventListener("focusin", function () { openPeek(); });
+    box.addEventListener("focusout", function () {
+      setTimeout(function () { if (!focusedInside()) cards.classList.remove("is-peek"); }, 0);
+    });
+  }
+  function zoneCount(entries) { return node("span", "dl-chip dl-mat-count", qty(entries)); }
   function zoneMenu(zone, entries) {
-    var details = node("details", "dl-zone-menu"), summary = node("summary", "", "•••"); summary.setAttribute("aria-label", zone.name + " actions"); summary.setAttribute("data-dl-tip", zone.name + " actions"); details.appendChild(summary); var menu = node("div", "dl-zone-menu-popover");
+    var details = node("details", "dl-zone-menu"), summary = node("summary", "dl-icon-button");
+    summary.setAttribute("aria-label", zone.name + " actions");
+    summary.setAttribute("data-dl-tip", zone.name + " actions");
+    summary.appendChild(playmatIcon("more"));
+    details.appendChild(summary);
+    var menu = node("div", "dl-zone-menu-popover");
     function item(label, action, danger) { var button = node("button", danger ? "danger" : "", label); button.type = "button"; button.addEventListener("click", function (event) { event.stopPropagation(); details.open = false; action(); }); menu.appendChild(button); }
     item("Rename zone", function () { openZoneDialog(zone); });
     item("Select all " + entries.length, function () { entries.forEach(function (entry) { selectedEntries.add(entry.id); }); renderPlaymat(); syncSelection(); });
@@ -352,14 +538,16 @@
     details.appendChild(menu); details.addEventListener("toggle", function () { var box = details.closest(".dl-mat-zone"); if (box) box.classList.toggle("menu-open", details.open); }); return details;
   }
   function zoneLayoutButton(zone) {
-    var stacked = zone.layout_mode === "fan", button = node("button", "dl-zone-layout-toggle"), icon = document.createElementNS("http://www.w3.org/2000/svg", "svg"), label = stacked ? "Spread cards" : "Stack cards"; icon.setAttribute("viewBox", "0 0 20 20"); icon.setAttribute("aria-hidden", "true"); icon.innerHTML = stacked ? '<rect x="1.5" y="4" width="5" height="12" rx="1.2"/><rect x="7.5" y="4" width="5" height="12" rx="1.2"/><rect x="13.5" y="4" width="5" height="12" rx="1.2"/>' : '<rect x="2.2" y="5.1" width="7.2" height="11.5" rx="1.3" transform="rotate(-18 5.8 10.8)"/><rect x="6.4" y="2.6" width="7.2" height="12" rx="1.3"/><rect x="10.6" y="5.1" width="7.2" height="11.5" rx="1.3" transform="rotate(18 14.2 10.8)"/>'; button.type = "button"; button.title = label; button.setAttribute("aria-label", label + " in " + zone.name); button.appendChild(icon); button.addEventListener("click", function (event) { event.stopPropagation(); command([{ type: "set_zone_layout", zone_id: zone.id, layout: stacked ? "spread" : "fan" }]); }); return button;
+    var stacked = zone.layout_mode === "fan", button = node("button", "dl-icon-button dl-zone-layout-toggle"), label = stacked ? "Spread cards" : "Stack cards", tip = label + " in " + zone.name;
+    button.type = "button"; button.title = tip; button.setAttribute("aria-label", tip); button.setAttribute("data-dl-tip", tip);
+    button.appendChild(playmatIcon(stacked ? "spread" : "stack"));
+    button.addEventListener("click", function (event) { event.stopPropagation(); captureZoneFlip(zone.id); command([{ type: "set_zone_layout", zone_id: zone.id, layout: stacked ? "spread" : "fan" }]); });
+    return button;
   }
   function zoneGridButton(zone) {
-    var active = zone.layout_mode === "grid", button = node("button", "dl-zone-grid-toggle"), icon = document.createElementNS("http://www.w3.org/2000/svg", "svg"), label = active ? "Exit grid" : "Grid cards";
-    icon.setAttribute("viewBox", "0 0 20 20"); icon.setAttribute("aria-hidden", "true");
-    icon.innerHTML = '<rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/>';
-    button.type = "button"; button.title = label; button.setAttribute("aria-label", label + " in " + zone.name); button.setAttribute("aria-pressed", active ? "true" : "false");
-    button.appendChild(icon);
+    var active = zone.layout_mode === "grid", button = node("button", "dl-icon-button dl-zone-grid-toggle" + (active ? " is-on" : "")), label = active ? "Exit grid" : "Grid cards", tip = label + " in " + zone.name;
+    button.type = "button"; button.title = tip; button.setAttribute("aria-label", tip); button.setAttribute("data-dl-tip", tip); button.setAttribute("aria-pressed", active ? "true" : "false");
+    button.appendChild(playmatIcon("grid"));
     button.addEventListener("click", function (event) { event.stopPropagation(); command([{ type: "set_zone_layout", zone_id: zone.id, layout: active ? "spread" : "grid" }]); });
     return button;
   }
@@ -367,16 +555,17 @@
     var mat = document.getElementById("playmat"); if (!mat) return; mat.replaceChildren(); var p = state.presentation || {}, width = Number(p.canvas_width || 1600), height = Number(p.canvas_height || 900);
     mat.className = "dl-playmat " + (p.surface || "slate-grid") + (p.show_zone_outlines ? " show-zone-outlines" : "") + (p.dim_inactive ? " dim-inactive" : ""); mat.style.width = width + "px"; mat.style.height = height + "px"; mat.style.transform = "translate(" + Number(p.pan_x || 0) + "px," + Number(p.pan_y || 0) + "px) scale(" + Number(p.zoom || 1) + ")"; var imageUrl = ""; if (!shared) { if (p.playmat_id) imageUrl = "/api/playmats/" + encodeURIComponent(p.playmat_id); else if (p.surface === "custom") imageUrl = "/api/decks/" + encodeURIComponent(state.id) + "/playmat"; } mat.style.backgroundImage = imageUrl ? "url('" + imageUrl + "')" : ""; mat.style.backgroundSize = imageUrl ? "cover" : ""; mat.style.backgroundPosition = imageUrl ? "center" : "";
     var commanders = state.entries.filter(function (entry) { return !!entry.is_commander; });
-    if (commanders.length) { var commandBox = node("section", "dl-mat-zone dl-mat-command"); commandBox.style.setProperty("--zone-layer", "1"); commandBox.style.left = "18px"; commandBox.style.top = "18px"; commandBox.style.width = Math.max(170, 22 + commanders.length * 132 + Math.max(0, commanders.length - 1) * 7) + "px"; var commandBar = node("div", "dl-mat-zone-bar"); commandBar.append(node("h2", "", "Commander"), node("b", "", qty(commanders))); commandBox.appendChild(commandBar); var commandCards = node("div", "dl-mat-cards"); commanders.forEach(function (entry, index) { commandCards.appendChild(makeCard(entry, index)); }); commandBox.appendChild(commandCards); mat.appendChild(commandBox); }
+    if (commanders.length) { var commandBox = node("section", "dl-mat-zone dl-mat-command"); commandBox.style.setProperty("--zone-layer", "1"); commandBox.style.left = "18px"; commandBox.style.top = "18px"; commandBox.style.width = Math.max(170, 22 + commanders.length * 132 + Math.max(0, commanders.length - 1) * 7) + "px"; var commandBar = node("div", "dl-mat-zone-bar"); commandBar.append(node("h2", "", "Commander"), zoneCount(commanders)); commandBox.appendChild(commandBar); var commandCards = node("div", "dl-mat-cards"); commanders.forEach(function (entry, index) { commandCards.appendChild(makeCard(entry, index)); }); commandBox.appendChild(commandCards); mat.appendChild(commandBox); }
+    var commandBoxWidth = commanders.length ? parseFloat(commandBox.style.width) : 0;
     state.zones.forEach(function (zone, index) {
-      var entries = zoneEntries(zone.id), layout = zone.layout_mode || "spread", box = node("section", "dl-mat-zone " + layout + (activeZoneId === zone.id ? " active" : "")); box.dataset.zoneId = zone.id; box.tabIndex = 0; box.setAttribute("aria-label", zone.name + " zone"); box.style.setProperty("--zone-layer", String(zoneLayerValue(zone, index))); var visibleItems = entries.length + (shared ? 0 : 1), stackDepth = Math.min(Math.max(entries.length - 1, 0), 8), spreadWidth = 22 + visibleItems * 132 + Math.max(0, visibleItems - 1) * 7, fanWidth = 22 + 132 + stackDepth * 4 + (shared ? 0 : 40), shape = gridShape(visibleItems), gridWidth = 22 + shape.cols * 132 + Math.max(0, shape.cols - 1) * 7, dynamicWidth = layout === "fan" ? Math.max(180, fanWidth) : layout === "grid" ? gridWidth : Math.min(720, Math.max(286, spreadWidth)), zoneWidth = layout === "fan" || layout === "grid" ? dynamicWidth : Number(zone.width || dynamicWidth); box.style.width = zoneWidth + "px"; box.style.left = Number(zone.x == null ? 220 + index * 280 : zone.x) + "px"; box.style.top = Number(zone.y == null ? 18 : zone.y) + "px";
+      var entries = zoneEntries(zone.id), layout = zone.layout_mode || "spread", box = node("section", "dl-mat-zone " + layout + (activeZoneId === zone.id ? " active" : "")); box.dataset.zoneId = zone.id; box.tabIndex = 0; box.setAttribute("aria-label", zone.name + " zone"); box.style.setProperty("--zone-layer", String(zoneLayerValue(zone, index))); var visibleItems = entries.length + (shared ? 0 : 1), stackSlots = Math.min(Math.max(entries.length - 1, 0), 6), spreadWidth = 22 + visibleItems * 132 + Math.max(0, visibleItems - 1) * 7, fanWidth = Math.max(shared ? 180 : 300, 22 + 132 + stackSlots * 3 + (shared ? 0 : 48)), shape = gridShape(visibleItems), gridWidth = 22 + shape.cols * 132 + Math.max(0, shape.cols - 1) * 7, dynamicWidth = layout === "fan" ? Math.max(180, fanWidth) : layout === "grid" ? gridWidth : Math.min(720, Math.max(286, spreadWidth)), zoneWidth = layout === "fan" || layout === "grid" ? dynamicWidth : Number(zone.width || dynamicWidth); box.style.width = zoneWidth + "px"; var zoneX = Number(zone.x == null ? 220 + index * 280 : zone.x), zoneY = Number(zone.y == null ? 18 : zone.y); if (commanders.length && zoneX >= 18 && zoneX < 18 + commandBoxWidth && zoneY >= 18 && zoneY < 18 + 260) { zoneX = 18 + commandBoxWidth + 24; } box.style.left = zoneX + "px"; box.style.top = zoneY + "px";
       box.addEventListener("click", function () { activeZoneId = zone.id; document.querySelectorAll(".dl-mat-zone.active").forEach(function (el) { el.classList.remove("active"); }); box.classList.add("active"); });
-      var bar = node("div", "dl-mat-zone-bar"); bar.append(node("h2", "", zone.name), node("b", "", qty(entries))); if (!shared) bar.append(zoneGridButton(zone), zoneLayoutButton(zone), zoneMenu(zone, entries)); box.appendChild(bar); attachZoneDrag(bar, box, zone, p);
-      var cards = node("div", "dl-mat-cards"); if (layout === "fan") cards.style.height = 192 + stackDepth * 3 + "px"; if (layout === "grid") { cards.style.setProperty("--grid-cols", String(shape.cols)); cards.style.height = (4 + shape.rows * 184 + Math.max(0, shape.rows - 1) * 7) + "px"; } entries.forEach(function (entry, cardIndex) { var card = makeCard(entry, cardIndex); if (layout === "fan") { var offset = Math.min(cardIndex, 8); card.style.setProperty("--stack-x", offset * 4 + "px"); card.style.setProperty("--stack-y", offset * 3 + "px"); card.style.zIndex = String(100 - cardIndex); } cards.appendChild(card); }); if (!shared) { var plus = node("button", "dl-mat-add" + (layout === "fan" ? " compact" : ""), "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add a card to " + zone.name); plus.setAttribute("data-dl-tip", "Add a card to " + zone.name); if (layout === "fan") { plus.style.left = 140 + stackDepth * 4 + "px"; plus.style.top = "4px"; } plus.addEventListener("click", function (event) { event.stopPropagation(); activeZoneId = zone.id; setAddDestination(zone.id); focusCardSearch(); }); cards.appendChild(plus); } if (layout === "spread" && spreadWidth > zoneWidth) { cards.tabIndex = 0; cards.setAttribute("aria-label", zone.name + " cards. Scroll horizontally to see all cards."); } box.appendChild(cards);
+      var bar = node("div", "dl-mat-zone-bar"); bar.append(node("h2", "", zone.name), zoneCount(entries)); if (!shared) bar.append(zoneGridButton(zone), zoneLayoutButton(zone), zoneMenu(zone, entries)); box.appendChild(bar); attachZoneDrag(bar, box, zone, p);
+      var cards = node("div", "dl-mat-cards"); if (layout === "fan") cards.style.height = (8 + 184 + stackSlots * 3) + "px"; if (layout === "grid") { cards.style.setProperty("--grid-cols", String(shape.cols)); cards.style.height = (4 + shape.rows * 184 + Math.max(0, shape.rows - 1) * 7) + "px"; } entries.forEach(function (entry, cardIndex) { var card = makeCard(entry, cardIndex); if (layout === "fan") { var depth = Math.min(cardIndex, 6); card.style.setProperty("--stack-x", depth * 3 + "px"); card.style.setProperty("--stack-y", depth * 3 + "px"); card.style.zIndex = String(100 - cardIndex); if (cardIndex < 5) { card.setAttribute("data-peek-index", String(cardIndex)); card.style.setProperty("--peek-index", String(cardIndex)); } } cards.appendChild(card); }); if (layout === "fan" && entries.length > 7) { var extra = entries.length - 7, badge = node("span", "dl-stack-more", "+" + extra); badge.setAttribute("aria-label", extra + " more cards in the stack"); cards.appendChild(badge); } if (!shared) { var plus = node("button", "dl-mat-add" + (layout === "fan" ? " compact" : ""), "+"); plus.type = "button"; plus.setAttribute("aria-label", "Add a card to " + zone.name); plus.setAttribute("data-dl-tip", "Add a card to " + zone.name); if (layout === "fan") { plus.style.left = (148 + stackSlots * 3) + "px"; plus.style.top = "8px"; } plus.addEventListener("click", function (event) { event.stopPropagation(); activeZoneId = zone.id; setAddDestination(zone.id); focusCardSearch(); }); cards.appendChild(plus); } if (layout === "spread" && spreadWidth > zoneWidth) { cards.tabIndex = 0; cards.setAttribute("aria-label", zone.name + " cards. Scroll horizontally to see all cards."); } if (layout === "fan") bindStackPeek(box, cards); box.appendChild(cards);
       box.addEventListener("dragover", function (event) { var fromDeck = transferHas(event.dataTransfer, "text/deck-entry"), fromSidebar = transferHas(event.dataTransfer, "text/card-id"); if (!fromDeck && !fromSidebar) return; event.preventDefault(); event.dataTransfer.dropEffect = fromDeck ? "move" : "copy"; box.classList.add("drop-target"); positionDragPreview(event.clientX, event.clientY); }); box.addEventListener("dragleave", function (event) { if (!box.contains(event.relatedTarget)) box.classList.remove("drop-target"); }); box.addEventListener("drop", function (event) { event.preventDefault(); clearDropState(); var entryId = event.dataTransfer.getData("text/deck-entry"), cardId = event.dataTransfer.getData("text/card-id"); if (entryId) command([{ type: "move_entry", entry_id: entryId, zone_id: zone.id, sort_order: 999 }]); else if (cardId) command([{ type: "add_card", card_id: cardId, zone_id: zone.id, quantity: 1 }]); });
       mat.appendChild(box);
     });
-    var label = document.getElementById("zoom-label"); if (label) label.textContent = Math.round(Number(p.zoom || 1) * 100) + "%"; renderSelectionBar();
+    var label = document.getElementById("zoom-label"); if (label) label.textContent = Math.round(Number(p.zoom || 1) * 100) + "%"; applyZoneFlip(); renderSelectionBar();
   }
   function renderSelectionBar() {
     var bar = document.querySelector("[data-playmat-selection]"); if (!bar) return; var selected = state.entries.filter(function (entry) { return selectedEntries.has(entry.id); }); bar.hidden = !selected.length; bar.replaceChildren(); if (!selected.length) return;
@@ -394,9 +583,117 @@
     document.querySelectorAll("[data-bulk-zone]").forEach(function (select) { var current = select.value; select.replaceChildren(); state.zones.forEach(function (zone) { var option = node("option", "", zone.name); option.value = zone.id; select.appendChild(option); }); if (state.zones.some(function (zone) { return zone.id === current; })) select.value = current; else if (state.zones[0]) select.value = state.zones[0].id; refreshSelect(select); });
     syncAddDestination();
     document.querySelectorAll("[data-surface]").forEach(function (button) { button.classList.toggle("active", !(state.presentation || {}).playmat_id && button.dataset.surface === ((state.presentation || {}).surface || "slate-grid")); }); document.querySelectorAll("[data-playmat-id]").forEach(function (button) { button.classList.toggle("active", !!((state.presentation || {}).playmat_id) && button.dataset.playmatId === String((state.presentation || {}).playmat_id)); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.checked = !!(state.presentation || {})[input.dataset.setting]; }); var size = document.querySelector("[data-playmat-size]"); if (size) { size.value = Number((state.presentation || {}).canvas_width || 1600) + "x" + Number((state.presentation || {}).canvas_height || 900); refreshSelect(size); }
+    fillSelectionRole();
+    syncViewChrome();
+    if (typeof renderMyPlaymats === "function") renderMyPlaymats();
     syncRails();
   }
-  function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); }
+  function selectLabel(select, fallback) {
+    if (!select) return fallback;
+    var value = select.value, label = fallback;
+    var options = select.querySelectorAll ? select.querySelectorAll("option") : [];
+    Array.prototype.forEach.call(options, function (option) { if (String(option.value) === String(value)) label = option.textContent; });
+    return label;
+  }
+  function syncViewChrome() {
+    var decklist = activeView() !== "playmat";
+    document.querySelectorAll("[data-view-decklist]").forEach(function (el) { el.hidden = !decklist; });
+    document.querySelectorAll("[data-view-playmat]").forEach(function (el) { el.hidden = decklist; });
+    var label = document.querySelector("[data-view-label]");
+    if (!label) return;
+    if (!decklist) {
+      var names = { "slate-grid": "Slate Grid", "felt-weave": "Felt Weave", "deep-field": "Deep Field", "graph-paper": "Graph Paper", "void": "Void", "custom": "Custom", "library": "My playmat" };
+      var presentation = state.presentation || {};
+      var surface = presentation.playmat_id ? "My playmat" : (names[presentation.surface || "slate-grid"] || "Slate Grid");
+      label.textContent = "Mat · " + surface;
+      return;
+    }
+    label.textContent = "View · " + selectLabel(document.querySelector("[data-group]"), "Zone") + " · " + selectLabel(document.querySelector("[data-sort]"), "Manual");
+  }
+  function fillSelectionRole() {
+    var select = document.querySelector("[data-selection-role]");
+    if (!select) return;
+    var current = select.value;
+    select.replaceChildren();
+    roleOptions.forEach(function (item) { if (!item[0]) return; var option = node("option", "", item[1]); option.value = item[0]; select.appendChild(option); });
+    if (current && Array.prototype.some.call(select.querySelectorAll("option"), function (option) { return option.value === current; })) select.value = current;
+    refreshSelect(select);
+  }
+  var dismissPanels = [];
+  function closeDismissPanels(except) {
+    dismissPanels.forEach(function (panel) { if (panel !== except) panel.close(false); });
+  }
+  function bindDismissPanel(opener, panel, opts) {
+    if (!opener || !panel) return;
+    opts = opts || {};
+    panel.hidden = true;
+    opener.setAttribute("aria-expanded", "false");
+    var record = { close: function (restore) {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      opener.setAttribute("aria-expanded", "false");
+      if (restore !== false && opener.focus) opener.focus();
+    } };
+    function openPanel() {
+      closeDismissPanels(record);
+      panel.hidden = false;
+      opener.setAttribute("aria-expanded", "true");
+      if (opts.onOpen) opts.onOpen();
+    }
+    opener.addEventListener("click", function (event) {
+      if (event.stopPropagation) event.stopPropagation();
+      if (panel.hidden) openPanel(); else record.close(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || panel.hidden) return;
+      event.preventDefault();
+      record.close(true);
+    });
+    document.addEventListener("click", function (event) {
+      if (panel.hidden) return;
+      var target = event.target;
+      if (!target || (panel.contains && panel.contains(target)) || (opener.contains && opener.contains(target))) return;
+      record.close(true);
+    });
+    dismissPanels.push(record);
+  }
+  var _onRenderListeners = [], _entryFilterFn = null, _entryFilterLabel = "", _lastSelectionSnapshot = "";
+  function _dispatchBuilderEvent(name, detail) {
+    if (typeof document.dispatchEvent !== "function") return;
+    try { document.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch (_) {}
+  }
+  function _runOnRenderListeners() {
+    _onRenderListeners.forEach(function (fn) {
+      try { fn(state); } catch (e) { console.error(e); }
+    });
+    _dispatchBuilderEvent("deck-lab:render", { state: state });
+  }
+  function _entryMatches(entry) {
+    return !_entryFilterFn || _entryFilterFn(entry);
+  }
+  function _renderEntryFilterChip() {
+    var toolbar = document.querySelector(".dl-builder-toolbar");
+    if (!toolbar) return;
+    var existing = toolbar.querySelector("[data-entry-filter-chip]");
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    if (!_entryFilterFn) return;
+    var chip = document.createElement("span");
+    chip.setAttribute("data-entry-filter-chip", "");
+    var labelSpan = document.createElement("span");
+    labelSpan.textContent = _entryFilterLabel ? "Filtered: " + _entryFilterLabel : "Filtered";
+    chip.appendChild(labelSpan);
+    var clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.setAttribute("aria-label", "Clear filter");
+    clearBtn.setAttribute("data-entry-filter-clear", "");
+    clearBtn.textContent = "×";
+    clearBtn.addEventListener("click", function () {
+      window.DeckLabBuilder.setEntryFilter(null);
+    });
+    chip.appendChild(clearBtn);
+    toolbar.appendChild(chip);
+  }
+  function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); _renderEntryFilterChip(); _runOnRenderListeners(); }
   function syncRails() {
     root.classList.remove("left-collapsed");
     root.classList.toggle("right-collapsed", !rails.right);
@@ -415,12 +712,24 @@
   document.querySelectorAll(".dl-decklist-more button").forEach(function (button) { button.addEventListener("click", function () { var menu = button.closest("details"); if (menu) menu.open = false; }); });
   var groupControl = document.querySelector("[data-group]"); if (groupControl) groupControl.addEventListener("change", function () { command([{ type: "update_view", group_mode: groupControl.value }]); }); var sortControl = document.querySelector("[data-sort]"); if (sortControl) sortControl.addEventListener("change", function () { command([{ type: "update_view", sort_mode: sortControl.value }]); });
   var bulkMove = document.querySelector("[data-bulk-move]"); if (bulkMove) bulkMove.addEventListener("click", function () { var zone = document.querySelector("[data-bulk-zone]"); if (!zone || !selectedEntries.size) return; var changes = Array.from(selectedEntries).map(function (id, index) { return { type: "move_entry", entry_id: id, zone_id: zone.value, sort_order: 999 + index }; }); selectedEntries.clear(); command(changes); });
-  var clearSelection = document.querySelector("[data-clear-selection]"); if (clearSelection) clearSelection.addEventListener("click", function () { selectedEntries.clear(); renderTable(); syncSelection(); });
+  var clearSelection = document.querySelector("[data-clear-selection]"); if (clearSelection) clearSelection.addEventListener("click", function () { selectedEntries.clear(); renderTable(); renderPlaymat(); syncSelection(); });
+  document.querySelectorAll("[data-bulk-zone]").forEach(function (zone) { zone.addEventListener("change", function () { if (!zone.closest || !zone.closest("[data-selection-bar]") || !selectedEntries.size) return; var changes = []; selectedEntries.forEach(function (id) { var entry = state.entries.find(function (item) { return item.id === id; }); if (!entry || entry.is_commander) return; changes.push({ type: "move_entry", entry_id: id, zone_id: zone.value, sort_order: 999 + changes.length }); }); if (!changes.length) return; selectedEntries.clear(); command(changes); }); });
+  var selectionRole = document.querySelector("[data-selection-role]"); if (selectionRole) selectionRole.addEventListener("change", function () { var changes = []; selectedEntries.forEach(function (id) { var entry = state.entries.find(function (item) { return item.id === id; }); if (!entry || entry.is_commander) return; changes.push({ type: "set_role", entry_id: id, role: selectionRole.value }); }); if (changes.length) command(changes); });
+  var removeSelected = document.querySelector("[data-selection-remove]"); if (removeSelected) removeSelected.addEventListener("click", function () { var changes = Array.from(selectedEntries).map(function (id) { return { type: "remove_entry", entry_id: id }; }); selectedEntries.clear(); if (changes.length) command(changes); });
+  bindDismissPanel(document.querySelector("[data-view-options]"), document.querySelector("[data-view-popover]"), { onOpen: function () { if (typeof renderMyPlaymats === "function") renderMyPlaymats(); } });
+  bindDismissPanel(document.querySelector("[data-add-destination-toggle]"), document.querySelector("[data-add-destination-menu]"), { onOpen: function () {
+    var menu = document.querySelector("[data-add-destination-menu]"); if (!menu) return; menu.replaceChildren();
+    state.zones.forEach(function (zone) { var item = node("button", "dl-menu-item", zone.name); item.type = "button"; item.setAttribute("role", "menuitem"); item.addEventListener("click", function () { setAddDestination(zone.id); var select = document.querySelector("[data-add-zone]"); if (select) select.dispatchEvent(new Event("change")); }); menu.appendChild(item); });
+  } });
+  document.querySelectorAll("[data-view-popover] [data-surface]").forEach(function (button) { button.addEventListener("click", function () { if (pickerDraft) return; command([{ type: "update_presentation", surface: button.dataset.surface, playmat_id: "" }]); }); });
+  document.querySelectorAll("[data-view-popover] [data-setting]").forEach(function (input) { input.addEventListener("change", function () { if (pickerDraft) return; var change = { type: "update_presentation" }; change[input.dataset.setting] = !!input.checked; command([change]); }); });
+  document.querySelectorAll("[data-share-deck]").forEach(function (button) { button.addEventListener("click", function () { var original = button.textContent; button.disabled = true; fetch("/api/decks/" + encodeURIComponent(button.dataset.deckId) + "/share", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" } }).then(function (response) { if (!response.ok) throw new Error(); return response.json(); }).then(function (body) { var clip = navigator.clipboard; if (!clip || typeof clip.writeText !== "function") { window.prompt("Copy this read-only deck link", body.url); return; } return clip.writeText(body.url).then(function () { button.textContent = "Link copied"; }); }).catch(function () { button.textContent = "Could not share"; }).finally(function () { window.setTimeout(function () { button.textContent = original; button.disabled = false; }, 1800); }); }); });
+  document.querySelectorAll(".dl-deck-delete-form").forEach(function (form) { form.addEventListener("submit", function (event) { if (!window.confirm("Delete “" + (form.dataset.deckTitle || "this deck") + "”? This permanently removes this deck.")) event.preventDefault(); }); });
 
   var zoneDialog = document.getElementById("zone-dialog"), zoneDialogTarget = null, zoneSaving = false;
   function openZoneDialog(zone) { if (!zoneDialog) return; zoneDialogTarget = zone || null; zoneDialog.querySelector("h2").textContent = zone ? "Rename zone" : "New zone"; var input = zoneDialog.querySelector("[data-zone-name]"), error = zoneDialog.querySelector("[data-zone-error]"); input.value = zone ? zone.name : ""; if (error) error.textContent = ""; zoneDialog.showModal(); input.focus(); }
   document.querySelectorAll("[data-new-zone]").forEach(function (button) { button.addEventListener("click", function () { openZoneDialog(null); }); });
-  if (zoneDialog) zoneDialog.addEventListener("close", function () { if (zoneDialog.returnValue !== "save") return; if (zoneSaving) return; var input = zoneDialog.querySelector("[data-zone-name]"), name = input.value.trim(), error = zoneDialog.querySelector("[data-zone-error]"); if (!name) { error.textContent = "Enter a zone name."; openZoneDialog(zoneDialogTarget); return; } zoneSaving = true; var payload = zoneDialogTarget ? { type: "rename_zone", zone_id: zoneDialogTarget.id, name: name } : { type: "create_zone", name: name }; zoneDialogTarget = null; command([payload]).finally(function () { zoneSaving = false; }); });
+  if (zoneDialog) zoneDialog.addEventListener("close", function () { if (zoneDialog.returnValue !== "save") return; if (zoneSaving) return; var input = zoneDialog.querySelector("[data-zone-name]"), name = input.value.trim(), error = zoneDialog.querySelector("[data-zone-error]"); if (!name) { error.textContent = "Enter a zone name."; openZoneDialog(zoneDialogTarget); return; } zoneSaving = true; var payload = zoneDialogTarget ? { type: "rename_zone", zone_id: zoneDialogTarget.id, name: name } : { type: "create_zone", name: name }; if (!zoneDialogTarget && window.DeckLabBuilder) { var spot = window.DeckLabBuilder.freeZonePosition(360, 240); if (spot) { payload.x = spot.x; payload.y = spot.y; } } zoneDialogTarget = null; command([payload]).finally(function () { zoneSaving = false; }); });
   var deleteDialog = document.getElementById("delete-zone-dialog"), deleteTarget = null; function openDeleteZone(zone) { deleteTarget = zone; deleteDialog.querySelector("h2").textContent = "Delete " + zone.name + "?"; deleteDialog.showModal(); } if (deleteDialog) deleteDialog.addEventListener("close", function () { if (deleteDialog.returnValue === "delete" && deleteTarget) command([{ type: "delete_zone", zone_id: deleteTarget.id }]); deleteTarget = null; });
   var title = document.getElementById("deck-title"); if (title && !shared) { title.title = "Click to rename"; title.addEventListener("click", function () { var name = window.prompt("Deck name", state.title); if (name && name !== state.title) command([{ type: "rename_deck", title: name }]); }); }
 
@@ -453,6 +762,8 @@
     refreshSelect(select);
     var hint = document.querySelector("[data-add-destination-hint]");
     if (hint) hint.textContent = "Cards you add go to " + destinationName(next) + ".";
+    var destinationNameEl = document.querySelector("[data-add-destination-name]");
+    if (destinationNameEl) destinationNameEl.textContent = destinationName(next);
     syncResultDestinations();
     if (dropped) searchStatus("That category is gone. Cards you add now go to " + destinationName(next) + ".");
     return next;
@@ -606,7 +917,7 @@
   var tagsDialog = document.getElementById("deck-tags-dialog"), tagInput = document.querySelector("[data-tag-input]"), tagError = document.querySelector("[data-tag-error]"), tagSearchTimer, tagSearchController; function tagMessage(message) { if (tagError) tagError.textContent = message || ""; } function addTag() { if (!tagInput) return; var name = tagInput.value.normalize("NFKC").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 32) return tagMessage("Use between 2 and 32 characters."); if ((state.tags || []).some(function (tag) { return tag.name.toLowerCase() === name.toLowerCase(); })) return tagMessage("That tag is already on this deck."); if ((state.tags || []).length >= 6) return tagMessage("A deck can have up to six tags."); tagMessage(""); tagInput.value = ""; command([{ type: "add_tag", name: name }]); }
   document.querySelectorAll("[data-tags-open]").forEach(function (button) { button.addEventListener("click", function () { tagMessage(""); tagsDialog.showModal(); if (tagInput) tagInput.focus(); }); }); var tagAdd = document.querySelector("[data-tag-add]"); if (tagAdd) tagAdd.addEventListener("click", addTag); if (tagInput) { tagInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); addTag(); } }); tagInput.addEventListener("input", function () { clearTimeout(tagSearchTimer); tagSearchTimer = setTimeout(function () { if (tagSearchController) tagSearchController.abort(); tagSearchController = new AbortController(); fetch("/api/deck-tags?q=" + encodeURIComponent(tagInput.value), { signal: tagSearchController.signal }).then(function (response) { return response.json(); }).then(function (body) { populateTagOptions(body.results || []); }); }, 180); }); }
 
-  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grid = document.querySelector("[data-my-playmats]"), empty = document.querySelector("[data-my-playmats-empty]"), mats = state.playmats || []; if (!grid) return; grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (!pickerDraft) return; pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); }); grid.appendChild(button); }); if (empty) empty.hidden = mats.length > 0; } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); }); }); }
+  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grids = document.querySelectorAll("[data-my-playmats]"), empties = document.querySelectorAll("[data-my-playmats-empty]"), mats = state.playmats || []; Array.prototype.forEach.call(grids, function (grid) { grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (pickerDraft) { pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); return; } command([{ type: "update_presentation", surface: "library", playmat_id: mat.id }]); }); grid.appendChild(button); }); }); Array.prototype.forEach.call(empties, function (empty) { empty.hidden = mats.length > 0; }); } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); }); }); }
   document.querySelectorAll("[data-playmat-picker]").forEach(function (button) { button.addEventListener("click", function () { pickerOriginal = Object.assign({}, state.presentation || {}); pickerDraft = Object.assign({}, pickerOriginal); pendingUpload = null; picker.returnValue = ""; if (upload) upload.value = ""; renderMyPlaymats(); picker.showModal(); syncControls(); }); }); document.querySelectorAll("[data-surface]").forEach(function (button) { button.addEventListener("click", function () { if (!pickerDraft) return; pickerDraft.surface = button.dataset.surface; pickerDraft.playmat_id = null; pendingUpload = null; previewPicker(); }); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.addEventListener("change", function () { if (!pickerDraft) return; pickerDraft[input.dataset.setting] = input.checked; previewPicker(); }); }); var sizePicker = document.querySelector("[data-playmat-size]"); if (sizePicker) sizePicker.addEventListener("change", function () { if (!pickerDraft) return; var parts = sizePicker.value.split("x"); pickerDraft.canvas_width = Number(parts[0]); pickerDraft.canvas_height = Number(parts[1]); previewPicker(); }); if (upload) upload.addEventListener("change", function () { pendingUpload = upload.files.length ? upload.files[0] : null; if (uploadStatus) uploadStatus.textContent = pendingUpload ? upload.files[0].name + " is ready to upload." : ""; }); if (picker) picker.addEventListener("close", function () { if (picker.returnValue === "done" && pickerDraft) { var change = { type: "update_presentation", canvas_width: pickerDraft.canvas_width || 1600, canvas_height: pickerDraft.canvas_height || 900 }; ["snap_to_grid", "show_zone_outlines", "dim_inactive"].forEach(function (key) { change[key] = !!pickerDraft[key]; }); if (!pendingUpload) { change.surface = pickerDraft.surface || "slate-grid"; change.playmat_id = pickerDraft.playmat_id || ""; } command([change]); if (pendingUpload) uploadPlaymat(pendingUpload); } else if (pickerOriginal) { state.presentation = pickerOriginal; render(); } pickerOriginal = pickerDraft = pendingUpload = null; });
   var cardImageDialog = document.getElementById("card-image-dialog"), cardImageOpener = null, cardImageOpenerKey = null;
   function returnCardImageFocus() {
@@ -640,8 +951,15 @@
     if (!menu || !api) return;
     var text = api.exportText(state), empty = !text, blocked = empty || exportBlocked();
     var copyBtn = menu.querySelector("[data-export-copy]"), buy = menu.querySelector("[data-export-buy]");
+    var archBtn = menu.querySelector("[data-export-copy-archidekt]");
+    var dlLink = menu.querySelector("[data-export-download]");
     var status = menu.querySelector("[data-export-status]");
     if (copyBtn) copyBtn.disabled = blocked;
+    if (archBtn) archBtn.disabled = blocked;
+    if (dlLink) {
+      if (blocked) { dlLink.setAttribute("aria-disabled", "true"); }
+      else { dlLink.removeAttribute("aria-disabled"); }
+    }
     if (buy) {
       if (blocked) { buy.removeAttribute("href"); buy.setAttribute("aria-disabled", "true"); buy.tabIndex = -1; }
       else { buy.setAttribute("href", api.manaPoolUrl(text)); buy.removeAttribute("aria-disabled"); buy.tabIndex = 0; }
@@ -676,12 +994,33 @@
       else succeed();
     } catch (_) { fail(); }
   }
+  function copyExportArchidekt() {
+    var api = window.DeckLabExport, status = document.querySelector("[data-export-status]");
+    if (!api || exportBlocked()) return;
+    var text = api.exportArchidektText(state) + "\n";
+    if (!text.trim()) return;
+    function succeed() { if (status) { status.dataset.exportNotice = "copied"; status.textContent = "Copied for Archidekt"; } }
+    function fail() { if (status) { status.dataset.exportNotice = "error"; status.textContent = "Copy unavailable. Select the list to copy."; } showExportFallback(text); }
+    try {
+      var clip = navigator.clipboard;
+      if (!clip || typeof clip.writeText !== "function") return fail();
+      var result = clip.writeText(text);
+      if (result && typeof result.then === "function") result.then(succeed).catch(fail);
+      else succeed();
+    } catch (_) { fail(); }
+  }
   function bindExportMenu() {
     var menu = document.querySelector("[data-export-menu]");
     if (!menu) return;
     var copyBtn = menu.querySelector("[data-export-copy]"), buy = menu.querySelector("[data-export-buy]");
+    var archBtn = menu.querySelector("[data-export-copy-archidekt]");
+    var dlLink = menu.querySelector("[data-export-download]");
     menu.addEventListener("toggle", function () { if (menu.open) syncExport(); });
     if (copyBtn) copyBtn.addEventListener("click", function () { copyExportList(); });
+    if (archBtn) archBtn.addEventListener("click", function () { copyExportArchidekt(); });
+    if (dlLink) dlLink.addEventListener("click", function (event) {
+      if (exportBlocked() || dlLink.getAttribute("aria-disabled") === "true") { event.preventDefault(); }
+    });
     if (buy) buy.addEventListener("click", function (event) {
       var api = window.DeckLabExport;
       if (!api || exportBlocked() || !api.exportText(state)) { event.preventDefault(); return; }
@@ -697,6 +1036,149 @@
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && dragPreview) clearDropState(); });
   document.addEventListener("click", function (event) { var anchor = event.target.closest && event.target.closest("a[href]"); if (!anchor || !pendingSaves || event.defaultPrevented || anchor.target || anchor.hasAttribute("download")) return; var target = new URL(anchor.href, location.href); if (target.origin !== location.origin) return; event.preventDefault(); queue.then(function () { if (!failedSave) location.assign(target.href); else if (saveState) saveState.focus(); }); }, true);
   narrow.addEventListener("change", function () { render(); }); render();
+
+  // --- DeckLabBuilder extension API ---
+  window.DeckLabBuilder = {
+    version: 1,
+    get shared() { return shared; },
+    getState: function () { return state; },
+    onRender: function (fn) {
+      _onRenderListeners.push(fn);
+      return function () {
+        var idx = _onRenderListeners.indexOf(fn);
+        if (idx >= 0) _onRenderListeners.splice(idx, 1);
+      };
+    },
+    command: function (commands) {
+      var result = command(commands);
+      return result;
+    },
+    getSelection: function () {
+      return Array.from(selectedEntries);
+    },
+    setSelection: function (ids) {
+      var valid = new Set(state.entries.map(function (e) { return e.id; }));
+      selectedEntries.clear();
+      (ids || []).forEach(function (id) { if (valid.has(id)) selectedEntries.add(id); });
+      syncSelection();
+      renderSelectionBar();
+    },
+    setEntryFilter: function (fn, label) {
+      _entryFilterFn = fn || null;
+      _entryFilterLabel = label || "";
+      render();
+    },
+    focusEntry: function (entryId) {
+      entryId = String(entryId);
+      var view = document.getElementById("table-view");
+      if (!view) return false;
+      var el = view.querySelector('[data-entry-id="' + entryId.replace(/"/g, '\\"') + '"]');
+      if (!el) return false;
+      if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+      el.scrollIntoView({ block: "nearest" });
+      el.focus();
+      _dispatchBuilderEvent("deck-lab:focus-entry", { entryId: entryId });
+      return true;
+    },
+    railSection: function (id, title, opts) {
+      id = String(id);
+      opts = opts || {};
+      var tab = opts.tab || "deck";
+      var rail = document.querySelector(".dl-stats-rail");
+      if (!rail) return null;
+      var existing = rail.querySelector('[data-ext-section="' + id.replace(/"/g, '\\"') + '"]');
+      if (existing) return existing;
+      var section = document.createElement("section");
+      section.setAttribute("data-ext-section", id);
+      var heading = document.createElement("h2");
+      heading.textContent = title;
+      section.appendChild(heading);
+      var pane = rail.querySelector('[data-rail-pane="' + String(tab).replace(/"/g, "") + '"]');
+      if (pane) pane.appendChild(section);
+      else rail.appendChild(section);
+      return section;
+    },
+    render: function () { render(); },
+    freeZonePosition: function (width, height) {
+      var mat = document.getElementById("playmat");
+      if (!mat || typeof mat.getBoundingClientRect !== "function") return null;
+      var matRect = mat.getBoundingClientRect();
+      if (!matRect || !(matRect.width > 0) || !(matRect.height > 0)) return null;
+      var zoneWidth = Number(width) > 0 ? Number(width) : 360;
+      var zoneHeight = Number(height) > 0 ? Number(height) : 240;
+      var presentation = state.presentation || {};
+      var zoom = Number(presentation.zoom || 1);
+      if (!(zoom > 0)) zoom = 1;
+      var canvasW = Number(presentation.canvas_width || 1600);
+      var canvasH = Number(presentation.canvas_height || 900);
+      var gutter = 16;
+      var obstacles = [];
+      var commanders = state.entries.filter(function (entry) { return !!entry.is_commander; });
+      if (commanders.length) {
+        var cmdWidth = Math.max(170, 22 + commanders.length * 132 + Math.max(0, commanders.length - 1) * 7);
+        obstacles.push({ x: 18, y: 18, w: cmdWidth, h: 260 });
+      }
+      mat.querySelectorAll(".dl-mat-zone").forEach(function (el) {
+        if (typeof el.getBoundingClientRect !== "function") return;
+        var rect = el.getBoundingClientRect();
+        if (!rect || !(rect.width > 0) || !(rect.height > 0)) return;
+        obstacles.push({
+          x: (rect.left - matRect.left) / zoom,
+          y: (rect.top - matRect.top) / zoom,
+          w: rect.width / zoom,
+          h: rect.height / zoom
+        });
+      });
+      function blocked(x, y) {
+        var i, item;
+        for (i = 0; i < obstacles.length; i += 1) {
+          item = obstacles[i];
+          if (!(x + zoneWidth + gutter <= item.x || item.x + item.w + gutter <= x || y + zoneHeight + gutter <= item.y || item.y + item.h + gutter <= y)) return true;
+        }
+        return false;
+      }
+      var y = 18;
+      while (y + zoneHeight <= canvasH) {
+        var x = 18;
+        while (x + zoneWidth <= canvasW) {
+          if (!blocked(x, y)) return { x: x, y: y };
+          x += 24;
+        }
+        y += 24;
+      }
+      return null;
+    },
+  };
+  _dispatchBuilderEvent("deck-lab:ready", { api: window.DeckLabBuilder });
+
+  // Delegated hover on the decklist and the playmat, including commander-zone cards.
+  var _hoverLastId = null;
+  var _hoverView = activeView();
+  function _onHover(event) {
+    var target = event.target;
+    var entryEl = target.closest && target.closest("[data-entry-id]");
+    if (!entryEl) return;
+    var playmat = document.getElementById("playmat-view");
+    if (playmat && typeof playmat.contains === "function" && playmat.contains(entryEl) && !entryEl.classList.contains("dl-mat-card")) return;
+    var id = entryEl.getAttribute("data-entry-id");
+    if (id === _hoverLastId) return;
+    _hoverLastId = id;
+    _dispatchBuilderEvent("deck-lab:entry-hover", { entryId: id });
+  }
+  function _bindHoverRoot(root) {
+    if (!root) return;
+    root.addEventListener("mouseover", _onHover);
+    root.addEventListener("focusin", _onHover);
+  }
+  _bindHoverRoot(document.getElementById("table-view"));
+  _bindHoverRoot(document.getElementById("playmat-view"));
+  window.DeckLabBuilder.onRender(function () {
+    var view = activeView();
+    if (view === _hoverView) return;
+    _hoverView = view;
+    _hoverLastId = null;
+  });
+
   if (tagsDialog && new URLSearchParams(location.search).get("panel") === "tags") { tagsDialog.showModal(); if (tagInput) tagInput.focus(); }
   try { var pending = JSON.parse(localStorage.getItem(recoveryKey)); if (pending && pending.commands) command(pending.commands, pending.mutation_id, pending.expected_revision); } catch (_) {}
 })();

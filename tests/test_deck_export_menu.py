@@ -81,7 +81,8 @@ def test_library_share_and_download_export_remain():
     assert "builder.export" in card
     source = BUILDER_JS.read_text()
     assert "[data-share]" not in source
-    assert "/share" not in source
+    # Deck options copies a read-only link. The removed header share control stays gone.
+    assert '"/share"' in source
     assert "DeckLabExport" in source
     assert "data-dismiss-menu" in BUILDER_HTML.read_text()
     assert "feedback-export.css" in CSS_PATH.read_text()

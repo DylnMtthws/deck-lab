@@ -1,0 +1,462 @@
+/* Owner: D02 — decklist rows, group headers, grid tokens, and spoiler symbol size. */
+
+.dl-decklist-surface {
+  --dl-list-columns: 28px 52px minmax(200px, 1fr) 96px minmax(160px, 260px) 96px;
+  min-width: 0;
+}
+
+.dl-decklist-columns,
+.dl-deck-row {
+  display: grid;
+  grid-template-columns: 28px 52px minmax(200px, 1fr) 96px minmax(160px, 260px) 96px;
+  align-items: center;
+  column-gap: var(--s-3);
+  padding-inline: var(--s-2);
+}
+
+.dl-decklist-columns {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  height: 30px;
+  min-height: 30px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--ink-deep);
+  color: var(--faint);
+  font-weight: 600;
+  font-size: var(--t-11);
+  line-height: 1;
+  font-family: var(--sans);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.dl-zone-heading {
+  height: 32px;
+  min-height: 32px;
+  top: 30px;
+  gap: var(--s-2);
+  padding: 0 var(--s-2);
+  background: var(--ink);
+}
+
+.dl-display-grid .dl-zone-heading,
+.dl-display-spoiler .dl-zone-heading {
+  top: 0;
+}
+
+.dl-zone-heading h2 {
+  margin: 0;
+  color: var(--body);
+  font-weight: 600;
+  font-size: var(--t-13);
+  line-height: 1;
+  font-family: var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.dl-zone-section.commander .dl-zone-heading h2,
+.dl-zone-section.commander .dl-zone-count {
+  color: var(--body);
+}
+
+.dl-commander-chip {
+  background: var(--brand-soft);
+  color: var(--brand-text);
+}
+
+.dl-zone-collapse {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--faint);
+}
+
+.dl-zone-collapse svg {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.dl-zone-collapse.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.dl-zone-count {
+  color: var(--faint);
+  font-weight: 500;
+  font-size: var(--t-12);
+  line-height: 1;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-share {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.dl-share > i {
+  display: block;
+  height: 100%;
+  background: var(--muted);
+  opacity: .6;
+}
+
+.dl-deck-row {
+  position: relative;
+  height: var(--row-compact);
+  min-height: var(--row-compact);
+  max-height: var(--row-compact);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--body);
+  font-size: var(--t-14);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.dl-density-comfortable .dl-deck-row {
+  height: var(--row-comfy);
+  min-height: var(--row-comfy);
+  max-height: var(--row-comfy);
+}
+
+.dl-deck-row:hover {
+  background: var(--panel);
+}
+
+.dl-deck-row.selected {
+  background: var(--brand-soft);
+  box-shadow: none;
+}
+
+.dl-deck-row:focus-visible,
+.dl-zone-collapse:focus-visible,
+.dl-qty button:focus-visible,
+.dl-row-select:focus-visible,
+.dl-row-actions .dl-icon-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.dl-row-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  visibility: hidden;
+}
+
+.dl-deck-row:hover .dl-row-select,
+.dl-deck-row:focus-within .dl-row-select,
+.dl-deck-row.selected .dl-row-select {
+  visibility: visible;
+}
+
+.dl-row-select:checked {
+  border-color: var(--brand);
+  background-color: var(--brand);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.2 6.4 11 12.5 5' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.dl-qty {
+  gap: 2px;
+  color: var(--muted);
+}
+
+.dl-qty button,
+.dl-step {
+  visibility: hidden;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--faint);
+  font-weight: 500;
+  font-size: var(--t-13);
+  line-height: 1;
+  font-family: var(--sans);
+}
+
+.dl-deck-row:hover .dl-qty button,
+.dl-deck-row:focus-within .dl-qty button,
+.dl-deck-row.selected .dl-qty button {
+  visibility: visible;
+  background: var(--panel-2);
+}
+
+.dl-qty span {
+  width: 16px;
+  min-width: 16px;
+  color: var(--body);
+  font-weight: 500;
+  font-size: var(--t-13);
+  line-height: 1;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.dl-card-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.dl-card-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--body);
+  font-size: var(--t-14);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-card-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-card-type {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--t-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-zone-chip,
+.dl-role-chip {
+  flex: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-role-chip {
+  color: var(--muted);
+  background: transparent;
+}
+
+.dl-mana-cost {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--t-14);
+  white-space: nowrap;
+}
+
+.dl-mana-cost .dl-ms,
+.dl-mana-cost .dl-mana-symbol,
+.dl-mana-cost .dl-mana-pip {
+  width: 1.05em;
+  height: 1.05em;
+  flex: 0 0 1.05em;
+  font-size: inherit;
+}
+
+.dl-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dl-row-actions .dl-icon-button {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+}
+
+.dl-row-actions .dl-card-preview,
+.dl-row-actions .dl-row-remove {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  opacity: 0;
+}
+
+.dl-row-actions .dl-card-preview:focus-visible,
+.dl-row-actions .dl-row-remove:focus-visible {
+  position: static;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  opacity: 1;
+}
+
+.dl-deck-row > select.dl-inline-zone-select,
+.dl-deck-row > .dl-inline-zone-control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dl-deck-row > .dl-inline-zone-control:focus-within {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  opacity: 1;
+  pointer-events: auto;
+  grid-column: 1 / -1;
+}
+
+.dl-card-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0;
+}
+
+.dl-deck-row .dl-card-feedback .dl-icon-button:not(.is-on) {
+  visibility: hidden;
+}
+
+.dl-deck-row:hover .dl-card-feedback .dl-icon-button,
+.dl-deck-row:focus-within .dl-card-feedback .dl-icon-button,
+.dl-deck-row.selected .dl-card-feedback .dl-icon-button,
+.dl-deck-row .dl-card-feedback .dl-icon-button.is-on {
+  visibility: visible;
+}
+
+.dl-deck-row .dl-fb-comment[data-has-comment] {
+  position: relative;
+}
+
+.dl-deck-row .dl-fb-comment[data-has-comment]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--brand);
+  vertical-align: baseline;
+}
+
+.dl-grid-display {
+  gap: var(--s-3);
+  padding: var(--s-3);
+}
+
+.dl-grid-card {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+
+.dl-grid-card b {
+  border-radius: var(--r-sm);
+  font-weight: 500;
+  font-size: var(--t-12);
+  line-height: 1;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-spoiler-card p {
+  color: var(--muted);
+  font-size: var(--t-13);
+  line-height: 1.55;
+}
+
+.dl-spoiler-card .dl-mana-inline .dl-ms,
+.dl-spoiler-card .dl-mana-inline .dl-mana-symbol,
+.dl-spoiler-card .dl-mana-inline .dl-mana-text,
+.dl-spoiler-card p img.dl-ms {
+  width: 1.05em;
+  height: 1.05em;
+  max-width: 1.05em;
+  max-height: 1.05em;
+  margin: 0 .05em;
+  font-size: inherit;
+  object-fit: contain;
+  vertical-align: -0.15em;
+  border-radius: 0;
+}
+
+@media (max-width: 767px) {
+  .dl-deck-row {
+    height: auto;
+    min-height: 60px;
+    max-height: none;
+    grid-template-columns: 28px minmax(0, 1fr) 96px;
+    grid-template-rows: auto auto;
+  }
+
+  .dl-deck-row > .dl-qty:not(.dl-card-name),
+  .dl-deck-row > .dl-card-cell:not(.dl-card-name),
+  .dl-deck-row > .dl-mana-cost:not(.dl-card-name),
+  .dl-deck-row > .dl-row-actions:not(.dl-card-name) {
+    display: flex;
+  }
+
+  .dl-deck-row > .dl-card-type {
+    display: none;
+  }
+}
+
+/* Rail controls that stay on screen in list and spoiler view. */
+[data-odds-seen],
+[data-odds-need],
+[data-simulate-run],
+[data-simulate-rerun],
+[data-verdict] {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-deck-row,
+  .dl-qty button,
+  .dl-zone-collapse svg,
+  .dl-row-actions .dl-icon-button {
+    transition: none;
+  }
+}

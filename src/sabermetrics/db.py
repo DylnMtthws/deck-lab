@@ -28,8 +28,9 @@ import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error
@@ -1009,6 +1010,12 @@ class AdminAnalyticsRepo:
                 "spend_all": scalar("SELECT COALESCE(SUM(cost_usd),0) FROM cost_log"),
                 "card_feedback": scalar("SELECT COUNT(*) FROM card_feedback"),
                 "deck_feedback": scalar("SELECT COUNT(*) FROM deck_feedback"),
+                "builder_card_feedback": scalar(
+                    "SELECT COUNT(*) FROM deck_document_card_feedback"
+                ),
+                "builder_deck_feedback": scalar(
+                    "SELECT COUNT(*) FROM deck_document_feedback"
+                ),
             }
 
     # --- Feedback ---
@@ -1168,6 +1175,142 @@ class AdminAnalyticsRepo:
                 (limit,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+class DeckDocumentFeedbackRepo:
+    """Per-user feedback on cards (in a deck document) and on deck documents.
+
+    Like FeedbackRepo but for deck_document_card_feedback and
+    deck_document_feedback tables. One row per (user, deck, card_key) and
+    per (user, deck); writes upsert. Deleting a row when both vote and
+    comment are None.
+    """
+
+    def __init__(self, db_path: str | Path) -> None:
+        self.db_path = db_path
+
+    @staticmethod
+    def _norm(value: str | None) -> str | None:
+        v = (value or "").strip()
+        return v or None
+
+    def get(self, user_id: str, deck_id: str) -> dict:
+        """Return {"cards": {card_key: {"vote", "comment"}}, "deck": ...}."""
+        with connect(self.db_path) as conn:
+            card_rows = conn.execute(
+                "SELECT card_key, vote, comment FROM deck_document_card_feedback "
+                "WHERE user_id = ? AND deck_id = ?",
+                (user_id, deck_id),
+            ).fetchall()
+            deck_row = conn.execute(
+                "SELECT verdict, comment FROM deck_document_feedback "
+                "WHERE user_id = ? AND deck_id = ?",
+                (user_id, deck_id),
+            ).fetchone()
+        cards = {
+            r["card_key"]: {"vote": r["vote"], "comment": r["comment"]}
+            for r in card_rows
+        }
+        deck = dict(deck_row) if deck_row else None
+        return {"cards": cards, "deck": deck}
+
+    def upsert_card(
+        self,
+        user_id: str,
+        deck_id: str,
+        card_key: str,
+        card_name: str,
+        vote: str | None,
+        comment: str | None,
+    ) -> None:
+        """Insert or update card feedback.
+
+        Normalize empty strings to None. When both vote and comment are
+        None, DELETE the row instead. Invalid vote raises ValueError.
+        """
+        if vote is not None and vote not in ("up", "down"):
+            raise ValueError(f"Invalid vote: {vote!r}")
+        vote = self._norm(vote)
+        comment = self._norm(comment)
+        comment = comment[:2000] if comment else None
+        now = datetime.now().isoformat(timespec="seconds")
+        with connect(self.db_path) as conn:
+            if vote is None and comment is None:
+                conn.execute(
+                    "DELETE FROM deck_document_card_feedback "
+                    "WHERE user_id = ? AND deck_id = ? AND card_key = ?",
+                    (user_id, deck_id, card_key),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO deck_document_card_feedback
+                    (id, user_id, deck_id, card_key, card_name, vote, comment,
+                     created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, deck_id, card_key) DO UPDATE SET
+                        vote = excluded.vote,
+                        comment = excluded.comment,
+                        card_name = excluded.card_name,
+                        updated_at = excluded.updated_at""",
+                    (
+                        new_id(),
+                        user_id,
+                        deck_id,
+                        card_key,
+                        card_name,
+                        vote,
+                        comment,
+                        now,
+                        now,
+                    ),
+                )
+            conn.commit()
+
+    def upsert_deck(
+        self,
+        user_id: str,
+        deck_id: str,
+        verdict: str | None,
+        comment: str | None,
+    ) -> None:
+        """Insert or update deck-level feedback.
+
+        Normalize empty strings to None. When both vote and comment are
+        None, DELETE the row instead. Invalid verdict raises ValueError.
+        """
+        if verdict is not None and verdict not in ("good", "mixed", "bad"):
+            raise ValueError(f"Invalid verdict: {verdict!r}")
+        verdict = self._norm(verdict)
+        comment = self._norm(comment)
+        comment = comment[:2000] if comment else None
+        now = datetime.now().isoformat(timespec="seconds")
+        with connect(self.db_path) as conn:
+            if verdict is None and comment is None:
+                conn.execute(
+                    "DELETE FROM deck_document_feedback "
+                    "WHERE user_id = ? AND deck_id = ?",
+                    (user_id, deck_id),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO deck_document_feedback
+                    (id, user_id, deck_id, verdict, comment, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, deck_id) DO UPDATE SET
+                        verdict = excluded.verdict,
+                        comment = excluded.comment,
+                        updated_at = excluded.updated_at""",
+                    (
+                        new_id(),
+                        user_id,
+                        deck_id,
+                        verdict,
+                        comment,
+                        now,
+                        now,
+                    ),
+                )
+            conn.commit()
 
 
 class CedhCandidatesRepo:
@@ -1350,3 +1493,96 @@ class BuildJobsRepo:
             if "no such table" not in str(exc):
                 raise
             return 0
+
+
+class DeckDocumentSimulationsRepo:
+    """Stored goldfish runs for an edited deck document.
+
+    One row is one attempt. ``status`` is ``queued``, ``running``, ``done``,
+    or ``not_simulated``. A ``done`` row's ``result_json`` holds a
+    ``SimulationResult``. ``deck_sha256`` and ``revision`` record the list
+    the run measured, so a later edit can be shown as out of date.
+    """
+
+    def __init__(self, db_path: str | Path) -> None:
+        self.db_path = Path(db_path)
+
+    def insert(self, *, deck_id: str, owner_id: str) -> str:
+        """Queue one simulation and return its id."""
+        simulation_id = new_id()
+        created_at = datetime.now(UTC).isoformat(timespec="microseconds")
+        with connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO deck_document_simulations "
+                "(id, deck_id, owner_id, deck_sha256, revision, status, "
+                "result_json, reason, created_at) "
+                "VALUES (?, ?, ?, '', 0, 'queued', NULL, '', ?)",
+                (simulation_id, deck_id, owner_id, created_at),
+            )
+            conn.commit()
+        return simulation_id
+
+    def get(self, simulation_id: str) -> dict[str, Any] | None:
+        """Fetch one simulation row, or None."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations WHERE id=?",
+                (simulation_id,),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None
+
+    def update(
+        self,
+        simulation_id: str,
+        *,
+        status: str,
+        deck_sha256: str | None = None,
+        revision: int | None = None,
+        result_json: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Move a simulation to ``status`` and record whatever was measured."""
+        assignments = ["status=?"]
+        params: list[Any] = [status]
+        if deck_sha256 is not None:
+            assignments.append("deck_sha256=?")
+            params.append(deck_sha256)
+        if revision is not None:
+            assignments.append("revision=?")
+            params.append(revision)
+        if result_json is not None:
+            assignments.append("result_json=?")
+            params.append(result_json)
+        if reason is not None:
+            assignments.append("reason=?")
+            params.append(reason)
+        params.append(simulation_id)
+        with connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE deck_document_simulations SET "
+                + ", ".join(assignments)
+                + " WHERE id=?",
+                params,
+            )
+            conn.commit()
+
+    def latest(self, deck_id: str) -> dict[str, Any] | None:
+        """Return the newest simulation for a deck, or None."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations WHERE deck_id=? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (deck_id,),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None
+
+    def previous_done(self, deck_id: str, exclude_id: str) -> dict[str, Any] | None:
+        """Return the newest successful run other than ``exclude_id``."""
+        with connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM deck_document_simulations "
+                "WHERE deck_id=? AND status='done' AND id!=? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (deck_id, exclude_id),
+            ).fetchone()
+        return cast(dict[str, Any], dict(row)) if row else None

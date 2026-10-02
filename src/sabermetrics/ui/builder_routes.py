@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
 from urllib.parse import urlsplit
 
@@ -26,12 +28,16 @@ from sabermetrics.account_playmats import (
     PlaymatNotFound,
     orphan_custom_path,
 )
+from sabermetrics.cedh.factory import build_default_lab
+from sabermetrics.cedh.packs import PackSummary
 from sabermetrics.deck_documents import (
     DeckDocumentRepo,
     DeckNotFound,
     InvalidCommand,
     RevisionConflict,
 )
+from sabermetrics.deck_evidence import DeckEvidenceService
+from sabermetrics.deck_simulation import execute_simulation, simulation_view
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
     DeckTextImportError,
@@ -39,11 +45,38 @@ from sabermetrics.deck_text_import import (
 )
 from sabermetrics.ui.feedback_images import sanitize_image
 
+_NO_PACK = "No strategy pack supports this commander yet."
+_EVIDENCE_WINDOWS = frozenset({0, 30, 60, 90, 180})
+
 bp = Blueprint("builder", __name__)
+logger = logging.getLogger(__name__)
+_SIM_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="deck-sim")
 
 
 def _repo() -> DeckDocumentRepo:
     return DeckDocumentRepo(Path(current_app.config["DB_PATH"]))
+
+
+def _evidence_window() -> int:
+    raw = request.args.get("window")
+    if raw is None or not str(raw).strip():
+        return 30
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        abort(400)
+    if value not in _EVIDENCE_WINDOWS:
+        abort(400)
+    return value
+
+
+def _with_simulation(document: dict) -> dict:
+    """Attach the latest goldfish view for the page JSON."""
+    enriched = dict(document)
+    enriched["simulation_view"] = simulation_view(
+        Path(current_app.config["DB_PATH"]), str(document["id"])
+    )
+    return enriched
 
 
 @bp.before_request
@@ -221,13 +254,80 @@ def import_generated(generated_id: str):
     return redirect(url_for("builder.deck", deck_id=deck_id))
 
 
+def _wants_deck_json() -> bool:
+    """Return whether this request asked for a JSON deck body."""
+    return bool(request.is_json or request.accept_mimetypes.best == "application/json")
+
+
+def _commander_name(card_id: str) -> str | None:
+    """Resolve a builder card id to the display name packs are authored under."""
+    with db.connect(current_app.config["DB_PATH"]) as conn:
+        row = conn.execute(
+            "SELECT name FROM cards WHERE id = ?",
+            (card_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    name = str(row["name"] or "").strip()
+    return name or None
+
+
+def _pack_matches(summary: PackSummary, commander_name: str) -> bool:
+    """Return whether this pack is for the chosen commander."""
+    wanted = commander_name.casefold()
+    return any(name.casefold() == wanted for name in summary.commander_names)
+
+
+def _pack_payload(summary: PackSummary) -> dict[str, object]:
+    """JSON for one pack summary, including packs that do not resolve."""
+    return {
+        "pack_id": summary.pack_id,
+        "name": summary.name,
+        "commander_names": list(summary.commander_names),
+        "summary": summary.summary,
+        "supported": summary.supported,
+        "detail": summary.detail,
+        "simulator_supported": summary.simulator_supported,
+        "missing_names": list(summary.missing_names),
+    }
+
+
+@bp.get("/api/generate/packs")
+def generate_packs():
+    """List strategy packs, filtered when a commander card id is supplied.
+
+    Unsupported packs stay in the list with ``supported`` false. An empty
+    list is the visible absence for a commander no pack names.
+    """
+    commander_id = (request.args.get("commander") or "").strip()
+    lab, _modes = build_default_lab(db_path=str(current_app.config["DB_PATH"]))
+    summaries = list(lab.pack_summaries())
+    message = None
+    if commander_id:
+        name = _commander_name(commander_id)
+        if name is None:
+            summaries = []
+            message = _NO_PACK
+        else:
+            summaries = [item for item in summaries if _pack_matches(item, name)]
+            if not summaries:
+                message = _NO_PACK
+    return jsonify(
+        packs=[_pack_payload(item) for item in summaries],
+        message=message,
+    )
+
+
 @bp.post("/build/import/candidate/<candidate_id>")
 def import_candidate(candidate_id: str):
     try:
         deck_id = _repo().import_candidate(current_user.id, candidate_id)
     except DeckNotFound:
         abort(404)
-    return redirect(url_for("builder.deck", deck_id=deck_id))
+    deck_url = url_for("builder.deck", deck_id=deck_id)
+    if _wants_deck_json():
+        return jsonify(id=deck_id, url=deck_url)
+    return redirect(deck_url)
 
 
 @bp.get("/build/deck/<deck_id>")
@@ -236,7 +336,11 @@ def deck(deck_id: str):
         document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         abort(404)
-    return render_template("deck_lab/builder.html", document=document, shared=False)
+    return render_template(
+        "deck_lab/builder.html",
+        document=_with_simulation(document),
+        shared=False,
+    )
 
 
 @bp.get("/api/decks/<deck_id>")
@@ -245,6 +349,84 @@ def deck_json(deck_id: str):
         return jsonify(_repo().get(current_user.id, deck_id))
     except DeckNotFound:
         return jsonify(error="not_found"), 404
+
+
+@bp.get("/api/decks/<deck_id>/evidence")
+def deck_evidence(deck_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).for_deck(
+        document, _evidence_window()
+    )
+    return jsonify(payload)
+
+
+@bp.post("/api/decks/<deck_id>/simulate")
+def simulate_deck(deck_id: str):
+    """Queue a goldfish run for the owner's current list.
+
+    The simulator call itself runs on ``_SIM_EXECUTOR``. This handler only
+    inserts the queued row and returns 202 with the status URL.
+    """
+    try:
+        _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    db_path = Path(current_app.config["DB_PATH"])
+    simulations = db.DeckDocumentSimulationsRepo(db_path)
+    simulation_id = simulations.insert(deck_id=deck_id, owner_id=str(current_user.id))
+    try:
+        _SIM_EXECUTOR.submit(execute_simulation, str(db_path), simulation_id)
+    except RuntimeError as exc:
+        logger.exception("deck simulation %s could not be queued", simulation_id)
+        simulations.update(
+            simulation_id,
+            status="not_simulated",
+            reason=f"Not simulated: {exc}",
+        )
+        return jsonify(error="enqueue_failed", id=simulation_id), 503
+    status_url = url_for("builder.simulation_latest", deck_id=deck_id)
+    return (
+        jsonify(id=simulation_id, status="queued", status_url=status_url),
+        202,
+        {"Location": status_url},
+    )
+
+
+@bp.get("/api/decks/<deck_id>/simulations/latest")
+def simulation_latest(deck_id: str):
+    """Return the newest stored run, including delta and staleness."""
+    try:
+        _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    return jsonify(simulation_view(Path(current_app.config["DB_PATH"]), deck_id))
+
+
+@bp.get("/api/decks/<deck_id>/meta-diff")
+def deck_meta_diff(deck_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).meta_diff(
+        document, _evidence_window()
+    )
+    return jsonify(payload)
+
+
+@bp.get("/api/decks/<deck_id>/alternatives/<oracle_id>")
+def deck_alternatives(deck_id: str, oracle_id: str):
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    payload = DeckEvidenceService(Path(current_app.config["DB_PATH"])).alternatives(
+        document, oracle_id, _evidence_window()
+    )
+    return jsonify(payload)
 
 
 @bp.get("/api/deck-tags")
@@ -379,11 +561,14 @@ def export(deck_id: str):
         document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         abort(404)
+    fmt = (request.args.get("format") or "sections").strip().lower()
+    if fmt not in {"sections", "plain", "archidekt"}:
+        return Response("Unknown export format", status=400)
     filename = "".join(
         c if c.isalnum() or c in "-_" else "-" for c in document["title"]
     )
     return Response(
-        _repo().export_text(document),
+        _repo().export_text(document, fmt=fmt),
         mimetype="text/plain",
         headers={
             "Content-Disposition": f'attachment; filename="{filename or "deck"}.txt"'
@@ -508,13 +693,79 @@ def playmat_image(deck_id: str):
     return response
 
 
+def _feedback_repo():
+    return db.DeckDocumentFeedbackRepo(Path(current_app.config["DB_PATH"]))
+
+
+@bp.get("/api/decks/<deck_id>/feedback")
+def get_feedback(deck_id: str):
+    repo = _repo()
+    try:
+        repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
+@bp.put("/api/decks/<deck_id>/feedback/cards/<card_key>")
+def put_card_feedback(deck_id: str, card_key: str):
+    repo = _repo()
+    try:
+        doc = repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    entries = doc.get("entries", [])
+    if not any(
+        entry.get("oracle_id") == card_key
+        or (entry.get("card_id") and card_key == f"card:{entry['card_id']}")
+        for entry in entries
+    ):
+        return jsonify(error="card_key_not_in_deck"), 400
+    body = request.get_json(silent=True) or {}
+    card_name = str(body.get("card_name") or "").strip()
+    vote = body.get("vote")
+    comment = body.get("comment")
+    if vote is not None and vote not in ("up", "down"):
+        return jsonify(error="invalid_vote"), 400
+    if comment is not None:
+        comment = str(comment)
+    if not card_name:
+        return jsonify(error="card_name_required"), 400
+    _feedback_repo().upsert_card(
+        current_user.id, deck_id, card_key, card_name, vote, comment
+    )
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
+@bp.put("/api/decks/<deck_id>/feedback/deck")
+def put_deck_feedback(deck_id: str):
+    repo = _repo()
+    try:
+        repo.get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    body = request.get_json(silent=True) or {}
+    verdict = body.get("verdict")
+    comment = body.get("comment")
+    if verdict is not None and verdict not in ("good", "mixed", "bad"):
+        return jsonify(error="invalid_verdict"), 400
+    if comment is not None:
+        comment = str(comment)
+    _feedback_repo().upsert_deck(current_user.id, deck_id, verdict, comment)
+    return jsonify(_feedback_repo().get(current_user.id, deck_id))
+
+
 @bp.get("/shared/deck/<token>")
 def shared(token: str):
     try:
         document = _repo().get_shared(token)
     except DeckNotFound:
         abort(404)
-    return render_template("deck_lab/builder.html", document=document, shared=True)
+    return render_template(
+        "deck_lab/builder.html",
+        document=_with_simulation(document),
+        shared=True,
+    )
 
 
 @bp.get("/shared/deck/<token>/playmat")

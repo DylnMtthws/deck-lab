@@ -97,6 +97,61 @@ def _json(value: Any, fallback: Any) -> Any:
         return fallback
 
 
+# Builder role keys (deck-lab-builder.js). cEDH ``flex`` has no builder bucket.
+_CANDIDATE_ROLE_TO_BUILDER: dict[str, str] = {
+    "acceleration": "ramp",
+    "tutor": "tutor",
+    "interaction": "removal",
+    "protection": "protection",
+    "card_advantage": "draw",
+    "win_package": "wincon",
+    "land": "land",
+    "flex": "other",
+}
+
+
+def map_candidate_role(role: object) -> str:
+    """Map a cEDH candidate role onto a builder role key.
+
+    Every value in ``cedh.domain.ROLES`` has an entry. Anything else, including
+    a missing role on the simulator wire, becomes ``other``.
+
+    Args:
+        role: Role string from a stored candidate card.
+
+    Returns:
+        A builder role key.
+    """
+    return _CANDIDATE_ROLE_TO_BUILDER.get(str(role or ""), "other")
+
+
+def _candidate_commander_ids(candidate: dict[str, Any]) -> list[str]:
+    """Return commander oracle ids from the stored document or the wire form."""
+    commander = candidate.get("commander")
+    if isinstance(commander, dict) and isinstance(commander.get("oracle_ids"), list):
+        return [str(item) for item in commander["oracle_ids"] if str(item or "")]
+    raw = candidate.get("commander_oracle_ids")
+    if isinstance(raw, list):
+        return [str(item) for item in raw if str(item or "")]
+    return []
+
+
+def _candidate_library(candidate: dict[str, Any]) -> list[Any]:
+    """Return the 99 from a stored candidate.
+
+    Rows saved by the lab use ``DeckCandidate.to_json()``, whose library is
+    ``cards`` and whose entries carry ``role``. The simulator wire uses
+    ``library`` and has no roles. ``cards`` wins when both are present.
+    """
+    cards = candidate.get("cards")
+    if isinstance(cards, list):
+        return cards
+    library = candidate.get("library")
+    if isinstance(library, list):
+        return library
+    return []
+
+
 _WORD_COPY_LIMITS = {
     "one": 1,
     "two": 2,
@@ -338,7 +393,7 @@ class DeckDocumentRepo:
             unsorted_id = db.new_id()
             conn.execute(
                 "INSERT INTO deck_zones(id, deck_id, name, sort_order, x, y) "
-                "VALUES (?, ?, 'Unsorted', 0, 80, 120)",
+                "VALUES (?, ?, 'Unsorted', 0, 220, 18)",
                 (unsorted_id, deck_id),
             )
             conn.execute(
@@ -405,7 +460,7 @@ class DeckDocumentRepo:
             zone_ids = {ZONE_LIBRARY: db.new_id()}
             conn.execute(
                 "INSERT INTO deck_zones(id, deck_id, name, sort_order, x, y) "
-                "VALUES (?, ?, 'Unsorted', 0, 80, 120)",
+                "VALUES (?, ?, 'Unsorted', 0, 220, 18)",
                 (zone_ids[ZONE_LIBRARY], deck_id),
             )
             extra = 1
@@ -610,9 +665,9 @@ class DeckDocumentRepo:
                 (deck_id,),
             ).fetchone()["id"]
             candidate = _json(source["candidate_json"], {})
-            for order, oracle_id in enumerate(
-                candidate.get("commander_oracle_ids", [])
-            ):
+            if not isinstance(candidate, dict):
+                candidate = {}
+            for order, oracle_id in enumerate(_candidate_commander_ids(candidate)):
                 card = self._oracle_row(conn, oracle_id)
                 if (
                     not card
@@ -628,17 +683,24 @@ class DeckDocumentRepo:
                     is_commander=True,
                     order=order,
                 )
-            for order, item in enumerate(candidate.get("library", [])):
+            for order, item in enumerate(_candidate_library(candidate)):
+                if not isinstance(item, dict):
+                    continue
                 oracle_id = str(item.get("oracle_id") or "")
                 card = self._oracle_row(conn, oracle_id)
                 if not card or not card.get("is_legal_in_99"):
                     continue
+                try:
+                    copies = int(item.get("quantity") or 1)
+                except (TypeError, ValueError):
+                    copies = 1
                 self._insert_card(
                     conn,
                     deck_id=deck_id,
                     zone_id=unsorted_id,
                     card=card,
-                    quantity=int(item.get("quantity") or 1),
+                    quantity=max(1, min(99, copies)),
+                    role=map_candidate_role(item.get("role")),
                     order=order,
                 )
             self._event(
@@ -1460,6 +1522,38 @@ class DeckDocumentRepo:
             raise InvalidCommand("That card is no longer in this deck.")
         return cast(sqlite3.Row, row)
 
+    def _place_new_zone(
+        self, conn: sqlite3.Connection, deck_id: str
+    ) -> tuple[float, float]:
+        """Place a zone the client did not position, below every existing one.
+
+        ``x`` is 18. ``y`` is 24 px under the lowest bottom, where each zone's
+        bottom is ``y + (height or 240)`` and the command zone bottom is 258.
+        A wide auto-sized zone cannot overlap this origin horizontally. When
+        ``y`` is past the canvas, ``canvas_height`` grows to ``y + 264`` in
+        the caller's transaction.
+        """
+        bottoms = [258.0]
+        for row in conn.execute(
+            "SELECT y, height FROM deck_zones WHERE deck_id=?",
+            (deck_id,),
+        ):
+            bottoms.append(float(row["y"] or 0) + float(row["height"] or 240))
+        origin_y = max(bottoms) + 24.0
+        presentation = conn.execute(
+            "SELECT canvas_height FROM deck_presentations WHERE deck_id=?",
+            (deck_id,),
+        ).fetchone()
+        canvas_h = float(
+            (presentation["canvas_height"] if presentation else None) or 900
+        )
+        if origin_y > canvas_h and presentation is not None:
+            conn.execute(
+                "UPDATE deck_presentations SET canvas_height=? WHERE deck_id=?",
+                (int(origin_y + 264), deck_id),
+            )
+        return (18.0, origin_y)
+
     def _apply_command(
         self,
         conn: sqlite3.Connection,
@@ -1527,6 +1621,12 @@ class DeckDocumentRepo:
                 "SELECT COALESCE(MAX(sort_order),-1)+1 FROM deck_zones WHERE deck_id=?",
                 (deck_id,),
             ).fetchone()[0]
+            supplied_x = command.get("x") if "x" in command else None
+            supplied_y = command.get("y") if "y" in command else None
+            if supplied_x not in (None, "") and supplied_y not in (None, ""):
+                origin_x, origin_y = float(supplied_x), float(supplied_y)
+            else:
+                origin_x, origin_y = self._place_new_zone(conn, deck_id)
             try:
                 conn.execute(
                     "INSERT INTO deck_zones(id,deck_id,name,sort_order,x,y) VALUES(?,?,?,?,?,?)",
@@ -1535,8 +1635,8 @@ class DeckDocumentRepo:
                         deck_id,
                         name,
                         order,
-                        float(command.get("x") or 120 + order * 40),
-                        float(command.get("y") or 160 + order * 30),
+                        origin_x,
+                        origin_y,
                     ),
                 )
             except sqlite3.IntegrityError as exc:
@@ -1772,8 +1872,8 @@ class DeckDocumentRepo:
         elif kind == "update_view":
             option_sets = {
                 "view_mode": {"table", "playmat"},
-                "display_mode": {"text", "grid", "spoiler"},
-                "group_mode": {"zone", "type"},
+                "display_mode": {"text", "grid", "spoiler", "stacks"},
+                "group_mode": {"zone", "type", "role"},
                 "sort_mode": {"manual", "name", "mana_value"},
                 "density": {"compact", "comfortable"},
             }
@@ -2178,28 +2278,84 @@ class DeckDocumentRepo:
         return leftover
 
     @staticmethod
-    def export_text(document: dict[str, Any]) -> str:
-        lines: list[str] = [f"// {document['title']}", ""]
-        commanders = [e for e in document["entries"] if e["is_commander"]]
-        if commanders:
-            lines.append("Commander")
-            lines.extend(f"{e['quantity']} {e['name']}" for e in commanders)
-            lines.append("")
-        entries_by_zone: dict[str, list[dict[str, Any]]] = {}
-        zone_names = {z["id"]: z["name"] for z in document["zones"]}
-        for entry in document["entries"]:
-            if not entry["is_commander"]:
-                entries_by_zone.setdefault(
-                    zone_names.get(entry["zone_id"], "Unsorted"), []
-                ).append(entry)
-        for zone in document["zones"]:
-            entries = entries_by_zone.get(zone["name"], [])
-            if not entries:
+    def _export_plain(document: dict[str, Any]) -> list[tuple[str, int, bool]]:
+        """Return (name, quantity, is_commander) tuples in plain/archidekt order.
+
+        Commanders first (document order), then library cards sorted case-insensitively
+        by name. If a commander name also appears in the library, the quantities are
+        merged into the commander entry. Private zones are excluded.
+        """
+        entries = document.get("entries", [])
+        zone_names = {z["id"]: z["name"] for z in document.get("zones", [])}
+
+        commander_names: dict[str, int] = {}
+        commander_order: list[str] = []
+        library_names: dict[str, int] = {}
+
+        for entry in entries:
+            name = entry.get("name", "")
+            qty = int(entry.get("quantity") or 0)
+            if not name or not qty:
                 continue
-            lines.append(zone["name"])
-            lines.extend(
-                f"{e['quantity']} {e['name']}"
-                for e in sorted(entries, key=lambda item: item["name"].casefold())
+            if entry.get("is_commander"):
+                if name not in commander_names:
+                    commander_order.append(name)
+                commander_names[name] = commander_names.get(name, 0) + qty
+            elif _is_public_library_zone(
+                zone_names.get(entry.get("zone_id"), "Unsorted")
+            ):
+                library_names[name] = library_names.get(name, 0) + qty
+
+        merged: list[tuple[str, int, bool]] = []
+        for name in commander_order:
+            total_qty = commander_names[name] + library_names.pop(name, 0)
+            merged.append((name, total_qty, True))
+
+        for name in sorted(library_names.keys(), key=lambda n: n.casefold()):
+            merged.append((name, library_names[name], False))
+
+        return merged
+
+    @staticmethod
+    def export_text(document: dict[str, Any], fmt: str = "sections") -> str:
+        if fmt == "sections":
+            lines: list[str] = [f"// {document['title']}", ""]
+            commanders = [e for e in document["entries"] if e["is_commander"]]
+            if commanders:
+                lines.append("Commander")
+                lines.extend(f"{e['quantity']} {e['name']}" for e in commanders)
+                lines.append("")
+            entries_by_zone: dict[str, list[dict[str, Any]]] = {}
+            zone_names = {z["id"]: z["name"] for z in document["zones"]}
+            for entry in document["entries"]:
+                if not entry["is_commander"]:
+                    entries_by_zone.setdefault(
+                        zone_names.get(entry["zone_id"], "Unsorted"), []
+                    ).append(entry)
+            for zone in document["zones"]:
+                entries = entries_by_zone.get(zone["name"], [])
+                if not entries:
+                    continue
+                lines.append(zone["name"])
+                lines.extend(
+                    f"{e['quantity']} {e['name']}"
+                    for e in sorted(entries, key=lambda item: item["name"].casefold())
+                )
+                lines.append("")
+            return "\n".join(lines).rstrip() + "\n"
+
+        if fmt == "plain":
+            rows = DeckDocumentRepo._export_plain(document)
+            return "\n".join(f"{qty} {name}" for name, qty, _ in rows) + "\n"
+
+        if fmt == "archidekt":
+            rows = DeckDocumentRepo._export_plain(document)
+            return (
+                "\n".join(
+                    f"{qty}x {name}{' [Commander]' if is_cmd else ''}"
+                    for name, qty, is_cmd in rows
+                )
+                + "\n"
             )
-            lines.append("")
-        return "\n".join(lines).rstrip() + "\n"
+
+        raise ValueError(f"Unknown export format: {fmt!r}")

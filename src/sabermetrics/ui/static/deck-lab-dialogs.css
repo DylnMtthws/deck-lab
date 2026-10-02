@@ -1,0 +1,25 @@
+/* Owner: D07 — menus, dialogs, and Research chips. */
+
+/* Keyboard shortcuts dialog — two-column table */
+.dl-hotkeys-help { width: min(520px, calc(100% - 28px)); }
+.dl-hotkeys-table { width: 100%; border-collapse: collapse; }
+.dl-hotkeys-table th { text-align: left; padding: 4px 12px 8px; color: var(--faint); font: 11px var(--mono); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.dl-hotkeys-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; vertical-align: middle; }
+.dl-hotkeys-table tbody tr:last-child td { border-bottom: 0; }
+.dl-hotkeys-keys { text-align: right; white-space: nowrap; }
+.dl-hotkeys-keys kbd { display: inline; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); color: var(--body); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+.dl-hotkeys-or { display: inline; margin: 0 6px; color: var(--faint); font-size: 11px; font-style: italic; }
+
+/* Comment dialog */
+.dl-comment-dialog { width: min(460px, calc(100% - 28px)); }
+.dl-comment-field { display: grid; gap: 7px; font-size: 12px; }
+.dl-comment-field textarea { min-height: 100px; resize: vertical; }
+
+/* Research syntax chips */
+.dl-syntax-chips { margin: 8px 0 12px; }
+.dl-syntax-chip { font-size: 12px; white-space: nowrap; }
+.dl-syntax-chip.is-ok { border-color: rgba(87, 211, 155, .35); background: rgba(87, 211, 155, .08); color: var(--success); }
+.dl-syntax-chip.is-warn { border-color: rgba(240, 189, 103, .35); background: rgba(240, 189, 103, .08); color: var(--warning); }
+.dl-chip-remove { width: 18px; height: 18px; display: inline-grid; place-items: center; margin: 0 -4px 0 4px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 13px; line-height: 1; cursor: pointer; opacity: .65; }
+.dl-chip-remove:hover { opacity: 1; background: rgba(0, 0, 0, .2); }
+.dl-chip-remove:focus-visible { outline: 2px solid var(--brand-text); outline-offset: 1px; }

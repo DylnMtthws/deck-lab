@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Direction A — Focused workbench</title>
+<link rel="stylesheet" href="foundations.css">
+<style>
+.app{display:grid;grid-template-rows:56px 52px 1fr 36px;height:100vh}
+header{display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);border-bottom:1px solid var(--line-soft);background:var(--panel)}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:800}
+.crumb{display:flex;align-items:center;gap:var(--s-2);font-size:var(--t-14)} .crumb b{font-weight:600}
+.saved{display:inline-flex;align-items:center;gap:6px;color:var(--success);font-size:var(--t-12)}
+.push{flex:1}
+.toolbar{display:flex;align-items:center;gap:var(--s-2);padding:0 var(--s-4);border-bottom:1px solid var(--line-soft);position:relative}
+.toolbar .field{width:420px} .toolbar .field input{all:unset;flex:1;color:var(--body)} .toolbar .field .faint{font-size:var(--t-13)}
+.dest{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;background:var(--panel-2);color:var(--muted);font-size:var(--t-12)}
+.toolbar .normal{display:flex;align-items:center;gap:var(--s-2);width:100%}
+.selbar{display:none;align-items:center;gap:var(--s-2);width:100%}
+.interact .toolbar .normal{display:none} .interact .selbar{display:flex}
+.selcount{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 var(--s-3);border-radius:var(--r-md);background:var(--brand-soft);color:var(--brand-text);font-weight:600;font-size:var(--t-13)}
+main{display:grid;grid-template-columns:1fr 368px;min-height:0}
+.list{overflow:auto;padding:var(--s-2) var(--s-4) var(--s-6)}
+.colhead,.row{display:grid;grid-template-columns:28px 52px minmax(200px,1fr) 96px 260px 96px;align-items:center;column-gap:var(--s-3)}
+.colhead{height:30px;color:var(--faint);font:600 var(--t-11)/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--line-soft)}
+.group{margin-top:var(--s-4)}
+.ghead{display:flex;align-items:center;gap:var(--s-2);height:32px;padding:0 4px;color:var(--body);font-weight:600;font-size:var(--t-13)}
+.ghead .count{color:var(--faint);font-weight:500} .ghead .share{flex:0 0 72px;height:4px;border-radius:2px;background:var(--panel-2);overflow:hidden} .ghead .share i{display:block;height:100%;background:var(--muted);opacity:.6}
+.ghead .caret{color:var(--faint);width:14px}
+.row{height:var(--row-compact);padding:0 4px;border-radius:var(--r-sm);font-size:var(--t-14)}
+.row:hover,.row.hover{background:var(--panel)} .row.sel{background:var(--brand-soft)}
+.row .name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .type{color:var(--muted);font-size:var(--t-13);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .qty{display:flex;align-items:center;gap:2px;color:var(--muted)} .row .qty .step{visibility:hidden;width:18px;height:18px;border-radius:4px;display:grid;place-items:center;color:var(--faint)}
+.row.hover .qty .step{visibility:visible;background:var(--panel-2)} .row .qty b{width:16px;text-align:center;color:var(--body);font:500 var(--t-13) var(--mono)}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line);display:grid;place-items:center}
+.row.sel .cb{background:var(--brand);border-color:var(--brand)} .row.sel .cb::after{content:"";width:8px;height:4px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.row:not(.hover):not(.sel) .cb{border-color:transparent}
+.fb{display:flex;gap:2px;justify-content:flex-end} .fb .icon-btn{width:26px;height:26px} .fb .icon-btn svg{width:15px;height:15px}
+.row:not(.hover) .fb .icon-btn:not(.on){visibility:hidden}
+.considering .row .name{color:var(--muted)}
+aside{border-left:1px solid var(--line-soft);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;align-items:center;gap:var(--s-1);padding:var(--s-2) var(--s-3);border-bottom:1px solid var(--line-soft)}
+.tab{height:30px;padding:0 var(--s-3);border-radius:var(--r-sm);color:var(--muted);font:500 var(--t-13)/30px var(--sans);cursor:pointer} .tab.on{background:var(--panel-2);color:var(--body)}
+.pane{padding:var(--s-4);overflow:auto;display:none} .pane.on{display:block}
+.cardimg{width:88%;margin:0 auto;aspect-ratio:488/680;border-radius:4.5%/3.2%;background:var(--panel-2) center/cover;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ctitle{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-2);margin-top:var(--s-4)} .ctitle h3{margin:0;font-size:var(--t-16);font-weight:600}
+.ctype{color:var(--muted);font-size:var(--t-13);margin-top:2px}
+.rules{margin-top:var(--s-3);padding:var(--s-3);border-radius:var(--r-md);background:var(--ink-deep);font-size:var(--t-13);line-height:1.55;color:#cfd3e4}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--s-3)}
+.take{display:flex;align-items:center;justify-content:space-between;margin-top:var(--s-4);padding-top:var(--s-3);border-top:1px solid var(--line-soft)}
+.section{margin-bottom:var(--s-5)} .section .eyebrow{margin-bottom:var(--s-3)}
+.curve{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:96px}
+.curve div{display:flex;flex-direction:column;align-items:center;gap:4px;font:var(--t-11) var(--mono);color:var(--faint)} .curve i{display:block;width:100%;border-radius:4px 4px 2px 2px;background:#56628f} .curve div.act i{background:var(--brand)} .curve b{color:var(--muted);font-weight:500}
+.req{display:grid;grid-template-columns:22px 1fr 96px;gap:var(--s-2);align-items:center;font-size:var(--t-12);color:var(--muted);margin-bottom:var(--s-2)}
+.bar{height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden} .bar i{display:block;height:100%}
+.odds{padding:var(--s-4);border-radius:var(--r-lg);background:var(--ink-deep)}
+.odds .big{font:600 var(--t-28)/1 var(--sans);font-variant-numeric:tabular-nums;color:var(--body)} .odds p{margin:var(--s-2) 0 0;color:var(--muted);font-size:var(--t-13);line-height:2}
+.inline{height:24px;border-radius:6px;border:1px solid var(--line);background:var(--panel-2);color:var(--body);padding:0 6px;font:500 var(--t-13) var(--sans)}
+.hand{display:flex;margin-top:var(--s-3)} .hand div{width:62px;aspect-ratio:488/680;border-radius:4px;background:var(--panel-2) center/cover;margin-right:-18px;box-shadow:-2px 0 6px rgba(0,0,0,.5)}
+.status{display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);border-top:1px solid var(--line-soft);background:var(--panel);font-size:var(--t-12);position:relative}
+.prog{display:flex;align-items:center;gap:var(--s-2)} .prog .track{width:80px;height:4px;border-radius:2px;background:var(--panel-2);overflow:hidden} .prog .track i{display:block;height:100%;background:var(--warning)}
+.sep{width:1px;height:16px;background:var(--line)}
+.pills{display:flex;gap:var(--s-3);color:var(--muted)} .pills span b{color:var(--body);font-weight:500;margin-left:4px}
+.issues{bottom:44px;left:96px;width:360px} .issues li{display:flex;gap:var(--s-2);padding:var(--s-2);border-radius:var(--r-sm);font-size:var(--t-13);list-style:none} .issues li:hover{background:var(--panel-2)} .issues ul{margin:var(--s-2) 0 0;padding:0}
+.viewpop{top:46px;left:452px;width:300px} .viewpop .r{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:var(--t-13);color:var(--muted)}
+.state-only,.view-only{display:none} .interact .state-only{display:block} .view .view-only{display:block}
+</style></head>
+<body><div class="app" id="app">
+<header>
+  <button class="icon-btn" title="Back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <div class="logo">D</div>
+  <div class="crumb"><span class="muted">Build</span><span class="faint">/</span><b id="title"></b></div>
+  <span class="saved"><span class="dot"></span>Saved</span>
+  <span class="sep"></span>
+  <button class="icon-btn" title="Undo: remove Swan Song (⌘Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg></button>
+  <button class="icon-btn" title="Redo (⇧⌘Z)" style="opacity:.4"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg></button>
+  <span class="push"></span>
+  <div class="seg"><button>Playmat</button><button class="on">Decklist</button></div>
+  <button class="btn">Export <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2b3a6b,#5b3b7a)"></div>
+</header>
+<div class="toolbar">
+  <div class="normal">
+    <div class="field"><svg viewBox="0 0 24 24" width="16" height="16" style="stroke:var(--faint);fill:none;stroke-width:1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><span class="faint" style="flex:1">Add or find a card</span><span class="dest">to Unsorted</span><span class="kbd">/</span></div>
+    <button class="btn ghost" id="viewbtn"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>View · Role · Name</button>
+    <span class="push"></span>
+    <span class="faint" style="font-size:var(--t-12)">Press <span class="kbd">?</span> for shortcuts</span>
+    <button class="icon-btn" title="Deck options: tags, zones, playmat"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+  </div>
+  <div class="selbar">
+    <span class="selcount">3 selected</span>
+    <span class="muted" style="font-size:var(--t-13)">Move to</span><select class="select"><option>Unsorted</option></select>
+    <button class="btn">Move to Considering</button><button class="btn">Set role</button><button class="btn ghost">Remove</button>
+    <span class="push"></span><button class="btn ghost">Clear <span class="kbd">esc</span></button>
+  </div>
+  <div class="pop viewpop view-only">
+    <div class="eyebrow">Display</div><div class="seg" style="margin:8px 0 12px"><button class="on">List</button><button>Grid</button><button>Spoiler</button></div>
+    <div class="r">Group by <select class="select"><option>Role</option></select></div>
+    <div class="r">Sort by <select class="select"><option>Name</option></select></div>
+    <div class="r">Density <div class="seg"><button class="on">Compact</button><button>Comfy</button></div></div>
+  </div>
+</div>
+<main>
+  <section class="list" id="list"></section>
+  <aside>
+    <div class="tabs"><span class="tab" data-t="card">Card</span><span class="tab" data-t="deck">Deck</span><span class="tab" data-t="tools">Tools</span><span class="push"></span><button class="icon-btn" title="Pin this card"><svg viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3H7l3-3-1-5zM12 15v5"/></svg></button></div>
+    <div class="pane" id="p-card"></div>
+    <div class="pane" id="p-deck"></div>
+    <div class="pane" id="p-tools"></div>
+  </aside>
+</main>
+<div class="status">
+  <div class="prog"><span class="mono"><b>87</b><span class="faint">/100</span></span><span class="track"><i style="width:87%"></i></span></div>
+  <span class="chip warn"><span class="dot"></span>2 issues</span>
+  <span class="sep"></span>
+  <div class="pills"><span>Creature<b>5</b></span><span>Artifact<b>5</b></span><span>Instant<b>6</b></span><span>Enchantment<b>5</b></span><span>Land<b>9</b></span></div>
+  <span class="push"></span>
+  <span class="chip">+2 considering</span><span class="chip brand">Verdict: not set</span>
+  <div class="pop issues state-only"><div class="eyebrow">2 issues</div><ul>
+    <li><span class="chip warn">Size</span>Deck has 87 of 100 cards.</li>
+    <li><span class="chip warn">Card</span><span><b>Mana Crypt</b> <span class="muted">— not legal in this format</span></span></li></ul></div>
+</div>
+</div>
+<script src="data.js"></script>
+<script>
+const q = new URLSearchParams(location.search), st = q.get("state") || "default", interact = st === "interact";
+document.getElementById("app").classList.add(st);
+document.getElementById("title").textContent = DECK.title;
+const ic = { up:'<path d="M7 11v9H4v-9h3zm0 0l4-7a2 2 0 012 2v3h5a2 2 0 012 2l-1.5 7a2 2 0 01-2 1.6H7"/>', down:'<path d="M17 13V4h3v9h-3zm0 0l-4 7a2 2 0 01-2-2v-3H6a2 2 0 01-2-2l1.5-7A2 2 0 017.5 4H17"/>', msg:'<path d="M5 5h14v10H9l-4 4V5z"/>' };
+const svg = p => '<svg viewBox="0 0 24 24">' + p + '</svg>';
+let total = DECK.groups.reduce((n, g) => n + g.cards.reduce((m, c) => m + c[3], 0), 0);
+let html = '<div class="colhead"><span></span><span>Qty</span><span>Card</span><span>Cost</span><span>Type</span><span></span></div>';
+const row = (c, i, gi, extra) => {
+  const hover = !interact && c[0] === "Rhystic Study", sel = interact && ["Sol Ring", "Mana Vault", "Basalt Monolith"].includes(c[0]);
+  const up = c[0] === "Mana Crypt" ? " on" : "", msg = c[0] === "Force of Will" ? " on" : "";
+  return '<div class="row' + (hover ? " hover" : "") + (sel ? " sel" : "") + '"><span class="cb"></span><span class="qty"><span class="step">−</span><b>' + c[3] + '</b><span class="step">+</span></span><span class="name">' + c[0] + '</span><span>' + sym(c[1]) + '</span><span class="type">' + c[2] + '</span><span class="fb"><button class="icon-btn' + up + '" title="Good pick">' + svg(ic.up) + '</button><button class="icon-btn" title="Bad pick">' + svg(ic.down) + '</button><button class="icon-btn' + msg + '" title="Comment">' + svg(ic.msg) + '</button></span></div>';
+};
+html += '<div class="group"><div class="ghead"><span class="caret">▾</span>Commander<span class="count">1</span></div>' + row([DECK.commander.name, DECK.commander.cost, DECK.commander.type, 1], 0, 0, "Command zone") + '</div>';
+DECK.groups.forEach((g, gi) => {
+  const n = g.cards.reduce((m, c) => m + c[3], 0);
+  html += '<div class="group"><div class="ghead"><span class="caret">▾</span>' + g.role + '<span class="count">' + n + '</span><span class="share"><i style="width:' + Math.round(n / total * 100 * 2.2) + '%"></i></span></div>' + g.cards.map((c, i) => row(c, i, gi)).join("") + '</div>';
+});
+html += '<div class="group considering"><div class="ghead"><span class="caret">▾</span>Considering<span class="count">2 · not counted</span></div>' + DECK.considering.map(c => row(c, 0, 0, "Considering")).join("") + '</div>';
+document.getElementById("list").innerHTML = html;
+const shown = interact ? "Mana Vault" : "Rhystic Study";
+document.getElementById("p-card").innerHTML = '<div class="cardimg" style="background-image:url(\'' + img(shown) + '\')"></div><div class="ctitle"><h3>' + shown + '</h3><span>' + sym(shown === "Mana Vault" ? "{1}" : "{2}{U}") + '</span></div><div class="ctype">' + (shown === "Mana Vault" ? "Artifact" : "Enchantment") + '</div><div class="rules">' + rules(shown === "Mana Vault" ? "Mana Vault doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap Mana Vault.\n{T}: Add {C}{C}{C}." : "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.") + '</div><div class="take" style="margin-top:var(--s-3);padding-top:0;border:0"><span class="meta" style="margin:0"><span class="chip">1 copy</span><span class="chip">Main deck</span><span class="chip brand">Draw</span></span><span class="fb" style="display:flex"><button class="icon-btn" title="Good pick">' + svg(ic.up) + '</button><button class="icon-btn" title="Bad pick">' + svg(ic.down) + '</button><button class="icon-btn" title="Comment">' + svg(ic.msg) + '</button></span></div>';
+const curve = [[0, 3], [1, 12], [2, 8], [3, 4], [4, 1], [5, 1], ["6+", 1]], hi = 12;
+const colorReq = [["G", 46, 7, "#57d39b"], ["U", 54, 9, "#5aa6f0"]];
+document.getElementById("p-deck").innerHTML = '<div class="section"><div class="eyebrow">Mana curve · avg 1.6</div><div class="curve">' + curve.map(([k, v], i) => '<div class="' + (i === 1 ? "act" : "") + '"><b>' + v + '</b><i style="height:' + (v / hi * 64 + 2) + 'px"></i>' + k + '</div>').join("") + '</div></div><div class="section"><div class="eyebrow">Color requirements</div>' + colorReq.map(([c, p, s, col]) => '<div class="req">' + sym("{" + c + "}") + '<div class="bar"><i style="width:' + p + '%;background:' + col + '"></i></div><span>' + p + '% · <b style="color:var(--body)">' + s + '</b> src</span></div>').join("") + '<div class="faint" style="font-size:var(--t-12)">Pips needed vs. lands and dorks that make each color.</div></div><div class="section"><div class="eyebrow">Zones</div><div class="req" style="grid-template-columns:1fr auto"><span>Main deck</span><b class="mono" style="color:var(--body)">86</b></div><div class="req" style="grid-template-columns:1fr auto"><span>Considering</span><b class="mono">2</b></div></div>';
+document.getElementById("p-tools").innerHTML = '<div class="section"><div class="eyebrow">Draw odds</div><div class="odds"><div class="big">87.4%</div><p>to see at least <select class="inline"><option>1</option></select> <select class="inline"><option>Tutor</option></select> in <select class="inline"><option>7</option></select> cards<br><span class="faint">3 tutors in 87 cards</span></p></div></div><div class="section"><div class="eyebrow">Sample hand</div><div style="display:flex;gap:8px"><button class="btn sm primary">Draw 7</button><button class="btn sm">Draw a card</button><button class="btn sm ghost">Mulligan</button></div><div class="hand">' + ["Forest", "Sol Ring", "Rhystic Study", "Worldly Tutor", "Breeding Pool", "Birds of Paradise", "Force of Will"].map(n => '<div style="background-image:url(\'' + img(n) + '\')" title="' + n + '"></div>').join("") + '</div><p class="muted" style="font-size:var(--t-12);margin-top:var(--s-3)">2 lands · 1 rock · 1 dork · 1 tutor</p></div><div class="section"><div class="eyebrow">Your verdict</div><div class="seg"><button>Good</button><button class="on">Mixed</button><button>Bad</button></div></div>';
+const tab = interact ? "tools" : st === "view" ? "deck" : "card";
+document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.t === tab));
+document.getElementById("p-" + tab).classList.add("on");
+
+</script></body></html>
