@@ -24,6 +24,8 @@
   var panel = document.querySelector("[data-card-panel]");
   var currentId = null;
   var lastHoverId = null;
+  var pairActiveId = null;
+  var seenView = null;
   var pinned = false;
   var hoverTimer = null;
   var renderCount = 0;
@@ -143,6 +145,7 @@
       button._pinBound = true;
       button.type = "button";
       button.addEventListener("click", function () {
+        if (!pinned && pairActiveId && String(currentId) !== String(pairActiveId)) show(pairActiveId);
         pinned = !pinned;
         syncPin(button);
         if (pinned) {
@@ -309,9 +312,84 @@
     return el;
   }
 
-  function renderEntry(entry) {
-    renderCount += 1;
-    panel.setAttribute("data-card-panel-render", String(renderCount));
+  function commanderList(entries) {
+    var list = [];
+    for (var i = 0; i < entries.length; i += 1) {
+      if (entries[i].is_commander) list.push(entries[i]);
+    }
+    return list;
+  }
+
+  function pairFor(entry) {
+    if (!entry || !entry.is_commander) return null;
+    var state = readState();
+    var cmds = commanderList((state && state.entries) || []);
+    if (cmds.length !== 2) return null;
+    for (var i = 0; i < cmds.length; i += 1) {
+      if (String(cmds[i].id) === String(entry.id)) return cmds;
+    }
+    return null;
+  }
+
+  function syncPairPressed(strip) {
+    if (!strip) return;
+    var buttons = strip.querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i += 1) {
+      var on = String(buttons[i].getAttribute("data-pair-entry")) === String(pairActiveId);
+      buttons[i].setAttribute("aria-pressed", on ? "true" : "false");
+      buttons[i].classList.toggle("is-active", on);
+    }
+  }
+
+  function buildPairStrip(cmds, key) {
+    var strip = document.createElement("div");
+    strip.className = "dl-card-panel-pair";
+    strip.setAttribute("data-card-panel-pair", "");
+    strip.setAttribute("data-pair-key", key);
+    cmds.forEach(function (cmd) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "dl-card-panel-pair-card";
+      button.setAttribute("data-pair-entry", String(cmd.id));
+      button.setAttribute("aria-label", "Show " + cmd.name);
+      var img = document.createElement("img");
+      img.alt = "";
+      var url = cardImage(cmd);
+      if (url) img.src = url;
+      var caption = document.createElement("span");
+      caption.className = "dl-card-panel-pair-name";
+      caption.textContent = cmd.name;
+      button.append(img, caption);
+      button.addEventListener("mouseenter", function () {
+        if (inactive() || pinned) return;
+        if (String(cmd.id) === String(pairActiveId)) return;
+        show(cmd.id, true);
+      });
+      button.addEventListener("mouseleave", function () {
+        if (inactive() || pinned) return;
+        if (!pairActiveId || String(currentId) === String(pairActiveId)) return;
+        show(pairActiveId, true);
+      });
+      button.addEventListener("focus", function () {
+        if (inactive() || pinned) return;
+        if (String(cmd.id) === String(pairActiveId)) return;
+        show(cmd.id, true);
+      });
+      button.addEventListener("blur", function () {
+        if (inactive() || pinned) return;
+        if (!pairActiveId || String(currentId) === String(pairActiveId)) return;
+        show(pairActiveId, true);
+      });
+      button.addEventListener("click", function () {
+        pairActiveId = String(cmd.id);
+        show(cmd.id);
+      });
+      strip.appendChild(button);
+    });
+    return strip;
+  }
+
+  function detailNodes(entry, includeFrame) {
     var name = labeled("h3", "dl-card-panel-name", entry.name);
     name.setAttribute("data-card-panel-name", "");
     var cost = labeled("div", "dl-card-panel-cost");
@@ -336,11 +414,12 @@
     var role = labeled("span", "dl-visually-hidden", roleLabel(entry.role));
     role.setAttribute("data-card-panel-role", "");
     role.setAttribute("aria-hidden", "true");
-    var roleControl = roleSelect(entry);
-    meta.append(qtyChip, zone, role, roleControl);
+    meta.append(qtyChip, zone, role, roleSelect(entry));
     var feedback = panelFeedback(entry);
     if (feedback) meta.appendChild(feedback);
-    var nodes = [buildFrame(entry), title, typeLine, oracle, meta];
+    var nodes = [];
+    if (includeFrame) nodes.push(buildFrame(entry));
+    nodes.push(title, typeLine, oracle, meta);
     var issues = issueTexts(entry);
     if (issues.length) {
       var list = document.createElement("ul");
@@ -351,11 +430,42 @@
       });
       nodes.push(list);
     }
+    return nodes;
+  }
+
+  function mountPanel(nodes) {
     var pin = ensurePin();
     var slot = ensureSlot();
     if (!pin.parentNode || panel.contains(pin)) nodes.push(pin);
     nodes.push(slot);
     panel.replaceChildren.apply(panel, nodes);
+  }
+
+  function renderPair(cmds, entry) {
+    var key = cmds.map(function (item) { return String(item.id); }).join("|");
+    var strip = panel.querySelector("[data-card-panel-pair]");
+    var body = panel.querySelector("[data-card-panel-body]");
+    var reusable = strip && body && strip.getAttribute("data-pair-key") === key;
+    if (!reusable) {
+      strip = buildPairStrip(cmds, key);
+      body = document.createElement("div");
+      body.className = "dl-card-panel-body";
+      body.setAttribute("data-card-panel-body", "");
+      mountPanel([strip, body]);
+    }
+    syncPairPressed(strip);
+    body.replaceChildren.apply(body, detailNodes(entry, false));
+  }
+
+  function renderEntry(entry) {
+    renderCount += 1;
+    panel.setAttribute("data-card-panel-render", String(renderCount));
+    var cmds = pairFor(entry);
+    if (cmds) {
+      renderPair(cmds, entry);
+      return;
+    }
+    mountPanel(detailNodes(entry, true));
   }
 
   function renderEmpty() {
@@ -364,12 +474,19 @@
     panel.replaceChildren(hint);
   }
 
-  function show(entryId) {
+  function show(entryId, preview) {
     if (!panel || inactive()) return;
     if (pinned && currentId) return;
     var entry = findEntry(entryId);
     if (!entry) return;
-    if (String(entry.id) === String(currentId) && panel.querySelector("[data-card-panel-name]")) return;
+    var cmds = pairFor(entry);
+    if (!preview) {
+      pairActiveId = cmds ? String(entry.id) : null;
+    }
+    if (String(entry.id) === String(currentId) && panel.querySelector("[data-card-panel-name]")) {
+      if (cmds) syncPairPressed(panel.querySelector("[data-card-panel-pair]"));
+      return;
+    }
     clearTimeout(hoverTimer);
     hoverTimer = null;
     lastHoverId = String(entry.id);
@@ -420,26 +537,64 @@
     show(id);
   }
 
-  function firstCommander(entries) {
-    for (var i = 0; i < entries.length; i += 1) {
-      if (entries[i].is_commander) return entries[i];
+  function trackedView(state) {
+    var root = document.querySelector(".dl-builder");
+    var enabled = !!(root && root.getAttribute("data-playmat-enabled") === "true");
+    var media = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
+    if (!enabled || (media && media.matches)) return "table";
+    var prefs = (state && state.preferences) || {};
+    return prefs.view_mode || "playmat";
+  }
+
+  function showDefault() {
+    if (!panel || inactive()) return;
+    var state = readState();
+    var entries = (state && state.entries) || [];
+    var cmds = commanderList(entries);
+    if (!cmds.length) {
+      pairActiveId = null;
+      renderEmpty();
+      return;
     }
-    return null;
+    pairActiveId = String(cmds[0].id);
+    currentId = null;
+    show(cmds[0].id);
+  }
+
+  function onViewChange() {
+    clearTimeout(hoverTimer);
+    hoverTimer = null;
+    lastHoverId = null;
+    if (pinned && currentId) return;
+    showDefault();
+    lastHoverId = null;
+  }
+
+  function onBuilderRender(state) {
+    var view = trackedView(state || readState());
+    if (seenView === null) {
+      seenView = view;
+      return;
+    }
+    if (view === seenView) return;
+    seenView = view;
+    onViewChange();
   }
 
   function boot() {
     if (!panel) return;
     if (document.querySelector("[data-card-panel-pin]")) ensurePin();
     if (inactive()) return;
-    var state = readState();
-    var entries = (state && state.entries) || [];
-    if (!entries.length) {
-      renderEmpty();
-      return;
-    }
-    var commander = firstCommander(entries);
-    if (commander) show(commander.id);
-    else show(entries[0].id);
+    showDefault();
+  }
+
+  function attachBuilder() {
+    var api = window.DeckLabBuilder;
+    if (!api || typeof api.getState !== "function") return false;
+    seenView = trackedView(api.getState());
+    if (typeof api.onRender === "function") api.onRender(onBuilderRender);
+    boot();
+    return true;
   }
 
   window.DeckLabCardPanel = {
@@ -450,5 +605,10 @@
   if (!panel) return;
   document.addEventListener("deck-lab:entry-hover", onHover);
   document.addEventListener("deck-lab:focus-entry", onFocus);
-  boot();
+  if (!attachBuilder()) {
+    boot();
+    document.addEventListener("deck-lab:ready", function () {
+      attachBuilder();
+    });
+  }
 })();

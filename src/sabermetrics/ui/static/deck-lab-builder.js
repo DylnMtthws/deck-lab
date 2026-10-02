@@ -1151,22 +1151,33 @@
   };
   _dispatchBuilderEvent("deck-lab:ready", { api: window.DeckLabBuilder });
 
-  // Delegated hover listener on #table-view
+  // Delegated hover on the decklist and the playmat, including commander-zone cards.
   var _hoverLastId = null;
+  var _hoverView = activeView();
   function _onHover(event) {
     var target = event.target;
     var entryEl = target.closest && target.closest("[data-entry-id]");
     if (!entryEl) return;
+    var playmat = document.getElementById("playmat-view");
+    if (playmat && typeof playmat.contains === "function" && playmat.contains(entryEl) && !entryEl.classList.contains("dl-mat-card")) return;
     var id = entryEl.getAttribute("data-entry-id");
     if (id === _hoverLastId) return;
     _hoverLastId = id;
     _dispatchBuilderEvent("deck-lab:entry-hover", { entryId: id });
   }
-  var _tableView = document.getElementById("table-view");
-  if (_tableView) {
-    _tableView.addEventListener("mouseover", _onHover);
-    _tableView.addEventListener("focusin", _onHover);
+  function _bindHoverRoot(root) {
+    if (!root) return;
+    root.addEventListener("mouseover", _onHover);
+    root.addEventListener("focusin", _onHover);
   }
+  _bindHoverRoot(document.getElementById("table-view"));
+  _bindHoverRoot(document.getElementById("playmat-view"));
+  window.DeckLabBuilder.onRender(function () {
+    var view = activeView();
+    if (view === _hoverView) return;
+    _hoverView = view;
+    _hoverLastId = null;
+  });
 
   if (tagsDialog && new URLSearchParams(location.search).get("panel") === "tags") { tagsDialog.showModal(); if (tagInput) tagInput.focus(); }
   try { var pending = JSON.parse(localStorage.getItem(recoveryKey)); if (pending && pending.commands) command(pending.commands, pending.mutation_id, pending.expected_revision); } catch (_) {}
