@@ -151,7 +151,10 @@ def _layout() -> dict:
     )
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or "layout probe failed")
-    _LAYOUT = json.loads(result.stdout.strip().splitlines()[-1])
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    if "skip" in data:
+        pytest.skip(data["skip"])
+    _LAYOUT = data
     return _LAYOUT
 
 
@@ -183,6 +186,8 @@ def test_no_native_controls_in_rail() -> None:
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or "native probe failed")
     payload = json.loads(result.stdout.strip().splitlines()[-1])
+    if "skip" in payload:
+        pytest.skip(payload["skip"])
     assert payload["native"] == []
 
 

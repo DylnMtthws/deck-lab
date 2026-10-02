@@ -1,22 +1,12 @@
 // Computed layout for D01 amendment 1. Loads the real builder stylesheets.
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-const require = createRequire(import.meta.url);
+import { launchChromiumOrSkip } from "./browser_probe.mjs";
 
 const [builderHtml, staticDir] = process.argv.slice(2);
-const playwrightPath = [
-  "/Users/dylan/Projects/quarry/node_modules/playwright-core",
-  "/Users/dylan/Projects/quarry/node_modules/playwright",
-].find((candidate) => fs.existsSync(candidate));
-if (!playwrightPath) {
-  console.error("playwright-core is required for the toolbar layout check");
-  process.exit(1);
-}
-const { chromium } = require(playwrightPath);
+
 
 const raw = fs.readFileSync(builderHtml, "utf8");
 const start = raw.indexOf('<div class="dl-builder-toolbar"');
@@ -90,7 +80,7 @@ function measure() {
   };
 }
 
-const browser = await chromium.launch();
+const browser = await launchChromiumOrSkip();
 const result = {};
 try {
   for (const width of [1440, 1280]) {

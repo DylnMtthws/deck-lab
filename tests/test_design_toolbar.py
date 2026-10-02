@@ -199,7 +199,10 @@ def _layout() -> dict:
     )
     if result.returncode != 0:
         pytest.fail(result.stderr or result.stdout or "toolbar layout harness failed")
-    return json.loads(result.stdout.strip().splitlines()[-1])
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    if "skip" in data:
+        pytest.skip(data["skip"])
+    return data
 
 
 def test_search_icon_does_not_overlap_input_text() -> None:
