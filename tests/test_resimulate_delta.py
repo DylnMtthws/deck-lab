@@ -882,6 +882,10 @@ def test_ui_states_running_result_delta_stale_and_absence() -> None:
     assert states["delta"] == ("goldfish_turns_to_assembly: 0.250 → 0.400 probability")
     assert states["unseen"] == "unseen_card_count: 7 → 4"
     assert states["rerunAfterResult"] == ""
+    assert states["resultAfterRender"] == states["result"]
+    assert states["statusAfterRender"] == "Assembly check complete."
+    assert states["runningAfterRender"] == states["running"]
+    assert states["disabledAfterRunningRender"] is True
 
     stale = _harness("stale")
     assert stale["stale"] == "Out of date: the list changed since this run"

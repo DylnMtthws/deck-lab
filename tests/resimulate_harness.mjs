@@ -369,10 +369,14 @@ if (scenario === "states") {
   await flush();
   await flush();
   const running = snapshot();
+  html.dispatchEvent({ type: "deck-lab:render", detail: { state: initialState } });
+  const runningAfterRender = snapshot();
   const firstDelay = await fireNext();
   const stillRunning = snapshot();
   const secondDelay = await fireNext();
   const finished = snapshot();
+  html.dispatchEvent({ type: "deck-lab:render", detail: { state: initialState } });
+  const afterRender = snapshot();
   process.stdout.write(JSON.stringify({
     sectionId: dialog.id,
     title: running.title,
@@ -389,6 +393,10 @@ if (scenario === "states") {
     delta: finished.delta,
     unseen: finished.unseen,
     rerunAfterResult: finished.rerun,
+    resultAfterRender: afterRender.result,
+    statusAfterRender: afterRender.status,
+    runningAfterRender: runningAfterRender.status,
+    disabledAfterRunningRender: runningAfterRender.runDisabled,
     dialogOpen: finished.dialogOpen,
   }));
 } else if (scenario === "error") {

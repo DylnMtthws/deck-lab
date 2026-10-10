@@ -309,8 +309,6 @@
           }).catch(function () {
             if (sequence === viewRefreshSequence) latestRevision = "";
           });
-        } else if (Object.prototype.hasOwnProperty.call(state, "simulation_view")) {
-          render(state.simulation_view || {});
         } else syncReadiness();
       }
       syncReadiness();
