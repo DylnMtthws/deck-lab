@@ -18,7 +18,6 @@
     <a class="dl-workspace-brand" href="{{ url_for('builder.library') if not shared else '#' }}" aria-label="Deck Lab" data-dl-tip="Deck Lab home">{% include 'partials/brand_mark.html' %}</a>
     <div class="dl-workspace-crumb"><span>Build</span><i>/</i><button id="deck-title" type="button" {% if shared %}disabled{% endif %}>{{ document.title }}</button></div>
     {% if not shared %}<button class="dl-save-state dl-chip is-ok" id="save-state" type="button" title="Click to retry a failed save"><span class="dl-dot" aria-hidden="true"></span><span data-save-label>Saved</span></button><span class="dl-header-divider" aria-hidden="true"></span><button class="dl-icon-button dl-history-button" type="button" data-undo disabled aria-label="Undo" data-dl-tip="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12"/></svg></button><button class="dl-icon-button dl-history-button" type="button" data-redo disabled aria-label="Redo" data-dl-tip="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H12"/></svg></button>{% endif %}
-    {% if not shared and config.DECK_LAB_GOLDFISH_ENABLED %}<a class="dl-button" href="{{ url_for('goldfish.deck', deck_id=document.id) }}">Diagnostics</a>{% endif %}
     <span class="push"></span>
     {% if config.DECK_LAB_PLAYMAT_ENABLED %}<div class="dl-segments dl-view-switch" aria-label="Builder view"><button type="button" data-view="playmat" aria-pressed="false">Playmat</button><button type="button" data-view="table" aria-pressed="true">Decklist</button></div>{% endif %}
     {% if not shared %}<details class="dl-export-menu" data-export-menu data-dismiss-menu><summary class="dl-button" aria-haspopup="menu" aria-controls="deck-export-actions">Export<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="dl-popover" id="deck-export-actions" role="menu"><button type="button" role="menuitem" data-export-copy><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Copy list</span><span class="dl-menu-desc">Moxfield, MTGO, plain text</span></span></button><button type="button" role="menuitem" data-export-copy-archidekt><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Copy for Archidekt</span><span class="dl-menu-desc">With [Commander] tags</span></span></button><a role="menuitem" data-export-download href="/build/deck/{{ document.id }}/export.txt?format=plain" download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Download .txt</span><span class="dl-menu-desc">Plain text file</span></span></a><a role="menuitem" data-export-buy target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h5"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Buy deck</span><span class="dl-menu-desc">Opens Mana Pool</span></span></a><p class="dl-export-status" data-export-status role="status" aria-live="polite"></p></div></details>{% include 'partials/account_menu.html' %}{% endif %}
@@ -106,7 +105,11 @@
                 </section>
                 <section class="dl-rail-tags"><h2 class="dl-eyebrow">Tags</h2><div class="dl-builder-tag-summary" data-tag-summary></div>{% if not shared %}<button class="dl-button is-ghost is-sm" type="button" data-tags-open>Manage</button>{% endif %}</section>
                 <section data-ext-section="evidence"><h2 class="dl-eyebrow">Tournament evidence</h2></section>
-                <section data-ext-section="simulation"><h2 class="dl-eyebrow">Goldfish simulation</h2></section>
+                <section class="dl-goldfish-opener">
+                    <h2 class="dl-eyebrow">Goldfish simulator</h2>
+                    <p>Check whether this deck can assemble its plan on its own.</p>
+                    <button class="dl-button is-sm" type="button" data-goldfish-open aria-haspopup="dialog" aria-controls="goldfish-dialog">Open simulator</button>
+                </section>
                 <div id="color-stats" hidden></div>
             </div>
             <div class="dl-rail-pane" id="rail-pane-tools" data-rail-pane="tools" role="tabpanel" aria-labelledby="rail-tab-tools" hidden>
@@ -117,6 +120,15 @@
         </div>
     </aside>
 </div>
+<dialog class="dl-dialog dl-goldfish-dialog" id="goldfish-dialog" aria-labelledby="goldfish-dialog-title" aria-describedby="goldfish-dialog-description">
+    <div class="dl-goldfish-dialog-head">
+        <div><div class="dl-eyebrow">Deck Lab · Goldfish</div><h2 id="goldfish-dialog-title">Solo assembly check</h2></div>
+        <button class="dl-icon-button" type="button" data-goldfish-close aria-label="Close goldfish simulator">×</button>
+    </div>
+    <p id="goldfish-dialog-description" class="dl-goldfish-description">The current simulator checks whether a deck can assemble its plan by itself. It does not predict multiplayer win rates. Opening-hand consistency, turn-by-turn development, commander-loss, wipe-recovery, and finish tests are still being built.</p>
+    <p class="dl-goldfish-readiness" data-goldfish-readiness role="status" aria-live="polite">Checking deck readiness…</p>
+    <div data-goldfish-sim-slot></div>
+</dialog>
 {% if not shared %}
 <dialog class="dl-dialog" id="commanders-dialog"><form method="dialog"><div class="dl-dialog-head"><h2>Commanders</h2><button class="dl-icon-button" value="cancel" aria-label="Close commanders" data-dl-tip="Close commanders">×</button></div>{% include 'deck_lab/_commander_picker.html' %}<button class="dl-button dl-button-primary" value="save">Save commanders</button></form></dialog>
 <dialog class="dl-dialog dl-tags-dialog" id="deck-tags-dialog" aria-labelledby="deck-tags-title"><form method="dialog"><div class="dl-dialog-head"><div><div class="dl-eyebrow">Deck tags</div><h2 id="deck-tags-title">Describe how this deck plays</h2></div><button class="dl-icon-button" value="cancel" aria-label="Close tags" data-dl-tip="Close tags">×</button></div><p class="dl-muted">Choose shared tags so players use the same names for common strategies, styles, and mechanics.</p><div class="dl-tag-list" data-deck-tag-list></div><div class="dl-tag-entry"><label for="deck-tag-input">Find or create a tag</label><div><input class="dl-field" id="deck-tag-input" list="deck-tag-options" maxlength="32" autocomplete="off" placeholder="Try Turbo or Midrange" data-tag-input><button class="dl-button dl-button-primary" type="button" data-tag-add>Add</button></div></div><datalist id="deck-tag-options" data-tag-options></datalist><output class="dl-tag-error" data-tag-error aria-live="polite"></output><button class="dl-button" value="done">Done</button></form></dialog>

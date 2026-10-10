@@ -206,6 +206,81 @@ def execute_simulation(db_path: str, simulation_id: str) -> None:
         )
 
 
+def prepare_simulation(
+    path: Path,
+    document: dict[str, Any],
+) -> tuple[str, str]:
+    """Freeze the submitted list and pin its comparable successful run.
+
+    Legacy outcomes without a document snapshot cannot establish card deltas.
+    The native simulator derives seeds from each deck; this is an unpaired
+    before/after comparison, not a paired-seed experiment.
+    """
+    provenance = load_provenance(path, document)
+    try:
+        digest = candidate_from_document(document, provenance).deck_sha256
+    except (ValueError, ValidationError):
+        digest = ""
+    previous = db.DeckDocumentSimulationsRepo(path).previous_done(
+        str(document["id"]), ""
+    )
+    comparison_id = None
+    if previous is not None:
+        snapshot = _stored_payload(previous.get("result_json")).get("snapshot")
+        if isinstance(snapshot, dict):
+            # Lazy import: experiments also reuses conversion helpers above.
+            from sabermetrics.goldfish_experiments import _check_lineage
+
+            try:
+                _check_lineage(snapshot, document)
+            except ValueError as exc:
+                detail = str(exc).replace(
+                    "start a new baseline instead.",
+                    "use a separate deck history for a different commander.",
+                )
+                raise ValueError(
+                    detail + " Restore at most three replacements from the last "
+                    "successful run, or use a separate deck history."
+                ) from exc
+            comparison_id = str(previous["id"])
+    source_baseline_id = None
+    source_baseline_outcome = None
+    if comparison_id is None and document.get("source_kind") == "candidate":
+        source_id = str(document.get("source_id") or "")
+        source = db.CedhCandidatesRepo(path).get(source_id) if source_id else None
+        outcome = parse_stored_result(source.get("simulation_json") if source else None)
+        if outcome is not None and digest and outcome.deck_sha256 == digest:
+            source_baseline_id = source_id
+            source_baseline_outcome = outcome.model_dump(mode="json")
+    return digest, json.dumps(
+        {
+            "schema_version": "decklab-native-run.v1",
+            "snapshot": document,
+            "provenance": provenance.model_dump(mode="json"),
+            "comparison_id": comparison_id,
+            "source_baseline_id": source_baseline_id,
+            "source_baseline_outcome": source_baseline_outcome,
+        }
+    )
+
+
+def _stored_payload(raw: object) -> dict[str, Any]:
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else None
+    except (ValueError, TypeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _with_outcome(
+    repo: db.DeckDocumentSimulationsRepo, simulation_id: str, outcome: dict[str, Any]
+) -> str:
+    row = repo.get(simulation_id)
+    payload = _stored_payload(row.get("result_json") if row else None)
+    payload["outcome"] = outcome
+    return json.dumps(payload)
+
+
 def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
     """Describe the latest run, its delta, and whether the list has changed."""
     path = Path(db_path)
@@ -273,8 +348,13 @@ def _execute_loaded(
     repo: db.DeckDocumentSimulationsRepo,
     row: dict[str, Any],
 ) -> None:
-    document = DeckDocumentRepo(path).get(str(row["owner_id"]), str(row["deck_id"]))
-    provenance = load_provenance(path, document)
+    stored = _stored_payload(row.get("result_json"))
+    document = stored.get("snapshot")
+    if not isinstance(document, dict):
+        raise TypeError("submitted deck snapshot is unavailable; rerun this deck")
+    if str(document.get("id")) != str(row["deck_id"]):
+        raise ValueError("submitted deck snapshot does not match this deck")
+    provenance = CandidateProvenance.model_validate(stored.get("provenance"))
     refusal = illegal_list_reason(document)
     candidate: DeckCandidate | None
     try:
@@ -352,7 +432,7 @@ def _execute_loaded(
         deck_sha256=digest,
         revision=revision,
         reason="",
-        result_json=json.dumps({"outcome": outcome.model_dump(mode="json")}),
+        result_json=_with_outcome(repo, simulation_id, outcome.model_dump(mode="json")),
     )
 
 
@@ -380,7 +460,7 @@ def _store_absence(
         deck_sha256=deck_sha256,
         revision=revision,
         reason=shown,
-        result_json=json.dumps({"outcome": payload.model_dump(mode="json")}),
+        result_json=_with_outcome(repo, simulation_id, payload.model_dump(mode="json")),
     )
 
 
@@ -400,10 +480,24 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
         "measures": result.measures,
         "does_not_measure": result.does_not_measure,
         "unseen_card_count": result.unseen_card_count,
+        "games": result.games,
+        "modeled_cards": result.modeled_cards,
+        "inert_card_count": result.inert_card_count,
+        "unauthored_card_count": result.unauthored_card_count,
         "probability": None,
         "turn": None,
         "text": result.metric,
     }
+    strategy = (result.raw_document or {}).get("strategy_pack")
+    if isinstance(strategy, dict) and isinstance(
+        strategy.get("assembly_objectives"), list
+    ):
+        payload["assembly_objectives"] = strategy["assembly_objectives"]
+    if _no_authored_objective(result):
+        payload["text"] = (
+            "No authored assembly objective for this deck; assembly consistency is unknown."
+        )
+        return payload
     if headline is not None:
         payload["probability"] = headline.probability
         payload["turn"] = headline.turn
@@ -414,15 +508,26 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
     return payload
 
 
+def _no_authored_objective(result: SimulationResult) -> bool:
+    strategy = (result.raw_document or {}).get("strategy_pack")
+    return isinstance(strategy, dict) and strategy.get("assembly_objectives") == []
+
+
 def _delta_for(
     path: Path,
     document: dict[str, Any],
     simulation_id: str,
     after: SimulationResult,
 ) -> tuple[dict[str, Any] | None, str]:
+    if _no_authored_objective(after):
+        return None, "No authored assembly objective; assembly consistency is unknown."
     baseline = _baseline_result(path, document, simulation_id)
     if baseline is None:
         return None, NO_BASELINE
+    if _no_authored_objective(baseline):
+        return None, "Earlier run has no authored assembly objective to compare."
+    if not _comparable(baseline, after):
+        return None, "Earlier run exists, but its simulator model or settings differ."
     before_head = baseline.headline
     after_head = after.headline
     unseen = {
@@ -433,11 +538,15 @@ def _delta_for(
             f"{after.unseen_card_count}"
         ),
     }
+    note = (
+        "Unpaired before/after; seeds differ by deck. Catalog changes are not isolated."
+    )
     if before_head is None or after_head is None:
         return {
             "metric": after.metric,
             "unit": "probability",
             "unseen_card_count": unseen,
+            "note": note,
         }, ""
     text = (
         f"{after.metric}: {before_head.probability:.3f} → "
@@ -450,7 +559,63 @@ def _delta_for(
         "after": after_head.probability,
         "text": text,
         "unseen_card_count": unseen,
+        "note": note,
     }, ""
+
+
+def _comparable(before: SimulationResult, after: SimulationResult) -> bool:
+    """Require the same model/configuration, excluding deck and seed.
+
+    Export hashes cover only the selected deck cards, and manifest hashes
+    include export time. They do not identify a global card catalog version.
+    """
+    fields = ("metric", "objective_turn", "simulator_version", "games", "result_schema")
+    if any(getattr(before, name) != getattr(after, name) for name in fields):
+        return False
+    left, right = before.raw_document, after.raw_document
+    if left is None or right is None:
+        # Native CLI results have typed metadata but no HTTP envelope.
+        return left is None and right is None
+    if before.deck_sha256 == after.deck_sha256:
+        left_cards = (left.get("card_data") or {}).get(
+            "cards_sha256"
+        ) or before.cards_sha256
+        right_cards = (right.get("card_data") or {}).get(
+            "cards_sha256"
+        ) or after.cards_sha256
+        if left_cards and right_cards and left_cards != right_cards:
+            return False
+    selectors = {
+        "strategy_pack": (
+            "id",
+            "version",
+            "content_sha256",
+            "derived",
+            "play_policy",
+            "assembly_objectives",
+            "declared_table_assumptions",
+        ),
+        "card_data": ("source_view", "corpus_row_count"),
+        "simulation": (
+            "requested_scenario",
+            "scenario",
+            "games",
+            "objective_turn",
+            "sweep",
+            "ablations",
+            "ablate",
+        ),
+    }
+    for section, names in selectors.items():
+        left_section, right_section = left.get(section), right.get(section)
+        if not isinstance(left_section, dict) or not isinstance(right_section, dict):
+            return False
+        if any(left_section.get(name) != right_section.get(name) for name in names):
+            return False
+    return all(
+        left.get(name) == right.get(name)
+        for name in ("scenario", "sweep", "ablations", "ablate")
+    )
 
 
 def _baseline_result(
@@ -458,21 +623,34 @@ def _baseline_result(
     document: dict[str, Any],
     exclude_id: str,
 ) -> SimulationResult | None:
-    """Candidate simulation when the deck came from one, else the prior run.
-
-    A candidate deck does not fall through to an earlier document run when
-    that candidate has no successful simulation.
-    """
-    if document.get("source_kind") == "candidate" and document.get("source_id"):
-        row = db.CedhCandidatesRepo(path).get(str(document["source_id"]))
-        raw = row.get("simulation_json") if row else None
-        return parse_stored_result(raw)
-    previous = db.DeckDocumentSimulationsRepo(path).previous_done(
-        str(document.get("id") or ""), exclude_id
-    )
-    if previous is None:
+    """Read the baseline pinned when this run was submitted."""
+    repo = db.DeckDocumentSimulationsRepo(path)
+    current = repo.get(exclude_id)
+    if current is None:
         return None
-    return parse_stored_result(previous.get("result_json"))
+    stored = _stored_payload(current.get("result_json"))
+    if not isinstance(stored.get("snapshot"), dict):
+        return None
+    comparison_id = stored.get("comparison_id")
+    if comparison_id:
+        previous = repo.get(str(comparison_id))
+        if (
+            previous is None
+            or previous.get("status") != "done"
+            or previous.get("deck_id") != current.get("deck_id")
+            or previous.get("owner_id") != current.get("owner_id")
+            or not isinstance(
+                _stored_payload(previous.get("result_json")).get("snapshot"), dict
+            )
+        ):
+            return None
+        return parse_stored_result(previous.get("result_json"))
+    source_id = stored.get("source_baseline_id")
+    if source_id:
+        outcome = parse_stored_result(json.dumps(stored.get("source_baseline_outcome")))
+        if outcome is not None and outcome.deck_sha256 == current.get("deck_sha256"):
+            return outcome
+    return None
 
 
 def _hash_of(path: Path, document: dict[str, Any]) -> str | None:

@@ -64,7 +64,8 @@ def test_rail_sections_routed_to_correct_tabs() -> None:
         "sample": "tools",
         "feedback": "tools",
         "evidence": "deck",
-        "simulation": "deck",
+        # Goldfish controls now live in the builder dialog.
+        "simulation": None,
         "bar": True,
         "src": True,
     }

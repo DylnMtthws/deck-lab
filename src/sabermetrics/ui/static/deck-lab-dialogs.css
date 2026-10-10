@@ -1,5 +1,25 @@
 /* Owner: D07 — menus, dialogs, and Research chips. */
 
+.dl-goldfish-opener { display: grid; gap: 7px; }
+.dl-goldfish-opener p { margin: 0 0 3px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.dl-goldfish-opener button { justify-self: start; }
+.dl-goldfish-opener button:focus-visible, .dl-goldfish-dialog button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.dl-goldfish-dialog { width: min(560px, calc(100% - 28px)); max-height: min(720px, calc(100dvh - 32px)); overflow: auto; }
+.dl-goldfish-dialog > * { margin-inline: 22px; }
+.dl-goldfish-dialog > :first-child { margin-top: 22px; }
+.dl-goldfish-dialog > :last-child { margin-bottom: 22px; }
+.dl-goldfish-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.dl-goldfish-dialog-head h2 { margin: 5px 0 0; font-size: 21px; }
+.dl-goldfish-description { color: var(--muted); font-size: 12px; line-height: 1.55; margin-top: 14px; }
+.dl-goldfish-readiness { border-left: 2px solid var(--brand); color: var(--body); font-size: 12px; line-height: 1.45; margin-top: 15px; padding: 2px 0 2px 10px; }
+.dl-goldfish-readiness:empty { display: none; }
+.dl-sim { display: grid; gap: 10px; margin-top: 15px; }
+.dl-sim-status { margin: 0; color: var(--muted); font-size: 13px; }
+.dl-sim-result, .dl-sim-delta, .dl-sim-unseen { margin: 0; font-size: 13px; line-height: 1.5; }
+.dl-sim-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.dl-sim-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dl-goldfish-dialog [data-simulate-run]:disabled, .dl-goldfish-dialog [data-simulate-rerun]:disabled { cursor: not-allowed; opacity: .55; }
+
 /* Keyboard shortcuts dialog — two-column table */
 .dl-hotkeys-help { width: min(520px, calc(100% - 28px)); }
 .dl-hotkeys-table { width: 100%; border-collapse: collapse; }

@@ -15,6 +15,7 @@ EXPECTED_KEYS = [
     "command",
     "focusEntry",
     "freeZonePosition",
+    "getSaveState",
     "getSelection",
     "getState",
     "onRender",

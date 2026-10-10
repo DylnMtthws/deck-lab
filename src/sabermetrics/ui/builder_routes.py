@@ -371,12 +371,46 @@ def simulate_deck(deck_id: str):
     inserts the queued row and returns 202 with the status URL.
     """
     try:
-        _repo().get(current_user.id, deck_id)
+        document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         return jsonify(error="not_found"), 404
     db_path = Path(current_app.config["DB_PATH"])
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify(error="invalid_request", message="Expected a JSON object."), 400
+    if "expected_revision" in body:
+        expected = body["expected_revision"]
+        if not isinstance(expected, int) or isinstance(expected, bool):
+            return (
+                jsonify(
+                    error="invalid_revision",
+                    message="Expected an integer deck revision.",
+                ),
+                400,
+            )
+        if expected != int(document.get("revision") or 0):
+            return (
+                jsonify(
+                    error="revision_conflict",
+                    message="The deck changed. Reload it before running.",
+                    revision=document.get("revision"),
+                ),
+                409,
+            )
+    from sabermetrics.deck_simulation import prepare_simulation
+
+    try:
+        digest, frozen = prepare_simulation(db_path, document)
+    except ValueError as exc:
+        return jsonify(error="comparison_limit", message=str(exc)), 409
     simulations = db.DeckDocumentSimulationsRepo(db_path)
-    simulation_id = simulations.insert(deck_id=deck_id, owner_id=str(current_user.id))
+    simulation_id = simulations.insert(
+        deck_id=deck_id,
+        owner_id=str(current_user.id),
+        deck_sha256=digest,
+        revision=int(document.get("revision") or 0),
+        result_json=frozen,
+    )
     try:
         _SIM_EXECUTOR.submit(execute_simulation, str(db_path), simulation_id)
     except RuntimeError as exc:

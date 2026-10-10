@@ -1,3 +1,43 @@
+# Build-integrated Goldfish — correction, 2026-10-10
+
+## Current architecture
+
+Goldfish is a selectable feature within Build on an existing deck. It opens in a builder dialog and invokes the existing native simulator through the established owner-only `/api/decks/<id>/simulate` endpoint. There is no separate Goldfish navigation destination. Old page URLs redirect into Build; the separate Python diagnostics POST returns 410. Its stored results remain an owner-only archive, not inputs to native comparisons.
+
+The earlier Python zipapp milestone below is historical and superseded. It was the wrong execution path: the existing C++ engine already provides seeded batches, effects, policy, statistics, coverage, and a private QA service. The five diagnostics must extend that engine.
+
+Native before/after deltas are unpaired descriptive comparisons. Seeds derive from each deck hash. Pack/model/configuration changes invalidate comparisons; per-deck export hashes naturally change on swaps and are not catalog-version identifiers. The current contract cannot fully isolate catalog revisions.
+
+The native UI currently reports **assembly**, not the five-test framework or a win forecast. In particular, pattern labels are not proof of correctly timed lethal resolution. Unsupported and inert cards limit interpretation, and opponent-dependent value cannot be inferred from strict goldfish.
+
+## Evidence and bounded handoffs
+
+| Owner | Task / KPI | Evidence |
+| --- | --- | --- |
+| Sol 6.1 architecture | Verify native reuse and benchmark 1k/10k without new service | Existing CLI single-thread medians 48.8/422.7 ms for Kinnan; derived-generic 48.4/421.3 ms, three repeats including startup and JSON. Earlier auto-threaded CLI runs were 19/99 ms. |
+| Sol 6.1 architecture | Run supplied Vivi and Sauron through QA native service | Both HTTP 200, 1,000 games through turn seven; HTTP totals 3.25 s / 0.48 s include card export and service overhead. Public receipt: native-qa-audit.jsonl in local handoff artifacts. |
+| Luna 6 UI | Builder-only dialog, existing native transport, ready/saved deck gating, no shared writes | Targeted UI harness and live QA acceptance recorded with final release. |
+| Sol 6.1 backend | Freeze submitted list; enforce no more than three replacements before comparison | Queue-edit and three-swap targeted regressions recorded with final release. |
+| Coordinator | Retire alternate live execution, redirect old URLs, QA-only release | Route regressions; deployment identity and HTTPS acceptance receipts. |
+| Sol 6.1 skeptic | Independently challenge correctness and misleading claims | Final review findings must be resolved before release. Fable is unavailable in the configured agent/provider set. |
+
+## Native extension sequence
+
+1. Add versioned diagnostic request/output to the existing simulator service. Reuse indexed seeds and batch execution; record native engine/pack/card-catalog identity, policy, scenario, and effective settings with immutable reports.
+2. Add visible-hand mulligan policy, turn-end observation, and continue-after-assembly mode. Validate no library peeking, legal mana payment, correct multiplayer first-turn draw, and reproducible sample traces. Opening and development KPIs must have explicit pass predicates and denominators.
+3. Add commander removal and tax plus creature-destruction/recovery transitions to the native game state. Test relevant replacement, death, protection, and delayed effects rather than deleting arbitrary state.
+4. Author supported Vivi/Sauron mechanics and win resolution. Cover damage/drain thresholds, actual library/death conditions, and combo prerequisite/timing cases. Report unknown for unsupported finishing lines; never manufacture zero or success.
+5. Add all five results to the same Build dialog. Compare fixed-policy/settings runs, maximum three replacements per step; retain prior and original baseline with uncertainty. Validate promising changes on held-out seeds. Native legacy comparisons are not paired-seed experiments because their default seeds derive from deck hashes.
+6. Connect Research Assistant and generator to structured failures and constrained swap proposals, retaining theme, budget, interaction, and commander independence. Advice and automatic application are separate user choices. QA external AI remains disabled by environment policy.
+
+## Correction validation before QA
+
+The full app run completed with 2,037 passing and 31 skipped; two old assertions expected the removed rail controls and the prior builder API key list. Those assertions were updated for the intended dialog and synchronous save-state API. The subsequent affected-file run passed all 59 tests, including the two new empty-objective regressions. Ruff, Black on changed Python files, JavaScript syntax, and mypy (147 source files) pass. Sol 6.1 independent review approved the scoped native Build correction.
+
+The final QA image and HTTPS/native browser acceptance are recorded in the infrastructure release receipts. No production deployment is authorized.
+
+## Historical prototype record (superseded)
+
 # Goldfish Lab QA milestone — 2026-10-10
 
 ## Product intent and delivery boundary

@@ -1,0 +1,380 @@
+{
+  "purpose": "Existing native simulator reuse verification; QA only",
+  "native_cli_single_thread_median_ms": {
+    "kinnan": {
+      "1000": 48.8,
+      "10000": 422.7
+    },
+    "derived_generic": {
+      "1000": 48.4,
+      "10000": 421.3
+    }
+  },
+  "repetitions": 3,
+  "http_runs": [
+    {
+      "reference": "high-power-vivi",
+      "status": 200,
+      "wall_ms": 3248.547,
+      "headers": {
+        "X-Sim-Version": "0.2.0",
+        "X-Sim-Threads": "1",
+        "X-Sim-Result-Schema": "cedh-simulation-result.v3"
+      },
+      "result": {
+        "schema_version": "cedh-simulation-result.v3",
+        "metric": {
+          "does_not_measure": "deck strength, win rate, or card quality",
+          "id": "goldfish_turns_to_assembly",
+          "measures": "turns until a declared pattern is assembled, unopposed"
+        },
+        "coverage": {
+          "commander_cards": 1,
+          "inert_by_reason": {
+            "interaction": 12,
+            "opponent_permanent": 1,
+            "opponent_trigger": 1
+          },
+          "inert_cards": 14,
+          "library_cards": 99,
+          "modeled_cards": 26,
+          "total_cards": 100,
+          "unauthored_cards": 60
+        },
+        "strategy_pack": {
+          "assembly_objectives": [
+            "breach_freeze_led_empty_library"
+          ],
+          "content_sha256": "sha256:0b128cb3ddf53ad0b01cd3ba08da5f6daf7ea61ae5cb304e53780aecf44e89c0",
+          "declared_table_assumptions": [
+            "goldfish with no simulated opponents",
+            "three-opponent card-text context",
+            "opponents collectively expose WUBRG for conditional mana sources",
+            "on the play"
+          ],
+          "derived": true,
+          "id": "derived-generic",
+          "inherited_patterns": [
+            "breach_freeze_led_empty_library"
+          ],
+          "known_blind_spots": [
+            "only inherited card-set patterns can terminate a run",
+            "unlisted card text is unauthored and only dilutes draws",
+            "no stack, combat, opponent model, mulligans, commander tax, legend rule, or summoning sickness"
+          ],
+          "patterns": [
+            {
+              "name": "breach_freeze_led_empty_library",
+              "source": "library",
+              "terminal_state": "assembly_proxy"
+            }
+          ],
+          "play_policy": "derived-role-policy.v1",
+          "rank_overrides": [],
+          "version": "1.0.0"
+        },
+        "assembly_cdf": [
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 1,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 2,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 3,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 4,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 1,
+            "probability": 0.001,
+            "turn": 5,
+            "wilson_95": {
+              "high": 0.0056425585979579355,
+              "low": 0.00017654637062607809
+            }
+          },
+          {
+            "assembled_games": 1,
+            "probability": 0.001,
+            "turn": 6,
+            "wilson_95": {
+              "high": 0.0056425585979579355,
+              "low": 0.00017654637062607809
+            }
+          },
+          {
+            "assembled_games": 1,
+            "probability": 0.001,
+            "turn": 7,
+            "wilson_95": {
+              "high": 0.0056425585979579355,
+              "low": 0.00017654637062607809
+            }
+          },
+          {
+            "assembled_games": 2,
+            "probability": 0.002,
+            "turn": 8,
+            "wilson_95": {
+              "high": 0.007262807863492177,
+              "low": 0.000548643588120728
+            }
+          },
+          {
+            "assembled_games": 2,
+            "probability": 0.002,
+            "turn": 9,
+            "wilson_95": {
+              "high": 0.007262807863492177,
+              "low": 0.000548643588120728
+            }
+          },
+          {
+            "assembled_games": 3,
+            "probability": 0.003,
+            "turn": 10,
+            "wilson_95": {
+              "high": 0.008783014053503173,
+              "low": 0.0010207838811386186
+            }
+          },
+          {
+            "assembled_games": 4,
+            "probability": 0.004,
+            "turn": 11,
+            "wilson_95": {
+              "high": 0.010239556277262253,
+              "low": 0.0015565881404084308
+            }
+          },
+          {
+            "assembled_games": 6,
+            "probability": 0.006,
+            "turn": 12,
+            "wilson_95": {
+              "high": 0.01302816824185209,
+              "low": 0.0027526691418763745
+            }
+          }
+        ],
+        "unauthored_cards": null,
+        "known_misclassifications": null
+      }
+    },
+    {
+      "reference": "high-power-sauron",
+      "status": 200,
+      "wall_ms": 476.334,
+      "headers": {
+        "X-Sim-Version": "0.2.0",
+        "X-Sim-Threads": "1",
+        "X-Sim-Result-Schema": "cedh-simulation-result.v3"
+      },
+      "result": {
+        "schema_version": "cedh-simulation-result.v3",
+        "metric": {
+          "does_not_measure": "deck strength, win rate, or card quality",
+          "id": "goldfish_turns_to_assembly",
+          "measures": "turns until a declared pattern is assembled, unopposed"
+        },
+        "coverage": {
+          "commander_cards": 1,
+          "inert_by_reason": {
+            "interaction": 12,
+            "opponent_trigger": 3
+          },
+          "inert_cards": 15,
+          "library_cards": 99,
+          "modeled_cards": 31,
+          "total_cards": 100,
+          "unauthored_cards": 54
+        },
+        "strategy_pack": {
+          "assembly_objectives": [
+            "breach_freeze_led_empty_library",
+            "oracle_consultation_empty_library",
+            "oracle_tainted_pact_empty_library"
+          ],
+          "content_sha256": "sha256:0b128cb3ddf53ad0b01cd3ba08da5f6daf7ea61ae5cb304e53780aecf44e89c0",
+          "declared_table_assumptions": [
+            "goldfish with no simulated opponents",
+            "three-opponent card-text context",
+            "opponents collectively expose WUBRG for conditional mana sources",
+            "on the play"
+          ],
+          "derived": true,
+          "id": "derived-generic",
+          "inherited_patterns": [
+            "breach_freeze_led_empty_library",
+            "oracle_consultation_empty_library",
+            "oracle_tainted_pact_empty_library"
+          ],
+          "known_blind_spots": [
+            "only inherited card-set patterns can terminate a run",
+            "unlisted card text is unauthored and only dilutes draws",
+            "no stack, combat, opponent model, mulligans, commander tax, legend rule, or summoning sickness"
+          ],
+          "patterns": [
+            {
+              "name": "breach_freeze_led_empty_library",
+              "source": "library",
+              "terminal_state": "assembly_proxy"
+            },
+            {
+              "name": "oracle_consultation_empty_library",
+              "source": "library",
+              "terminal_state": "in_model_win"
+            },
+            {
+              "name": "oracle_tainted_pact_empty_library",
+              "source": "library",
+              "terminal_state": "in_model_win"
+            }
+          ],
+          "play_policy": "derived-role-policy.v1",
+          "rank_overrides": [],
+          "version": "1.0.0"
+        },
+        "assembly_cdf": [
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 1,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 0,
+            "probability": 0.0,
+            "turn": 2,
+            "wilson_95": {
+              "high": 0.0038267584855551234,
+              "low": 2.168404344971009e-19
+            }
+          },
+          {
+            "assembled_games": 2,
+            "probability": 0.002,
+            "turn": 3,
+            "wilson_95": {
+              "high": 0.007262807863492177,
+              "low": 0.000548643588120728
+            }
+          },
+          {
+            "assembled_games": 3,
+            "probability": 0.003,
+            "turn": 4,
+            "wilson_95": {
+              "high": 0.008783014053503173,
+              "low": 0.0010207838811386186
+            }
+          },
+          {
+            "assembled_games": 4,
+            "probability": 0.004,
+            "turn": 5,
+            "wilson_95": {
+              "high": 0.010239556277262253,
+              "low": 0.0015565881404084308
+            }
+          },
+          {
+            "assembled_games": 4,
+            "probability": 0.004,
+            "turn": 6,
+            "wilson_95": {
+              "high": 0.010239556277262253,
+              "low": 0.0015565881404084308
+            }
+          },
+          {
+            "assembled_games": 5,
+            "probability": 0.005,
+            "turn": 7,
+            "wilson_95": {
+              "high": 0.011650955373375113,
+              "low": 0.0021375355273244596
+            }
+          },
+          {
+            "assembled_games": 6,
+            "probability": 0.006,
+            "turn": 8,
+            "wilson_95": {
+              "high": 0.01302816824185209,
+              "low": 0.0027526691418763745
+            }
+          },
+          {
+            "assembled_games": 7,
+            "probability": 0.007,
+            "turn": 9,
+            "wilson_95": {
+              "high": 0.014378315465766588,
+              "low": 0.0033948684009907646
+            }
+          },
+          {
+            "assembled_games": 9,
+            "probability": 0.009,
+            "turn": 10,
+            "wilson_95": {
+              "high": 0.01701581616533807,
+              "low": 0.004742060667477063
+            }
+          },
+          {
+            "assembled_games": 10,
+            "probability": 0.01,
+            "turn": 11,
+            "wilson_95": {
+              "high": 0.018309468870314774,
+              "low": 0.005440754445529249
+            }
+          },
+          {
+            "assembled_games": 11,
+            "probability": 0.011,
+            "turn": 12,
+            "wilson_95": {
+              "high": 0.019589395700786275,
+              "low": 0.006153174098086638
+            }
+          }
+        ],
+        "unauthored_cards": null,
+        "known_misclassifications": null
+      }
+    }
+  ],
+  "interpretation": "HTTP includes export and service overhead. Coverage and assembly are not the requested five diagnostics."
+}
