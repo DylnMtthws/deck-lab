@@ -513,3 +513,20 @@ def test_import_auxiliary_zones_do_not_affect_main_deck_validation(tmp_path):
         assert validation["total_count"] == 100
         assert validation["legal"] is True
     assert sum(e["quantity"] for e in deck["entries"]) == 102
+
+
+def test_full_card_name_wins_over_another_cards_back_face(tmp_path):
+    path, _owner, repo = _owner_repo(tmp_path)
+    with db.connect(path) as conn:
+        lookup = repo._card_lookup(conn)
+    bolt = lookup["lightning bolt"][0]
+    lookup["lightning bolt"].append(
+        {
+            **bolt,
+            "id": "emeritus",
+            "oracle_id": "emeritus-oracle",
+            "name": "Emeritus of Conflict // Lightning Bolt",
+        }
+    )
+    resolved = resolve_import(parse_deck_text("1 Lightning Bolt"), lookup)
+    assert resolved.entries[0].card["id"] == "bolt"

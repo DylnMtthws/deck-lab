@@ -243,6 +243,9 @@ def resolve_import(
     for line in parsed.lines:
         key = normalize_card_name(line.name)
         hits = list(lookup.get(key) or [])
+        exact = [card for card in hits if normalize_card_name(str(card["name"])) == key]
+        if exact:
+            hits = exact
         if not hits:
             errors.append(
                 {
