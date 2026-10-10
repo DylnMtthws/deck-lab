@@ -72,3 +72,40 @@ def test_malformed_coverage_cannot_become_success(status, missing):
     }
     with pytest.raises(ValueError):
         validate_result(result)
+
+
+def test_actual_engine_proportions_are_compared_as_percentage_points(tmp_path):
+    from sabermetrics.goldfish_service import experiment_view
+    from tests.test_goldfish_experiments import OWNER, SETTINGS, _document
+
+    repo = GoldfishExperimentsRepo(tmp_path / "comparisons.db")
+    document = _document()
+    parent = repo.create(OWNER, document, SETTINGS)
+
+    def result(n):
+        return {
+            "tests": {
+                "opening": {
+                    "status": "partial",
+                    "metrics": {
+                        "keep_without_mulligan": {
+                            "value": n / 100,
+                            "numerator": n,
+                            "denominator": 100,
+                            "ci_low": 0.1,
+                            "ci_high": 0.9,
+                        }
+                    },
+                }
+            }
+        }
+
+    repo.finish(OWNER, parent["id"], result(40))
+    child = repo.create(OWNER, document, SETTINGS, parent_id=parent["id"])
+    repo.finish(OWNER, child["id"], result(55))
+    view = experiment_view(repo.get(OWNER, child["id"]), document, repo)
+    assert len(view["comparisons"]) == 2
+    for comparison in view["comparisons"]:
+        assert comparison["deltas"][0]["delta"] == 15.0
+        assert comparison["deltas"][0]["before"] == 40.0
+        assert comparison["deltas"][0]["after"] == 55.0

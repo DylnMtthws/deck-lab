@@ -53,6 +53,8 @@
 
   function humanize(value) { return String(value || "Metric").replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); }); }
   function percent(value) { return typeof value === "number" && Number.isFinite(value) ? (value * 100).toFixed(1).replace(/\.0$/, "") + "%" : "Not measured"; }
+  function probabilityValue(value) { return value.probability !== undefined ? value.probability : value.value; }
+  function isProportion(value) { return value && typeof value === "object" && (value.denominator !== undefined || value.trials !== undefined); }
   function formatValue(value, key) {
     if (value === null || value === undefined || value === "") return "Not measured";
     if (typeof value === "number" && key && /probability/i.test(key)) return percent(value);
@@ -61,10 +63,15 @@
     if (typeof value === "string") return value;
     if (Array.isArray(value)) return value.map(function (item) { return formatValue(item, key); }).join(", ") || "Not measured";
     if (typeof value === "object") {
-      if (typeof value.probability === "number") {
-        var outcome = value.successes !== undefined && value.trials !== undefined ? value.successes + "/" + value.trials + " · " : "";
-        outcome += percent(value.probability);
+      if (isProportion(value)) {
+        var probability = probabilityValue(value);
+        if (probability === null || probability === undefined) return "Not measured (no exercised trials)";
+        var successes = value.successes !== undefined ? value.successes : value.numerator;
+        var trials = value.trials !== undefined ? value.trials : value.denominator;
+        var outcome = successes !== undefined && trials !== undefined ? successes + "/" + trials + " · " : "";
+        outcome += percent(probability);
         if (Array.isArray(value.ci95)) outcome += " · 95% CI " + percent(value.ci95[0]) + "–" + percent(value.ci95[1]);
+        if (typeof value.ci_low === "number" && typeof value.ci_high === "number") outcome += " · 95% CI " + percent(value.ci_low) + "–" + percent(value.ci_high);
         return outcome;
       }
       return Object.keys(value).map(function (name) { return humanize(name) + ": " + formatValue(value[name], name); }).join(" · ") || "Not measured";
@@ -84,7 +91,7 @@
           rows.push({ key: path, value: value });
         }
       } else if (typeof value === "object") {
-        if (typeof value.probability === "number" || (value.successes !== undefined && value.trials !== undefined)) rows.push({ key: path, value: value });
+        if (isProportion(value)) rows.push({ key: path, value: value });
         else Object.keys(value).forEach(function (key) { visit(value[key], path ? path + " · " + key : key, depth + 1); });
       } else {
         rows.push({ key: path, value: value });
@@ -98,10 +105,10 @@
     var wrap = node("div", "gf-curve");
     wrap.setAttribute("role", "img");
     wrap.setAttribute("aria-label", humanize(row.key) + " by turn");
-    var values = row.value.map(function (point) { return typeof point === "number" ? point : point.probability; });
+    var values = row.value.map(function (point) { return typeof point === "number" ? point : probabilityValue(point); });
     var max = Math.max.apply(Math, values.filter(function (value) { return typeof value === "number" && Number.isFinite(value); }).concat([1]));
     row.value.forEach(function (point, index) {
-      var value = typeof point === "number" ? point : point.probability;
+      var value = typeof point === "number" ? point : probabilityValue(point);
       var column = node("div", "gf-curve-column");
       var amount = node("span", "gf-curve-value", typeof value === "number" ? percent(value) : "Not measured");
       var bar = node("span", "gf-curve-bar");

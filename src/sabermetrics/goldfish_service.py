@@ -237,8 +237,8 @@ def experiment_view(
                         }
                     )
                 elif isinstance(value, dict) and isinstance(before, dict):
-                    after_probability = value.get("probability")
-                    before_probability = before.get("probability")
+                    after_probability = value.get("probability", value.get("value"))
+                    before_probability = before.get("probability", before.get("value"))
                     if isinstance(after_probability, (int, float)) and isinstance(
                         before_probability, (int, float)
                     ):

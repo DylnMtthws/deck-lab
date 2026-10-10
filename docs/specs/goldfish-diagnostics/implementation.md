@@ -55,3 +55,7 @@ Primer intent informs plan notes; it is not evidence that the simulator executed
 Opus final gate: GO with conditions for the QA-only experimental slice; no cross-owner leak or three-swap bypass found. Coordinator follow-up fixed queue-capacity leaks on unexpected database exceptions, deck-deletion snapshot retention, home-page coverage disclosure, copy-weighted coverage labeling and misleading automatic-parent text. A dedicated `SABER_DECK_LAB_GOLDFISH` flag defaults off; only QA enables it. Added regression checks; 66 affected app tests pass, including deck documents.
 
 Known restriction: after more than three replacements, restore a comparable revision or import a separate deck to begin a separate history. The user explicitly requires at most three replacements per experiment, so this milestone does not silently waive the limit. Full account deletion retention follows existing application limitations; wider rollout requires an account-retention audit. Original-baseline comparisons may span more than three cumulative changes through individually compliant revisions.
+
+## Live QA corrections
+
+Initial QA checks exposed root-owned fixture directories inherited from the private build context's umask. The image now copies public fixtures with app-user ownership so the non-root service can read them. The renderer and comparison adapter also accept the simulator's actual `value/numerator/denominator/ci_low/ci_high` proportion schema; a regression verifies 40% to 55% produces a +15 percentage-point comparison. Raw engine results remain unchanged.

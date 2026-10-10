@@ -23,7 +23,7 @@ COPY src ./src
 RUN pip install --no-cache-dir ".[postgres]"
 
 COPY config ./config
-COPY fixtures ./fixtures
+COPY --chown=1001:1001 fixtures ./fixtures
 COPY scripts/setup_db.py ./scripts/setup_db.py
 
 RUN mkdir -p /data && chown 1001:1001 /data
