@@ -205,11 +205,11 @@
     var coverage = result && result.coverage || {};
     var summary = document.querySelector("[data-gf-coverage-summary]");
     var detail = document.querySelector("[data-gf-coverage-details]");
-    summary.textContent = coverage.modeled_cards === undefined ? "Coverage was not reported for this run." : formatValue(coverage.modeled_cards) + " of " + formatValue(coverage.total_cards) + " card copies fully modeled.";
+    summary.textContent = coverage.modeled_cards === undefined ? "Coverage was not reported for this run." : formatValue(coverage.modeled_cards) + " of " + formatValue(coverage.total_cards) + " card copies have modeled effects; some are partial.";
     detail.replaceChildren();
     var unsupported = coverage.unsupported_cards || [];
     if (unsupported.length) {
-      detail.appendChild(node("p", "gf-unsupported-callout", unsupported.length + " unsupported card" + (unsupported.length === 1 ? "" : "s") + " affect confidence in this report."));
+      detail.appendChild(node("p", "gf-unsupported-callout", unsupported.length + " card definitions have missing or partial effects."));
       var ul = node("ul", "gf-unsupported-list");
       unsupported.forEach(function (card) {
         var li = node("li");
@@ -285,7 +285,7 @@
     meta.textContent = "Run " + (view.id || "—") + " · " + (view.status || "unknown") + " · revision " + formatValue(view.deck_revision) + " · " + formatValue(settings.games) + " runs · seed " + formatValue(settings.seed) + (view.result && view.result.engine_version ? " · engine " + view.result.engine_version : "");
     var stale = view.stale ? " This result is stale because the deck changed." : "";
     var unsupportedCount = (((view.result || {}).coverage || {}).unsupported_cards || []).length;
-    alertBox.textContent = (view.status === "failed" && view.error ? "Run failed: " + view.error : "") + stale + (unsupportedCount ? " " + unsupportedCount + " unsupported card" + (unsupportedCount === 1 ? "" : "s") + " limit this run's conclusions." : "");
+    alertBox.textContent = (view.status === "failed" && view.error ? "Run failed: " + view.error : "") + stale + (unsupportedCount ? " " + unsupportedCount + " card definitions with missing or partial effects limit this run's conclusions." : "");
     alertBox.hidden = !alertBox.textContent;
     renderCoverage(view.result);
     var reports = view.result && view.result.tests || {};

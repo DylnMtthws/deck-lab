@@ -19,7 +19,7 @@ This milestone is an experimental QA slice, not the completed vision or a win-ra
 
 App regression: 2,024 passed, 31 skipped. Targeted app checks: 46 passed before packaging; 15 transport/route/fixture checks repeated after zipapp packaging. Simulator mechanics: 26 passed. Full mypy: 147 source files clean; full Ruff clean; JavaScript syntax clean.
 
-All four real lists imported into an isolated synthetic database using public card facts, and each completed 200 trials. Fully modeled cards were 46/100 affordable Vivi, 31/100 high-power Vivi, 34/100 affordable Sauron and 28/100 high-power Sauron. Other cards may be partly supported. First four scenarios are partial; finish is unsupported on these lists. These results do not justify deck-quality or shopping recommendations.
+All four real lists imported into an isolated synthetic database using public card facts, and each completed 200 trials. Card copies with at least some modeled effects were 46/100 affordable Vivi, 31/100 high-power Vivi, 34/100 affordable Sauron and 28/100 high-power Sauron. Other cards may be partly supported. First four scenarios are partial; finish is unsupported on these lists. These results do not justify deck-quality or shopping recommendations.
 
 ## Handoffs and KPIs
 
@@ -28,7 +28,7 @@ All four real lists imported into an isolated synthetic database using public ca
 | OpenCode Spark 1.3 free | Four plan records and deterministic coverage-aware guidance; targeted tests pass | Delivered plan module and 12 tests. Coordinator corrected wrong Sauron epithet and added partial-coverage regressions. |
 | Claude Code Sonnet 5 | Owner-scoped immutable experiment repository with three-swap validation | Delivered repository and 18 passing tests. Coordinator bounded history to 50 rows. |
 | Codex Luna 6 | Exact reference fixtures and accessible five-panel UI | Four 100-card fixtures, sideboard35, three fixture tests; UI delivered. Coordinator fixed numeric revision submission and added seed/trial controls. |
-| Codex Sol 6.1 | Simulator-owned versioned mechanics artifact with repeatability and truthful unknowns | Source commit above; 26 targeted tests passed. Broad mechanics KPI remains unmet: only 28–46 fully modeled cards per reference deck. |
+| Codex Sol 6.1 | Simulator-owned versioned mechanics artifact with repeatability and truthful unknowns | Source commit above; 26 targeted tests passed. Broad mechanics KPI remains unmet: only 28–46 card copies with modeled effects per reference deck. |
 | Codex Sol 6.1 independent challenge | Find false-positive casts/wins and disruption accounting errors | Found illegal creature-target cantrips, empty-library losses, lethal-trigger ordering and wipe denominator issues; implementer fixed and tested them. |
 | Claude Code Opus 5.5 | Independent senior QA gate with prioritized correctness/security findings | Initial review caught coverage/validation deficiencies. Final review retained separately with release evidence; coordinator handles findings before QA. |
 | Fable 5.1 | Requested skeptical review | Unmet: model unavailable in configured providers. Opus and independent Sol reviews were used transparently; neither is represented as Fable. |
@@ -59,3 +59,5 @@ Known restriction: after more than three replacements, restore a comparable revi
 ## Live QA corrections
 
 Initial QA checks exposed root-owned fixture directories inherited from the private build context's umask. The image now copies public fixtures with app-user ownership so the non-root service can read them. The renderer and comparison adapter also accept the simulator's actual `value/numerator/denominator/ci_low/ci_high` proportion schema; a regression verifies 40% to 55% produces a +15 percentage-point comparison. Raw engine results remain unchanged.
+
+Coverage correction from live review: the engine's `modeled_cards` counts cards with any authored definition, including partial definitions. The UI therefore says "have modeled effects; some are partial," rather than claiming complete coverage. The unsupported-card list includes partial definitions as well as unavailable cards; its count is distinct definitions rather than card copies.
