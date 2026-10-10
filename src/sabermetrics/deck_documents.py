@@ -2197,6 +2197,13 @@ class DeckDocumentRepo:
                 (deck_id,),
             ).fetchone()
             self._event(conn, owner_id, "deck.deleted", deck_id)
+            if conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='goldfish_experiments'"
+            ).fetchone():
+                conn.execute(
+                    "DELETE FROM goldfish_experiments WHERE deck_id=? AND owner_id=?",
+                    (deck_id, owner_id),
+                )
             conn.execute("DELETE FROM deck_documents WHERE id=?", (deck_id,))
             leftover = (
                 str(presentation["custom_surface_path"])

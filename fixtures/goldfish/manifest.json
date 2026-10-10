@@ -1,0 +1,53 @@
+{
+  "source": "user supplied 2026-10-10",
+  "decks": [
+    {
+      "id": "affordable-vivi",
+      "label": "Example 1 - more affordable vivi",
+      "commander": "Vivi Ornitier",
+      "fixture": "affordable-vivi.txt",
+      "mainboard_count": 99,
+      "commander_count": 1,
+      "sideboard_count": 0,
+      "budget": "unknown",
+      "theme_preserved": null,
+      "primer_url": null
+    },
+    {
+      "id": "high-power-vivi",
+      "label": "Example 2 - high power vivi",
+      "commander": "Vivi Ornitier",
+      "fixture": "high-power-vivi.txt",
+      "mainboard_count": 99,
+      "commander_count": 1,
+      "sideboard_count": 0,
+      "budget": "unknown",
+      "theme_preserved": null,
+      "primer_url": "https://moxfield.com/decks/nBKRWuYyckqPxpCmWBjIBg/primer"
+    },
+    {
+      "id": "affordable-sauron",
+      "label": "Example 3 - an affordable Sauron the Dark Lord",
+      "commander": "Sauron, the Dark Lord",
+      "fixture": "affordable-sauron.txt",
+      "mainboard_count": 99,
+      "commander_count": 1,
+      "sideboard_count": 35,
+      "budget": "unknown",
+      "theme_preserved": "Lord of the Rings theme preserved",
+      "primer_url": null
+    },
+    {
+      "id": "high-power-sauron",
+      "label": "Example 4 - a high powered Sauron deck",
+      "commander": "Sauron, the Dark Lord",
+      "fixture": "high-power-sauron.txt",
+      "mainboard_count": 99,
+      "commander_count": 1,
+      "sideboard_count": 0,
+      "budget": "unknown",
+      "theme_preserved": null,
+      "primer_url": "https://moxfield.com/decks/WDJsYexc9EaHELI7vXeHjQ/primer"
+    }
+  ]
+}

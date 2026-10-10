@@ -1,0 +1,24 @@
+{
+  "source": "Scryfall named-card API flavor_name",
+  "retrieved_at": "2026-10-10",
+  "aliases": [
+    {
+      "alias": "Glittering Caves of Aglarond",
+      "name": "Gemstone Caverns",
+      "oracle_id": "c0adbddc-b070-4c5f-afe0-0474c72a9251",
+      "source": "https://scryfall.com/card/ltc/364/gemstone-caverns"
+    },
+    {
+      "alias": "Merciless Poisoning",
+      "name": "Toxic Deluge",
+      "oracle_id": "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+      "source": "https://scryfall.com/card/sld/1860/toxic-deluge"
+    },
+    {
+      "alias": "Shu Jing Meteorite",
+      "name": "Fellwar Stone",
+      "oracle_id": "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
+      "source": "https://scryfall.com/card/sld/7062/fellwar-stone"
+    }
+  ]
+}

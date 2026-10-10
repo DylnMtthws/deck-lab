@@ -22,6 +22,7 @@
         <span>Deck Lab</span>
     </a>
     <nav class="dl-nav-links" aria-label="Primary">
+        {% if config.DECK_LAB_BUILDER_ENABLED and config.DECK_LAB_GOLDFISH_ENABLED %}<a href="{{ url_for('goldfish.home') }}" {% if request.endpoint and request.endpoint.startswith('goldfish.') %}aria-current="page"{% endif %}>Goldfish</a>{% endif %}
         {% if config.DECK_LAB_RESEARCH_ENABLED %}<a href="{{ url_for('research.index') }}" {% if request.endpoint and request.endpoint.startswith('research.') %}aria-current="page"{% endif %}>Research</a>{% endif %}
         {% if config.DECK_LAB_BUILDER_ENABLED %}<a href="{{ url_for('builder.library') }}" {% if request.endpoint and request.endpoint.startswith('builder.') %}aria-current="page"{% endif %}>Build</a>{% endif %}
     </nav>
