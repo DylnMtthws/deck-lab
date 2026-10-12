@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import copy
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
 from urllib.parse import urlsplit
@@ -40,8 +41,13 @@ from sabermetrics.deck_evidence import DeckEvidenceService
 from sabermetrics.build_research_assistant import (
     findings as research_findings,
     recommendations as research_recommendations,
+    search_hints as research_search_hints,
 )
-from sabermetrics.deck_simulation import execute_simulation, simulation_view
+from sabermetrics.deck_simulation import (
+    execute_simulation,
+    prepare_simulation,
+    simulation_view,
+)
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
     DeckTextImportError,
@@ -494,11 +500,16 @@ def build_research_assistant(deck_id: str):
         diagnostics_state=report_state,
         findings=facts,
         recommendations=suggestions,
-        heldout_validation=(result.get("heldout_validation") if isinstance(result, dict) else None),
+        search_hints=research_search_hints(facts),
+        heldout_validation=(
+            result.get("heldout_validation")
+            if current and isinstance(result, dict)
+            else None
+        ),
         limits=[
             "Findings restate native solo-test measurements and limitations.",
             "Tournament alternatives are independent evidence and are not validated improvements.",
-            "Swap candidates are limited to observed missed land drops or first authored action after the turn-five checkpoint; those are scenario cues, not grades or causes.",
+            "Swap candidates are limited to a measured mean missed-land-drop observation with a positive denominator; this is a scenario cue, not a grade or cause.",
             "No external AI service is called.",
         ],
     )
@@ -534,6 +545,9 @@ def apply_research_recommendations(deck_id: str):
                if isinstance(entry, dict)}
     used_entries: set[str] = set()
     commands_to_apply: list[dict] = []
+    prospective = copy.deepcopy(document)
+    prospective_entries = {str(entry.get("id")): entry for entry in prospective.get("entries", [])
+                           if isinstance(entry, dict)}
     for choice in choices:
         if not isinstance(choice, dict):
             return jsonify(error="invalid_replacements"), 400
@@ -549,6 +563,22 @@ def apply_research_recommendations(deck_id: str):
             return jsonify(error="invalid_replacement", message="The selected card is no longer an eligible same-role alternative."), 400
         used_entries.add(entry_id)
         quantity = max(1, int(entry.get("quantity") or 1))
+        prospective_entry = prospective_entries[entry_id]
+        if quantity > 1:
+            prospective_entry["quantity"] = quantity - 1
+        else:
+            prospective["entries"].remove(prospective_entry)
+        prospective["entries"].append({
+            "id": f"research-assistant-{len(used_entries)}",
+            "card_id": proposal["card_id"],
+            "oracle_id": proposal["oracle_id"],
+            "name": proposal["name"],
+            "quantity": 1,
+            "is_commander": False,
+            "zone_name": entry.get("zone_name") or "Unsorted",
+            "role": entry.get("role") or proposal.get("from_role") or "",
+            "color_identity": [],
+        })
         if quantity > 1:
             commands_to_apply.append({"type": "set_quantity", "entry_id": entry_id,
                                       "quantity": quantity - 1})
@@ -557,8 +587,16 @@ def apply_research_recommendations(deck_id: str):
         commands_to_apply.append(
             {"type": "add_card", "card_id": card_id,
              "quantity": 1,
-             "zone_id": entry.get("zone_id"), "role": entry.get("role") or ""},
+             "zone_id": entry.get("zone_id"),
+             "role": entry.get("role") or proposal.get("from_role") or ""},
         )
+    try:
+        # This freezes only a prospective candidate in memory. It makes no
+        # simulator call or database write, but enforces the same immutable
+        # parent lineage and three-replacement limit as the next run.
+        prepare_simulation(Path(current_app.config["DB_PATH"]), prospective)
+    except ValueError as exc:
+        return jsonify(error="replacement_limit", message=str(exc)), 409
     try:
         updated = _repo().apply_commands(
             current_user.id, deck_id, expected_revision=expected,

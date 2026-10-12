@@ -11,12 +11,27 @@
   root.setAttribute("data-research-assistant", "");
   var heading = document.createElement("h3");
   heading.className = "dl-eyebrow";
-  heading.textContent = "Build research assistant";
+  heading.textContent = "Research Assistant · evidence mode";
   var status = document.createElement("p");
   status.className = "dl-sim-note";
   status.setAttribute("role", "status");
   var findings = document.createElement("div");
   findings.setAttribute("data-assistant-findings", "");
+  var chat = document.createElement("form");
+  chat.className = "dl-assistant-chat";
+  var question = document.createElement("input");
+  question.type = "text";
+  question.maxLength = 240;
+  question.placeholder = "Ask about opening, mana, commander loss, wipes, finish, or all findings";
+  question.setAttribute("aria-label", "Ask about current simulation findings");
+  var ask = document.createElement("button");
+  ask.type = "submit";
+  ask.className = "dl-button is-sm";
+  ask.textContent = "Ask";
+  var answer = document.createElement("p");
+  answer.className = "dl-sim-note";
+  answer.setAttribute("aria-live", "polite");
+  chat.append(question, ask);
   var suggestions = document.createElement("div");
   suggestions.setAttribute("data-assistant-recommendations", "");
   var apply = document.createElement("button");
@@ -24,7 +39,7 @@
   apply.className = "dl-button is-primary is-sm";
   apply.textContent = "Apply selected replacements";
   apply.disabled = true;
-  root.append(heading, status, findings, suggestions, apply);
+  root.append(heading, status, chat, answer, findings, suggestions, apply);
   slot.appendChild(root);
 
   function csrf() {
@@ -46,6 +61,7 @@
       if (!response.ok) throw new Error("Research assistant could not load.");
       return response.json();
     }).then(function (data) {
+      root._assistantData = data;
       state.revision = data.revision;
       findings.replaceChildren();
       suggestions.replaceChildren();
@@ -94,14 +110,64 @@
         suggestions.appendChild(label);
       });
       if (!(data.recommendations || []).length) {
-        suggestions.appendChild(el("p", "No swap meets the current evidence rules: a named failure signal, matching non-interaction role, same-role tournament evidence, and a known price no higher than the outgoing card."));
+        suggestions.appendChild(el("p", "No swap meets the current evidence rules: a measured missed-land-drop observation, matching non-interaction role, same-role tournament evidence, and a known price no higher than the outgoing card."));
+        (data.search_hints || []).forEach(function (hint) {
+          var search = document.createElement("button");
+          search.type = "button";
+          search.className = "dl-button is-sm";
+          search.textContent = hint.label;
+          search.setAttribute("data-assistant-search", hint.query);
+          search.addEventListener("click", function () {
+            var open = document.querySelector("[data-add-open]");
+            if (open) open.click();
+            window.setTimeout(function () {
+              var input = document.querySelector("[data-card-search]");
+              if (!input) return;
+              input.value = hint.query;
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              input.focus();
+            }, 120);
+          });
+          suggestions.appendChild(search);
+        });
       }
       (data.limits || []).forEach(function (limit) { suggestions.appendChild(el("small", limit, "dl-sim-note")); });
       syncApply();
-      status.textContent = "Findings and evidence loaded for revision " + data.revision + ".";
+      status.textContent = "Findings and evidence loaded for revision " + data.revision + ". Answers use this report and linked evidence only; no AI service is called.";
       root._recommendations = data.recommendations || [];
     }).catch(function (error) { status.textContent = error.message; });
   }
+  function answerQuestion(value) {
+    var data = root._assistantData || {};
+    var query = String(value || "").toLowerCase();
+    var all = /\b(all|everything|summary|findings)\b/.test(query);
+    var keys = /\b(opening|mana|land|lands|ramp)\b/.test(query) ? ["opening", "development"] :
+      /\b(commander|command zone|commander loss)\b/.test(query) ? ["commander_loss"] :
+      /\b(wipe|board wipe|sweeper|recovery)\b/.test(query) ? ["creature_wipe"] :
+      /\b(finish|win|winning|damage)\b/.test(query) ? ["finish"] : [];
+    if (all && data.diagnostics_state === "current") keys = (data.findings || []).map(function (fact) { return fact.id; });
+    if (!keys.length) {
+      answer.textContent = data.diagnostics_state === "current"
+        ? "I can answer from this run about opening or mana, commander loss, creature wipes, finish checks, or all findings. Other questions need evidence this assistant does not currently expose."
+        : "Run Goldfish first. I can then answer about opening or mana, commander loss, creature wipes, finish checks, or all findings.";
+      return;
+    }
+    var facts = (data.findings || []).filter(function (fact) { return keys.indexOf(fact.id) >= 0; });
+    if (!facts.length) {
+      answer.textContent = "The current report has no findings for that topic. This means it was not measured here, not that the deck failed.";
+      return;
+    }
+    var lines = facts.map(function (fact) {
+      var metrics = (fact.metrics || []).map(function (metric) { return metric.metric + ": " + metric.summary; });
+      var caveat = fact.status === "unsupported" ? "Unsupported in this run." : "Scenario observation only; it does not establish a cause or deck quality.";
+      return fact.title + " (" + fact.status + "): " + (metrics.length ? metrics.join("; ") : "no numeric measurement") + ". " + caveat;
+    });
+    answer.textContent = lines.join(" ");
+  }
+  chat.addEventListener("submit", function (event) {
+    event.preventDefault();
+    answerQuestion(question.value);
+  });
   function syncApply() {
     var selected = root.querySelectorAll("[data-assistant-choice]:checked");
     apply.disabled = selected.length < 1 || selected.length > 3;

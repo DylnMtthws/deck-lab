@@ -858,7 +858,7 @@
     if (!(body.results || []).length) {
       results.appendChild(node("p", "dl-card-suggest-empty", "No cards match this search."));
       searchStatus("No cards match this search.");
-    } else searchStatus(Math.min(body.results.length, 8) + " card name results. Cards you add go to " + destinationName(addDestinationId()) + ".");
+    } else searchStatus(Math.min(body.results.length, 8) + (input && input.value.trim().slice(0, 5).toLowerCase() === "text:" ? " card text results. Cards you add go to " : " card name results. Cards you add go to ") + destinationName(addDestinationId()) + ".");
     results.hidden = false;
     if (input) input.setAttribute("aria-expanded", "true");
   }
@@ -871,10 +871,13 @@
     var input = document.querySelector("[data-card-search]"), results = document.querySelector("[data-card-results]");
     if (!input || !results) return;
     var query = input.value.trim();
-    if (!query) { closeCardResults(); searchStatus(""); return; }
+    var textQuery = query.slice(0, 5).toLowerCase() === "text:";
+    var searchValue = textQuery ? query.slice(5).trim() : query;
+    if (!searchValue) { closeCardResults(); searchStatus(""); return; }
     var seq = (searchSeq += 1);
     var scope = commanderScope();
-    var params = new URLSearchParams({ q: input.value, deck_id: state.id, limit: "8" });
+    var params = new URLSearchParams({ deck_id: state.id, limit: "8" });
+    params.set(textQuery ? "oracle_text" : "q", searchValue);
     if (searchController) searchController.abort();
     searchController = new AbortController();
     results.hidden = false;
