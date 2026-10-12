@@ -192,7 +192,7 @@ def test_new_deck_dialog_offers_empty_and_generate(tmp_path) -> None:
     )
     generate = re.search(
         r'<input type="radio" name="deck_start" value="generate"[^>]*>\s*'
-        r"Generate from a strategy pack",
+        r"Generate a deck",
         html,
     )
     assert empty and generate
