@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commander-simulator.local/contracts/goldfish-diagnostics.v1.schema.json",
+  "title": "Goldfish diagnostics v1",
+  "description": "Optional diagnostics payload attached to a cedh-simulation-result.v3 envelope when the request's scenario is goldfish_diagnostics.v1. The five tests observe run_game's authored mechanics on bounded per-game probes (opening, development, commander_loss, creature_wipe, finish); none of them is a rules engine or a verified multiplayer win. A metric reports value: null for UNKNOWN rather than a fabricated zero, and status partial/unsupported says which tests the native engine could not fully model for this deck.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "settings",
+    "coverage",
+    "tests"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "decklab.goldfish-diagnostics.v1"
+    },
+    "settings": {
+      "description": "games, seed, checkpoints, engine_version and settings_fingerprint are the stable identity of a diagnostics run; the native engine is free to attach further provenance (e.g. policy, effects_sha256, strategy_pack_sha256, mulligan rule, draw_on_turn_one) without a contract bump.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "games",
+        "seed",
+        "checkpoints",
+        "engine_version",
+        "settings_fingerprint"
+      ],
+      "properties": {
+        "games": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checkpoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "development_turn",
+            "wipe_turn",
+            "finish_turn"
+          ],
+          "properties": {
+            "development_turn": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wipe_turn": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "finish_turn": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "engine_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settings_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effects_sha256": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strategy_pack_sha256": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mulligan": {
+          "type": "string",
+          "minLength": 1
+        },
+        "draw_on_turn_one": {
+          "type": "boolean"
+        }
+      }
+    },
+    "coverage": {
+      "description": "total_cards, modeled_cards, inert_cards, unauthored_cards and assumptions are required; the native engine reuses the envelope's own coverage object as a base and may carry its other fields (library_cards, commander_cards, inert_by_reason, unauthored_names, ...) through unchanged.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "total_cards",
+        "modeled_cards",
+        "inert_cards",
+        "unauthored_cards",
+        "assumptions"
+      ],
+      "properties": {
+        "total_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modeled_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inert_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unauthored_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "library_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commander_cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inert_by_reason": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unauthored_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opening",
+        "development",
+        "commander_loss",
+        "creature_wipe",
+        "finish"
+      ],
+      "properties": {
+        "opening": {
+          "$ref": "#/$defs/test_result"
+        },
+        "development": {
+          "$ref": "#/$defs/test_result"
+        },
+        "commander_loss": {
+          "$ref": "#/$defs/test_result"
+        },
+        "creature_wipe": {
+          "$ref": "#/$defs/test_result"
+        },
+        "finish": {
+          "$ref": "#/$defs/test_result"
+        }
+      }
+    },
+    "samples": {
+      "description": "A bounded native trace shared across tests, kept only to let a consumer inspect specific games rather than to report fabricated per-sample counters.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "null means UNKNOWN; it is never substituted with a fabricated zero."
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "numerator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ci95": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "low",
+            "high"
+          ],
+          "properties": {
+            "low": {
+              "type": "number"
+            },
+            "high": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "test_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "metrics",
+        "limitations",
+        "evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "supported",
+            "partial",
+            "unsupported"
+          ]
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

@@ -94,6 +94,8 @@ class SimulatorSettings(BaseModel):
     games: int = 20000
     objective_turn: int = 3
     timeout_seconds: float = 330.0
+    #: QA-only request for the simulator's five-test diagnostic envelope.
+    diagnostics_enabled: bool = False
 
 
 class MetaSettings(BaseModel):
@@ -164,13 +166,27 @@ def load_cedh_settings(path: Path | None = None) -> CedhSettings:
             update={"model": settings.model.model_copy(update=applied)}
         )
 
-    simulator_updates: dict[str, Any] = {}
+    # The diagnostics profile is deliberately controlled only by this explicit
+    # QA environment switch; a committed YAML setting cannot enable it.
+    simulator_updates: dict[str, Any] = {"diagnostics_enabled": False}
     simulator_url = os.environ.get("CEDH_SIMULATOR_URL")
     if simulator_url:
         simulator_updates.update(mode="http", url=simulator_url)
     simulator_timeout = os.environ.get("CEDH_SIMULATOR_TIMEOUT")
     if simulator_timeout:
         simulator_updates["timeout_seconds"] = float(simulator_timeout)
+    diagnostics_value = os.environ.get("CEDH_SIMULATOR_DIAGNOSTICS")
+    if diagnostics_value is not None:
+        normalized = diagnostics_value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            simulator_updates["diagnostics_enabled"] = True
+        elif normalized in {"0", "false", "no", "off", ""}:
+            simulator_updates["diagnostics_enabled"] = False
+        else:
+            raise ValueError(
+                "CEDH_SIMULATOR_DIAGNOSTICS must be one of "
+                "1/0, true/false, yes/no, or on/off"
+            )
     if simulator_updates:
         settings = settings.model_copy(
             update={

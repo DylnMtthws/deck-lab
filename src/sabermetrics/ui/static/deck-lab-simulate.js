@@ -58,8 +58,8 @@
       runButton = document.createElement("button");
       runButton.type = "button";
       runButton.className = "dl-button is-primary is-sm";
-      runButton.textContent = "Run assembly check";
-      runButton.setAttribute("aria-label", "Run assembly check");
+      runButton.textContent = "Run Goldfish";
+      runButton.setAttribute("aria-label", "Run Goldfish simulator");
       runButton.setAttribute("data-simulate-run", "");
       runButton.addEventListener("click", start);
       actions.appendChild(runButton);
@@ -67,8 +67,8 @@
       rerunButton = document.createElement("button");
       rerunButton.type = "button";
       rerunButton.className = "dl-button is-sm";
-      rerunButton.textContent = "Re-run";
-      rerunButton.setAttribute("aria-label", "Re-run assembly check");
+      rerunButton.textContent = "Run Goldfish again";
+      rerunButton.setAttribute("aria-label", "Run Goldfish simulator again");
       rerunButton.setAttribute("data-simulate-rerun", "");
       rerunButton.hidden = true;
       rerunButton.addEventListener("click", start);
@@ -83,6 +83,12 @@
     var resultEl = document.createElement("p");
     resultEl.className = "dl-sim-result";
     resultEl.setAttribute("data-simulate-result", "");
+    var diagnosticsEl = document.createElement("section");
+    diagnosticsEl.className = "dl-sim-diagnostics";
+    diagnosticsEl.setAttribute("data-simulate-diagnostics", "");
+    var missingDiagnosticsEl = document.createElement("p");
+    missingDiagnosticsEl.className = "dl-sim-diagnostic-note";
+    missingDiagnosticsEl.setAttribute("data-simulate-diagnostics-missing", "");
     var runMetaEl = document.createElement("p");
     runMetaEl.className = "dl-sim-note";
     var coverageEl = document.createElement("p");
@@ -111,6 +117,8 @@
     body.appendChild(actions);
     body.appendChild(statusEl);
     body.appendChild(resultEl);
+    body.appendChild(diagnosticsEl);
+    body.appendChild(missingDiagnosticsEl);
     body.appendChild(runMetaEl);
     body.appendChild(coverageEl);
     body.appendChild(scopeDetails);
@@ -123,6 +131,223 @@
     function setText(el, value) {
       el.textContent = value || "";
       el.hidden = !value;
+    }
+
+    var diagnosticTests = [
+      ["opening", "Opening hand"],
+      ["development", "Development through the early turns"],
+      ["commander_loss", "Commander loss"],
+      ["creature_wipe", "Creature wipe recovery"],
+      ["finish", "Finish"],
+    ];
+    var metricLabels = {
+      qualified_opening_rate: "Hands passing the modeled keep rule",
+      mean_kept_cards: "Average cards kept",
+      mean_unused_available_mana: "Unused modeled mana capacity at turn 5",
+      mean_cards_remaining: "Cards remaining at turn 5",
+      authored_forward_action_rate: "Played an action with modeled effects",
+      mean_first_authored_action_turn: "First modeled action turn",
+      engine_online_rate: "Deck engine online",
+      disruption_exercised_rate: "Runs where removal occurred",
+      followup_turn_reached_rate: "Follow-up turn observed after removal",
+      recovery_authored_action_rate: "Played a modeled action on recovery turn",
+      recovery_board_rate: "Added a modeled nonland permanent",
+      recovery_draw_rate: "Drew cards from a modeled effect",
+      independent_engine_recovery_rate: "Independent engine restored",
+      commander_dependent_hand_cards: "Cards requiring the commander",
+      verified_finish_rate: "Verified finishing line available",
+      finish_evaluated_rate: "Runs with verified finish evaluation",
+      kept_hands: "Kept hands",
+      mulligans: "Mulligans",
+      keep_rate: "Kept opening hands",
+      mean_mulligans: "Average mulligans",
+      mean_kept_hand_size: "Average cards kept",
+      productive_action_by_turn_3: "Productive action by turn 3",
+      mean_missed_land_drops: "Average missed land drops",
+      mean_hand_size_turn_5: "Cards in hand at turn 5",
+      mean_unused_floating_mana_turn_5: "Unused mana at turn 5",
+      engine_active_by_turn: "Engine active by turn",
+      supported_damage_engine_by_turn: "Damage engine active by turn",
+      commander_recovered: "Recovered after commander loss",
+      recovery_by_turn: "Recovery by turn",
+      useful_recovery_action: "Useful recovery action",
+      win_conversion: "Board can convert to a win",
+      lethal_combat: "Lethal combat available",
+      verified_combo: "Verified combo available",
+    };
+
+    function humanLabel(value) {
+      var key = String(value || "");
+      if (metricLabels[key]) return metricLabels[key];
+      return key.replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+    }
+
+    function numberText(value) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+      return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
+    }
+
+    function formatDiagnosticMetric(metric) {
+      if (metric === null || metric === undefined) return "Not measured";
+      if (typeof metric !== "object" || Array.isArray(metric)) return numberText(metric);
+      if (!Object.prototype.hasOwnProperty.call(metric, "value") || metric.value === null || metric.value === undefined) {
+        var observed = metric.numerator !== undefined || metric.denominator !== undefined
+          ? " · " + (metric.numerator == null ? "?" : numberText(metric.numerator)) + "/" + (metric.denominator == null ? "?" : numberText(metric.denominator)) + " observed"
+          : "";
+        return "Not measured" + observed;
+      }
+      var value = metric.value;
+      var unit = String(metric.unit || "");
+      var shown = numberText(value);
+      if (typeof value === "number" && (unit === "probability" || unit === "fraction" || unit === "proportion")) shown = numberText(value * 100) + "%";
+      else if (typeof value === "number" && unit === "percent") shown = numberText(value) + "%";
+      else if (unit) shown += " " + unit;
+      if (metric.numerator !== undefined || metric.denominator !== undefined) {
+        shown += " · " + (metric.numerator == null ? "?" : numberText(metric.numerator)) + "/" + (metric.denominator == null ? "?" : numberText(metric.denominator));
+      }
+      var ci = metric.ci95;
+      var low = Array.isArray(ci) ? ci[0] : ci && ci.low;
+      var high = Array.isArray(ci) ? ci[1] : ci && ci.high;
+      if (typeof low === "number" && typeof high === "number") {
+        if (unit === "probability" || unit === "fraction" || unit === "proportion") {
+          shown += " · 95% interval " + numberText(low * 100) + "–" + numberText(high * 100) + "%";
+        } else shown += " · 95% interval " + numberText(low) + "–" + numberText(high) + (unit ? " " + unit : "");
+      }
+      return shown;
+    }
+
+    function renderDiagnostics(diagnostics) {
+      diagnosticsEl.textContent = "";
+      if (!diagnostics || typeof diagnostics !== "object" || !diagnostics.tests || typeof diagnostics.tests !== "object") {
+        diagnosticsEl.hidden = true;
+        return false;
+      }
+      diagnosticsEl.hidden = false;
+      var heading = document.createElement("h3");
+      heading.textContent = "Five-test diagnostics";
+      diagnosticsEl.appendChild(heading);
+      var settings = diagnostics.settings;
+      if (settings && typeof settings === "object") {
+        var settingsLine = document.createElement("p");
+        settingsLine.className = "dl-sim-diagnostic-settings";
+        var parts = [];
+        if (settings.games != null) parts.push(numberText(settings.games) + " games");
+        if (settings.seed != null) parts.push("seed " + String(settings.seed));
+        if (settings.checkpoints && typeof settings.checkpoints === "object") parts.push("turns " + Object.keys(settings.checkpoints).map(function (key) { return humanLabel(key) + " " + settings.checkpoints[key]; }).join(", "));
+        if (settings.engine_version) parts.push("engine " + String(settings.engine_version));
+        if (settings.settings_fingerprint) parts.push("settings " + String(settings.settings_fingerprint));
+        settingsLine.textContent = parts.length ? parts.join(" · ") : "Run settings not reported.";
+        diagnosticsEl.appendChild(settingsLine);
+      }
+      var coverage = diagnostics.coverage;
+      if (coverage && typeof coverage === "object") {
+        var coverageLine = document.createElement("p");
+        coverageLine.className = "dl-sim-diagnostic-coverage";
+        var coverageParts = [];
+        if (coverage.modeled_cards != null) coverageParts.push(numberText(coverage.modeled_cards) + " modeled");
+        if (coverage.inert_cards != null) coverageParts.push(numberText(coverage.inert_cards) + " inactive in solo play");
+        if (coverage.unauthored_cards != null) coverageParts.push(numberText(coverage.unauthored_cards) + " without simulator-authored rules");
+        coverageLine.textContent = (coverageParts.length ? coverageParts.join(" · ") : "Coverage counts not reported") + ". These results describe only the reported simulation scope, not a multiplayer win-rate forecast.";
+        diagnosticsEl.appendChild(coverageLine);
+      }
+      diagnosticTests.forEach(function (entry) {
+        var key = entry[0];
+        var report = diagnostics.tests[key];
+        var card = document.createElement("article");
+        card.className = "dl-sim-diagnostic-card";
+        card.setAttribute("data-diagnostic-test", key);
+        var title = document.createElement("h4");
+        title.textContent = entry[1];
+        card.appendChild(title);
+        var status = report && ["supported", "partial", "unsupported"].indexOf(report.status) >= 0 ? report.status : "unsupported";
+        var statusLine = document.createElement("p");
+        statusLine.className = "dl-sim-diagnostic-status is-" + status;
+        statusLine.textContent = status === "supported" ? "Measured" : status === "partial" ? "Partially measured" : "Unsupported / not measured";
+        card.appendChild(statusLine);
+        var metrics = report && report.metrics && typeof report.metrics === "object" ? report.metrics : {};
+        var metricKeys = Object.keys(metrics);
+        if (!metricKeys.length) {
+          var missing = document.createElement("p");
+          missing.className = "dl-sim-diagnostic-metric is-unknown";
+          missing.textContent = "No metrics reported; unknown is not zero.";
+          card.appendChild(missing);
+        }
+        metricKeys.forEach(function (metricKey) {
+          var line = document.createElement("p");
+          line.className = "dl-sim-diagnostic-metric";
+          line.textContent = humanLabel(metricKey) + ": " + formatDiagnosticMetric(metrics[metricKey]);
+          card.appendChild(line);
+          var metric = metrics[metricKey];
+          if (metric && typeof metric.value === "number" && Number.isFinite(metric.value) && metric.unit === "proportion" && metric.value >= 0 && metric.value <= 1 && status !== "unsupported") {
+            var meter = document.createElement("meter");
+            meter.className = "dl-sim-diagnostic-meter";
+            meter.setAttribute("min", "0");
+            meter.setAttribute("max", "1");
+            meter.setAttribute("value", String(metric.value));
+            meter.setAttribute("aria-label", humanLabel(metricKey));
+            meter.textContent = numberText(metric.value * 100) + "%";
+            card.appendChild(meter);
+          }
+        });
+        var evidenceDetails = document.createElement("details");
+        var evidenceSummary = document.createElement("summary");
+        evidenceSummary.textContent = "Coverage, assumptions and evidence";
+        evidenceDetails.appendChild(evidenceSummary);
+        ["limitations", "evidence"].forEach(function (field) {
+          var values = Array.isArray(report && report[field]) ? report[field] : [];
+          values.forEach(function (value) {
+            var note = document.createElement("p");
+            note.className = "dl-sim-diagnostic-note";
+            note.textContent = (field === "limitations" ? "Limitation: " : "Evidence: ") + String(value);
+            evidenceDetails.appendChild(note);
+          });
+        });
+        card.appendChild(evidenceDetails);
+        diagnosticsEl.appendChild(card);
+      });
+      var comparison = diagnostics.comparison;
+      if (comparison && typeof comparison === "object") {
+        var comparisonLine = document.createElement("p");
+        comparisonLine.className = "dl-sim-diagnostic-comparison";
+        comparisonLine.textContent = comparison.comparable === true
+          ? "Comparable run settings retained" + (comparison.settings_fingerprint ? " · " + String(comparison.settings_fingerprint) : "")
+          : "No comparable diagnostics baseline" + (comparison.reason ? ": " + String(comparison.reason) : "");
+        diagnosticsEl.appendChild(comparisonLine);
+        if (comparison.note) {
+          var comparisonNote = document.createElement("p");
+          comparisonNote.textContent = String(comparison.note);
+          diagnosticsEl.appendChild(comparisonNote);
+        }
+        (Array.isArray(comparison.history) ? comparison.history : []).forEach(function (prior) {
+          var historySection = document.createElement("details");
+          var historyTitle = document.createElement("summary");
+          historyTitle.textContent = "Compare with revision " + String(prior.revision == null ? "unknown" : prior.revision) + (prior.comparable ? "" : " — settings differ or unmeasured");
+          historySection.appendChild(historyTitle);
+          if (prior.reason) {
+            var reason = document.createElement("p");
+            reason.textContent = String(prior.reason);
+            historySection.appendChild(reason);
+          }
+          var deltas = prior.metric_deltas || {};
+          Object.keys(deltas).forEach(function (testKey) {
+            Object.keys(deltas[testKey] || {}).forEach(function (metricKey) {
+              var change = deltas[testKey][metricKey];
+              var line = document.createElement("p");
+              line.textContent = humanLabel(testKey) + " · " + humanLabel(metricKey) + ": " + (change.comparable === true
+                ? numberText(change.before) + " → " + numberText(change.after) + " " + String(change.unit || "") + " (change " + numberText(change.delta) + ")"
+                : "Not compared" + (change.reason ? ": " + String(change.reason) : ""));
+              historySection.appendChild(line);
+            });
+          });
+          diagnosticsEl.appendChild(historySection);
+        });
+        if (comparison.history_truncated) {
+          var truncated = document.createElement("p");
+          truncated.textContent = "Showing the five most recent prior runs.";
+          diagnosticsEl.appendChild(truncated);
+        }
+      }
+      return true;
     }
 
     function readiness() {
@@ -147,10 +372,10 @@
       dialog.querySelector("[data-goldfish-readiness]").textContent = check.message;
       opener.disabled = false;
       opener.setAttribute("aria-disabled", "false");
-      opener.title = shared ? "Open simulator information for this read-only deck" : "Open the solo assembly check";
+      opener.title = shared ? "Open Goldfish information for this read-only deck" : "Open the Goldfish simulator";
       if (runButton) runButton.disabled = !check.ready || activeView.status === "queued" || activeView.status === "running";
       if (rerunButton) rerunButton.disabled = !check.ready || activeView.status === "queued" || activeView.status === "running";
-      if (runButton) runButton.title = check.ready ? "Run the solo assembly check" : check.message;
+      if (runButton) runButton.title = check.ready ? "Run the Goldfish simulator" : check.message;
     }
 
     function render(view) {
@@ -161,8 +386,11 @@
       if (rerunButton) rerunButton.hidden = shared || !view.stale;
       syncReadiness();
       if (running) {
-        setText(statusEl, status === "queued" ? "Simulation queued…" : "Running the solo assembly check…");
+        setText(statusEl, status === "queued" ? "Simulation queued…" : "Running Goldfish…");
         setText(resultEl, "");
+        diagnosticsEl.textContent = "";
+        diagnosticsEl.hidden = true;
+        setText(missingDiagnosticsEl, "");
         setText(runMetaEl, "");
         runMetaEl.hidden = true;
         setText(coverageEl, "");
@@ -177,9 +405,13 @@
         return;
       }
       var reason = view.reason ? String(view.reason) : "";
-      setText(statusEl, reason || (status === "done" ? "Assembly check complete." : ""));
+      setText(statusEl, reason || (status === "done" ? "Goldfish run complete." : ""));
       var result = view.result || null;
       setText(resultEl, result && result.text ? String(result.text) : "");
+      var hasDiagnostics = renderDiagnostics(result && result.diagnostics);
+      setText(missingDiagnosticsEl, result && !hasDiagnostics && status === "done"
+        ? "Five-test diagnostics are not included in this run; this is the existing solo assembly check only."
+        : "");
       var runMeta = [];
       if (result && result.games !== undefined) runMeta.push(String(result.games) + " simulated games");
       var turn = result && (result.objective_turn !== undefined ? result.objective_turn : result.turn);

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commander-simulator.local/contracts/cedh-simulation-request.v1.schema.json",
+  "title": "cEDH simulation request v1",
+  "description": "The POST /simulate envelope. Versioned in its own right because the previous boundary pinned only the RESPONSE: the request body was described in prose, each side built its own reading of it, and the two never matched on the wire while both test suites stayed green.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cedh-simulation-request.v1"
+    },
+    "candidate": {
+      "description": "A cedh-deck-candidate.v2 document, verbatim.",
+      "$ref": "https://commander-simulator.local/contracts/cedh-deck-candidate.v2.schema.json"
+    },
+    "games": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 20000
+    },
+    "turn": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615,
+      "default": 12345
+    },
+    "scenario": {
+      "description": "goldfish_assembly.v1 measures turn-to-assembly. goldfish_diagnostics.v1 runs the five bounded diagnostic probes (opening, development, commander_loss, creature_wipe, finish) and is refused unless the service has diagnostics enabled; it cannot be combined with sweep or a non-empty ablate, and is bounded independently of games' normal cap.",
+      "enum": [
+        "goldfish_assembly.v1",
+        "goldfish_diagnostics.v1"
+      ],
+      "default": "goldfish_assembly.v1"
+    },
+    "sweep": {
+      "type": "boolean",
+      "default": false
+    },
+    "ablate": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    }
+  },
+  "$comment": "sweep: true and a non-empty ablate are mutually exclusive; the service returns 400 rather than silently preferring one. scenario: goldfish_diagnostics.v1 additionally refuses sweep/ablate with 400, and the service rejects it with 403 while diagnostics is disabled."
+}

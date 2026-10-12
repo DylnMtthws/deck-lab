@@ -36,6 +36,10 @@ REQUEST_SCHEMA_ID = "cedh-simulation-request.v1"
 #: The simulator's only v1 scenario. A controlled-disruption model must take a
 #: new id rather than change what this one means.
 SCENARIO_ID = "goldfish_assembly.v1"
+DIAGNOSTICS_SCENARIO_ID = "goldfish_diagnostics.v1"
+DIAGNOSTICS_SEED = 20261012
+DIAGNOSTICS_GAMES = 2000
+DIAGNOSTICS_TURN = 7
 
 #: Placeholder used where this repository has no real digest to publish. The
 #: simulator requires provenance to be *shaped* correctly but does not
@@ -111,6 +115,7 @@ def simulation_request(
     seed: int | None = None,
     sweep: bool = False,
     ablate: tuple[str, ...] = (),
+    diagnostics: bool = False,
 ) -> dict[str, Any]:
     """Render a ``cedh-simulation-request.v1`` envelope.
 
@@ -124,16 +129,25 @@ def simulation_request(
         sweep: Request the full leave-one-out ablation set.
         ablate: Specific card names to ablate. Mutually exclusive with
             ``sweep``; the service returns 400 rather than picking one.
+        diagnostics: Request the fixed QA-only five-test profile. Its games,
+            seed, turn and scenario are pinned here rather than accepting
+            caller-provided values.
     """
     if sweep and ablate:
         raise ValueError("sweep and a non-empty ablate list are mutually exclusive")
+    if diagnostics:
+        games = DIAGNOSTICS_GAMES
+        turn = DIAGNOSTICS_TURN
+        seed = DIAGNOSTICS_SEED
+        sweep = False
+        ablate = ()
     return {
         "schema_version": REQUEST_SCHEMA_ID,
         "candidate": candidate_document(candidate),
         "games": games,
         "turn": turn,
         "seed": int(candidate.deck_sha256[:16], 16) if seed is None else seed,
-        "scenario": SCENARIO_ID,
+        "scenario": DIAGNOSTICS_SCENARIO_ID if diagnostics else SCENARIO_ID,
         "sweep": sweep,
         "ablate": list(ablate),
     }

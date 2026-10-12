@@ -213,8 +213,8 @@ def prepare_simulation(
     """Freeze the submitted list and pin its comparable successful run.
 
     Legacy outcomes without a document snapshot cannot establish card deltas.
-    The native simulator derives seeds from each deck; this is an unpaired
-    before/after comparison, not a paired-seed experiment.
+    Before/after differences are descriptive; shared indexed seeds do not
+    establish statistical proof of paired improvement.
     """
     provenance = load_provenance(path, document)
     try:
@@ -305,6 +305,12 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
             reason = reason or "Not simulated: stored result could not be read"
         else:
             result_payload = _result_payload(outcome)
+            diagnostics = result_payload.get("diagnostics")
+            if isinstance(diagnostics, dict):
+                result_payload["diagnostics"] = {
+                    **diagnostics,
+                    "comparison": _diagnostics_comparison(path, row, diagnostics),
+                }
             if document is not None:
                 delta, baseline_message = _delta_for(
                     path, document, str(row["id"]), outcome
@@ -489,6 +495,12 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
         "text": result.metric,
     }
     strategy = (result.raw_document or {}).get("strategy_pack")
+    diagnostics = (result.raw_document or {}).get("diagnostics")
+    # Diagnostics are an additive native-engine report. Keep the validated
+    # simulator payload intact for the UI; older engines simply omit it and
+    # continue to render the established assembly result.
+    if isinstance(diagnostics, dict):
+        payload["diagnostics"] = diagnostics
     if isinstance(strategy, dict) and isinstance(
         strategy.get("assembly_objectives"), list
     ):
@@ -616,6 +628,69 @@ def _comparable(before: SimulationResult, after: SimulationResult) -> bool:
         left.get(name) == right.get(name)
         for name in ("scenario", "sweep", "ablations", "ablate")
     )
+
+
+def _diagnostics_comparison(
+    path: Path, current: dict[str, Any], diagnostics: dict[str, Any]
+) -> dict[str, Any]:
+    from sabermetrics.native_diagnostics_comparison import compare_reports
+
+    comparison = compare_reports(diagnostics, None)
+    comparison.update(history=[], history_truncated=False)
+    repo = db.DeckDocumentSimulationsRepo(path)
+    stored = _stored_payload(current.get("result_json"))
+    snapshot = stored.get("snapshot")
+    if not isinstance(snapshot, dict) or str(snapshot.get("id")) != str(
+        current.get("deck_id")
+    ):
+        return comparison
+    if snapshot.get("owner_id") is not None and snapshot["owner_id"] != current.get(
+        "owner_id"
+    ):
+        return comparison
+    prior_id = stored.get("comparison_id")
+    seen = {str(current["id"])}
+    while prior_id and len(comparison["history"]) < 5:
+        if str(prior_id) in seen:
+            break
+        seen.add(str(prior_id))
+        prior = repo.get(str(prior_id))
+        if (
+            prior is None
+            or prior.get("status") != "done"
+            or any(
+                prior.get(key) != current.get(key) for key in ("deck_id", "owner_id")
+            )
+        ):
+            break
+        prior_stored = _stored_payload(prior.get("result_json"))
+        frozen = prior_stored.get("snapshot")
+        if not isinstance(frozen, dict) or str(frozen.get("id")) != str(
+            current.get("deck_id")
+        ):
+            break
+        if frozen.get("owner_id") is not None and frozen["owner_id"] != current.get(
+            "owner_id"
+        ):
+            break
+        outcome = parse_stored_result(prior.get("result_json"))
+        if outcome is None:
+            break
+        report = (outcome.raw_document or {}).get("diagnostics")
+        entry = compare_reports(diagnostics, report)
+        entry.update(
+            id=prior["id"],
+            revision=prior.get("revision"),
+            deck_sha256=prior.get("deck_sha256"),
+        )
+        comparison["history"].append(entry)
+        if len(comparison["history"]) == 1:
+            comparison.update(
+                {key: entry[key] for key in ("comparable", "reason", "metric_deltas")}
+            )
+        prior_id = prior_stored.get("comparison_id")
+    comparison["history_truncated"] = bool(prior_id and len(comparison["history"]) == 5)
+    return comparison
 
 
 def _baseline_result(

@@ -1,3 +1,5 @@
+> 2026-10-12 update: the [native diagnostic extension](native-extension-20261012.md) supersedes the assembly-only status below. Five native observation panels and strict comparison history are implemented for QA; full card mechanics, verified finishes and assistant-driven optimization remain pending. The earlier milestones below are retained as history.
+
 # Build-integrated Goldfish — correction, 2026-10-10
 
 ## Current architecture

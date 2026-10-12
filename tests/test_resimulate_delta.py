@@ -25,6 +25,7 @@ from sabermetrics.deck_simulation import (
     DeckCandidate as HashOwner,
 )
 from sabermetrics.deck_simulation import (
+    _result_payload,
     candidate_from_document,
     load_provenance,
     map_builder_role,
@@ -865,32 +866,36 @@ def test_simulation_does_not_run_on_request_thread(tmp_path, monkeypatch):
 def test_ui_states_running_result_delta_stale_and_absence() -> None:
     states = _harness("states")
     assert states["sectionId"] == "goldfish-dialog"
-    assert states["title"] == "Solo assembly check"
+    assert states["title"] == "Goldfish simulator"
     assert states["statusRole"] == "status"
     assert states["running"] == "Simulation queued…"
-    assert states["run"] == "Run assembly check"
+    assert states["run"] == "Run Goldfish"
     assert states["buttonType"] == "button"
     assert states["csrf"] == "csrf-test"
     assert states["postUrl"] == "/api/decks/deck-1/simulate"
     assert states["delays"] == [1000, 2000]
-    assert states["polledStatus"] == "Running the solo assembly check…"
+    assert states["polledStatus"] == "Running Goldfish…"
     assert json.loads(states["postBody"]) == {"expected_revision": 7}
     assert states["dialogOpen"] is True
     assert states["result"] == (
         "goldfish_turns_to_assembly: 0.400 probability by turn 3"
     )
+    assert states["missingDiagnostics"] == (
+        "Five-test diagnostics are not included in this run; this is the existing "
+        "solo assembly check only."
+    )
     assert states["delta"] == ("goldfish_turns_to_assembly: 0.250 → 0.400 probability")
     assert states["unseen"] == "unseen_card_count: 7 → 4"
     assert states["rerunAfterResult"] == ""
     assert states["resultAfterRender"] == states["result"]
-    assert states["statusAfterRender"] == "Assembly check complete."
+    assert states["statusAfterRender"] == "Goldfish run complete."
     assert states["runningAfterRender"] == states["running"]
     assert states["disabledAfterRunningRender"] is True
 
     stale = _harness("stale")
     assert stale["stale"] == "Out of date: the list changed since this run"
-    assert stale["rerun"] == "Re-run"
-    assert stale["run"] == "Run assembly check"
+    assert stale["rerun"] == "Run Goldfish again"
+    assert stale["run"] == "Run Goldfish"
     assert stale["result"]
     assert stale["delta"]
 
@@ -901,6 +906,82 @@ def test_ui_states_running_result_delta_stale_and_absence() -> None:
     assert absence["baseline"] == "No earlier simulation to compare"
     assert absence["result"] == ""
     assert absence["delta"] == ""
+
+
+def test_native_diagnostics_adapter_preserves_additive_report() -> None:
+    candidate = DeckCandidate(
+        candidate_id="test-candidate",
+        generated_at=datetime.now(UTC),
+        commander=CommanderIdentity(
+            oracle_ids=(COMMANDER,), names=("Test",), color_identity=("U",)
+        ),
+        cards=(
+            CandidateCard(oracle_id=ISLAND, name="Island", quantity=99, role="land"),
+        ),
+        role_counts={"land": 99},
+        provenance=CandidateProvenance(
+            pack_id="fixture", pack_version="1", pack_source="test"
+        ),
+    )
+    original = _result(candidate, 0.5, 0)
+    diagnostics = {
+        "schema_version": "decklab.goldfish-diagnostics.v1",
+        "settings": {"games": 20, "seed": 9, "settings_fingerprint": "stable-settings"},
+        "tests": {
+            key: {
+                "status": "unsupported",
+                "metrics": {},
+                "limitations": [],
+                "evidence": [],
+            }
+            for key in (
+                "opening",
+                "development",
+                "commander_loss",
+                "creature_wipe",
+                "finish",
+            )
+        },
+    }
+    enriched = original.model_copy(
+        update={"raw_document": {"diagnostics": diagnostics}}
+    )
+    payload = _result_payload(enriched)
+    assert payload["diagnostics"] == diagnostics
+    assert payload["games"] == 20
+    assert "diagnostics" not in _result_payload(original)
+
+
+def test_ui_renders_five_native_diagnostic_panels_without_inventing_zero() -> None:
+    rendered = _harness("diagnostics")
+    assert rendered["diagnosticCardCount"] == 5
+    text = rendered["diagnosticsText"]
+    for title in (
+        "Opening hand",
+        "Development through the early turns",
+        "Commander loss",
+        "Creature wipe recovery",
+        "Finish",
+    ):
+        assert title in text
+    assert "75% · 15/20 · 95% interval 55–90%" in text
+    assert "Not measured · 0/20 observed" in text
+    assert "unknown is not zero" in text
+    assert "settings-abc" in text
+    assert "No comparable diagnostics baseline" not in text
+    assert "Not measured · 0%" not in text
+    assert "Development Turn 5, Wipe Turn 5, Finish Turn 7" in text
+    assert "Partially measured" in text
+    assert "Evidence: 20 sampled opening hands" in text
+    assert "Limitation: Only authored cards are modeled" in text
+    assert "Compare with revision 6" in text
+    assert "0.5 → 0.75 probability (change 0.25)" in text
+    assert "Not compared: Metric is unmeasured in one or both runs." in text
+    assert "Compare with revision 5" in text
+    assert "Engine settings changed." in text
+    assert "Showing the five most recent prior runs." in text
+    assert "no winner verdict is inferred" in text
+    assert "(change null)" not in text
 
 
 def test_shared_view_read_only(tmp_path, monkeypatch):

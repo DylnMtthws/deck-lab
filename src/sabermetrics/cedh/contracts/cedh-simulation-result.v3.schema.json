@@ -277,7 +277,10 @@
           ],
           "properties": {
             "id": {
-              "const": "goldfish_assembly"
+              "enum": [
+                "goldfish_assembly",
+                "goldfish_diagnostics"
+              ]
             },
             "version": {
               "const": "1.0.0"
@@ -424,6 +427,10 @@
     "simulation_input_sha256": {
       "description": "sha256 over compact UTF-8 JSON with lexicographically sorted keys of: ablations (sorted), card_data_manifest_hash, cards_sha256, deck_sha256, games, objective_turn, scenario_id, scenario_version, schema_version ('cedh-simulation-input.v1'), seed, simulator_version, strategy_pack_content_sha256, strategy_pack_derived, strategy_pack_id, strategy_pack_version, sweep. The strategy-pack fields describe the pack the simulator RESOLVED and ran, not the one that was requested. Two results sharing this fingerprint are the same measurement; two results sharing only deck_sha256 are the same deck measured differently. This is the correct cache key. Vectors: contracts/hash-golden-vectors.json.",
       "$ref": "#/$defs/sha256"
+    },
+    "diagnostics": {
+      "description": "Present only when the request's scenario was goldfish_diagnostics.v1. Everything else in this envelope (metric, assembly_cdf, percentiles, ablation_results, ...) describes the goldfish_turns_to_assembly measurement either way; this field is the additional, separately-scoped diagnostics payload.",
+      "$ref": "https://commander-simulator.local/contracts/goldfish-diagnostics.v1.schema.json"
     }
   },
   "$defs": {

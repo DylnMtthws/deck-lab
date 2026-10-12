@@ -160,7 +160,7 @@ body.appendChild(builder);
 const opener = el("button", { "data-goldfish-open": "", "aria-controls": "goldfish-dialog" });
 const dialog = el("dialog", { id: "goldfish-dialog" });
 const title = el("h2", { id: "goldfish-dialog-title" });
-title.textContent = "Solo assembly check";
+title.textContent = "Goldfish simulator";
 dialog.appendChild(title);
 dialog.appendChild(el("button", { "data-goldfish-close": "" }));
 const readiness = el("p", { "data-goldfish-readiness": "" });
@@ -202,6 +202,38 @@ const doneView = {
   },
 };
 
+const diagnosticsView = {
+  status: "done",
+  result: {
+    text: "Native solo simulation completed.",
+    games: 200,
+    diagnostics: {
+      schema_version: "decklab.goldfish-diagnostics.v1",
+      settings: { games: 200, seed: 17, checkpoints: { development_turn: 5, wipe_turn: 5, finish_turn: 7 }, engine_version: "test-engine", settings_fingerprint: "settings-abc" },
+      coverage: { modeled_cards: 28, inert_cards: 3, unauthored_cards: 55 },
+      comparison: {
+        comparable: true, settings_fingerprint: "settings-abc",
+        note: "Descriptive differences only; no winner verdict is inferred.",
+        history_truncated: true,
+        history: [
+          { revision: 6, comparable: true, metric_deltas: {
+            opening: { kept_hands: { before: 0.5, after: 0.75, delta: 0.25, unit: "probability", comparable: true } },
+            commander_loss: { recovery: { before: null, after: null, delta: null, comparable: false, reason: "Metric is unmeasured in one or both runs." } },
+          } },
+          { revision: 5, comparable: false, reason: "Engine settings changed.", metric_deltas: {} },
+        ],
+      },
+      tests: {
+        opening: { status: "supported", metrics: { kept_hands: { value: 0.75, unit: "probability", numerator: 15, denominator: 20, ci95: [0.55, 0.9] } }, evidence: ["20 sampled opening hands"] },
+        development: { status: "partial", metrics: { mean_missed_land_drops: { value: 1.25, unit: "land drops" } }, limitations: ["Only authored cards are modeled"] },
+        commander_loss: { status: "unsupported", metrics: { recovery: { value: null, numerator: 0, denominator: 20 } }, limitations: ["Commander-loss scenario is unavailable"] },
+        creature_wipe: { status: "unsupported", metrics: {} },
+        finish: { status: "partial", metrics: { win_conversion: { value: 0.2, unit: "probability", numerator: 4, denominator: 20 } }, evidence: ["Board-state conversion check"] },
+      },
+    },
+  },
+};
+
 const views = {
   states: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   stale: {
@@ -237,6 +269,7 @@ const views = {
   pending: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   direct: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   "refresh-stale": { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: doneView },
+  diagnostics: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
 };
 
 const initialState = views[scenario] || views.states;
@@ -345,6 +378,9 @@ function snapshot() {
     runDisabled: run ? run.disabled : true,
     readiness: readiness.textContent,
     coverage: section.querySelector(".dl-sim-coverage")?.textContent || "",
+    diagnosticsText: section.querySelector("[data-simulate-diagnostics]")?.textContent || "",
+    diagnosticCardCount: section.querySelectorAll("[data-diagnostic-test]").length,
+    missingDiagnostics: section.querySelector("[data-simulate-diagnostics-missing]")?.textContent || "",
     runMeta: section.querySelector(".dl-sim-note")?.textContent || "",
     dialogOpen: dialog.open,
     openerDisabled: opener.disabled,
@@ -392,6 +428,7 @@ if (scenario === "states") {
     result: finished.result,
     delta: finished.delta,
     unseen: finished.unseen,
+    missingDiagnostics: finished.missingDiagnostics,
     rerunAfterResult: finished.rerun,
     resultAfterRender: afterRender.result,
     statusAfterRender: afterRender.status,
@@ -420,6 +457,8 @@ if (scenario === "states") {
   await flush();
   await flush();
   process.stdout.write(JSON.stringify({ ...snapshot(), getUrl: fetches[0] && fetches[0].url }));
+} else if (scenario === "diagnostics") {
+  process.stdout.write(JSON.stringify(snapshot()));
 } else {
   process.stdout.write(JSON.stringify(snapshot()));
 }
