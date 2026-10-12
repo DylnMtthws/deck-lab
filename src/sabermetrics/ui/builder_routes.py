@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import copy
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
 from urllib.parse import urlsplit
@@ -29,6 +29,15 @@ from sabermetrics.account_playmats import (
     PlaymatNotFound,
     orphan_custom_path,
 )
+from sabermetrics.build_research_assistant import (
+    findings as research_findings,
+)
+from sabermetrics.build_research_assistant import (
+    recommendations as research_recommendations,
+)
+from sabermetrics.build_research_assistant import (
+    search_hints as research_search_hints,
+)
 from sabermetrics.cedh.factory import build_default_lab
 from sabermetrics.cedh.packs import PackSummary
 from sabermetrics.deck_documents import (
@@ -38,11 +47,6 @@ from sabermetrics.deck_documents import (
     RevisionConflict,
 )
 from sabermetrics.deck_evidence import DeckEvidenceService
-from sabermetrics.build_research_assistant import (
-    findings as research_findings,
-    recommendations as research_recommendations,
-    search_hints as research_search_hints,
-)
 from sabermetrics.deck_simulation import (
     execute_simulation,
     prepare_simulation,
@@ -322,11 +326,38 @@ def generate_packs():
             summaries = [item for item in summaries if _pack_matches(item, name)]
             if not summaries:
                 message = _NO_PACK
+    payloads = [_pack_payload(item) for item in summaries]
+    if commander_id and not any(item.supported for item in summaries):
+        from sabermetrics.cedh.domain import Legality
+        from sabermetrics.cedh.fallback_builder import (
+            PACK_ID,
+            PACK_NAME,
+            looks_like_commander,
+        )
+
+        name = _commander_name(commander_id)
+        facts = lab.cards.resolve_names([name]) if name else {}
+        card = next(iter(facts.values()), None)
+        legality = lab.cards.legality([card.oracle_id], "commander") if card else {}
+        if (
+            card
+            and looks_like_commander(card)
+            and legality.get(card.oracle_id) is Legality.LEGAL
+        ):
+            payloads.append(
+                {
+                    "pack_id": PACK_ID,
+                    "name": PACK_NAME,
+                    "supported": True,
+                    "commander_names": [card.name],
+                    "summary": "Balanced draft with 37–40 lands; review its game plan and run Goldfish.",
+                }
+            )
+            message = None
     return jsonify(
-        packs=[_pack_payload(item) for item in summaries],
+        packs=payloads,
         message=message,
     )
-
 
 @bp.post("/build/import/candidate/<candidate_id>")
 def import_candidate(candidate_id: str):

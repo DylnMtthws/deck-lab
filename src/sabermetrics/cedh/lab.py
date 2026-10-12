@@ -28,7 +28,12 @@ from pydantic import BaseModel, ConfigDict
 
 from sabermetrics.cedh.builder import build_candidate
 from sabermetrics.cedh.candidate import DeckCandidate
-from sabermetrics.cedh.domain import BuildConstraints, LabRequest, MetagameWindow
+from sabermetrics.cedh.domain import (
+    BuildConstraints,
+    LabRequest,
+    Legality,
+    MetagameWindow,
+)
 from sabermetrics.cedh.errors import (
     CandidateConstraintViolation,
     CedhError,
@@ -136,6 +141,79 @@ class CedhDeckLab:
         """Run the slice: resolve, retrieve, build, simulate, explain."""
         usages: list[UsageRecord] = []
         warnings: list[str] = []
+
+        from sabermetrics.cedh.fallback_builder import (
+            PACK_ID,
+            PACK_NAME,
+            build_fallback_candidate,
+            looks_like_commander,
+        )
+
+        if request.pack_id == PACK_ID:
+            if request.commander is None:
+                return LabResult(
+                    supported=False,
+                    unsupported_detail="Choose a legal commander for the deterministic starter.",
+                )
+            facts = self.cards.get_by_oracle_ids(request.commander.oracle_ids)
+            if (
+                len(request.commander.oracle_ids) != 1
+                or any(
+                    not looks_like_commander(facts[oid])
+                    for oid in request.commander.oracle_ids
+                    if oid in facts
+                )
+                or len(facts) != 1
+            ):
+                return LabResult(
+                    supported=False,
+                    unsupported_detail="Starter generation requires one resolved legal commander.",
+                )
+            fact = next(iter(facts.values()))
+            if (
+                self.cards.legality([fact.oracle_id], "commander").get(fact.oracle_id)
+                is not Legality.LEGAL
+                or tuple(fact.color_identity) != request.commander.color_identity
+                or fact.name != request.commander.names[0]
+            ):
+                return LabResult(
+                    supported=False,
+                    unsupported_detail="Commander identity or legality did not match the card catalog.",
+                )
+            if (
+                request.constraints.must_include_oracle_ids
+                or request.constraints.excluded_oracle_ids
+                or request.constraints.flex_slots
+            ):
+                return LabResult(
+                    supported=False,
+                    unsupported_detail="The deterministic starter does not support card exclusions, required cards or open slots yet.",
+                )
+            try:
+                candidate = build_fallback_candidate(
+                    request.commander,
+                    self.cards,
+                    candidate_id=candidate_id,
+                    generated_at=generated_at,
+                )
+            except CandidateConstraintViolation as exc:
+                return LabResult(
+                    supported=False,
+                    pack_id=PACK_ID,
+                    pack_name=PACK_NAME,
+                    unsupported_detail=str(exc),
+                )
+            simulation = self.simulator.simulate(candidate)
+            return LabResult(
+                supported=True,
+                pack_id=PACK_ID,
+                pack_name=PACK_NAME,
+                candidate=candidate,
+                simulation=simulation,
+                warnings=[
+                    "Starter draft: develop mana, draw cards, protect your board and finish through combat or the included engine cards. Review the fit with your commander and run Goldfish. Custom focus is not automatically applied."
+                ],
+            )
 
         pack_id, intent = self._resolve_pack(request, usages, warnings)
         if pack_id is None:
