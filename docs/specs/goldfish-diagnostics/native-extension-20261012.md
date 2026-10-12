@@ -34,7 +34,11 @@ Sideboards are excluded from the 100-card simulation; the four supplied fixtures
 
 Full app validation: 2,073 passed, 31 skipped. Native final full suite: 145 cases / 89,153 assertions passed, including the duplicate-card loader regressions. Service boundary suite: 63 passed; real-process integration and legacy digest: 3 passed. Final build/release receipts add subsequent loader validation and QA acceptance.
 
-## Remaining product work — not implemented by this milestone
+## Follow-up work
+
+The subsequent implementation and current limitations are tracked in [the QA review guide](qa-review-20261012.md). The list below describes the original foundation milestone.
+
+### Original remaining product work
 
 1. Author and verify actual Vivi/Sauron mechanics and finish resolution, including opponent-dependent limitations. Current coverage is insufficient for whole-deck resilience or win-conversion verdicts.
 2. Add archetype engine predicates, richer mulligan pilots, and meaningful baselines; validate against manually traced games. Preserve interaction and theme value that solo play cannot measure.
