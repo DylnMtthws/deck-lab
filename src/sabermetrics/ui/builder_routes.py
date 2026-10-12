@@ -359,6 +359,7 @@ def generate_packs():
         message=message,
     )
 
+
 @bp.post("/build/import/candidate/<candidate_id>")
 def import_candidate(candidate_id: str):
     try:
@@ -522,9 +523,11 @@ def build_research_assistant(deck_id: str):
         facts = []
         report_state = "stale" if view.get("stale") else "unavailable"
     suggestions = research_recommendations(
-        document, DeckEvidenceService(Path(current_app.config["DB_PATH"])),
+        document,
+        DeckEvidenceService(Path(current_app.config["DB_PATH"])),
         diagnostics if current and isinstance(diagnostics, dict) else None,
-        _evidence_window(), limit=3,
+        _evidence_window(),
+        limit=3,
     )
     return jsonify(
         revision=int(document.get("revision") or 0),
@@ -557,41 +560,90 @@ def apply_research_recommendations(deck_id: str):
     if not isinstance(expected, int) or isinstance(expected, bool):
         return jsonify(error="invalid_revision"), 400
     if not isinstance(choices, list) or not 1 <= len(choices) <= 3:
-        return jsonify(error="invalid_replacements", message="Choose one to three replacements."), 400
+        return (
+            jsonify(
+                error="invalid_replacements",
+                message="Choose one to three replacements.",
+            ),
+            400,
+        )
     try:
         document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         return jsonify(error="not_found"), 404
     if expected != int(document.get("revision") or 0):
-        return jsonify(error="revision_conflict", revision=document.get("revision")), 409
+        return (
+            jsonify(error="revision_conflict", revision=document.get("revision")),
+            409,
+        )
 
     service = DeckEvidenceService(Path(current_app.config["DB_PATH"]))
     view = simulation_view(Path(current_app.config["DB_PATH"]), deck_id)
     result = view.get("result") if isinstance(view, dict) else None
     diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
-    if view.get("status") != "done" or view.get("stale") or not isinstance(diagnostics, dict):
-        return jsonify(error="stale_recommendations", message="Run Goldfish again before applying these recommendations."), 409
-    eligible = research_recommendations(document, service, diagnostics, _evidence_window(), limit=3)
-    entries = {str(entry.get("id")): entry for entry in document.get("entries", [])
-               if isinstance(entry, dict)}
+    if (
+        view.get("status") != "done"
+        or view.get("stale")
+        or not isinstance(diagnostics, dict)
+    ):
+        return (
+            jsonify(
+                error="stale_recommendations",
+                message="Run Goldfish again before applying these recommendations.",
+            ),
+            409,
+        )
+    eligible = research_recommendations(
+        document, service, diagnostics, _evidence_window(), limit=3
+    )
+    entries = {
+        str(entry.get("id")): entry
+        for entry in document.get("entries", [])
+        if isinstance(entry, dict)
+    }
     used_entries: set[str] = set()
     commands_to_apply: list[dict] = []
     prospective = copy.deepcopy(document)
-    prospective_entries = {str(entry.get("id")): entry for entry in prospective.get("entries", [])
-                           if isinstance(entry, dict)}
+    prospective_entries = {
+        str(entry.get("id")): entry
+        for entry in prospective.get("entries", [])
+        if isinstance(entry, dict)
+    }
     for choice in choices:
         if not isinstance(choice, dict):
             return jsonify(error="invalid_replacements"), 400
         entry_id = str(choice.get("entry_id") or "")
         card_id = str(choice.get("card_id") or "")
         entry = entries.get(entry_id)
-        if (not entry or entry.get("is_commander") or not entry.get("oracle_id")
-                or entry_id in used_entries):
-            return jsonify(error="invalid_replacement", message="Each replacement must target a distinct library card."), 400
-        proposal = next((item for item in eligible if item["entry_id"] == entry_id
-                         and item["card_id"] == card_id), None)
+        if (
+            not entry
+            or entry.get("is_commander")
+            or not entry.get("oracle_id")
+            or entry_id in used_entries
+        ):
+            return (
+                jsonify(
+                    error="invalid_replacement",
+                    message="Each replacement must target a distinct library card.",
+                ),
+                400,
+            )
+        proposal = next(
+            (
+                item
+                for item in eligible
+                if item["entry_id"] == entry_id and item["card_id"] == card_id
+            ),
+            None,
+        )
         if proposal is None:
-            return jsonify(error="invalid_replacement", message="The selected card is no longer an eligible same-role alternative."), 400
+            return (
+                jsonify(
+                    error="invalid_replacement",
+                    message="The selected card is no longer an eligible same-role alternative.",
+                ),
+                400,
+            )
         used_entries.add(entry_id)
         quantity = max(1, int(entry.get("quantity") or 1))
         prospective_entry = prospective_entries[entry_id]
@@ -599,27 +651,33 @@ def apply_research_recommendations(deck_id: str):
             prospective_entry["quantity"] = quantity - 1
         else:
             prospective["entries"].remove(prospective_entry)
-        prospective["entries"].append({
-            "id": f"research-assistant-{len(used_entries)}",
-            "card_id": proposal["card_id"],
-            "oracle_id": proposal["oracle_id"],
-            "name": proposal["name"],
-            "quantity": 1,
-            "is_commander": False,
-            "zone_name": entry.get("zone_name") or "Unsorted",
-            "role": entry.get("role") or proposal.get("from_role") or "",
-            "color_identity": [],
-        })
+        prospective["entries"].append(
+            {
+                "id": f"research-assistant-{len(used_entries)}",
+                "card_id": proposal["card_id"],
+                "oracle_id": proposal["oracle_id"],
+                "name": proposal["name"],
+                "quantity": 1,
+                "is_commander": False,
+                "zone_name": entry.get("zone_name") or "Unsorted",
+                "role": entry.get("role") or proposal.get("from_role") or "",
+                "color_identity": [],
+            }
+        )
         if quantity > 1:
-            commands_to_apply.append({"type": "set_quantity", "entry_id": entry_id,
-                                      "quantity": quantity - 1})
+            commands_to_apply.append(
+                {"type": "set_quantity", "entry_id": entry_id, "quantity": quantity - 1}
+            )
         else:
             commands_to_apply.append({"type": "remove_entry", "entry_id": entry_id})
         commands_to_apply.append(
-            {"type": "add_card", "card_id": card_id,
-             "quantity": 1,
-             "zone_id": entry.get("zone_id"),
-             "role": entry.get("role") or proposal.get("from_role") or ""},
+            {
+                "type": "add_card",
+                "card_id": card_id,
+                "quantity": 1,
+                "zone_id": entry.get("zone_id"),
+                "role": entry.get("role") or proposal.get("from_role") or "",
+            },
         )
     try:
         # This freezes only a prospective candidate in memory. It makes no
@@ -630,7 +688,9 @@ def apply_research_recommendations(deck_id: str):
         return jsonify(error="replacement_limit", message=str(exc)), 409
     try:
         updated = _repo().apply_commands(
-            current_user.id, deck_id, expected_revision=expected,
+            current_user.id,
+            deck_id,
+            expected_revision=expected,
             mutation_id=str(body.get("mutation_id") or db.new_id()),
             commands=commands_to_apply,
         )
@@ -640,8 +700,11 @@ def apply_research_recommendations(deck_id: str):
         return jsonify(error="revision_conflict", revision=exc.current_revision), 409
     except (InvalidCommand, TypeError, ValueError) as exc:
         return jsonify(error="invalid_replacement", message=str(exc)), 400
-    return jsonify(document=updated, replacements=len(choices),
-                   message="Replacements applied. Run Goldfish again to observe the revised deck." )
+    return jsonify(
+        document=updated,
+        replacements=len(choices),
+        message="Replacements applied. Run Goldfish again to observe the revised deck.",
+    )
 
 
 @bp.get("/api/deck-tags")

@@ -86,7 +86,9 @@ def findings(diagnostics: dict[str, Any]) -> list[dict[str, Any]]:
         observed = []
         metric_names = list(metrics)
         if metrics.get("positive_finish_proof_rate"):
-            metric_names = [name for name in metric_names if name != "verified_finish_rate"]
+            metric_names = [
+                name for name in metric_names if name != "verified_finish_rate"
+            ]
         for metric_name in metric_names:
             metric = metrics[metric_name]
             if not isinstance(metric, dict):
@@ -107,7 +109,9 @@ def findings(diagnostics: dict[str, Any]) -> list[dict[str, Any]]:
                 shown += f" ({denominator} games)"
             observed.append(
                 {
-                    "metric": METRIC_LABELS.get(str(metric_name), str(metric_name).replace("_", " ")),
+                    "metric": METRIC_LABELS.get(
+                        str(metric_name), str(metric_name).replace("_", " ")
+                    ),
                     "value": value,
                     "unit": str(metric.get("unit") or ""),
                     "summary": shown,
@@ -131,9 +135,13 @@ def findings(diagnostics: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
-def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
-                    diagnostics: dict[str, Any] | None = None,
-                    window_days: int = 30, limit: int = 3) -> list[dict[str, Any]]:
+def recommendations(
+    document: dict[str, Any],
+    evidence: DeckEvidenceService,
+    diagnostics: dict[str, Any] | None = None,
+    window_days: int = 30,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
     """Recommend swaps only for explicit, modeled failure signals.
 
     Suggestions preserve the target's role and current price ceiling. Unknown
@@ -146,7 +154,9 @@ def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
         "mean_missed_land_drops": ("land", "ramp"),
     }
     targets: dict[str, set[str]] = {}
-    tests = diagnostics.get("tests") if isinstance(diagnostics.get("tests"), dict) else {}
+    tests = (
+        diagnostics.get("tests") if isinstance(diagnostics.get("tests"), dict) else {}
+    )
     for test_key, test in tests.items():
         if not isinstance(test, dict) or test.get("status") == "unsupported":
             continue
@@ -155,10 +165,18 @@ def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
             name = str(raw_name).casefold()
             value = metric.get("value") if isinstance(metric, dict) else None
             roles = metric_roles.get(name)
-            if not roles or not isinstance(value, (float, int)) or isinstance(value, bool):
+            if (
+                not roles
+                or not isinstance(value, (float, int))
+                or isinstance(value, bool)
+            ):
                 continue
             denominator = metric.get("denominator")
-            if not isinstance(denominator, int) or isinstance(denominator, bool) or denominator < 1:
+            if (
+                not isinstance(denominator, int)
+                or isinstance(denominator, bool)
+                or denominator < 1
+            ):
                 continue
             # Any missed land drop is a scenario observation, not a deck grade.
             actionable_signal = name == "mean_missed_land_drops" and value > 0
@@ -170,11 +188,15 @@ def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
     found: list[dict[str, Any]] = []
     used_incoming: set[str] = set()
     used_outgoing: set[str] = set()
-    entries = [entry for entry in _library_entries(document)
-               if entry.get("oracle_id") and entry.get("id")]
+    entries = [
+        entry
+        for entry in _library_entries(document)
+        if entry.get("oracle_id") and entry.get("id")
+    ]
     evidence_document = dict(document)
-    evidence_document["entries"] = [dict(entry) for entry in document.get("entries", [])
-                                   if isinstance(entry, dict)]
+    evidence_document["entries"] = [
+        dict(entry) for entry in document.get("entries", []) if isinstance(entry, dict)
+    ]
     enriched = {str(entry.get("id")): entry for entry in evidence_document["entries"]}
     for entry in entries:
         target = enriched.get(str(entry["id"]))
@@ -197,8 +219,9 @@ def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
         qty = max(1, int(entry.get("quantity") or 1))
         if qty < 1:
             continue
-        alternatives = evidence.alternatives(evidence_document, str(entry["oracle_id"]),
-                                             window_days, limit=50)
+        alternatives = evidence.alternatives(
+            evidence_document, str(entry["oracle_id"]), window_days, limit=50
+        )
         denominator = alternatives.get("denominator", 0)
         if not isinstance(denominator, int) or denominator < 1:
             continue
@@ -216,23 +239,36 @@ def recommendations(document: dict[str, Any], evidence: DeckEvidenceService,
             target_price, candidate_price = _price_pair(
                 evidence, str(entry.get("card_id") or ""), str(card["card_id"])
             )
-            if target_price is None or candidate_price is None or candidate_price > target_price:
+            if (
+                target_price is None
+                or candidate_price is None
+                or candidate_price > target_price
+            ):
                 continue
             used_incoming.add(incoming_oracle)
-            found.append({
-                "entry_id": str(entry["id"]), "from_name": str(entry.get("name") or ""),
-                "from_role": role or str(alternatives.get("role") or ""),
-                "quantity": 1,
-                "zone_id": entry.get("zone_id"), "card_id": str(card["card_id"]),
-                "oracle_id": str(card.get("oracle_id") or ""),
-                "name": str(card.get("name") or ""), "lists": int(card.get("lists") or 0),
-                "rate": card.get("rate"), "denominator": int(denominator or 0),
-                "window_days": int(alternatives.get("window_days") or window_days),
-                "evidence_label": "Same-role inclusion in recorded tournament lists",
-                "price_usd": candidate_price, "price_ceiling_usd": target_price,
-                "finding_tests": [key for key, roles in targets.items() if role in roles],
-                "limitation": "This evidence does not show the card improves this deck or its simulator findings.",
-            })
+            found.append(
+                {
+                    "entry_id": str(entry["id"]),
+                    "from_name": str(entry.get("name") or ""),
+                    "from_role": role or str(alternatives.get("role") or ""),
+                    "quantity": 1,
+                    "zone_id": entry.get("zone_id"),
+                    "card_id": str(card["card_id"]),
+                    "oracle_id": str(card.get("oracle_id") or ""),
+                    "name": str(card.get("name") or ""),
+                    "lists": int(card.get("lists") or 0),
+                    "rate": card.get("rate"),
+                    "denominator": int(denominator or 0),
+                    "window_days": int(alternatives.get("window_days") or window_days),
+                    "evidence_label": "Same-role inclusion in recorded tournament lists",
+                    "price_usd": candidate_price,
+                    "price_ceiling_usd": target_price,
+                    "finding_tests": [
+                        key for key, roles in targets.items() if role in roles
+                    ],
+                    "limitation": "This evidence does not show the card improves this deck or its simulator findings.",
+                }
+            )
             used_outgoing.add(str(entry["oracle_id"]))
             break
     return found
@@ -255,7 +291,9 @@ def search_hints(facts: list[dict[str, Any]]) -> list[dict[str, str]]:
         hint = templates.get(str(fact.get("id") or ""))
         if hint and hint[1] not in seen:
             seen.add(hint[1])
-            result.append({"test": str(fact.get("id") or ""), "label": hint[0], "query": hint[1]})
+            result.append(
+                {"test": str(fact.get("id") or ""), "label": hint[0], "query": hint[1]}
+            )
     return result
 
 
@@ -267,7 +305,9 @@ def _price_pair(
         return None, None
     try:
         with closing(sqlite3.connect(evidence.db_path)) as conn:
-            latest = conn.execute("SELECT MAX(snapshot_date) FROM card_prices").fetchone()[0]
+            latest = conn.execute(
+                "SELECT MAX(snapshot_date) FROM card_prices"
+            ).fetchone()[0]
             if not latest:
                 return None, None
             rows = conn.execute(
