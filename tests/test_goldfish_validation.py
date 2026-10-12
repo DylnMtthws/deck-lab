@@ -68,3 +68,38 @@ def test_settings_drift_suppresses_comparison():
     assert not compare_validation(before, after, training_seed=17)["comparison"][
         "comparable"
     ]
+
+
+@pytest.mark.parametrize("defect", ["owner", "missing_frozen", "invalid_snapshot"])
+def test_invalid_frozen_lineage_never_runs_validation(monkeypatch, tmp_path, defect):
+    from types import SimpleNamespace
+
+    from sabermetrics import deck_simulation
+    from sabermetrics.cedh.simulator import HttpSimulatorClient
+
+    snapshot = {"id": "deck", "owner_id": "owner"}
+    prior = {
+        "deck_id": "deck",
+        "owner_id": "foreign" if defect == "owner" else "owner",
+        "status": "done",
+    }
+    monkeypatch.setattr(
+        deck_simulation.db,
+        "DeckDocumentSimulationsRepo",
+        lambda path: SimpleNamespace(get=lambda id: prior),
+    )
+    candidate = SimpleNamespace(deck_sha256="new")
+    outcome = SimpleNamespace(raw_document={"diagnostics": report(17)})
+    stored = {"comparison_id": "prior", "snapshot": snapshot}
+    if defect == "invalid_snapshot":
+        stored["frozen_baseline"] = {"snapshot": {}, "provenance": {}}
+    client = HttpSimulatorClient("http://sim", diagnostics=True)
+    monkeypatch.setattr(
+        client,
+        "simulate",
+        lambda candidate: pytest.fail("invalid lineage must not simulate"),
+    )
+    deck_simulation._attach_heldout_validation(
+        tmp_path, stored, candidate, outcome, client
+    )
+    assert outcome.raw_document["heldout_validation"]["status"] == "unavailable"
