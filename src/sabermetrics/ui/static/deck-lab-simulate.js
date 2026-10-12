@@ -156,7 +156,7 @@
       independent_engine_recovery_rate: "Independent engine restored",
       commander_dependent_hand_cards: "Cards requiring the commander",
       verified_finish_rate: "Finish proven among evaluated runs (conditional)",
-      positive_finish_proof_rate: "Finish positively proven across all trials (lower bound)",
+      positive_finish_proof_rate: "Proven finish lower bound",
       finish_evaluated_rate: "Runs with verified finish evaluation",
       kept_hands: "Kept hands",
       mulligans: "Mulligans",
@@ -250,7 +250,8 @@
             " · baseline: " + formatDiagnosticMetric((oldTest.metrics || {})[metricKey]) +
             " · candidate: " + formatDiagnosticMetric((newTest.metrics || {})[metricKey]) +
             " · " + (change.comparable === true ? "descriptive change " + numberText(change.delta) + " " + String(change.unit || "") : "Not compared: " + String(change.reason || comparison.reason || "Metric is unmeasured or settings differ.")) +
-            " · status " + String(oldTest.status || "unknown") + " → " + String(newTest.status || "unknown"));
+            " · status " + String(oldTest.status || "unknown") + " → " + String(newTest.status || "unknown") +
+            (change.unvalidated_reason ? " · Not validated: " + String(change.unvalidated_reason) : ""));
         });
       });
       diagnosticsEl.appendChild(section);
@@ -322,7 +323,9 @@
         metricKeys.forEach(function (metricKey) {
           var line = document.createElement("p");
           line.className = "dl-sim-diagnostic-metric";
-          line.textContent = humanLabel(metricKey) + ": " + formatDiagnosticMetric(metrics[metricKey]) + (status === "partial" ? " · authored subset only" : "");
+          line.textContent = humanLabel(metricKey) + ": " + (metricKey === "positive_finish_proof_rate" && metrics[metricKey].value === 0
+            ? "No proof observed; other outcomes unknown · " + formatDiagnosticMetric(metrics[metricKey])
+            : formatDiagnosticMetric(metrics[metricKey])) + (status === "partial" ? " · authored subset only" : "");
           card.appendChild(line);
           var metric = metrics[metricKey];
           if (metric && typeof metric.value === "number" && Number.isFinite(metric.value) && metric.unit === "proportion" && metric.value >= 0 && metric.value <= 1 && status !== "unsupported") {

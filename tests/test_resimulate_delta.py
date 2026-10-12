@@ -1022,6 +1022,13 @@ def test_heldout_comparison_renders_values_uncertainty_and_suppression():
 
 def test_finish_positive_proof_is_primary_and_conditional_rate_hidden():
     text = _harness("diagnostics")["diagnosticsText"]
-    assert "Finish positively proven across all trials (lower bound): 10%" in text
+    assert "Proven finish lower bound: 10%" in text
     assert "remaining trials are unverified" in text
     assert "Finish proven among evaluated runs (conditional)" not in text
+
+
+def test_zero_finish_proof_is_not_presented_as_verified_failure():
+    text = _harness("diagnostics-zero")["diagnosticsText"]
+    assert (
+        "Proven finish lower bound: No proof observed; other outcomes unknown" in text
+    )

@@ -103,3 +103,36 @@ def test_invalid_frozen_lineage_never_runs_validation(monkeypatch, tmp_path, def
         tmp_path, stored, candidate, outcome, client
     )
     assert outcome.raw_document["heldout_validation"]["status"] == "unavailable"
+
+
+def test_trial_count_drift_is_not_comparable():
+    seed = validation_seed(17)
+    before, after = report(seed), report(seed)
+    after["settings"]["games"] = 1000
+    result = compare_validation(before, after, training_seed=17)
+    assert not result["comparison"]["comparable"]
+    assert result["comparison"]["metric_deltas"] == {}
+
+
+def test_unvalidated_reasons_explain_scope_and_provenance():
+    seed = validation_seed(17)
+    result = compare_validation(report(seed), report(seed), training_seed=17)
+    metric = result["comparison"]["metric_deltas"]["opening"]["keep"]
+    assert "Coverage is incomplete" in metric["unvalidated_reason"]
+    assert "provenance is missing" in metric["unvalidated_reason"]
+
+
+def test_fully_supported_same_catalog_metric_can_be_validated_without_verdict():
+    seed = validation_seed(17)
+    before, after = report(seed), report(seed, 0.6)
+    for item in (before, after):
+        item["coverage"] = {"inert_cards": 0, "unauthored_cards": 0}
+        item["settings"].update(
+            policy="pilot", effects_sha256="global-catalog", strategy_pack_sha256="pack"
+        )
+    metric = compare_validation(before, after, training_seed=17)["comparison"][
+        "metric_deltas"
+    ]["opening"]["keep"]
+    assert metric["validated"]
+    assert metric["unvalidated_reason"] == ""
+    assert metric["verdict"] == "descriptive"

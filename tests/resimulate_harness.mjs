@@ -241,6 +241,8 @@ diagnosticsView.result.heldout_validation = {
   comparison: {metric_deltas: {opening: {keep: {comparable: true, delta: .1, unit: "probability"}}, finish: {win: {comparable: false, reason: "Metric is unmeasured in one or both runs."}}}},
 };
 
+if (scenario === "diagnostics-zero") diagnosticsView.result.diagnostics.tests.finish.metrics.positive_finish_proof_rate.value = 0;
+
 const views = {
   states: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   stale: {
@@ -276,6 +278,7 @@ const views = {
   pending: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   direct: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   "refresh-stale": { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: doneView },
+  "diagnostics-zero": { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
   diagnostics: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
 };
 

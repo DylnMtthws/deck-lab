@@ -39,8 +39,8 @@ def compare_validation(
             "Validation reports must use the independent frozen validation seed."
         )
     comparison = compare_reports(after, before)
-    # A deck-specific effect digest can change with swaps. Without an identical
-    # catalog/effect identity, observed differences cannot isolate the swaps.
+    # Native effects_sha256 hashes the complete authored effects file, not
+    # the selected deck. Require the same catalog, engine and policy identity.
     identity = ("engine_version", "policy", "effects_sha256", "strategy_pack_sha256")
     settings = before.get("settings", {})
     provenance_complete = all(
@@ -61,18 +61,37 @@ def compare_validation(
             right = (
                 after.get("tests", {}).get(test, {}).get("metrics", {}).get(name, {})
             )
-            metric["validated"] = bool(
-                metric["comparable"]
-                and metric["status"] == "supported"
-                and provenance_complete
-                and coverage_complete
-                and all(
-                    isinstance(item.get("denominator"), int)
-                    and item["denominator"] > 0
-                    and isinstance(item.get("ci95"), dict)
-                    for item in (left, right)
+            reasons = []
+            if not metric["comparable"]:
+                reasons.append(
+                    metric["reason"] or "Metric or settings are not comparable."
                 )
-            )
+            if metric["status"] != "supported":
+                reasons.append("Test is partial or unsupported.")
+            if not provenance_complete:
+                reasons.append(
+                    "Engine, pilot, effects catalog, or strategy provenance is missing or differs."
+                )
+            if not coverage_complete:
+                reasons.append(
+                    "Coverage is incomplete: inert or unauthored cards remain, or coverage counts are missing."
+                )
+            if not all(
+                isinstance(item.get("denominator"), int)
+                and not isinstance(item.get("denominator"), bool)
+                and item["denominator"] > 0
+                and isinstance(item.get("ci95"), dict)
+                and all(
+                    isinstance(item["ci95"].get(bound), (int, float))
+                    for bound in ("low", "high")
+                )
+                for item in (left, right)
+            ):
+                reasons.append(
+                    "A positive trial denominator or uncertainty interval is missing."
+                )
+            metric["validated"] = not reasons
+            metric["unvalidated_reason"] = " ".join(reasons)
             metric["verdict"] = "descriptive"
     return copy.deepcopy(
         {
