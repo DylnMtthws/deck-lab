@@ -130,15 +130,15 @@ def simulation_request(
         ablate: Specific card names to ablate. Mutually exclusive with
             ``sweep``; the service returns 400 rather than picking one.
         diagnostics: Request the fixed QA-only five-test profile. Its games,
-            seed, turn and scenario are pinned here rather than accepting
-            caller-provided values.
+            turn and scenario are pinned. An explicit seed supports
+            independent held-out validation; the default seed is fixed.
     """
     if sweep and ablate:
         raise ValueError("sweep and a non-empty ablate list are mutually exclusive")
     if diagnostics:
         games = DIAGNOSTICS_GAMES
         turn = DIAGNOSTICS_TURN
-        seed = DIAGNOSTICS_SEED
+        seed = DIAGNOSTICS_SEED if seed is None else seed
         sweep = False
         ablate = ()
     return {

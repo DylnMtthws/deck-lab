@@ -243,6 +243,7 @@ def _parse_http_result(
     headers: httpx.Headers,
     *,
     require_diagnostics: bool = False,
+    diagnostics_seed: int = 20261012,
 ) -> SimulationResult:
     """Validate and adapt a v2 service document to the UI domain model."""
     try:
@@ -277,7 +278,7 @@ def _parse_http_result(
                 "simulator diagnostics response does not identify the requested scenario"
             )
         settings = diagnostics["settings"]
-        if settings["games"] != 2000 or settings["seed"] != 20261012:
+        if settings["games"] != 2000 or settings["seed"] != diagnostics_seed:
             raise SimulatorContractError(
                 "simulator diagnostics report does not match the requested fixed games and seed"
             )
@@ -435,6 +436,7 @@ class HttpSimulatorClient:
         objective_turn: int = 3,
         timeout_seconds: float = 330.0,
         diagnostics: bool = False,
+        diagnostics_seed: int = 20261012,
         transport: httpx.BaseTransport | None = None,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -443,6 +445,7 @@ class HttpSimulatorClient:
         self._turn = objective_turn
         self._timeout = timeout_seconds
         self._diagnostics = diagnostics
+        self._diagnostics_seed = diagnostics_seed
         self._transport = transport
         self._sleep = sleeper
 
@@ -511,6 +514,7 @@ class HttpSimulatorClient:
             games=self._games,
             turn=self._turn,
             diagnostics=self._diagnostics,
+            seed=self._diagnostics_seed if self._diagnostics else None,
         )
         timeout = httpx.Timeout(self._timeout, connect=15.0)
         with httpx.Client(timeout=timeout, transport=self._transport) as client:
@@ -561,6 +565,7 @@ class HttpSimulatorClient:
                 candidate,
                 response.headers,
                 require_diagnostics=self._diagnostics,
+                diagnostics_seed=self._diagnostics_seed,
             )
         except SimulatorContractError as exc:
             reason: NotSimulatedReason = (

@@ -248,3 +248,22 @@ def test_settings_enable_diagnostics_only_for_http_mode(monkeypatch, tmp_path):
     assert build_simulator(settings)._diagnostics is False
     settings = SimulatorSettings(mode="subprocess", diagnostics_enabled=True)
     assert not isinstance(build_simulator(settings), HttpSimulatorClient)
+
+
+def test_explicit_independent_diagnostics_seed_is_sent_and_checked(candidate):
+    payload, headers = _diagnostic_response(candidate)
+    payload["diagnostics"]["settings"]["seed"] = 123456
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=payload, headers=headers)
+
+    client = HttpSimulatorClient(
+        "http://sim",
+        diagnostics=True,
+        diagnostics_seed=123456,
+        transport=httpx.MockTransport(handler),
+    )
+    assert isinstance(client.simulate(candidate), SimulationResult)
+    assert seen["seed"] == 123456

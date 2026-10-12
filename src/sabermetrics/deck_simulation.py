@@ -243,6 +243,17 @@ def prepare_simulation(
                     "successful run, or use a separate deck history."
                 ) from exc
             comparison_id = str(previous["id"])
+    frozen_baseline = (
+        _stored_payload(previous.get("result_json"))
+        if comparison_id and previous
+        else None
+    )
+    if frozen_baseline is not None:
+        frozen_baseline = {
+            key: frozen_baseline[key]
+            for key in ("snapshot", "provenance", "outcome")
+            if key in frozen_baseline
+        }
     source_baseline_id = None
     source_baseline_outcome = None
     if comparison_id is None and document.get("source_kind") == "candidate":
@@ -258,6 +269,7 @@ def prepare_simulation(
             "snapshot": document,
             "provenance": provenance.model_dump(mode="json"),
             "comparison_id": comparison_id,
+            "frozen_baseline": frozen_baseline,
             "source_baseline_id": source_baseline_id,
             "source_baseline_outcome": source_baseline_outcome,
         }
@@ -432,6 +444,7 @@ def _execute_loaded(
             code="deck_mismatch",
         )
         return
+    _attach_heldout_validation(path, stored, candidate, outcome, client)
     repo.update(
         simulation_id,
         status="done",
@@ -440,6 +453,104 @@ def _execute_loaded(
         reason="",
         result_json=_with_outcome(repo, simulation_id, outcome.model_dump(mode="json")),
     )
+
+
+def _attach_heldout_validation(
+    path: Path,
+    stored: dict[str, Any],
+    candidate: DeckCandidate,
+    outcome: SimulationResult,
+    client: Any,
+) -> None:
+    """Validate changed snapshots without consulting the mutable current deck."""
+    from sabermetrics.cedh.simulator import HttpSimulatorClient
+    from sabermetrics.goldfish_experiments import _check_lineage
+    from sabermetrics.goldfish_validation import compare_validation, validation_seed
+
+    report = (outcome.raw_document or {}).get("diagnostics")
+    prior_id = stored.get("comparison_id")
+    if (
+        not isinstance(report, dict)
+        or not prior_id
+        or not isinstance(client, HttpSimulatorClient)
+    ):
+        return
+    validation: dict[str, Any] = {
+        "status": "unavailable",
+        "note": "Independent held-out validation is unavailable; no improvement ranking is inferred.",
+    }
+    try:
+        prior = db.DeckDocumentSimulationsRepo(path).get(str(prior_id))
+        snapshot = stored["snapshot"]
+        if (
+            prior is None
+            or prior.get("status") != "done"
+            or any(
+                prior.get(key) != snapshot.get(key if key != "deck_id" else "id")
+                for key in ("deck_id", "owner_id")
+            )
+        ):
+            raise ValueError("Invalid frozen baseline lineage.")
+        frozen = stored.get("frozen_baseline")
+        if not isinstance(frozen, dict):
+            raise TypeError(
+                "Frozen comparison settings are unavailable; rerun this deck."
+            )
+        baseline_document = frozen.get("snapshot")
+        if not isinstance(baseline_document, dict):
+            raise TypeError("Frozen baseline is missing.")
+        _check_lineage(baseline_document, snapshot)
+        baseline = candidate_from_document(
+            baseline_document,
+            CandidateProvenance.model_validate(frozen.get("provenance")),
+        )
+        if baseline.deck_sha256 == candidate.deck_sha256:
+            return
+        previous = parse_stored_result(json.dumps(frozen))
+        previous_report = (
+            (previous.raw_document or {}).get("diagnostics") if previous else None
+        )
+        from sabermetrics.native_diagnostics_comparison import compare_reports
+
+        if not compare_reports(report, previous_report)["comparable"]:
+            raise ValueError(
+                "Training settings or engine changed; start a new baseline."
+            )
+        training_seed = report["settings"]["seed"]
+        heldout_client = HttpSimulatorClient(
+            client._url.removesuffix("/simulate"),
+            games=client._games,
+            objective_turn=client._turn,
+            timeout_seconds=client._timeout,
+            diagnostics=True,
+            diagnostics_seed=validation_seed(training_seed),
+            transport=client._transport,
+            sleeper=client._sleep,
+        )
+        before, after = heldout_client.simulate(baseline), heldout_client.simulate(
+            candidate
+        )
+        if not isinstance(before, SimulationResult) or not isinstance(
+            after, SimulationResult
+        ):
+            raise TypeError(
+                "One or both held-out simulations did not produce measurements."
+            )
+        validation = compare_validation(
+            (before.raw_document or {}).get("diagnostics", {}),
+            (after.raw_document or {}).get("diagnostics", {}),
+            training_seed=training_seed,
+        )
+        validation.update(
+            baseline_deck_sha256=baseline.deck_sha256,
+            candidate_deck_sha256=candidate.deck_sha256,
+            baseline_report=(before.raw_document or {}).get("diagnostics"),
+            candidate_report=(after.raw_document or {}).get("diagnostics"),
+        )
+    except (ValueError, TypeError, KeyError) as exc:
+        validation["reason"] = str(exc)
+    if outcome.raw_document is not None:
+        outcome.raw_document["heldout_validation"] = validation
 
 
 def _store_absence(
@@ -494,6 +605,9 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
         "turn": None,
         "text": result.metric,
     }
+    heldout = (result.raw_document or {}).get("heldout_validation")
+    if isinstance(heldout, dict):
+        payload["heldout_validation"] = heldout
     strategy = (result.raw_document or {}).get("strategy_pack")
     diagnostics = (result.raw_document or {}).get("diagnostics")
     # Diagnostics are an additive native-engine report. Keep the validated
