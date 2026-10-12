@@ -155,7 +155,8 @@
       recovery_draw_rate: "Drew cards from a modeled effect",
       independent_engine_recovery_rate: "Independent engine restored",
       commander_dependent_hand_cards: "Cards requiring the commander",
-      verified_finish_rate: "Verified finishing line available",
+      verified_finish_rate: "Finish proven among evaluated runs (conditional)",
+      positive_finish_proof_rate: "Finish positively proven across all trials (lower bound)",
       finish_evaluated_rate: "Runs with verified finish evaluation",
       kept_hands: "Kept hands",
       mulligans: "Mulligans",
@@ -216,6 +217,45 @@
       return shown;
     }
 
+    function renderHeldout(validation) {
+      if (!validation || typeof validation !== "object") return;
+      diagnosticsEl.hidden = false;
+      var section = document.createElement("section");
+      section.setAttribute("data-simulate-heldout", "");
+      var heading = document.createElement("h3");
+      heading.textContent = "Independent held-out comparison";
+      section.appendChild(heading);
+      function paragraph(text) {
+        var line = document.createElement("p");
+        line.textContent = text;
+        section.appendChild(line);
+      }
+      paragraph("Status: " + String(validation.status || "unavailable") +
+        (validation.training_seed !== undefined ? " · training seed " + validation.training_seed : "") +
+        (validation.validation_seed !== undefined ? " · validation seed " + validation.validation_seed : ""));
+      if (validation.note) paragraph(String(validation.note));
+      if (validation.reason) paragraph(String(validation.reason));
+      var comparison = validation.comparison || {};
+      if (comparison.reason) paragraph("Comparison suppressed: " + String(comparison.reason));
+      var before = validation.baseline_report || {};
+      var after = validation.candidate_report || {};
+      var keys = Array.from(new Set(Object.keys(before.tests || {}).concat(Object.keys(after.tests || {}))));
+      keys.forEach(function (testKey) {
+        var oldTest = (before.tests || {})[testKey] || {};
+        var newTest = (after.tests || {})[testKey] || {};
+        var metrics = Array.from(new Set(Object.keys(oldTest.metrics || {}).concat(Object.keys(newTest.metrics || {}))));
+        metrics.forEach(function (metricKey) {
+          var change = ((comparison.metric_deltas || {})[testKey] || {})[metricKey] || {};
+          paragraph(humanLabel(testKey) + " · " + humanLabel(metricKey) +
+            " · baseline: " + formatDiagnosticMetric((oldTest.metrics || {})[metricKey]) +
+            " · candidate: " + formatDiagnosticMetric((newTest.metrics || {})[metricKey]) +
+            " · " + (change.comparable === true ? "descriptive change " + numberText(change.delta) + " " + String(change.unit || "") : "Not compared: " + String(change.reason || comparison.reason || "Metric is unmeasured or settings differ.")) +
+            " · status " + String(oldTest.status || "unknown") + " → " + String(newTest.status || "unknown"));
+        });
+      });
+      diagnosticsEl.appendChild(section);
+    }
+
     function renderDiagnostics(diagnostics) {
       diagnosticsEl.textContent = "";
       if (!diagnostics || typeof diagnostics !== "object" || !diagnostics.tests || typeof diagnostics.tests !== "object") {
@@ -266,6 +306,13 @@
         card.appendChild(statusLine);
         var metrics = report && report.metrics && typeof report.metrics === "object" ? report.metrics : {};
         var metricKeys = Object.keys(metrics);
+        if (key === "finish") {
+          metricKeys = metricKeys.filter(function (name) { return name !== "verified_finish_rate" || !metrics.positive_finish_proof_rate; });
+          metricKeys.sort(function (left, right) { return left === "positive_finish_proof_rate" ? -1 : right === "positive_finish_proof_rate" ? 1 : 0; });
+          var unknownFinish = document.createElement("p");
+          unknownFinish.textContent = "A positive finish proof is a lower bound across all trials. The remaining trials are unverified; absence of proof is not a verified failure or a win-rate estimate.";
+          card.appendChild(unknownFinish);
+        }
         if (!metricKeys.length) {
           var missing = document.createElement("p");
           missing.className = "dl-sim-diagnostic-metric is-unknown";
@@ -275,7 +322,7 @@
         metricKeys.forEach(function (metricKey) {
           var line = document.createElement("p");
           line.className = "dl-sim-diagnostic-metric";
-          line.textContent = humanLabel(metricKey) + ": " + formatDiagnosticMetric(metrics[metricKey]);
+          line.textContent = humanLabel(metricKey) + ": " + formatDiagnosticMetric(metrics[metricKey]) + (status === "partial" ? " · authored subset only" : "");
           card.appendChild(line);
           var metric = metrics[metricKey];
           if (metric && typeof metric.value === "number" && Number.isFinite(metric.value) && metric.unit === "proportion" && metric.value >= 0 && metric.value <= 1 && status !== "unsupported") {
@@ -409,6 +456,7 @@
       var result = view.result || null;
       setText(resultEl, result && result.text ? String(result.text) : "");
       var hasDiagnostics = renderDiagnostics(result && result.diagnostics);
+      renderHeldout(result && result.heldout_validation);
       setText(missingDiagnosticsEl, result && !hasDiagnostics && status === "done"
         ? "Five-test diagnostics are not included in this run; this is the existing solo assembly check only."
         : "");

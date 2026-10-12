@@ -1006,3 +1006,22 @@ def test_shared_view_read_only(tmp_path, monkeypatch):
         "goldfish_turns_to_assembly: 0.400 probability by turn 3"
     )
     assert shared["statusRole"] == "status"
+
+
+def test_heldout_comparison_renders_values_uncertainty_and_suppression():
+    text = _harness("diagnostics")["diagnosticsText"]
+    assert "Independent held-out comparison" in text
+    assert "training seed 17" in text and "validation seed 456" in text
+    assert "baseline: 50%" in text and "candidate: 60%" in text
+    assert "95% interval 40–60%" in text
+    assert "descriptive change 0.1" in text
+    assert "Not compared: Metric is unmeasured" in text
+    assert "No improvement ranking is inferred" in text
+    assert "authored subset only" in text
+
+
+def test_finish_positive_proof_is_primary_and_conditional_rate_hidden():
+    text = _harness("diagnostics")["diagnosticsText"]
+    assert "Finish positively proven across all trials (lower bound): 10%" in text
+    assert "remaining trials are unverified" in text
+    assert "Finish proven among evaluated runs (conditional)" not in text

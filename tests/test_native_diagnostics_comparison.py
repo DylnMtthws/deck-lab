@@ -171,3 +171,13 @@ def test_view_attaches_comparison_without_mutating_raw_document(monkeypatch, tmp
     assert view["result"]["diagnostics"]["tests"] == frozen["diagnostics"]["tests"]
     assert view["result"]["diagnostics"]["comparison"]["comparable"] is False
     assert outcome.raw_document == frozen
+
+
+def test_changed_coverage_suppresses_descriptive_gain():
+    before, after = report(0.5), report(0.9)
+    before["coverage"] = {"modeled_cards": 30, "unauthored_cards": 69}
+    after["coverage"] = {"modeled_cards": 31, "unauthored_cards": 68}
+    result = compare_reports(after, before)
+    assert not result["comparable"]
+    assert result["metric_deltas"] == {}
+    assert "coverage changed" in result["reason"]

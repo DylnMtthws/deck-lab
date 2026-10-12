@@ -228,10 +228,17 @@ const diagnosticsView = {
         development: { status: "partial", metrics: { mean_missed_land_drops: { value: 1.25, unit: "land drops" } }, limitations: ["Only authored cards are modeled"] },
         commander_loss: { status: "unsupported", metrics: { recovery: { value: null, numerator: 0, denominator: 20 } }, limitations: ["Commander-loss scenario is unavailable"] },
         creature_wipe: { status: "unsupported", metrics: {} },
-        finish: { status: "partial", metrics: { win_conversion: { value: 0.2, unit: "probability", numerator: 4, denominator: 20 } }, evidence: ["Board-state conversion check"] },
+        finish: { status: "partial", metrics: { positive_finish_proof_rate: {value: .1, unit: "proportion", numerator: 2, denominator: 20}, verified_finish_rate: {value: 1, unit: "proportion", numerator: 2, denominator: 2}, win_conversion: { value: 0.2, unit: "probability", numerator: 4, denominator: 20 } }, evidence: ["Board-state conversion check"] },
       },
     },
   },
+};
+
+diagnosticsView.result.heldout_validation = {
+  status: "descriptive", training_seed: 17, validation_seed: 456, note: "No improvement ranking is inferred.",
+  baseline_report: {tests: {opening: {status: "supported", metrics: {keep: {value: .5, unit: "probability", denominator: 200, ci95: {low: .4, high: .6}}}}, finish: {status: "unsupported", metrics: {win: {value: null, unit: "probability"}}}}},
+  candidate_report: {tests: {opening: {status: "supported", metrics: {keep: {value: .6, unit: "probability", denominator: 200, ci95: {low: .5, high: .7}}}}, finish: {status: "unsupported", metrics: {win: {value: null, unit: "probability"}}}}},
+  comparison: {metric_deltas: {opening: {keep: {comparable: true, delta: .1, unit: "probability"}}, finish: {win: {comparable: false, reason: "Metric is unmeasured in one or both runs."}}}},
 };
 
 const views = {

@@ -43,6 +43,11 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
             "No comparable diagnostics baseline: engine, settings, or settings fingerprint changed or are unavailable."
         )
         return result
+    if after.get("coverage") != before.get("coverage"):
+        result["reason"] = (
+            "No comparable diagnostics baseline: modeled coverage changed; card and modeling differences cannot be isolated."
+        )
+        return result
     result.update(comparable=True, reason="")
     old_tests = before.get("tests", {})
     new_tests = after.get("tests", {})
