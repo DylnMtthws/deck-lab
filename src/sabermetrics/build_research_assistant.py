@@ -82,7 +82,8 @@ def findings(diagnostics: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(test, dict):
             continue
         status = str(test.get("status") or "unsupported")
-        metrics = test.get("metrics") if isinstance(test.get("metrics"), dict) else {}
+        raw_metrics = test.get("metrics")
+        metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
         observed = []
         metric_names = list(metrics)
         if metrics.get("positive_finish_proof_rate"):
@@ -154,13 +155,13 @@ def recommendations(
         "mean_missed_land_drops": ("land", "ramp"),
     }
     targets: dict[str, set[str]] = {}
-    tests = (
-        diagnostics.get("tests") if isinstance(diagnostics.get("tests"), dict) else {}
-    )
+    raw_tests = diagnostics.get("tests")
+    tests = raw_tests if isinstance(raw_tests, dict) else {}
     for test_key, test in tests.items():
         if not isinstance(test, dict) or test.get("status") == "unsupported":
             continue
-        metrics = test.get("metrics") if isinstance(test.get("metrics"), dict) else {}
+        raw_metrics = test.get("metrics")
+        metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
         for raw_name, metric in metrics.items():
             name = str(raw_name).casefold()
             value = metric.get("value") if isinstance(metric, dict) else None
