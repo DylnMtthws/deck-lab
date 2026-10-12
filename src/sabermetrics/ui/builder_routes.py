@@ -37,6 +37,10 @@ from sabermetrics.deck_documents import (
     RevisionConflict,
 )
 from sabermetrics.deck_evidence import DeckEvidenceService
+from sabermetrics.build_research_assistant import (
+    findings as research_findings,
+    recommendations as research_recommendations,
+)
 from sabermetrics.deck_simulation import execute_simulation, simulation_view
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
@@ -461,6 +465,114 @@ def deck_alternatives(deck_id: str, oracle_id: str):
         document, oracle_id, _evidence_window()
     )
     return jsonify(payload)
+
+
+@bp.get("/api/decks/<deck_id>/research-assistant")
+def build_research_assistant(deck_id: str):
+    """Return native findings and independently sourced replacement options."""
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    view = simulation_view(Path(current_app.config["DB_PATH"]), deck_id)
+    result = view.get("result") if isinstance(view, dict) else None
+    diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
+    current = view.get("status") == "done" and not view.get("stale")
+    if current and isinstance(diagnostics, dict):
+        facts = research_findings(diagnostics)
+        report_state = "current"
+    else:
+        facts = []
+        report_state = "stale" if view.get("stale") else "unavailable"
+    suggestions = research_recommendations(
+        document, DeckEvidenceService(Path(current_app.config["DB_PATH"])),
+        diagnostics if current and isinstance(diagnostics, dict) else None,
+        _evidence_window(), limit=3,
+    )
+    return jsonify(
+        revision=int(document.get("revision") or 0),
+        diagnostics_state=report_state,
+        findings=facts,
+        recommendations=suggestions,
+        heldout_validation=(result.get("heldout_validation") if isinstance(result, dict) else None),
+        limits=[
+            "Findings restate native solo-test measurements and limitations.",
+            "Tournament alternatives are independent evidence and are not validated improvements.",
+            "Swap candidates are limited to observed missed land drops or first authored action after the turn-five checkpoint; those are scenario cues, not grades or causes.",
+            "No external AI service is called.",
+        ],
+    )
+
+
+@bp.post("/api/decks/<deck_id>/research-assistant/apply")
+def apply_research_recommendations(deck_id: str):
+    """Apply up to three evidence-backed replacements at an expected revision."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(error="invalid_request", message="Expected a JSON object."), 400
+    expected = body.get("expected_revision")
+    choices = body.get("replacements")
+    if not isinstance(expected, int) or isinstance(expected, bool):
+        return jsonify(error="invalid_revision"), 400
+    if not isinstance(choices, list) or not 1 <= len(choices) <= 3:
+        return jsonify(error="invalid_replacements", message="Choose one to three replacements."), 400
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    if expected != int(document.get("revision") or 0):
+        return jsonify(error="revision_conflict", revision=document.get("revision")), 409
+
+    service = DeckEvidenceService(Path(current_app.config["DB_PATH"]))
+    view = simulation_view(Path(current_app.config["DB_PATH"]), deck_id)
+    result = view.get("result") if isinstance(view, dict) else None
+    diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
+    if view.get("status") != "done" or view.get("stale") or not isinstance(diagnostics, dict):
+        return jsonify(error="stale_recommendations", message="Run Goldfish again before applying these recommendations."), 409
+    eligible = research_recommendations(document, service, diagnostics, _evidence_window(), limit=3)
+    entries = {str(entry.get("id")): entry for entry in document.get("entries", [])
+               if isinstance(entry, dict)}
+    used_entries: set[str] = set()
+    commands_to_apply: list[dict] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            return jsonify(error="invalid_replacements"), 400
+        entry_id = str(choice.get("entry_id") or "")
+        card_id = str(choice.get("card_id") or "")
+        entry = entries.get(entry_id)
+        if (not entry or entry.get("is_commander") or not entry.get("oracle_id")
+                or entry_id in used_entries):
+            return jsonify(error="invalid_replacement", message="Each replacement must target a distinct library card."), 400
+        proposal = next((item for item in eligible if item["entry_id"] == entry_id
+                         and item["card_id"] == card_id), None)
+        if proposal is None:
+            return jsonify(error="invalid_replacement", message="The selected card is no longer an eligible same-role alternative."), 400
+        used_entries.add(entry_id)
+        quantity = max(1, int(entry.get("quantity") or 1))
+        if quantity > 1:
+            commands_to_apply.append({"type": "set_quantity", "entry_id": entry_id,
+                                      "quantity": quantity - 1})
+        else:
+            commands_to_apply.append({"type": "remove_entry", "entry_id": entry_id})
+        commands_to_apply.append(
+            {"type": "add_card", "card_id": card_id,
+             "quantity": 1,
+             "zone_id": entry.get("zone_id"), "role": entry.get("role") or ""},
+        )
+    try:
+        updated = _repo().apply_commands(
+            current_user.id, deck_id, expected_revision=expected,
+            mutation_id=str(body.get("mutation_id") or db.new_id()),
+            commands=commands_to_apply,
+        )
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    except RevisionConflict as exc:
+        return jsonify(error="revision_conflict", revision=exc.current_revision), 409
+    except (InvalidCommand, TypeError, ValueError) as exc:
+        return jsonify(error="invalid_replacement", message=str(exc)), 400
+    return jsonify(document=updated, replacements=len(choices),
+                   message="Replacements applied. Run Goldfish again to observe the revised deck." )
 
 
 @bp.get("/api/deck-tags")
