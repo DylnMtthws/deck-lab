@@ -52,6 +52,57 @@
     node.textContent = text;
     return node;
   }
+  var metricLabels = {
+    qualified_opening_rate: "Hands passing the modeled keep rule",
+    mean_kept_cards: "Average cards kept",
+    mean_kept_hand_size: "Average cards kept",
+    mean_mulligans: "Average mulligans",
+    mean_unused_available_mana: "Unused modeled mana at turn 5",
+    mean_unused_floating_mana_turn_5: "Unused modeled mana at turn 5",
+    mean_cards_remaining: "Cards remaining at turn 5",
+    mean_hand_size_turn_5: "Cards in hand at turn 5",
+    authored_forward_action_rate: "Runs with a modeled forward action",
+    mean_first_authored_action_turn: "Average turn of first modeled action",
+    engine_online_rate: "Observed engine event",
+    disruption_exercised_rate: "Runs where removal occurred",
+    followup_turn_reached_rate: "Runs reaching a follow-up turn after removal",
+    recovery_authored_action_rate: "Recovery turns with a modeled action",
+    recovery_board_rate: "Recovery turns adding a modeled permanent",
+    recovery_draw_rate: "Recovery turns with modeled card draw",
+    independent_engine_recovery_rate: "Independent engine restored",
+    commander_dependent_hand_cards: "Cards requiring the commander",
+    verified_finish_rate: "Finish proven among evaluated runs",
+    positive_finish_proof_rate: "Runs with positive finish proof (lower bound)",
+    finish_evaluated_rate: "Runs with verified finish evaluation",
+    mean_missed_land_drops: "Average missed land drops"
+  };
+  function cleanNumber(value, digits) {
+    var rounded = Number(value).toFixed(digits);
+    if (rounded.indexOf(".") >= 0) rounded = rounded.replace(/0+$/, "").replace(/\.$/, "");
+    return rounded;
+  }
+  function metricValue(metric) {
+    if (typeof metric.value !== "number" || !Number.isFinite(metric.value)) return metric.summary || "unmeasured";
+    var unit = String(metric.unit || "");
+    var value;
+    if (["proportion", "rate", "probability"].indexOf(unit) >= 0 && metric.value >= 0 && metric.value <= 1) {
+      value = cleanNumber(metric.value * 100, 1) + "%";
+    } else {
+      value = cleanNumber(metric.value, 2) + (unit ? " " + unit : "");
+    }
+    if (Number.isInteger(metric.denominator) && metric.denominator > 0) value += " (" + metric.denominator + " games)";
+    return value;
+  }
+  function metricInterval(metric) {
+    var interval = metric.ci95;
+    if (!interval || typeof interval.low !== "number" || typeof interval.high !== "number") return "";
+    var unit = String(metric.unit || "");
+    var rate = ["proportion", "rate", "probability"].indexOf(unit) >= 0;
+    var factor = rate ? 100 : 1;
+    var suffix = rate ? "%" : (unit ? " " + unit : "");
+    return cleanNumber(interval.low * factor, rate ? 1 : 2) + suffix + "–" +
+      cleanNumber(interval.high * factor, rate ? 1 : 2) + suffix;
+  }
   function refresh() {
     if (!state.id) return Promise.resolve();
     status.textContent = "Loading report and tournament evidence…";
@@ -76,9 +127,11 @@
           card.className = "dl-sim-diagnostic";
           card.appendChild(el("strong", fact.title + " · " + fact.status));
           (fact.metrics || []).forEach(function (metric) {
-            var line = metric.summary;
-            if (metric.ci95) line += " · 95% interval " + metric.ci95.low + "–" + metric.ci95.high;
-            card.appendChild(el("p", metric.metric.replace(/_/g, " ") + ": " + line));
+            var label = metricLabels[metric.metric] || metric.metric.replace(/_/g, " ");
+            var line = metricValue(metric);
+            var interval = metricInterval(metric);
+            if (interval) line += " · 95% interval " + interval;
+            card.appendChild(el("p", label + ": " + line));
           });
           (fact.limitations || []).forEach(function (limit) {
             card.appendChild(el("p", "Limit: " + limit, "dl-sim-note"));
