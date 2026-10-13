@@ -432,9 +432,16 @@ def run_turn(
                 )
                 result["status"] = "done" if answer else "incomplete"
                 presentation: dict[str, Any] = {
+                    "reply": {
+                        "lead": step.content.strip(),
+                        "findings": [
+                            item.strip() for item in step.findings if item.strip()
+                        ],
+                        "next_action": step.next_action.strip(),
+                    },
                     "cards": resolve_presentation_cards(
                         db_path, known_card_ids, answer, step.card_ids
-                    )
+                    ),
                 }
                 if measured_presentation is not None:
                     presentation["goldfish"] = measured_presentation

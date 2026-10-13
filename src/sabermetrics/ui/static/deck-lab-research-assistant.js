@@ -28,8 +28,8 @@
   ask.type = "submit";
   ask.className = "dl-button is-sm";
   ask.textContent = "Ask";
-  var answer = document.createElement("p");
-  answer.className = "dl-sim-note";
+  var answer = document.createElement("div");
+  answer.className = "dl-sim-note dl-assistant-evidence-answer";
   answer.setAttribute("aria-live", "polite");
   chat.append(question, ask);
   var suggestions = document.createElement("div");
@@ -210,12 +210,17 @@
       answer.textContent = "The current report has no findings for that topic. This means it was not measured here, not that the deck failed.";
       return;
     }
-    var lines = facts.map(function (fact) {
-      var metrics = (fact.metrics || []).map(function (metric) { return metric.metric + ": " + metric.summary; });
-      var caveat = fact.status === "unsupported" ? "Unsupported in this run." : "Scenario observation only; it does not establish a cause or deck quality.";
-      return fact.title + " (" + fact.status + "): " + (metrics.length ? metrics.join("; ") : "no numeric measurement") + ". " + caveat;
+    answer.replaceChildren();
+    facts.forEach(function (fact) {
+      var section = el("section", "");
+      section.appendChild(el("h4", fact.title));
+      var metrics = el("ul", "");
+      (fact.metrics || []).forEach(function (metric) { metrics.appendChild(el("li", (metricLabels[metric.metric] || metric.metric.replace(/_/g, " ")) + ": " + metric.summary)); });
+      if (metrics.children.length) section.appendChild(metrics);
+      else section.appendChild(el("p", "No numeric measurement was reported."));
+      section.appendChild(el("p", fact.status === "unsupported" ? "Unsupported in this run." : "Scenario observation only; it does not establish a cause or deck quality."));
+      answer.appendChild(section);
     });
-    answer.textContent = lines.join(" ");
   }
   chat.addEventListener("submit", function (event) {
     event.preventDefault();

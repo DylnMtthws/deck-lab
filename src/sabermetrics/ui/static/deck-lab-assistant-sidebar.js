@@ -356,26 +356,57 @@
   }
   function appendMarkdown(parent, text, cards) {
     var lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
-    var paragraph = [];
     var list = null;
-    function flushParagraph() {
-      if (!paragraph.length) return;
-      var p = element("p"); appendInline(p, paragraph.join(" "), cards, true); parent.appendChild(p); paragraph = [];
+    function paragraph(text) {
+      // Legacy replies may contain no breaks. Preserve every sentence verbatim,
+      // but provide reading pauses; never invent headings or bullet semantics.
+      var chunks = [text];
+      if (text.length > 420 && typeof Intl.Segmenter === "function") {
+        var sentences = Array.from(new Intl.Segmenter("en", { granularity: "sentence" }).segment(text), function (part) { return part.segment; });
+        chunks = []; var chunk = "";
+        sentences.forEach(function (sentence) {
+          if (chunk.length >= 240) { chunks.push(chunk); chunk = ""; }
+          chunk += sentence;
+        });
+        if (chunk) chunks.push(chunk);
+      }
+      chunks.forEach(function (chunk) { var p = element("p"); appendInline(p, chunk, cards, true); parent.appendChild(p); });
     }
-    function closeList() { if (list) { parent.appendChild(list); list = null; } }
     lines.forEach(function (line) {
-      var item = line.match(/^\s*[-*•]\s+(.+)$/);
+      var item = line.match(/^\s*(?:([-*•])|([0-9]+)[.)])\s+(.+)$/);
+      var heading = line.match(/^#{1,6}\s+(.+)$/);
       if (item) {
-        flushParagraph();
-        if (!list) list = document.createElement("ul");
-        var li = document.createElement("li"); appendInline(li, item[1], cards, true); list.appendChild(li);
-      } else if (!line.trim()) {
-        flushParagraph(); closeList();
+        var tag = item[2] ? "OL" : "UL";
+        if (!list || list.tagName !== tag) {
+          list = document.createElement(tag.toLowerCase());
+          if (item[2]) list.start = Number(item[2]);
+          parent.appendChild(list);
+        }
+        var li = document.createElement("li"); appendInline(li, item[3], cards, true); list.appendChild(li);
       } else {
-        closeList(); paragraph.push(line.trim());
+        list = null;
+        if (heading) { var h = element("h3"); appendInline(h, heading[1], cards, true); parent.appendChild(h); }
+        else if (line.trim()) paragraph(line.trim());
       }
     });
-    flushParagraph(); closeList();
+  }
+  function appendReply(parent, message) {
+    var body = element("div", null, "dl-assistant-prose");
+    var reply = message.presentation && message.presentation.reply;
+    if (reply && typeof reply.lead === "string" && Array.isArray(reply.findings)) {
+      appendMarkdown(body, reply.lead, cardsFrom(message));
+      if (reply.findings.length) {
+        var list = element("ul");
+        reply.findings.forEach(function (finding) { var li = element("li"); appendInline(li, String(finding), cardsFrom(message), true); list.appendChild(li); });
+        body.appendChild(list);
+      }
+      if (reply.next_action) {
+        var action = element("div", null, "dl-assistant-next-action");
+        action.appendChild(element("h3", "Next step"));
+        appendMarkdown(action, reply.next_action, cardsFrom(message)); body.appendChild(action);
+      }
+    } else appendMarkdown(body, messageContent(message), cardsFrom(message));
+    parent.appendChild(body);
   }
   function cardsFrom(message) {
     return knownCards(message && message.presentation && message.presentation.cards || []);
@@ -569,7 +600,8 @@
       }
       var article = element("article", null, "dl-assistant-message");
       article.dataset.role = role;
-      appendMarkdown(article, messageContent(message), cardsFrom(message));
+      article.setAttribute("aria-label", role === "assistant" ? "Research Assistant reply" : "Your message");
+      appendReply(article, message);
       appendStructuredPresentation(article, message);
       transcript.appendChild(article);
       renderedMessageIds.push(message && message.id || null);

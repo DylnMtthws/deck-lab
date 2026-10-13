@@ -1136,6 +1136,10 @@ def test_final_findings_and_next_action_form_user_facing_answer(prepared):
     assert "- I can find cards" in result["content"]
     assert "- I can run Goldfish" in result["content"]
     assert result["content"].endswith("Choose card research or a Goldfish run.")
+    reply = result["presentation"]["reply"]
+    assert reply["lead"] == f"Your commander is {commander['name']}."
+    assert len(reply["findings"]) == 3
+    assert reply["next_action"] == "Choose card research or a Goldfish run."
     receipt = next(
         event for event in result["actions"] if event["type"] == "tool_result"
     )

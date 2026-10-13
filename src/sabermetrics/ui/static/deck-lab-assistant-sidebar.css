@@ -41,7 +41,7 @@
 .dl-assistant-starters button:hover,.dl-assistant-starters button:focus-visible { border-color:var(--brand); color:var(--body); }
 .dl-assistant-provider,.dl-assistant-status,[data-assistant-settings-status] { color:var(--muted); font-size:var(--t-12); }
 .dl-assistant-transcript { display:flex; flex-direction:column; gap:var(--s-2); min-height:0; overflow:visible; margin:var(--s-3) calc(-1 * var(--s-1)); padding:var(--s-1); }
-.dl-assistant-message { max-width:94%; padding:var(--s-2) var(--s-3); border:1px solid var(--line-soft); border-radius:var(--r-md); background:var(--panel-2); white-space:pre-wrap; overflow-wrap:anywhere; }
+.dl-assistant-message { max-width:94%; padding:var(--s-2) var(--s-3); border:1px solid var(--line-soft); border-radius:var(--r-md); background:var(--panel-2); white-space:normal; overflow-wrap:anywhere; }
 .dl-assistant-message[data-role="user"] { align-self:flex-end; border-color:color-mix(in srgb,var(--brand) 45%,var(--line)); }
 .dl-assistant-message[data-role="assistant"] { align-self:flex-start; }
 .dl-assistant-message[data-role="tool"] { align-self:stretch; font-size:var(--t-12); color:var(--muted); }
@@ -144,4 +144,24 @@
   .dl-workspace-crumb { flex:1 1 40px; }
   .dl-workspace-crumb button { max-width:100%; }
   .dl-assistant-mobile-open { padding-inline:7px; }
+}
+
+/* Semantic prose: predictable reading rhythm, visible markers and no fixed text height. */
+.dl-assistant-prose { font-size:1rem; line-height:1.6; text-align:start; max-width:65ch; }
+.dl-assistant-prose p { margin:0 0 1em; }
+.dl-assistant-prose ul,.dl-assistant-prose ol { display:block; margin:0 0 1em; padding-inline-start:1.5em; }
+.dl-assistant-prose ul { list-style:disc outside; }
+.dl-assistant-prose ol { list-style:decimal outside; }
+.dl-assistant-prose li { display:list-item; margin-block:.6em; padding-inline-start:.15em; }
+.dl-assistant-prose li::marker { color:var(--body); }
+.dl-assistant-prose h3 { margin:1.25em 0 .5em; font:600 1rem/1.5 var(--sans); color:var(--body); }
+.dl-assistant-prose > :first-child { margin-top:0; }
+.dl-assistant-prose > :last-child { margin-bottom:0; }
+.dl-assistant-next-action { margin-top:1em; padding-top:1em; border-top:1px solid var(--line); }
+.dl-assistant-next-action h3 { margin-top:0; }
+.dl-assistant-prose .dl-assistant-card-link { display:inline; font:inherit; line-height:inherit; }
+.dl-assistant-sidebar :focus-visible { outline:2px solid var(--body); outline-offset:3px; }
+.dl-assistant-starters button,.dl-assistant-tabs button { min-height:28px; }
+@media (max-width:380px) {
+  .dl-workspace-header { flex-wrap:wrap; height:auto; min-height:56px; padding-block:4px; }
 }

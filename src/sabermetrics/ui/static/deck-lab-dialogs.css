@@ -56,3 +56,10 @@
 .dl-chip-remove:focus-visible { outline: 2px solid var(--brand-text); outline-offset: 1px; }
 
 .dl-sim-diagnostic-meter { display: block; width: 100%; max-width: 24rem; height: .75rem; margin: -.15rem 0 .6rem; }
+
+.dl-assistant-evidence-answer { font-size:1rem; line-height:1.6; overflow-wrap:anywhere; }
+.dl-assistant-evidence-answer section + section { margin-top:1.5em; }
+.dl-assistant-evidence-answer h4 { margin:0 0 .5em; font-size:1rem; }
+.dl-assistant-evidence-answer ul { list-style:disc outside; padding-inline-start:1.5em; margin:0 0 1em; }
+.dl-assistant-evidence-answer li { margin-block:.5em; }
+.dl-assistant-evidence-answer p { margin:0 0 1em; }
