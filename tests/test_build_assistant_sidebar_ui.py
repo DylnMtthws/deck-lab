@@ -35,3 +35,18 @@ def test_existing_native_simulator_can_mount_inline():
     js = SIMULATOR.read_text()
     assert 'dialog.hasAttribute("data-goldfish-inline")' in js
     assert "(!opener && !inline)" in js
+
+
+def test_adopted_server_document_updates_live_builder_history_without_reload():
+    assistant = SCRIPT.read_text()
+    builder = (ROOT / "src/sabermetrics/ui/static/deck-lab-builder.js").read_text()
+    history = (ROOT / "src/sabermetrics/ui/static/deck-lab-history.js").read_text()
+    assert "acceptUpdatedDocument(updated)" in assistant
+    assert "api.replaceDocument(updated)" in assistant
+    assert "window.location.reload()" not in assistant
+    assert "replaceDocument: function (document)" in builder
+    assert "render();\n      return true;" in builder
+    assert "api.onRender(function () { observe(); })" in history
+    assert 'comparisonLines(alternative.comparison, "Training")' in assistant
+    assert 'comparisonLines(alternative.validation.comparison, "Held-out")' in assistant
+    assert "unknown/suppressed" in assistant

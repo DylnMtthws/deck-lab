@@ -523,3 +523,15 @@ def test_builder_internal_mutation_is_undoable() -> None:
         {"type": "set_quantity", "entry_id": "entry-ring", "quantity": 1}
     ]
     assert payload["restored"] == 1
+
+
+def test_external_adoption_document_is_synthesized_into_undo_history() -> None:
+    payload = _payload("external-document")
+    assert payload["accepted"] is True
+    assert payload["enabled"] is True
+    assert payload["afterAdopt"]["undo"] == 1
+    assert payload["afterUndo"] == ["commander", "lotus", "ring"]
+    assert payload["bodies"] == [[
+        {"type": "remove_entry", "entry_id": "entry-petal"},
+        {"type": "add_card", "card_id": "ring", "quantity": 1, "zone_id": "zone-main"},
+    ]]

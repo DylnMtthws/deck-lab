@@ -1064,6 +1064,15 @@
       var result = command(commands);
       return result;
     },
+    replaceDocument: function (document) {
+      if (shared || !document || String(document.id) !== String(state.id) || !Array.isArray(document.entries)) return false;
+      if (pendingSaves > 0 || failedSave) return false;
+      state = document;
+      try { localStorage.removeItem(recoveryKey); } catch (_) {}
+      setSaving("Saved", false);
+      render();
+      return true;
+    },
     getSelection: function () {
       return Array.from(selectedEntries);
     },

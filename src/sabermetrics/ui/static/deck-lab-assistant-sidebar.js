@@ -46,6 +46,23 @@
       });
     });
   }
+  function ensureDeckSaved() {
+    var api = window.DeckLabBuilder;
+    var save = api && typeof api.getSaveState === "function" ? api.getSaveState() : null;
+    if (save && (save.pending || save.failed)) {
+      throw new Error("Save the current deck edits before adopting or applying assistant changes.");
+    }
+  }
+  function acceptUpdatedDocument(payload) {
+    var updated = payload && payload.document && Array.isArray(payload.document.entries)
+      ? payload.document : payload;
+    var api = window.DeckLabBuilder;
+    if (!api || typeof api.replaceDocument !== "function" || !api.replaceDocument(updated)) {
+      throw new Error("The change was saved, but the live deck has pending edits. Reload to sync it before continuing.");
+    }
+    state = api.getState();
+    return refresh();
+  }
   function showTab(name, focus) {
     sidebar.querySelectorAll("[data-assistant-tab]").forEach(function (tab) {
       var on = tab.dataset.assistantTab === name;
@@ -201,8 +218,9 @@
       var replacements = Array.prototype.slice.call(proposalsNode.querySelectorAll("[data-replacement]:checked")).map(function (box) { return JSON.parse(box.value); });
       if (!replacements.length || replacements.length > 3) { status.textContent = "Select one to three suggested swaps."; return; }
       button.disabled = true; status.textContent = "Applying selected swaps…";
+      try { ensureDeckSaved(); } catch (error) { status.textContent = error.message; button.disabled = false; return; }
       request(base + "/apply", { method: "POST", body: JSON.stringify({ replacements: replacements, expected_revision: Number(state.revision || 0) }) })
-        .then(function (result) { if (result && result.revision !== undefined) state.revision = result.revision; status.textContent = "Selected swaps applied. Review the updated deck, then rerun Goldfish."; window.location.reload(); })
+        .then(function (result) { status.textContent = "Selected swaps applied. Review the updated deck, then rerun Goldfish."; return acceptUpdatedDocument(result); })
         .catch(function (error) { status.textContent = error.message; button.disabled = false; });
     });
     proposalsNode.appendChild(button);
@@ -211,6 +229,42 @@
   function readableReport(report) {
     if (!report) return "No report supplied.";
     return typeof report === "string" ? report : JSON.stringify(report, null, 2);
+  }
+  function formatScalar(value, unit) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
+    var rate = ["proportion", "rate", "probability"].indexOf(String(unit || "")) >= 0 && value >= 0 && value <= 1;
+    var number = (rate ? value * 100 : value).toFixed(rate ? 1 : 2);
+    if (number.indexOf(".") >= 0) number = number.replace(/0+$/, "").replace(/\.$/, "");
+    return number + (rate ? "%" : (unit ? " " + unit : ""));
+  }
+  function formatDelta(value, unit) {
+    var rate = ["proportion", "rate", "probability"].indexOf(String(unit || "")) >= 0 && Math.abs(value) <= 1;
+    var number = (rate ? value * 100 : value).toFixed(rate ? 1 : 2);
+    if (number.indexOf(".") >= 0) number = number.replace(/0+$/, "").replace(/\.$/, "");
+    return (value > 0 ? "+" : "") + number + (rate ? " percentage points" : (unit ? " " + unit : ""));
+  }
+  function comparisonLines(comparison, label) {
+    if (!comparison || typeof comparison !== "object") return [label + ": unavailable; no comparison report was supplied."];
+    var lines = [];
+    if (!comparison.comparable) lines.push(label + ": unavailable or suppressed" + (comparison.reason ? " — " + comparison.reason : "."));
+    var tests = comparison.metric_deltas || {};
+    Object.keys(tests).forEach(function (testName) {
+      var metrics = tests[testName] || {};
+      Object.keys(metrics).forEach(function (metricName) {
+        var metric = metrics[metricName] || {};
+        var row = label + " · " + testName.replace(/_/g, " ") + " · " + metricName.replace(/_/g, " ") + ": ";
+        if (metric.comparable && typeof metric.delta === "number" && Number.isFinite(metric.delta)) {
+          row += formatScalar(metric.before, metric.unit) + " → " + formatScalar(metric.after, metric.unit) +
+            " (Δ " + formatDelta(metric.delta, metric.unit) + ")";
+          if (metric.validated === false) row += " · descriptive only; " + (metric.unvalidated_reason || "validation requirements were not met");
+        } else {
+          row += "unknown/suppressed" + (metric.reason ? " — " + metric.reason : " — metric or comparison is not supported");
+        }
+        lines.push(row);
+      });
+    });
+    if (!lines.length) lines.push(label + ": no comparable scalar metrics were supplied." + (comparison.reason ? " " + comparison.reason : ""));
+    return lines;
   }
   function renderExperiments() {
     experimentsNode.replaceChildren();
@@ -223,6 +277,7 @@
         section.appendChild(element("strong", alternative.name || "Alternative"));
         if (alternative.rationale) section.appendChild(element("p", alternative.rationale));
         if (alternative.validation) {
+          comparisonLines(alternative.validation.comparison, "Held-out").forEach(function (line) { section.appendChild(element("p", line)); });
           section.appendChild(element("p", "Independent validation: " + (alternative.validation.status || "descriptive") +
             (alternative.validation.note ? " · " + alternative.validation.note : "") +
             (alternative.validation.reason ? " · " + alternative.validation.reason : "")));
@@ -232,6 +287,7 @@
           section.appendChild(validationDetails);
         }
         if (alternative.comparison) {
+          comparisonLines(alternative.comparison, "Training").forEach(function (line) { section.appendChild(element("p", line)); });
           var comparisonDetails = element("details");
           comparisonDetails.appendChild(element("summary", "Metric comparison details"));
           comparisonDetails.appendChild(element("pre", readableReport(alternative.comparison)));
@@ -250,9 +306,11 @@
         adopt.disabled = alternative.status === "unavailable" || experiment.status === "failed";
         adopt.addEventListener("click", function () {
           adopt.disabled = true; status.textContent = "Adopting selected alternative…";
+          try { ensureDeckSaved(); } catch (error) { status.textContent = error.message; adopt.disabled = false; return; }
           request(base + "/experiments/" + encodeURIComponent(experiment.id) + "/adopt", {
             method: "POST", body: JSON.stringify({ alternative_id: alternative.id, expected_revision: Number(state.revision || 0) })
-          }).then(function () { window.location.reload(); }).catch(function (error) { status.textContent = error.message; adopt.disabled = false; });
+          }).then(function (updated) { status.textContent = "Alternative adopted. The update is in the deck history and can be undone."; return acceptUpdatedDocument(updated); })
+            .catch(function (error) { status.textContent = error.message; adopt.disabled = false; });
         });
         section.appendChild(adopt); card.appendChild(section);
       });
