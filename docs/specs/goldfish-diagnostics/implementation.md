@@ -2,6 +2,26 @@
 
 # Build-integrated Goldfish — correction, 2026-10-10
 
+## Open P1: simulator coverage and trustworthy recommendations
+
+**Status: open. Priority: very high. Logged 2026-10-13 following the owner's QA chat review.** Continue Build/Research Assistant development, but treat this as a correctness gate for purchase guidance and claims of proven automatic improvement. UI and integration acceptance do not establish sufficient simulation fidelity.
+
+The reviewed Vivi report counted 23 modeled, 2 intentionally inert, and 75 unauthored card slots out of 100. In the current diagnostics path, “unauthored” includes partially implemented cards, not only cards with no executable effects; even modeled definitions need not implement every rule. Missing selection, combat, targeting, trigger multipliers, and other mechanics can distort all five tests. More simulation runs cannot repair that bias. The finish result was unsupported, not evidence that the deck cannot win.
+
+The assistant also failed to supply requested card recommendations and questioned report freshness from revision numbers despite the canonical simulation view reporting it fresh. The conversation contained a historical bounded-evidence-budget failure; retain that request shape as a regression case without assuming the error still reproduces after subsequent fixes.
+
+Required work and closure evidence:
+
+| Workstream | Acceptance KPI / required evidence |
+| --- | --- |
+| Coverage contract and presentation | Audit all four supplied Vivi/Sauron reference decks. Account for every main-deck/commander slot in mutually exclusive coverage categories, distinguish partial effects from missing effects and intentionally inactive interaction, and expose supported/missing mechanics per card. Explain copies versus unique definitions consistently across engine, tools, and UI. Reconcile the historical coverage note below with the current diagnostics contract. |
+| Native mechanics and strategy validation | Prioritize shared mana, selection, engine, recovery, and finish mechanics that affect those fixtures. Each implemented mechanic has targeted rules tests and replayable traces; each reported strategy milestone has an explicit predicate. Every claimed verified win has a legal executable witness. Preserve strict solo assumptions; do not invent opponent triggers or income. Record remaining unsupported mechanics and which conclusions they prevent. |
+| Trustworthy recommendations | A request to improve a deck returns catalog-backed candidate swaps within budget, power, theme, and protected-card constraints, or a specific explanation of missing evidence/constraints. Unsupported outcomes remain unknown; coverage gaps must not become deck-failure claims or proven-improvement claims. Regression cases verify these distinctions and prevent incomparable reports being ranked as improvements. |
+| Consistent report freshness | Tools, report views, and sidebar use a consistent simulation-input/settings identity. Regression tests show that a nonsemantic revision change does not invalidate identical inputs and a meaningful deck or simulation-setting change does invalidate prior results. |
+| Conversation regression | A sanitized version of the reviewed summary-and-recommendations request completes within the bounded evidence budget, preserves coverage limitations, and actually proposes researched cards when sufficient constraints are available. Verify structured readable output as well as successful tool execution. |
+
+Any handoff must name its scope, acceptance KPI, and resulting test/trace evidence; unmet KPIs require a reason and remain open. Closing this issue requires evidence for the applicable conclusions across all four fixtures, not merely higher run counts, renamed labels, or a passing UI suite. Automatic experiments must continue to preserve the original deck, test three alternatives by default, and change at most three cards between simulation runs. Delivery remains QA-only until separately authorized.
+
 ## Current architecture
 
 Goldfish is a selectable feature within Build on an existing deck. It opens in a builder dialog and invokes the existing native simulator through the established owner-only `/api/decks/<id>/simulate` endpoint. There is no separate Goldfish navigation destination. Old page URLs redirect into Build; the separate Python diagnostics POST returns 410. Its stored results remain an owner-only archive, not inputs to native comparisons.
