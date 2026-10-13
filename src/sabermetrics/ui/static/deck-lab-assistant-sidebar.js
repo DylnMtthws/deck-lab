@@ -16,6 +16,12 @@
   var protectedDirty = false;
   var pollTimer = 0;
   var data = { mode: "suggest", constraints: {}, messages: [], experiments: [], provider: {} };
+  proposalsNode.addEventListener("change", function () {
+    var checked = proposalsNode.querySelectorAll("[data-replacement]:checked");
+    var button = proposalsNode.querySelector("[data-assistant-apply]");
+    if (button) button.disabled = checked.length < 1 || checked.length > 3;
+    proposalsNode.querySelectorAll("[data-replacement]:not(:checked)").forEach(function (box) { box.disabled = checked.length >= 3; });
+  });
   function csrf() {
     var node = document.querySelector("meta[name='csrf-token']");
     return node ? node.content || node.getAttribute("content") || "" : "";
@@ -193,13 +199,14 @@
     button.type = "button"; button.dataset.assistantApply = "";
     button.addEventListener("click", function () {
       var replacements = Array.prototype.slice.call(proposalsNode.querySelectorAll("[data-replacement]:checked")).map(function (box) { return JSON.parse(box.value); });
-      if (!replacements.length) { status.textContent = "Select at least one suggested swap."; return; }
+      if (!replacements.length || replacements.length > 3) { status.textContent = "Select one to three suggested swaps."; return; }
       button.disabled = true; status.textContent = "Applying selected swaps…";
       request(base + "/apply", { method: "POST", body: JSON.stringify({ replacements: replacements, expected_revision: Number(state.revision || 0) }) })
         .then(function (result) { if (result && result.revision !== undefined) state.revision = result.revision; status.textContent = "Selected swaps applied. Review the updated deck, then rerun Goldfish."; window.location.reload(); })
         .catch(function (error) { status.textContent = error.message; button.disabled = false; });
     });
     proposalsNode.appendChild(button);
+    button.disabled = true;
   }
   function readableReport(report) {
     if (!report) return "No report supplied.";
