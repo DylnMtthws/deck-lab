@@ -82,6 +82,7 @@
     if (safeImage) {
       var img = document.createElement("img"); img.src = image; img.alt = ""; img.loading = "lazy";
       img.addEventListener("error", function () { img.hidden = true; });
+      img.addEventListener("load", positionPreview);
       preview.appendChild(img);
     }
     preview.appendChild(element("strong", card.name));
@@ -97,17 +98,19 @@
       hidePreview();
     }); preview.appendChild(ask);
     preview.hidden = false;
-    var rect = opener.getBoundingClientRect();
-    var width = Math.min(300, window.innerWidth - 24);
-    var left = rect.left;
-    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
-    var top = rect.bottom + 8;
-    preview.style.width = width + "px";
-    preview.style.left = left + "px";
-    preview.style.top = Math.min(top, Math.max(8, window.innerHeight - 300)) + "px";
+    positionPreview();
     opener.setAttribute("aria-expanded", "true");
     if (toggle && close.focus) close.focus();
   }
+  function positionPreview() {
+    if (preview.hidden || !previewOpener) return;
+    var rect = previewOpener.getBoundingClientRect();
+    var width = Math.min(300, window.innerWidth - 24);
+    preview.style.width = width + "px";
+    preview.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) + "px";
+    preview.style.top = Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - preview.getBoundingClientRect().height - 8)) + "px";
+  }
+  window.addEventListener("resize", positionPreview);
   function hidePreview(returnFocus) {
     window.clearTimeout(previewTimer);
     preview.hidden = true; previewCardId = null; previewPinned = false; preview.classList.remove("is-pinned");
@@ -259,8 +262,8 @@
       if (event.button !== 0) return;
       event.preventDefault(); grip.setPointerCapture(event.pointerId);
       function move(next) { setWidth(next.clientX - sidebar.getBoundingClientRect().left); }
-      function up() { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); }
-      grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up);
+      function up() { grip.removeEventListener("pointermove", move); ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (name) { grip.removeEventListener(name, up); }); }
+      grip.addEventListener("pointermove", move); ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (name) { grip.addEventListener(name, up); });
     });
     grip.addEventListener("keydown", function (event) {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
