@@ -1,4 +1,5 @@
 """Structure contracts for the Build Research Assistant sidebar."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,9 +15,9 @@ def test_build_sidebar_hosts_chat_analytics_goldfish_and_card_preview():
     assert 'data-assistant-tab="analytics"' in html
     assert 'data-assistant-tab="goldfish"' in html
     assert 'id="goldfish-dialog" data-goldfish-inline' in html
-    assert 'data-goldfish-sim-slot' in html
+    assert "data-goldfish-sim-slot" in html
     assert 'id="mana-curve"' in html and 'id="zone-stats"' in html
-    assert 'data-card-panel' in html
+    assert "data-card-panel" in html
     assert "deck-lab-assistant-sidebar.js" in html
     assert "deck-lab-research-assistant.js" not in html
 

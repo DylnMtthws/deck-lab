@@ -44,6 +44,7 @@
 .dl-assistant-composer textarea { min-height:74px; max-height:180px; resize:vertical; }
 .dl-assistant-composer button { align-self:flex-end; }
 .dl-assistant-constraints { display:grid; gap:var(--s-2); margin:var(--s-2) 0; padding:var(--s-3); border:1px solid var(--line-soft); border-radius:var(--r-md); background:var(--panel-2); }
+.dl-assistant-constraints[hidden] { display:none !important; }
 .dl-assistant-constraints label { display:grid; gap:4px; font-size:var(--t-12); }
 .dl-assistant-constraints fieldset { min-width:0; max-height:180px; overflow:auto; padding:var(--s-2); border:1px solid var(--line-soft); border-radius:var(--r-sm); }
 .dl-assistant-constraints legend { font-size:var(--t-12); color:var(--muted); }

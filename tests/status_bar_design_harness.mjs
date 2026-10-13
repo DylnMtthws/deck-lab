@@ -129,6 +129,7 @@ class Element {
   querySelector(selector) { return queryAll(this, selector)[0] || null; }
   querySelectorAll(selector) { return queryAll(this, selector); }
   addEventListener(type, fn) { (this.listeners[type] || (this.listeners[type] = [])).push(fn); }
+  click() { this.dispatchEvent({ type: "click" }); }
   dispatchEvent(event) {
     event.target = event.target || this;
     (this.listeners[event.type] || []).forEach((fn) => fn(event));
@@ -451,7 +452,10 @@ body.appendChild(el("div", { id: "playmat-view" }));
 body.appendChild(el("div", { "data-playmat-selection": "" }));
 body.appendChild(el("div", { "data-deck-tag-list": "" }));
 body.appendChild(el("div", { "data-tag-summary": "" }));
-body.appendChild(el("button", { "data-rail-tab": "tools", type: "button", text: "Tools" }));
+var analyticsTabClicked = false;
+var analyticsTab = el("button", { "data-assistant-tab": "analytics", type: "button", text: "Analytics" });
+analyticsTab.addEventListener("click", function () { analyticsTabClicked = true; });
+body.appendChild(analyticsTab);
 
 await (async function boot() {
   const ctx = makeContext();
@@ -523,6 +527,11 @@ await (async function boot() {
   }
 
   result.snapshot = statusSnapshot();
+  if (scenario === "withVerdict") {
+    var verdictChip = document.querySelector("[data-status-verdict]");
+    if (verdictChip) verdictChip.click();
+    result.analyticsTabClicked = analyticsTabClicked;
+  }
 
   // Test progress track colors
   if (scenario === "fullHouse") {

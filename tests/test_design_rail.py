@@ -37,7 +37,9 @@ def _payload(scenario: str) -> dict:
 
 def test_tabs_switch_panes_with_click_and_arrow_keys_and_persist() -> None:
     markup = BUILDER.read_text()
-    assistant = (ROOT / "src/sabermetrics/ui/static/deck-lab-assistant-sidebar.js").read_text()
+    assistant = (
+        ROOT / "src/sabermetrics/ui/static/deck-lab-assistant-sidebar.js"
+    ).read_text()
     assert 'data-assistant-tab="chat"' in markup
     assert 'data-assistant-tab="analytics"' in markup
     assert 'data-assistant-tab="goldfish"' in markup

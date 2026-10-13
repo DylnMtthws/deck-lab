@@ -21,6 +21,7 @@ EXPECTED_KEYS = [
     "onRender",
     "railSection",
     "render",
+    "replaceDocument",
     "setEntryFilter",
     "setSelection",
     "shared",

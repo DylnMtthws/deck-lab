@@ -164,7 +164,14 @@ def test_builder_research_and_admin_vertical_slice(tmp_path, monkeypatch):
     assert b'aria-label="Decklist display"' in builder
     assert b'data-density="compact"' in builder
     assert b"data-selection-bar" in builder
-    assert b'data-toggle-rail="left"' not in builder
+    assert b'data-toggle-rail="left"' in builder
+    assert b'data-assistant-tab="chat"' in builder
+    assert b'data-assistant-tab="analytics"' in builder
+    assert b'data-assistant-tab="goldfish"' in builder
+    assert b"data-assistant-transcript" in builder
+    assert b"data-assistant-composer" in builder
+    assert b"data-goldfish-inline" in builder
+    assert b'<dialog class="dl-dialog dl-goldfish-dialog"' not in builder
     assert b'data-toggle-rail="right"' in builder
     assert b"dl-add-panel" not in builder
     assert b'aria-label="Add zone"' in builder

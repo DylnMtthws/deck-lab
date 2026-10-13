@@ -531,7 +531,14 @@ def test_external_adoption_document_is_synthesized_into_undo_history() -> None:
     assert payload["enabled"] is True
     assert payload["afterAdopt"]["undo"] == 1
     assert payload["afterUndo"] == ["commander", "lotus", "ring"]
-    assert payload["bodies"] == [[
-        {"type": "remove_entry", "entry_id": "entry-petal"},
-        {"type": "add_card", "card_id": "ring", "quantity": 1, "zone_id": "zone-main"},
-    ]]
+    assert payload["bodies"] == [
+        [
+            {"type": "remove_entry", "entry_id": "entry-petal"},
+            {
+                "type": "add_card",
+                "card_id": "ring",
+                "quantity": 1,
+                "zone_id": "zone-main",
+            },
+        ]
+    ]

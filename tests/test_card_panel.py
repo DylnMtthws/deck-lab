@@ -186,7 +186,7 @@ def _assert_panel_markup(html: str) -> None:
     if 'id="mana-curve"' in html:
         curve = html.index('id="mana-curve"')
         # Owner analytics moved left; shared decks retain the read-only right rail.
-        if 'data-assistant-sidebar' in html:
+        if "data-assistant-sidebar" in html:
             assert curve < head
         else:
             assert head < curve

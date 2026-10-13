@@ -84,9 +84,9 @@ def test_popover_closes_on_escape_and_outside_click() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_considering_and_verdict_chips_render_and_verdict_opens_tools_tab() -> None:
+def test_considering_and_verdict_chips_render_and_verdict_opens_analytics_tab() -> None:
     """Status bar shows +N considering chip and Verdict chip. Clicking verdict
-    activates the Tools tab."""
+    activates the Research Assistant Analytics tab."""
     payload = _run_harness("withConsidering")
     snap = payload["snapshot"]
     assert snap["consideringText"] is not None
@@ -98,9 +98,10 @@ def test_considering_and_verdict_chips_render_and_verdict_opens_tools_tab() -> N
     assert snap2["verdictText"] is not None
     assert "Verdict:" in snap2["verdictText"]
     assert "Mixed" in snap2["verdictText"] or "not set" in snap2["verdictText"]
+    assert payload2["analyticsTabClicked"] is True
 
     js = STATUS_JS.read_text()
-    assert "data-rail-tab=tools" in js
+    assert "data-assistant-tab=analytics" in js
     assert 'verdictChip.addEventListener("click"' in js
 
 
