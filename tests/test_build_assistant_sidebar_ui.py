@@ -96,7 +96,7 @@ def test_observation_visualization_keeps_finish_proof_unknown_honest_and_compact
     )
     assert ".dl-assistant-card-link img { width:64px; height:88px;" in css
     assert "Number(reportRevision) !== Number(state.revision)" not in assistant
-    assert 'figure.dataset.reportId === String(view.id)' in assistant
+    assert "figure.dataset.reportId === String(view.id)" in assistant
     assert 'figure.dataset.reportFreshness = "unknown"' in assistant
     assert "refreshChartStaleness();" in assistant
     assert "function printDelta(value)" in assistant
