@@ -793,3 +793,110 @@ def test_inspection_counts_and_commanders_are_global_despite_query_pagination(
     ]
     assert "not establish" in result["land_count_note"]
     assert "mdfc_land_option_count" not in result
+
+
+def test_oversized_goldfish_receipt_continues_without_losing_measurements(
+    prepared, monkeypatch
+):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    full = {
+        "view": {
+            "trace": ["raw simulation detail " * 70 for _ in range(32)],
+            "revision": -1,
+            "deck_sha256": "measured-old-deck",
+            "reason": None,
+        },
+        "observations": [
+            {"test": "opening", "metric": "qualified_opening_rate", "value": 0.625},
+            {"test": "finish", "metric": "verified_finish_rate", "value": None},
+        ],
+        "coverage": {"unauthored_cards": 75},
+        "test_statuses": [
+            {
+                "test": name,
+                "status": "partial",
+                "limitations": ["unsupported mechanics " * 70],
+            }
+            for name in [
+                "opening",
+                "development",
+                "commander_loss",
+                "creature_wipe",
+                "finish",
+            ]
+        ],
+        "stale": True,
+    }
+    original = AssistantTools.execute
+
+    def execute(self, tool):
+        return full if tool.name == "latest_goldfish" else original(self, tool)
+
+    monkeypatch.setattr(AssistantTools, "execute", execute)
+    gateway = Gateway(
+        [
+            step(call("latest_goldfish"), call("generator_intelligence")),
+            step(content="The old report is stale; finish remains unknown."),
+        ]
+    )
+    events = []
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [{"role": "user", "content": "Explain the latest results"}],
+        gateway=gateway,
+        experiment_service=service,
+        on_event=events.append,
+    )
+    assert result["status"] == "done"
+    assert all(len(request.user) <= 16000 for request in gateway.requests)
+    context = json.loads(gateway.requests[1].user)
+    receipt = next(
+        x["result"]
+        for x in context["conversation"]
+        if x.get("name") == "latest_goldfish"
+    )
+    assert "view" not in receipt["data"]
+    assert receipt["data"]["observations"][0]["value"] == 0.625
+    assert receipt["data"]["observations"][1]["value"] is None
+    assert receipt["data"]["report_revision"] == -1
+    assert receipt["data"]["report_deck_sha256"] == "measured-old-deck"
+    assert receipt["data"]["report_reason"] is None
+    assert receipt["data"]["stale"] is True
+    assert receipt["data"]["coverage"]["unauthored_cards"] == 75
+    assert receipt["evidence_omitted"]
+    stored = next(
+        x
+        for x in events
+        if x.get("type") == "tool_result" and x["name"] == "latest_goldfish"
+    )
+    assert "view" in stored["data"]
+
+
+def test_context_budget_handles_single_large_receipt_and_preserves_request():
+    from sabermetrics.assistant_runtime import _encode_context
+
+    request = "Please inspect " + "specific detail " * 180 + " FINAL INSTRUCTION"
+    protected = [f"protected-{i}" for i in range(100)]
+    state = {"constraints": {"protected_cards": protected, "theme": "Keep the theme"}}
+    context = json.loads(
+        _encode_context(
+            state,
+            request,
+            [
+                {
+                    "role": "tool",
+                    "name": "search_cards",
+                    "result": {
+                        "name": "search_cards",
+                        "ok": True,
+                        "data": {"cards": ["x" * 1200] * 100, "source": "catalog"},
+                    },
+                }
+            ],
+        )
+    )
+    assert context["current_user_request"] == request
+    assert context["state"]["constraints"]["protected_cards"] == protected
+    assert context["conversation"][0]["result"]["evidence_omitted"] == ["cards"]

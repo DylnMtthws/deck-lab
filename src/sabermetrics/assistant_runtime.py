@@ -109,6 +109,100 @@ def _compact(value: Any, depth: int = 0) -> Any:
     return value
 
 
+def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
+    """Keep full receipts in history; send bounded, explicit evidence to the model."""
+    result = dict(receipt)
+    data = result.get("data")
+    if not isinstance(data, dict):
+        return result
+    data = dict(data)
+    result["data"] = data
+    omitted = []
+    # These tools already provide shallow measured observations, settings and
+    # coverage. The complete view duplicates them and includes large raw traces.
+    if result.get("name") in {"latest_goldfish", "run_goldfish"} and "view" in data:
+        view = data["view"]
+        if isinstance(view, dict):
+            for key in ("id", "revision", "deck_sha256", "reason"):
+                data["report_" + key] = view.get(key)
+        del data["view"]
+        omitted.append("view (full report retained in Goldfish)")
+        data["test_statuses"] = [
+            {
+                **status,
+                "limitations": [
+                    (
+                        note[:200] + " [truncated; full limitation in Goldfish]"
+                        if isinstance(note, str) and len(note) > 200
+                        else note
+                    )
+                    for note in status.get("limitations", [])
+                ],
+            }
+            for status in data.get("test_statuses", [])
+        ]
+    # Tool/catalog growth must not abort a turn. Remove the largest detail
+    # fields first, preserving actual values in the fields that fit. Never
+    # invent a summary or replace unknown measurements with zero.
+    while len(json.dumps(result, ensure_ascii=False, default=str)) > 12000 and data:
+        key = max(data, key=lambda key: len(json.dumps(data[key], default=str)))
+        del data[key]
+        omitted.append(key)
+    if omitted:
+        result["evidence_omitted"] = omitted
+        result["evidence_note"] = (
+            "Omitted details are not evidence available in this context. "
+            "Full tool receipts remain in conversation history. Use a narrower "
+            "query if needed; do not infer omitted values or repeat the same broad request."
+        )
+    return result
+
+
+def _encode_context(
+    state: dict[str, Any], latest_request: str, transcript: list
+) -> str:
+    """Pin the request and preferences while evicting older evidence as needed."""
+    conversation = [
+        (
+            dict(item, result=_model_receipt(item["result"]))
+            if item.get("role") == "tool" and isinstance(item.get("result"), dict)
+            else item
+        )
+        for item in transcript[-10:]
+    ]
+    payload = _compact({"state": state, "conversation": conversation})
+    # Do not truncate the actual instruction to the generic 1,200-character
+    # text limit, or hide protected cards behind the generic 12-item list cap.
+    payload["current_user_request"] = latest_request
+    payload["state"]["constraints"] = state.get("constraints", {})
+    while True:
+        encoded = json.dumps(payload, ensure_ascii=False, default=str)
+        if len(encoded) <= 16000:
+            return encoded
+        if payload["conversation"]:
+            payload["conversation"].pop(0)
+            payload["history_truncated"] = True
+            payload["history_note"] = (
+                "Older context was omitted; do not infer missing results."
+            )
+        else:
+            # Extremely large preference lists are still enforced by every
+            # mutation tool. Make their omission explicit rather than failing.
+            constraints = dict(payload["state"].get("constraints", {}))
+            cards = constraints.get("protected_cards", [])
+            if cards:
+                constraints["protected_cards"] = []
+                constraints["protected_cards_omitted_count"] = len(cards)
+                constraints["protected_cards_note"] = (
+                    "Identities omitted for size; all remain enforced by tools."
+                )
+                payload["state"]["constraints"] = constraints
+            else:
+                raise AssistantBudgetExceeded(
+                    "The request exceeds the assistant context limit. Please shorten it."
+                )
+
+
 def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
     turns = []
     for message in messages[-10:]:
@@ -233,23 +327,7 @@ def run_turn(
                 ),
                 "",
             )
-            payload: dict[str, Any] = {
-                "state": state,
-                "current_user_request": latest_request,
-                "conversation": transcript[-10:],
-            }
-            encoded = json.dumps(_compact(payload), ensure_ascii=False, default=str)
-            # Keep the newest user request and tool receipts. Never send an
-            # unbounded prior conversation or imported catalog to the model.
-            while len(encoded) > 16000 and len(transcript) > 2:
-                transcript.pop(0)
-                payload["conversation"] = transcript[-10:]
-                payload["history_truncated"] = True
-                encoded = json.dumps(_compact(payload), ensure_ascii=False, default=str)
-            if len(encoded) > 16000:
-                raise AssistantBudgetExceeded(
-                    "Assistant context exceeds its bounded evidence budget."
-                )
+            encoded = _encode_context(state, latest_request, transcript)
             request = StructuredRequest(
                 prompt_version=PROMPT_VERSION,
                 system=SYSTEM,
