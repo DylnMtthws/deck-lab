@@ -415,6 +415,8 @@
     var observations = Array.isArray(goldfish.observations) ? goldfish.observations : [];
     if (!observations.length && !(goldfish.test_statuses || []).length) return;
     var statuses = Object.create(null);
+    if (goldfish.coverage_note) notes.appendChild(element("p", goldfish.coverage_note));
+    ((coverage && coverage.assumptions) || []).forEach(function (assumption) { notes.appendChild(element("p", assumption)); });
     (goldfish.test_statuses || []).forEach(function (item) { statuses[item.test] = item; });
     var figure = element("figure", null, "dl-assistant-goldfish-chart");
     figure.dataset.reportRevision = goldfish.report_revision == null ? "" : String(goldfish.report_revision);
@@ -463,6 +465,8 @@
     }
     if (goldfish.report_note) figure.appendChild(element("small", goldfish.report_note));
     var notes = element("details"); notes.appendChild(element("summary", "Test coverage and limitations"));
+    if (goldfish.coverage_note) notes.appendChild(element("p", goldfish.coverage_note));
+    ((coverage && coverage.assumptions) || []).forEach(function (assumption) { notes.appendChild(element("p", assumption)); });
     (goldfish.test_statuses || []).forEach(function (item) { notes.appendChild(element("p", String(item.test || "Test").replace(/_/g, " ") + " · " + (item.status || "unknown") + ((item.limitations || []).length ? " · " + item.limitations.join("; ") : ""))); });
     figure.appendChild(notes);
     host.appendChild(figure);

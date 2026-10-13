@@ -716,6 +716,7 @@ def _goldfish_observations(view: dict[str, Any]) -> dict[str, Any]:
         "test_statuses": statuses,
         "settings": diagnostics.get("settings"),
         "coverage": diagnostics.get("coverage"),
+        "coverage_note": "Coverage counts classify whole cards, not individual effects. Cards counted unauthored may still execute partial diagnostic effects. Consult the native coverage assumptions and test limitations before declaring any mechanic unsupported.",
         "stale": view.get("stale"),
         "report_status": view.get("status"),
         "report_id": view.get("id"),

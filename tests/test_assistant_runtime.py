@@ -981,7 +981,12 @@ def test_goldfish_presentation_keeps_exact_native_values_unknowns_and_provenance
         "result": {
             "diagnostics": {
                 "settings": {"seed": 20261012, "engine_version": "0.4.1"},
-                "coverage": {"unauthored_cards": 75},
+                "coverage": {
+                    "unauthored_cards": 75,
+                    "assumptions": [
+                        "Partial Vivi effects execute while the card remains counted unauthored."
+                    ],
+                },
                 "tests": {
                     "opening": {
                         "status": "partial",
@@ -1025,7 +1030,8 @@ def test_goldfish_presentation_keeps_exact_native_values_unknowns_and_provenance
     assert data["stale"] is True
     assert data["observations"][0]["value"] == 0.625
     assert data["observations"][1]["value"] is None
-    assert data["coverage"]["unauthored_cards"] == 75
+    assert data["coverage"] == view["result"]["diagnostics"]["coverage"]
+    assert "partial diagnostic effects" in data["coverage_note"]
     assert data["settings"] == view["result"]["diagnostics"]["settings"]
 
 
