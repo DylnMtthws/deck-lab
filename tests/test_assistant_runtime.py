@@ -940,7 +940,14 @@ def test_presentation_resolves_only_known_cards_and_real_server_metadata(prepare
 def test_current_deck_mentioned_card_gets_preview_without_model_metadata(prepared):
     service, path, owner, deck_id, document, _alternatives = prepared
     card = next(entry for entry in document["entries"] if entry["is_commander"])
-    gateway = Gateway([step(content=f"Your commander is **{card['name']}**.")])
+    gateway = Gateway(
+        [
+            AssistantStep(
+                content="Your deck has a printed commander engine.",
+                findings=[f"Your commander is **{card['name']}**."],
+            )
+        ]
+    )
     result = run_turn(
         path, owner, deck_id, [], gateway=gateway, experiment_service=service
     )
@@ -1047,3 +1054,84 @@ def test_server_card_presentation_is_capped_at_twelve(prepared):
     cards = resolve_presentation_cards(path, known, names, [])
     assert len(cards) == 12
     assert all(card["id"] in known for card in cards)
+
+
+def test_current_commander_printed_facts_are_in_bounded_model_context(prepared):
+    service, path, owner, deck_id, document, _alternatives = prepared
+    commander = next(entry for entry in document["entries"] if entry["is_commander"])
+    printed = (
+        "Whenever you cast a noncreature spell, put a +1/+1 counter on this commander."
+    )
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_entries SET mana_cost=?,type_line=?,oracle_text=? WHERE id=?",
+            ("{1}{U}{R}", "Legendary Creature — Wizard", printed, commander["id"]),
+        )
+        conn.commit()
+    gateway = Gateway(
+        [
+            step(
+                content="The printed spell trigger supports noncreature spells; native performance remains partially measured."
+            )
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [{"role": "user", "content": "Explain my commander's synergies."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    state = json.loads(gateway.requests[0].user)["state"]
+    facts = state["commanders"][0]
+    assert facts["card_id"] == commander["card_id"]
+    assert facts["oracle_id"] == commander["oracle_id"]
+    assert facts["mana_cost"] == "{1}{U}{R}"
+    assert facts["type_line"] == "Legendary Creature — Wizard"
+    assert facts["oracle_text"] == printed
+    assert len(gateway.requests[0].user) < 16000
+    assert "retrieve them" in gateway.requests[0].system
+
+
+def test_final_findings_and_next_action_form_user_facing_answer(prepared):
+    service, path, owner, deck_id, document, _alternatives = prepared
+    commander = next(entry for entry in document["entries"] if entry["is_commander"])
+    gateway = Gateway(
+        [
+            step(call("inspect_deck")),
+            AssistantStep(
+                content=f"Your commander is {commander['name']}.",
+                findings=[
+                    "The current library has 99 front-face lands.",
+                    "I can find cards that fit your commander's printed rules.",
+                    "I can run Goldfish and explain its measured limitations.",
+                ],
+                next_action="Choose card research or a Goldfish run.",
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [
+            {
+                "role": "user",
+                "content": "Tell me my commander, land count and two ways you can help.",
+            }
+        ],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert "99 front-face lands" in result["content"]
+    assert "- I can find cards" in result["content"]
+    assert "- I can run Goldfish" in result["content"]
+    assert result["content"].endswith("Choose card research or a Goldfish run.")
+    receipt = next(
+        event for event in result["actions"] if event["type"] == "tool_result"
+    )
+    assert receipt["data"]["front_land_count"] == 99
+    assert receipt["data"]["commanders"][0]["name"] == commander["name"]

@@ -654,6 +654,11 @@ def _experiment_metrics(result: dict[str, Any]) -> list[dict[str, Any]]:
                     "alternative_name": alternative.get("name"),
                     "test": test,
                     "metric": metric,
+                    "unit": report.get("tests", {})
+                    .get(test, {})
+                    .get("metrics", {})
+                    .get(metric, {})
+                    .get("unit"),
                     "before": value(baseline.get("training_report"), test, metric),
                     "after": value(report, test, metric),
                     "delta": delta.get("delta"),
@@ -713,6 +718,10 @@ def _goldfish_observations(view: dict[str, Any]) -> dict[str, Any]:
         "coverage": diagnostics.get("coverage"),
         "stale": view.get("stale"),
         "report_status": view.get("status"),
+        "report_id": view.get("id"),
+        "report_revision": view.get("revision"),
+        "report_deck_sha256": view.get("deck_sha256"),
+        "report_reason": view.get("reason"),
         "report_note": "Null metrics are unknown. A stale report measures a previous list; do not treat it as current.",
     }
 
