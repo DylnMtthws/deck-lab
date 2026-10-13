@@ -393,7 +393,7 @@
   function appendReply(parent, message) {
     var body = element("div", null, "dl-assistant-prose");
     var reply = message.presentation && message.presentation.reply;
-    if (reply && typeof reply.lead === "string" && Array.isArray(reply.findings)) {
+    if (reply && typeof reply.lead === "string" && Array.isArray(reply.findings) && (reply.lead.trim() || reply.findings.length || reply.next_action)) {
       appendMarkdown(body, reply.lead, cardsFrom(message));
       if (reply.findings.length) {
         var list = element("ul");
