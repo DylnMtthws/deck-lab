@@ -900,3 +900,150 @@ def test_context_budget_handles_single_large_receipt_and_preserves_request():
     assert context["current_user_request"] == request
     assert context["state"]["constraints"]["protected_cards"] == protected
     assert context["conversation"][0]["result"]["evidence_omitted"] == ["cards"]
+
+
+def test_presentation_resolves_only_known_cards_and_real_server_metadata(prepared):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cards SET mana_cost=?,oracle_text=?,image_uri=? WHERE id=?",
+            (
+                "{2}",
+                "Real stored card text",
+                "https://cards.example/real.jpg",
+                "incoming-0",
+            ),
+        )
+        conn.commit()
+    final = AssistantStep(
+        content="Try **Incoming 0**. Its performance remains unmeasured.",
+        card_ids=["incoming-0", "invented-id"],
+    )
+    gateway = Gateway([step(call("search_cards", {"query": "Incoming"})), final])
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    assert result["status"] == "done"
+    assert result["presentation"]["cards"] == [
+        {
+            "id": "incoming-0",
+            "name": "Incoming 0",
+            "mana_cost": "{2}",
+            "type_line": "Artifact",
+            "oracle_text": "Real stored card text",
+            "image_uri": "https://cards.example/real.jpg",
+        }
+    ]
+    assert "goldfish" not in result["presentation"]
+
+
+def test_current_deck_mentioned_card_gets_preview_without_model_metadata(prepared):
+    service, path, owner, deck_id, document, _alternatives = prepared
+    card = next(entry for entry in document["entries"] if entry["is_commander"])
+    gateway = Gateway([step(content=f"Your commander is **{card['name']}**.")])
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    assert result["presentation"]["cards"][0]["id"] == card["card_id"]
+    assert result["presentation"]["cards"][0]["name"] == card["name"]
+    # Even a catalog ID must first be resolved in this conversation or deck.
+    gateway = Gateway(
+        [
+            AssistantStep(
+                content="A card is not yet researched.", card_ids=["incoming-0"]
+            )
+        ]
+    )
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    assert result["presentation"]["cards"] == []
+
+
+def test_goldfish_presentation_keeps_exact_native_values_unknowns_and_provenance(
+    prepared, monkeypatch
+):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    view = {
+        "id": "measured-run",
+        "revision": 3,
+        "deck_sha256": "actual-stored-hash",
+        "reason": "",
+        "status": "done",
+        "stale": True,
+        "result": {
+            "diagnostics": {
+                "settings": {"seed": 20261012, "engine_version": "0.4.1"},
+                "coverage": {"unauthored_cards": 75},
+                "tests": {
+                    "opening": {
+                        "status": "partial",
+                        "metrics": {
+                            "qualified_opening_rate": {
+                                "value": 0.625,
+                                "unit": "proportion",
+                                "denominator": 2000,
+                            }
+                        },
+                    },
+                    "finish": {
+                        "status": "unsupported",
+                        "metrics": {
+                            "verified_finish_rate": {
+                                "value": None,
+                                "unit": "proportion",
+                            }
+                        },
+                    },
+                },
+            }
+        },
+    }
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.simulation_view", lambda *_args: view
+    )
+    gateway = Gateway(
+        [
+            step(call("latest_goldfish")),
+            step(content="This report is stale; the finish is unknown."),
+        ]
+    )
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    data = result["presentation"]["goldfish"]
+    assert data["report_revision"] == 3
+    assert data["report_id"] == "measured-run"
+    assert data["report_deck_sha256"] == "actual-stored-hash"
+    assert data["stale"] is True
+    assert data["observations"][0]["value"] == 0.625
+    assert data["observations"][1]["value"] is None
+    assert data["coverage"]["unauthored_cards"] == 75
+    assert data["settings"] == view["result"]["diagnostics"]["settings"]
+
+
+def test_server_card_presentation_is_capped_at_twelve(prepared):
+    from sabermetrics.assistant_tools import resolve_presentation_cards
+
+    _service, path, _owner, _deck_id, _document, _alternatives = prepared
+    known = set()
+    with db.connect(path) as conn:
+        for index in range(15):
+            card_id = f"presentation-{index}"
+            known.add(card_id)
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,color_identity,is_legal_in_99) VALUES(?,?,?,?,?,?)",
+                (
+                    card_id,
+                    f"presentation-oracle-{index}",
+                    f"Real Preview {index}",
+                    "Artifact",
+                    "[]",
+                    1,
+                ),
+            )
+        conn.commit()
+    names = "; ".join(f"Real Preview {index}" for index in range(15))
+    cards = resolve_presentation_cards(path, known, names, [])
+    assert len(cards) == 12
+    assert all(card["id"] in known for card in cards)

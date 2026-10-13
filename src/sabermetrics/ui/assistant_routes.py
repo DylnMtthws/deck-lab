@@ -210,6 +210,7 @@ def _work(path, owner, deck_id, turn):
             {
                 "role": "assistant",
                 "content": str(result.get("content") or "Task finished."),
+                "presentation": result.get("presentation", {"cards": []}),
                 "proposals": result.get("proposals", []),
                 "actions": result.get("actions", []),
                 "status": result.get("status"),

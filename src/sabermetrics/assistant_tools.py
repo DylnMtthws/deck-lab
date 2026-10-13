@@ -298,6 +298,7 @@ class AssistantTools:
                 "mana_cost",
                 "cmc",
                 "oracle_text",
+                "image_uri",
                 "color_identity",
                 "is_legal_in_99",
                 "roles",
@@ -767,3 +768,61 @@ def recover_interrupted_goldfish(
             recovered += cursor.rowcount
         conn.commit()
     return recovered
+
+
+def resolve_presentation_cards(
+    db_path: str | Path, known_ids: set[str], content: str, requested_ids: list[str]
+) -> list[dict[str, Any]]:
+    """Select only resolved known catalog cards; the model supplies no metadata."""
+    import re
+
+    from sabermetrics.card_search import search_needle
+
+    known = sorted(known_ids)[:512]
+    if not known:
+        return []
+    with sqlite3.connect(db_path, timeout=5) as conn:
+        conn.row_factory = sqlite3.Row
+        marks = ",".join("?" for _ in known)
+        rows = conn.execute(
+            f"SELECT id,oracle_id,name,mana_cost,type_line,oracle_text,image_uri FROM cards WHERE id IN ({marks}) ORDER BY name,id",
+            known,
+        ).fetchall()
+    cards = {str(row["id"]): dict(row) for row in rows}
+    chosen = [card_id for card_id in requested_ids if card_id in cards]
+    normalized = search_needle(content).casefold()
+    for card_id, card in cards.items():
+        aliases = [str(card["name"]), str(card["name"]).split(" // ", 1)[0]]
+        if any(
+            re.search(
+                r"(?<!\w)" + re.escape(search_needle(alias).casefold()) + r"(?!\w)",
+                normalized,
+            )
+            for alias in aliases
+            if search_needle(alias)
+        ):
+            chosen.append(card_id)
+    selected = []
+    seen = set()
+    for card_id in chosen:
+        card = cards[card_id]
+        identity = str(card.get("oracle_id") or card_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        selected.append(
+            {
+                key: card.get(key)
+                for key in (
+                    "id",
+                    "name",
+                    "mana_cost",
+                    "type_line",
+                    "oracle_text",
+                    "image_uri",
+                )
+            }
+        )
+        if len(selected) >= 12:
+            break
+    return selected

@@ -21,6 +21,7 @@ from sabermetrics.assistant_tools import (
     StrictModel,
     ToolCall,
     ToolStopped,
+    resolve_presentation_cards,
 )
 from sabermetrics.cedh.errors import ModelConfigurationError, ModelProviderError
 from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
@@ -66,6 +67,11 @@ final answer under 300 words; do not narrate every tool call or repeat the full
 comparison table. Use user-facing card/test names and rounded percentages
 (normally one decimal place), not raw metric keys or long decimal strings.
 Keep card IDs and hashes in tool receipts unless the user asks for them.
+Use a short lead, concise bullet findings where useful, and a concrete next action.
+You may set card_ids to up to twelve actual card IDs already returned by tools or
+present in the user's deck, for server-resolved card previews. Never invent card
+metadata, image URLs, HTML, chart data or simulation numbers. The interface adds
+card previews and native charts from verified server records; do not dump raw reports.
 Explain findings plainly while retaining the measured revision and coverage limits. Emit complete JSON, including its closing braces; budget for
 reasoning separately from the concise user-facing answer.
 """
@@ -77,6 +83,7 @@ class AssistantBudgetExceeded(Exception):
 
 class AssistantStep(StrictModel):
     content: str = Field(default="", max_length=6000)
+    card_ids: list[str] = Field(default_factory=list, max_length=12)
     tool_calls: list[ToolCall] = Field(default_factory=list, max_length=3)
 
 
@@ -246,6 +253,8 @@ def run_turn(
     )
     actions: list[dict[str, Any]] = []
     tools = None
+    known_card_ids: set[str] = set()
+    measured_presentation: dict[str, Any] | None = None
     owns_gateway = gateway is None
     result: dict[str, Any] = {
         "content": "",
@@ -276,6 +285,11 @@ def run_turn(
             experiment_service=experiment_service,
         )
         document = tools.check()
+        known_card_ids.update(
+            str(entry["card_id"])
+            for entry in document.get("entries", [])
+            if entry.get("card_id")
+        )
         result["revision"] = int(document["revision"])
         settings = load_cedh_settings()
         if gateway is None:
@@ -359,6 +373,14 @@ def run_turn(
                     step.content or "The model returned no answer for this turn."
                 )
                 result["status"] = "done" if step.content else "incomplete"
+                presentation: dict[str, Any] = {
+                    "cards": resolve_presentation_cards(
+                        db_path, known_card_ids, step.content, step.card_ids
+                    )
+                }
+                if measured_presentation is not None:
+                    presentation["goldfish"] = measured_presentation
+                result["presentation"] = presentation
                 return result
             if tool_count + len(step.tool_calls) > MAX_TOOL_CALLS:
                 raise AssistantBudgetExceeded(
@@ -384,6 +406,31 @@ def run_turn(
                 )
                 try:
                     data = tools.execute(call)
+                    _collect_resolved_card_ids(call.name, data, known_card_ids)
+                    if (
+                        call.name in {"latest_goldfish", "run_goldfish"}
+                        and data.get("report_status") == "done"
+                        and data.get("observations")
+                    ):
+                        view = data.get("view") or {}
+                        measured_presentation = {
+                            key: data.get(key)
+                            for key in (
+                                "observations",
+                                "test_statuses",
+                                "settings",
+                                "coverage",
+                                "stale",
+                                "report_status",
+                                "report_note",
+                            )
+                        }
+                        measured_presentation.update(
+                            {
+                                "report_" + key: view.get(key)
+                                for key in ("id", "revision", "deck_sha256", "reason")
+                            }
+                        )
                     outcome_status = data.get("status")
                     receipt = {
                         "type": "tool_result",
@@ -479,3 +526,23 @@ def run_turn(
             if close:
                 close()
     return result
+
+
+def _collect_resolved_card_ids(
+    name: str, data: dict[str, Any], known: set[str]
+) -> None:
+    """Trust only actual tool output; do not register IDs named by the model."""
+    if name == "card_details":
+        card = data.get("card") or {}
+        if card.get("id"):
+            known.add(str(card["id"]))
+    if name in {"search_cards", "generator_intelligence"}:
+        for card in data.get(
+            "cards" if name == "search_cards" else "candidate_pool", []
+        ):
+            if isinstance(card, dict) and card.get("id"):
+                known.add(str(card["id"]))
+    if name == "propose_replacements":
+        for replacement in (data.get("proposal") or {}).get("replacements", []):
+            if replacement.get("incoming_card_id"):
+                known.add(str(replacement["incoming_card_id"]))

@@ -149,7 +149,12 @@ def test_tool_loop_results_saved_and_original_untouched(setup, monkeypatch):
         kwargs["on_event"](
             {"tool": "search_cards", "content": "Found two matching cards."}
         )
-        return {"content": "Here are two options.", "proposals": [], "status": "done"}
+        return {
+            "content": "Here are two options.",
+            "proposals": [],
+            "status": "done",
+            "presentation": {"cards": [{"id": "resolved-card", "name": "Actual Card"}]},
+        }
 
     monkeypatch.setattr(assistant_runtime, "run_turn", run)
     client.post(
@@ -162,6 +167,7 @@ def test_tool_loop_results_saved_and_original_untouched(setup, monkeypatch):
     assert not result["busy"]
     assert [m["role"] for m in result["messages"]] == ["user", "tool", "assistant"]
     assert result["messages"][-1]["content"] == "Here are two options."
+    assert result["messages"][-1]["presentation"]["cards"][0]["id"] == "resolved-card"
     assert DeckDocumentRepo(path).get(owner, deck) == original
 
 
