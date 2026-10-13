@@ -32,7 +32,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v1"
+PROMPT_VERSION = "build-conversation.v2"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -72,8 +72,12 @@ You may set card_ids to up to twelve actual card IDs already returned by tools o
 present in the user's deck, for server-resolved card previews. Never invent card
 metadata, image URLs, HTML, chart data or simulation numbers. The interface adds
 card previews and native charts from verified server records; do not dump raw reports.
-The state's commander entries include actual stored printed card facts. Use those
-facts directly; distinguish printed rules, inferred synergy and measured native
+The state's commander entries include actual stored printed card facts. In
+Commander, commanders start in the command zone, outside the library; ordinary
+draw and selection do not find the commander there. Describe triggered synergies
+with their required battlefield/zone conditions. Do not claim one selection spell
+is always best or more reliable without stated assumptions or measured evidence.
+Use printed facts directly; distinguish printed rules, inferred synergy and measured native
 performance. If needed card facts are missing, retrieve them through the available
 search/card_details tools instead of ending with an avoidable missing-evidence
 disclaimer. Answer the requested comparison or recommendation directly with
