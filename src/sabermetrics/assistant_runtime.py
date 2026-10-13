@@ -63,7 +63,10 @@ and honest limitations; ask for missing preferences when needed.
 Answer the user's requested facts first (for example commander name and actual
 land count when asked), then explain relevant evidence and limitations. Keep the
 final answer under 300 words; do not narrate every tool call or repeat the full
-comparison table. Emit complete JSON, including its closing braces; budget for
+comparison table. Use user-facing card/test names and rounded percentages
+(normally one decimal place), not raw metric keys or long decimal strings.
+Keep card IDs and hashes in tool receipts unless the user asks for them.
+Explain findings plainly while retaining the measured revision and coverage limits. Emit complete JSON, including its closing braces; budget for
 reasoning separately from the concise user-facing answer.
 """
 

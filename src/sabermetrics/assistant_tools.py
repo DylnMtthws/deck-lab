@@ -204,6 +204,28 @@ class AssistantTools:
             return {
                 "deck_id": self.deck_id,
                 "revision": self.revision,
+                "front_land_count": sum(
+                    int(entry.get("quantity") or 1)
+                    for entry in entries
+                    if "Land" in str(entry.get("type_line") or "").split("//", 1)[0]
+                ),
+                "land_back_face_count": sum(
+                    int(entry.get("quantity") or 1)
+                    for entry in entries
+                    if "Land" not in str(entry.get("type_line") or "").split("//", 1)[0]
+                    and "//" in str(entry.get("type_line") or "")
+                    and "Land" in str(entry.get("type_line") or "").split("//", 1)[1]
+                ),
+                "land_count_note": "Quantity-aware counts cover the full main-deck library, excluding commanders and sideboard. Back-land faces are counted separately; imported type lines do not establish that every back face can be played from hand. Do not call this a verified MDFC count.",
+                "commanders": [
+                    {
+                        "name": entry.get("name"),
+                        "card_id": entry.get("card_id"),
+                        "oracle_id": entry.get("oracle_id"),
+                    }
+                    for entry in document.get("entries", [])
+                    if entry.get("is_commander")
+                ],
                 "matching_entries": len(matching),
                 "offset": args.offset,
                 "next_offset": (

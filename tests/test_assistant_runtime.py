@@ -747,3 +747,49 @@ def test_transient_provider_overload_has_three_bounded_attempts(
         assert "retry your message" in result["content"]
         assert "sensitive-provider-detail-token" not in json.dumps(result)
         assert not result["actions"] and not result["proposals"]
+
+
+def test_inspection_counts_and_commanders_are_global_despite_query_pagination(
+    prepared, monkeypatch
+):
+    import copy
+
+    service, path, owner, deck_id, document, _alternatives = prepared
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    changed = copy.deepcopy(document)
+    land = next(entry for entry in changed["entries"] if not entry["is_commander"])
+    land["quantity"] = 96
+    changed["entries"].extend(
+        [
+            {
+                **land,
+                "id": "spell-land",
+                "card_id": "modal",
+                "name": "Hydroelectric Specimen",
+                "quantity": 2,
+                "type_line": "Instant // Land",
+            },
+            {
+                **land,
+                "id": "transform-land",
+                "card_id": "transform",
+                "name": "Growing Rites",
+                "quantity": 1,
+                "type_line": "Enchantment // Land",
+            },
+        ]
+    )
+    monkeypatch.setattr(tools.repo, "get", lambda *_args: changed)
+    result = tools.execute(call("inspect_deck", {"query": "Hydroelectric", "limit": 1}))
+    assert len(result["entries"]) == 1
+    assert result["front_land_count"] == 96
+    assert result["land_back_face_count"] == 3
+    assert result["commanders"] == [
+        {key: entry.get(key) for key in ("name", "card_id", "oracle_id")}
+        for entry in document["entries"]
+        if entry["is_commander"]
+    ]
+    assert "not establish" in result["land_count_note"]
+    assert "mdfc_land_option_count" not in result
