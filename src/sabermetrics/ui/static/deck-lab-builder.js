@@ -22,9 +22,8 @@
     ["board_wipe", "Board wipe"], ["recursion", "Recursion"],
     ["wincon", "Win condition"], ["land", "Land"], ["utility", "Utility"], ["other", "Other"]
   ];
-  var rails = { right: true };
+  var rails = { right: true, left: true };
   try { rails = Object.assign(rails, JSON.parse(localStorage.getItem(railsKey) || "{}")); } catch (_) {}
-  rails.left = false;
 
   function node(tag, className, text) {
     var el = document.createElement(tag);
@@ -702,16 +701,17 @@
   }
   function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); _renderEntryFilterChip(); _runOnRenderListeners(); }
   function syncRails() {
-    root.classList.remove("left-collapsed");
+    root.classList.toggle("left-collapsed", !rails.left);
     root.classList.toggle("right-collapsed", !rails.right);
     document.querySelectorAll("[data-toggle-rail]").forEach(function (button) {
-      if (button.dataset.toggleRail !== "right") return;
-      button.setAttribute("aria-expanded", rails.right ? "true" : "false");
-      button.setAttribute("aria-label", (rails.right ? "Collapse " : "Expand ") + "Deck sidebar");
+      var side = button.dataset.toggleRail;
+      if (side !== "right" && side !== "left") return;
+      button.setAttribute("aria-expanded", rails[side] ? "true" : "false");
+      button.setAttribute("aria-label", (rails[side] ? "Collapse " : "Expand ") + (side === "left" ? "Research Assistant" : "Deck sidebar"));
     });
-    try { localStorage.setItem(railsKey, JSON.stringify({ right: rails.right })); } catch (_) {}
+    try { localStorage.setItem(railsKey, JSON.stringify({ right: rails.right, left: rails.left })); } catch (_) {}
   }
-  function setRail(side, open) { if (side !== "right") return; rails[side] = open; syncRails(); }
+  function setRail(side, open) { if (side !== "right" && side !== "left") return; rails[side] = open; syncRails(); }
   document.querySelectorAll("[data-toggle-rail]").forEach(function (button) { button.addEventListener("click", function () { setRail(button.dataset.toggleRail, !rails[button.dataset.toggleRail]); }); });
   document.querySelectorAll("[data-view]").forEach(function (button) { button.addEventListener("click", function () { command([{ type: "update_view", view_mode: button.dataset.view }]); }); });
   document.querySelectorAll("[data-display]").forEach(function (button) { button.addEventListener("click", function () { command([{ type: "update_view", display_mode: button.dataset.display }]); }); });
@@ -1095,7 +1095,7 @@
       id = String(id);
       opts = opts || {};
       var tab = opts.tab || "deck";
-      var rail = document.querySelector(".dl-stats-rail");
+      var rail = document.querySelector("[data-assistant-pane=analytics]") || document.querySelector(".dl-stats-rail");
       if (!rail) return null;
       var existing = rail.querySelector('[data-ext-section="' + id.replace(/"/g, '\\"') + '"]');
       if (existing) return existing;

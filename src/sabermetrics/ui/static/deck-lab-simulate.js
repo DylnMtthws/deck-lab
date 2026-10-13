@@ -34,7 +34,8 @@
     var dialog = document.getElementById("goldfish-dialog");
     var slot = document.querySelector("[data-goldfish-sim-slot]");
     var opener = document.querySelector("[data-goldfish-open]");
-    if (!api || !dialog || !slot || !opener) return;
+    var inline = !!(dialog && dialog.hasAttribute("data-goldfish-inline"));
+    if (!api || !dialog || !slot || (!opener && !inline)) return;
     booted = true;
 
     var state = readState() || {};
@@ -420,9 +421,11 @@
     function syncReadiness() {
       var check = readiness();
       dialog.querySelector("[data-goldfish-readiness]").textContent = check.message;
-      opener.disabled = false;
-      opener.setAttribute("aria-disabled", "false");
-      opener.title = shared ? "Open Goldfish information for this read-only deck" : "Open the Goldfish simulator";
+      if (opener) {
+        opener.disabled = false;
+        opener.setAttribute("aria-disabled", "false");
+        opener.title = shared ? "Open Goldfish information for this read-only deck" : "Open the Goldfish simulator";
+      }
       if (runButton) runButton.disabled = !check.ready || activeView.status === "queued" || activeView.status === "running";
       if (rerunButton) rerunButton.disabled = !check.ready || activeView.status === "queued" || activeView.status === "running";
       if (runButton) runButton.title = check.ready ? "Run the Goldfish simulator" : check.message;
@@ -562,13 +565,14 @@
       });
     }
 
-    opener.addEventListener("click", function () {
+    if (opener) opener.addEventListener("click", function () {
       if (typeof dialog.showModal === "function") dialog.showModal();
       else dialog.setAttribute("open", "open");
       syncReadiness();
     });
-    dialog.querySelector("[data-goldfish-close]").addEventListener("click", function () { dialog.close(); });
-    dialog.addEventListener("click", function (event) { if (event.target === dialog) dialog.close(); });
+    var closeButton = dialog.querySelector("[data-goldfish-close]");
+    if (closeButton) closeButton.addEventListener("click", function () { dialog.close(); });
+    if (!inline) dialog.addEventListener("click", function (event) { if (event.target === dialog) dialog.close(); });
     document.addEventListener("deck-lab:render", function (event) {
       if (event.detail && event.detail.state) {
         state = event.detail.state;
@@ -611,7 +615,7 @@
       poll(latestUrl, 0);
     }
 
-    if (window.location.hash === "#goldfish") {
+    if (!inline && window.location.hash === "#goldfish") {
       if (typeof dialog.showModal === "function") dialog.showModal();
       else dialog.setAttribute("open", "open");
       syncReadiness();

@@ -277,8 +277,8 @@
     var verdictText = getVerdict(state);
     verdictChip.textContent = "Verdict: " + verdictText;
     verdictChip.addEventListener("click", function () {
-      var toolsTab = document.querySelector("[data-rail-tab=tools]");
-      if (toolsTab) toolsTab.click();
+      var analyticsTab = document.querySelector("[data-assistant-tab=analytics]");
+      if (analyticsTab) analyticsTab.click();
     });
     bar.appendChild(verdictChip);
 

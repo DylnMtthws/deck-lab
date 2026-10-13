@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-stacks.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-playmat.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-dialogs.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-assistant-sidebar.css') }}">
 {% endblock %}
 {% block body_class %}dl-workspace-body{% endblock %}
 {% block shell %}
@@ -19,6 +20,7 @@
     <div class="dl-workspace-crumb"><span>Build</span><i>/</i><button id="deck-title" type="button" {% if shared %}disabled{% endif %}>{{ document.title }}</button></div>
     {% if not shared %}<button class="dl-save-state dl-chip is-ok" id="save-state" type="button" title="Click to retry a failed save"><span class="dl-dot" aria-hidden="true"></span><span data-save-label>Saved</span></button><span class="dl-header-divider" aria-hidden="true"></span><button class="dl-icon-button dl-history-button" type="button" data-undo disabled aria-label="Undo" data-dl-tip="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12"/></svg></button><button class="dl-icon-button dl-history-button" type="button" data-redo disabled aria-label="Redo" data-dl-tip="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H12"/></svg></button>{% endif %}
     <span class="push"></span>
+    {% if not shared %}<button class="dl-button is-sm dl-assistant-mobile-open" type="button" data-assistant-open aria-controls="assistant-sidebar" aria-expanded="false">Assistant</button>{% endif %}
     {% if config.DECK_LAB_PLAYMAT_ENABLED %}<div class="dl-segments dl-view-switch" aria-label="Builder view"><button type="button" data-view="playmat" aria-pressed="false">Playmat</button><button type="button" data-view="table" aria-pressed="true">Decklist</button></div>{% endif %}
     {% if not shared %}<details class="dl-export-menu" data-export-menu data-dismiss-menu><summary class="dl-button" aria-haspopup="menu" aria-controls="deck-export-actions">Export<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="dl-popover" id="deck-export-actions" role="menu"><button type="button" role="menuitem" data-export-copy><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Copy list</span><span class="dl-menu-desc">Moxfield, MTGO, plain text</span></span></button><button type="button" role="menuitem" data-export-copy-archidekt><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Copy for Archidekt</span><span class="dl-menu-desc">With [Commander] tags</span></span></button><a role="menuitem" data-export-download href="/build/deck/{{ document.id }}/export.txt?format=plain" download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Download .txt</span><span class="dl-menu-desc">Plain text file</span></span></a><a role="menuitem" data-export-buy target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h5"/></svg><span class="dl-menu-copy"><span class="dl-menu-label">Buy deck</span><span class="dl-menu-desc">Opens Mana Pool</span></span></a><p class="dl-export-status" data-export-status role="status" aria-live="polite"></p></div></details>{% include 'partials/account_menu.html' %}{% endif %}
 </header>
@@ -78,12 +80,71 @@
         <div class="dl-builder-content" id="table-view" aria-live="polite"></div>
         {% if config.DECK_LAB_PLAYMAT_ENABLED %}<div class="dl-playmat-view" id="playmat-view" hidden><div class="dl-playmat-stage" id="playmat-stage"><div class="dl-playmat" id="playmat"></div></div>{% if not shared %}<div class="dl-playmat-selection" data-playmat-selection hidden></div>{% endif %}<div class="dl-zoom"><button class="dl-icon-button" data-zoom="out" aria-label="Zoom out" data-dl-tip="Zoom out">−</button><span class="dl-mono" id="zoom-label">100%</span><button class="dl-icon-button" data-zoom="in" aria-label="Zoom in" data-dl-tip="Zoom in">+</button><button class="dl-button" data-zoom="fit">Fit</button></div></div>{% endif %}
     </section>
+    {% if not shared %}
+    <aside class="dl-assistant-sidebar" id="assistant-sidebar" data-assistant-sidebar aria-label="Research Assistant">
+        <div class="dl-assistant-head">
+            <div><div class="dl-eyebrow">Build</div><h2>Research Assistant</h2></div>
+            <div class="dl-assistant-head-actions"><button class="dl-icon-button" type="button" data-toggle-rail="left" aria-label="Collapse Research Assistant" aria-expanded="true" title="Collapse sidebar">‹</button><button class="dl-icon-button" type="button" data-assistant-close aria-label="Close Research Assistant drawer" title="Close drawer">×</button></div>
+        </div>
+        <div class="dl-assistant-tabs" role="tablist" aria-label="Research Assistant panels">
+            <button class="dl-tab" type="button" role="tab" id="assistant-tab-chat" aria-controls="assistant-pane-chat" data-assistant-tab="chat" aria-selected="true" tabindex="0">Chat</button>
+            <button class="dl-tab" type="button" role="tab" id="assistant-tab-analytics" aria-controls="assistant-pane-analytics" data-assistant-tab="analytics" aria-selected="false" tabindex="-1">Analytics</button>
+            <button class="dl-tab" type="button" role="tab" id="assistant-tab-goldfish" aria-controls="assistant-pane-goldfish" data-assistant-tab="goldfish" aria-selected="false" tabindex="-1">Goldfish</button>
+        </div>
+        <div class="dl-assistant-pane" id="assistant-pane-chat" role="tabpanel" aria-labelledby="assistant-tab-chat" data-assistant-pane="chat">
+            <div class="dl-assistant-chat-controls">
+                <div class="dl-segments" role="group" aria-label="Assistant mode">
+                    <button type="button" data-assistant-mode="suggest" aria-pressed="true">Suggest</button>
+                    <button type="button" data-assistant-mode="automate" aria-pressed="false">Automate</button>
+                </div>
+                <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false">Constraints</button>
+                <button class="dl-button is-sm" type="button" data-assistant-stop hidden>Stop</button>
+            </div>
+            <form class="dl-assistant-constraints" data-assistant-constraints hidden>
+                <label>Budget cap · USD<input class="dl-field" type="number" min="0" step="0.01" data-assistant-budget placeholder="Optional"></label>
+                <label>Power level<input class="dl-field" type="text" maxlength="80" data-assistant-power placeholder="Optional"></label>
+                <label>Theme<input class="dl-field" type="text" maxlength="160" data-assistant-theme placeholder="Optional"></label>
+                <fieldset><legend>Protect cards from swaps</legend><div class="dl-assistant-protected" data-assistant-protected></div></fieldset>
+                <button class="dl-button is-sm" type="submit">Save constraints</button>
+                <output data-assistant-settings-status aria-live="polite"></output>
+            </form>
+            <p class="dl-assistant-provider" data-assistant-provider></p>
+            <div class="dl-assistant-transcript" data-assistant-transcript role="log" aria-live="polite" aria-relevant="additions text"></div>
+            <div class="dl-assistant-experiments" data-assistant-experiments></div>
+            <div class="dl-assistant-proposals" data-assistant-proposals></div>
+            <form class="dl-assistant-composer" data-assistant-composer>
+                <label class="dl-visually-hidden" for="assistant-message">Message the Research Assistant</label>
+                <textarea id="assistant-message" class="dl-field" data-assistant-message maxlength="2000" placeholder="Ask about this deck or request a specific change" required></textarea>
+                <button class="dl-button is-primary" type="submit" data-assistant-send>Send</button>
+            </form>
+            <p class="dl-assistant-status" data-assistant-status role="status" aria-live="polite"></p>
+        </div>
+        <div class="dl-assistant-pane" id="assistant-pane-analytics" role="tabpanel" aria-labelledby="assistant-tab-analytics" data-assistant-pane="analytics" hidden>
+            <section data-rail-block="curve"><h2 class="dl-eyebrow" id="mana-curve-heading">Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>
+            <section data-ext-section="pips"><h2 class="dl-eyebrow">Color requirements</h2></section>
+            <section><div class="dl-zones-head"><h2 class="dl-eyebrow">Zones</h2>{% if not shared %}<button class="dl-icon-button dl-add-zone" type="button" data-new-zone aria-label="Add zone" data-dl-tip="Add zone">+</button>{% endif %}</div><div class="dl-stat-list" id="zone-stats"></div></section>
+            <section class="dl-rail-tags"><h2 class="dl-eyebrow">Tags</h2><div class="dl-builder-tag-summary" data-tag-summary></div>{% if not shared %}<button class="dl-button is-ghost is-sm" type="button" data-tags-open>Manage</button>{% endif %}</section>
+            <section data-ext-section="evidence"><h2 class="dl-eyebrow">Tournament evidence</h2></section>
+            <section data-ext-section="odds"><h2 class="dl-eyebrow">Draw odds</h2></section>
+            <section data-ext-section="sample-hand"><h2 class="dl-eyebrow">Sample hand</h2></section>
+            <section data-ext-section="feedback"><h2 class="dl-eyebrow">Your verdict</h2></section>
+            <section class="dl-rail-compare"><button class="dl-button" type="button" data-meta-compare-open aria-haspopup="dialog" aria-controls="meta-compare-dialog">Compare to meta</button></section>
+            <div id="color-stats" hidden></div>
+        </div>
+        <div class="dl-assistant-pane dl-assistant-goldfish" id="goldfish-dialog" data-goldfish-inline data-assistant-pane="goldfish" role="tabpanel" aria-labelledby="assistant-tab-goldfish" hidden>
+            <div class="dl-eyebrow">Goldfish · native solo simulation</div>
+            <p class="dl-goldfish-description">The simulator checks whether a deck can assemble its plan by itself. Unsupported or unknown measurements stay explicit. This is not a multiplayer win-rate forecast.</p>
+            <p class="dl-goldfish-readiness" data-goldfish-readiness role="status" aria-live="polite">Checking deck readiness…</p>
+            <div data-goldfish-sim-slot></div>
+        </div>
+        <button class="dl-assistant-resize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize Research Assistant sidebar" aria-valuemin="280" aria-valuemax="520" aria-valuenow="360" data-assistant-resize></button>
+    </aside>
+    {% endif %}
     <aside class="dl-stats-rail" aria-label="Deck overview">
         <div class="dl-builder-rail-head" data-rail-tabs>
-            <div class="dl-tabs" role="tablist" aria-label="Deck sidebar">
+            <div class="dl-tabs" role="tablist" aria-label="Card preview">
                 <button class="dl-tab" type="button" role="tab" id="rail-tab-card" data-rail-tab="card" aria-controls="rail-pane-card" aria-selected="true" tabindex="0">Card</button>
-                <button class="dl-tab" type="button" role="tab" id="rail-tab-deck" data-rail-tab="deck" aria-controls="rail-pane-deck" aria-selected="false" tabindex="-1">Deck</button>
-                <button class="dl-tab" type="button" role="tab" id="rail-tab-tools" data-rail-tab="tools" aria-controls="rail-pane-tools" aria-selected="false" tabindex="-1">Tools</button>
+                {% if shared %}<button class="dl-tab" type="button" role="tab" id="rail-tab-deck" data-rail-tab="deck" aria-controls="rail-pane-deck" aria-selected="false" tabindex="-1">Deck</button><button class="dl-tab" type="button" role="tab" id="rail-tab-tools" data-rail-tab="tools" aria-controls="rail-pane-tools" aria-selected="false" tabindex="-1">Tools</button>{% endif %}
             </div>
             <span class="dl-rail-spacer"></span>
             <button class="dl-icon-button" type="button" data-card-panel-pin aria-pressed="false" aria-label="Pin card preview" data-dl-tip="Pin this card"></button>
@@ -93,42 +154,30 @@
             <div class="dl-rail-pane" id="rail-pane-card" data-rail-pane="card" role="tabpanel" aria-labelledby="rail-tab-card">
                 <aside class="dl-card-panel" data-card-panel aria-label="Card preview" aria-live="polite"></aside>
             </div>
+            {% if shared %}
             <div class="dl-rail-pane" id="rail-pane-deck" data-rail-pane="deck" role="tabpanel" aria-labelledby="rail-tab-deck" hidden>
                 <section data-rail-block="curve"><h2 class="dl-eyebrow" id="mana-curve-heading">Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>
                 <section data-ext-section="pips"><h2 class="dl-eyebrow">Color requirements</h2></section>
-                <section>
-                    <div class="dl-zones-head">
-                        <h2 class="dl-eyebrow">Zones</h2>
-                        {% if not shared %}<button class="dl-icon-button dl-add-zone" type="button" data-new-zone aria-label="Add zone" data-dl-tip="Add zone">+</button>{% endif %}
-                    </div>
-                    <div class="dl-stat-list" id="zone-stats"></div>
-                </section>
-                <section class="dl-rail-tags"><h2 class="dl-eyebrow">Tags</h2><div class="dl-builder-tag-summary" data-tag-summary></div>{% if not shared %}<button class="dl-button is-ghost is-sm" type="button" data-tags-open>Manage</button>{% endif %}</section>
+                <section><h2 class="dl-eyebrow">Zones</h2><div class="dl-stat-list" id="zone-stats"></div></section>
                 <section data-ext-section="evidence"><h2 class="dl-eyebrow">Tournament evidence</h2></section>
-                <section class="dl-goldfish-opener">
-                    <h2 class="dl-eyebrow">Goldfish simulator</h2>
-                    <p>Check whether this deck can assemble its plan on its own.</p>
-                    <button class="dl-button is-sm" type="button" data-goldfish-open aria-haspopup="dialog" aria-controls="goldfish-dialog">Open simulator</button>
-                </section>
                 <div id="color-stats" hidden></div>
+                <section class="dl-goldfish-opener"><h2 class="dl-eyebrow">Goldfish simulator</h2><p>Check whether this deck can assemble its plan on its own.</p><button class="dl-button is-sm" type="button" data-goldfish-open aria-haspopup="dialog" aria-controls="goldfish-dialog">Open simulator</button></section>
             </div>
             <div class="dl-rail-pane" id="rail-pane-tools" data-rail-pane="tools" role="tabpanel" aria-labelledby="rail-tab-tools" hidden>
                 <section data-ext-section="odds"><h2 class="dl-eyebrow">Draw odds</h2></section>
                 <section data-ext-section="sample-hand"><h2 class="dl-eyebrow">Sample hand</h2></section>
-                {% if not shared %}<section data-ext-section="feedback"><h2 class="dl-eyebrow">Your verdict</h2></section><section class="dl-rail-compare"><button class="dl-button" type="button" data-meta-compare-open aria-haspopup="dialog" aria-controls="meta-compare-dialog">Compare to meta</button></section>{% endif %}
             </div>
+            {% endif %}
         </div>
     </aside>
 </div>
+{% if shared %}
 <dialog class="dl-dialog dl-goldfish-dialog" id="goldfish-dialog" aria-labelledby="goldfish-dialog-title" aria-describedby="goldfish-dialog-description">
-    <div class="dl-goldfish-dialog-head">
-        <div><div class="dl-eyebrow">Deck Lab · Goldfish</div><h2 id="goldfish-dialog-title">Goldfish simulator</h2></div>
-        <button class="dl-icon-button" type="button" data-goldfish-close aria-label="Close goldfish simulator">×</button>
-    </div>
-    <p id="goldfish-dialog-description" class="dl-goldfish-description">The simulator checks whether a deck can assemble its plan by itself. Five-test reports appear when the native engine supplies them; unsupported or unknown measurements stay explicit. This is not a multiplayer win-rate forecast.</p>
-    <p class="dl-goldfish-readiness" data-goldfish-readiness role="status" aria-live="polite">Checking deck readiness…</p>
-    <div data-goldfish-sim-slot></div>
+    <div class="dl-goldfish-dialog-head"><div><div class="dl-eyebrow">Deck Lab · Goldfish</div><h2 id="goldfish-dialog-title">Goldfish simulator</h2></div><button class="dl-icon-button" type="button" data-goldfish-close aria-label="Close goldfish simulator">×</button></div>
+    <p id="goldfish-dialog-description" class="dl-goldfish-description">The simulator checks whether a deck can assemble its plan by itself. Unsupported or unknown measurements stay explicit. This is not a multiplayer win-rate forecast.</p>
+    <p class="dl-goldfish-readiness" data-goldfish-readiness role="status" aria-live="polite">Checking deck readiness…</p><div data-goldfish-sim-slot></div>
 </dialog>
+{% endif %}
 {% if not shared %}
 <dialog class="dl-dialog" id="commanders-dialog"><form method="dialog"><div class="dl-dialog-head"><h2>Commanders</h2><button class="dl-icon-button" value="cancel" aria-label="Close commanders" data-dl-tip="Close commanders">×</button></div>{% include 'deck_lab/_commander_picker.html' %}<button class="dl-button dl-button-primary" value="save">Save commanders</button></form></dialog>
 <dialog class="dl-dialog dl-tags-dialog" id="deck-tags-dialog" aria-labelledby="deck-tags-title"><form method="dialog"><div class="dl-dialog-head"><div><div class="dl-eyebrow">Deck tags</div><h2 id="deck-tags-title">Describe how this deck plays</h2></div><button class="dl-icon-button" value="cancel" aria-label="Close tags" data-dl-tip="Close tags">×</button></div><p class="dl-muted">Choose shared tags so players use the same names for common strategies, styles, and mechanics.</p><div class="dl-tag-list" data-deck-tag-list></div><div class="dl-tag-entry"><label for="deck-tag-input">Find or create a tag</label><div><input class="dl-field" id="deck-tag-input" list="deck-tag-options" maxlength="32" autocomplete="off" placeholder="Try Turbo or Midrange" data-tag-input><button class="dl-button dl-button-primary" type="button" data-tag-add>Add</button></div></div><datalist id="deck-tag-options" data-tag-options></datalist><output class="dl-tag-error" data-tag-error aria-live="polite"></output><button class="dl-button" value="done">Done</button></form></dialog>
@@ -144,4 +193,4 @@
 <script id="deck-document-data" type="application/json">{{ document|tojson }}</script>
 {% endblock %}
 {% block footer %}{% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-export.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-mana.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-icons.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-builder.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-stacks.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-card-panel.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-history.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-hotkeys.js') }}" defer></script>{% endif %}<script src="{{ url_for('static',filename='deck-lab-status.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-considering.js') }}" defer></script>{% endif %}<script src="{{ url_for('static',filename='deck-lab-stats.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-evidence.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-simulate.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-research-assistant.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-feedback.js') }}" defer></script>{% endif %}{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-meta-compare.js') }}" defer></script>{% endif %}<dialog class="dl-dialog dl-card-image-dialog" id="card-image-dialog" aria-labelledby="card-image-title"><form method="dialog"><div class="dl-dialog-head"><div><div class="dl-eyebrow">Card</div><h2 id="card-image-title" data-card-image-title>Card image</h2></div><button class="dl-icon-button" value="cancel" aria-label="Close card image" data-dl-tip="Close card image">×</button></div><div class="dl-card-image-frame"><img data-card-image alt="" loading="lazy" hidden><p class="dl-card-image-status" data-card-image-status aria-live="polite">Loading card image…</p></div><div class="dl-dialog-actions"><a class="dl-text-button" data-card-image-original href="#" target="_blank" rel="noopener">Open original</a><button class="dl-button" value="cancel">Done</button></div></form></dialog>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-commanders.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-export.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-mana.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-icons.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-builder.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-stacks.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-card-panel.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-history.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-hotkeys.js') }}" defer></script>{% endif %}<script src="{{ url_for('static',filename='deck-lab-status.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-considering.js') }}" defer></script>{% endif %}<script src="{{ url_for('static',filename='deck-lab-stats.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-evidence.js') }}" defer></script><script src="{{ url_for('static',filename='deck-lab-simulate.js') }}" defer></script>{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-assistant-sidebar.js') }}" defer></script><script src="{{ url_for('static', filename='deck-lab-feedback.js') }}" defer></script>{% endif %}{% if not shared %}<script src="{{ url_for('static', filename='deck-lab-meta-compare.js') }}" defer></script>{% endif %}<dialog class="dl-dialog dl-card-image-dialog" id="card-image-dialog" aria-labelledby="card-image-title"><form method="dialog"><div class="dl-dialog-head"><div><div class="dl-eyebrow">Card</div><h2 id="card-image-title" data-card-image-title>Card image</h2></div><button class="dl-icon-button" value="cancel" aria-label="Close card image" data-dl-tip="Close card image">×</button></div><div class="dl-card-image-frame"><img data-card-image alt="" loading="lazy" hidden><p class="dl-card-image-status" data-card-image-status aria-live="polite">Loading card image…</p></div><div class="dl-dialog-actions"><a class="dl-text-button" data-card-image-original href="#" target="_blank" rel="noopener">Open original</a><button class="dl-button" value="cancel">Done</button></div></form></dialog>{% endblock %}

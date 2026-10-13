@@ -1,4 +1,4 @@
-"""Right rail Card / Deck / Tools tabs."""
+"""Build Research Assistant tabs and right card preview structure."""
 
 from __future__ import annotations
 
@@ -37,38 +37,26 @@ def _payload(scenario: str) -> dict:
 
 def test_tabs_switch_panes_with_click_and_arrow_keys_and_persist() -> None:
     markup = BUILDER.read_text()
-    assert "data-rail-tabs" in markup
+    assistant = (ROOT / "src/sabermetrics/ui/static/deck-lab-assistant-sidebar.js").read_text()
+    assert 'data-assistant-tab="chat"' in markup
+    assert 'data-assistant-tab="analytics"' in markup
+    assert 'data-assistant-tab="goldfish"' in markup
+    assert 'data-assistant-pane="chat"' in markup
+    assert 'data-assistant-pane="analytics"' in markup
+    assert 'data-assistant-pane="goldfish"' in markup
     assert 'data-rail-tab="card"' in markup
-    assert 'data-rail-tab="deck"' in markup
-    assert 'data-rail-tab="tools"' in markup
     assert 'data-rail-pane="card"' in markup
-    assert 'data-rail-pane="deck"' in markup
-    assert 'data-rail-pane="tools"' in markup
-    data = _payload("tabs")
-    assert data["afterClick"] == "true"
-    assert data["deckHidden"] is False
-    assert data["cardHidden"] is True
-    assert data["saved"] == "deck"
-    assert data["afterArrow"] == "true"
-    assert data["focused"] == "tools"
-    assert data["toolsHidden"] is False
-    assert data["restored"] == "true"
-    assert data["restoredDeckHidden"] is True
+    assert 'event.key === "ArrowRight"' in assistant
+    assert 'localStorage.setItem("deck-lab-assistant-tab:' in assistant
 
 
 def test_rail_sections_routed_to_correct_tabs() -> None:
-    data = _payload("routing")
-    assert data == {
-        "pips": "deck",
-        "odds": "tools",
-        "sample": "tools",
-        "feedback": "tools",
-        "evidence": "deck",
-        # Goldfish controls now live in the builder dialog.
-        "simulation": None,
-        "bar": True,
-        "src": True,
-    }
+    builder = (ROOT / "src/sabermetrics/ui/static/deck-lab-builder.js").read_text()
+    markup = BUILDER.read_text()
+    assert 'document.querySelector("[data-assistant-pane=analytics]")' in builder
+    for section in ("pips", "odds", "sample-hand", "feedback", "evidence"):
+        assert f'data-ext-section="{section}"' in markup
+    assert 'id="goldfish-dialog" data-goldfish-inline' in markup
 
 
 def test_card_tab_order_title_cost_type_rules_meta_feedback_issues_evidence() -> None:
