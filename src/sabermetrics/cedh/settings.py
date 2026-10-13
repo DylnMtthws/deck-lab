@@ -12,6 +12,7 @@ cEDH gateway, which is what a global hard stop has to mean.
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -164,6 +165,37 @@ def load_cedh_settings(path: Path | None = None) -> CedhSettings:
     if applied:
         settings = settings.model_copy(
             update={"model": settings.model.model_copy(update=applied)}
+        )
+
+    # Pricing follows deployment-specific model pins. Validate these values
+    # explicitly: model_copy updates do not run Pydantic validation, and NaN
+    # or negative rates would invalidate the shared cost ceiling's accounting.
+    price_overrides: dict[str, float] = {}
+    for field, env_name in (
+        ("input", "CEDH_MODEL_INPUT_PRICE"),
+        ("output", "CEDH_MODEL_OUTPUT_PRICE"),
+        ("cached_input", "CEDH_MODEL_CACHED_INPUT_PRICE"),
+    ):
+        value = os.environ.get(env_name)
+        if value is None:
+            continue
+        try:
+            rate = float(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"{env_name} must be a finite nonnegative USD rate per million tokens"
+            ) from exc
+        if not math.isfinite(rate) or rate < 0:
+            raise ValueError(
+                f"{env_name} must be a finite nonnegative USD rate per million tokens"
+            )
+        price_overrides[field] = rate
+    if price_overrides:
+        pricing = ModelPricing.model_validate(
+            {**settings.model.pricing.model_dump(), **price_overrides}
+        )
+        settings = settings.model_copy(
+            update={"model": settings.model.model_copy(update={"pricing": pricing})}
         )
 
     # The diagnostics profile is deliberately controlled only by this explicit

@@ -663,3 +663,78 @@ def test_recovery_expires_only_old_marked_assistant_goldfish(prepared):
     assert repo.get(unrelated)["status"] == "running"
     assert repo.get(completed)["status"] == "done"
     assert recover_interrupted_goldfish(path, owner, deck_id, now) == 0
+
+
+@pytest.mark.parametrize("eventually_succeeds", [True, False])
+def test_transient_provider_overload_has_three_bounded_attempts(
+    prepared, monkeypatch, eventually_succeeds
+):
+    import httpx
+
+    from sabermetrics.cedh.provider_deepseek import DeepSeekGateway
+
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    attempts = []
+    sleeps = []
+    clients = []
+    monkeypatch.setenv("HF_TOKEN", "test-only-dummy-token")
+    monkeypatch.setattr("sabermetrics.cedh.provider_deepseek.time.sleep", sleeps.append)
+
+    def handler(request):
+        attempts.append(request)
+        if eventually_succeeds and len(attempts) == 3:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json.dumps(
+                                    {
+                                        "content": "The typed provider response succeeded.",
+                                        "tool_calls": [],
+                                    }
+                                )
+                            }
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 15},
+                },
+            )
+        return httpx.Response(
+            429,
+            json={
+                "error": {
+                    "code": "engine_overloaded",
+                    "message": "sensitive-provider-detail-token; Model busy, retry later",
+                }
+            },
+        )
+
+    def build(settings, **kwargs):
+        assert settings.model.max_retries == 2
+        assert settings.model.max_validation_retries == 0
+        assert settings.model.timeout_seconds == 60
+        client = httpx.Client(
+            base_url="https://mock.invalid", transport=httpx.MockTransport(handler)
+        )
+        clients.append(client)
+        return DeepSeekGateway(settings, client=client, **kwargs)
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
+    try:
+        result = run_turn(path, owner, deck_id, [], experiment_service=service)
+    finally:
+        for client in clients:
+            client.close()
+    assert len(attempts) == 3
+    assert sleeps == [1, 2]
+    if eventually_succeeds:
+        assert result["status"] == "done"
+        assert result["content"] == "The typed provider response succeeded."
+    else:
+        assert result["status"] == "provider_error"
+        assert result["reason"] == "provider_busy"
+        assert "retry your message" in result["content"]
+        assert "sensitive-provider-detail-token" not in json.dumps(result)
+        assert not result["actions"] and not result["proposals"]

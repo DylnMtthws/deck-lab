@@ -22,7 +22,7 @@ from sabermetrics.assistant_tools import (
     ToolCall,
     ToolStopped,
 )
-from sabermetrics.cedh.errors import ModelConfigurationError
+from sabermetrics.cedh.errors import ModelConfigurationError, ModelProviderError
 from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
 from sabermetrics.cedh.provider_deepseek import build_gateway
 from sabermetrics.cedh.settings import load_cedh_settings
@@ -177,12 +177,12 @@ def run_turn(
         result["revision"] = int(document["revision"])
         settings = load_cedh_settings()
         if gateway is None:
-            # Existing pinned provider/prices/ceiling; tighter per-call bounds
-            # prevent one assistant turn multiplying gateway transport retries.
+            # Existing pinned provider/prices/ceiling. Three bounded attempts
+            # tolerate transient provider overload; schema repair stays off.
             model = settings.model.model_copy(
                 update={
                     "timeout_seconds": 60.0,
-                    "max_retries": 0,
+                    "max_retries": 2,
                     "max_validation_retries": 0,
                 }
             )
@@ -353,6 +353,24 @@ def run_turn(
             reason="provider_not_configured",
             content="The conversational AI provider is not configured. No AI answer or unconfirmed action has been substituted.",
         )
+    except ModelProviderError as exc:
+        # Classify the gateway's internal status text without returning the
+        # raw provider response, request body, or credential-bearing details.
+        detail = str(exc).lower()
+        if (
+            "provider returned 429" in detail
+            or "engine_overloaded" in detail
+            or "provider returned 503" in detail
+        ):
+            reason = "provider_busy"
+            message = "The AI provider is busy after three bounded attempts. Please retry your message shortly. Confirmed tool receipts remain available; no preview was applied to the original deck."
+        elif "provider returned 401" in detail or "provider returned 403" in detail:
+            reason = "provider_access_denied"
+            message = "The AI provider could not authorize this request. Ask the Deck Lab administrator to check provider access; no unconfirmed action has been substituted."
+        else:
+            reason = "provider_temporarily_unavailable"
+            message = "The AI provider is temporarily unavailable. Please retry your message. Check the confirmed tool receipts for any actions that occurred; no preview was applied to the original deck."
+        result.update(status="provider_error", reason=reason, content=message)
     except Exception:
         result.update(
             status="provider_error",
