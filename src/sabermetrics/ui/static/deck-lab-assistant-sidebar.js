@@ -415,8 +415,6 @@
     var observations = Array.isArray(goldfish.observations) ? goldfish.observations : [];
     if (!observations.length && !(goldfish.test_statuses || []).length) return;
     var statuses = Object.create(null);
-    if (goldfish.coverage_note) notes.appendChild(element("p", goldfish.coverage_note));
-    ((coverage && coverage.assumptions) || []).forEach(function (assumption) { notes.appendChild(element("p", assumption)); });
     (goldfish.test_statuses || []).forEach(function (item) { statuses[item.test] = item; });
     var figure = element("figure", null, "dl-assistant-goldfish-chart");
     figure.dataset.reportRevision = goldfish.report_revision == null ? "" : String(goldfish.report_revision);
