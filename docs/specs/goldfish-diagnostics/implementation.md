@@ -22,6 +22,38 @@ Required work and closure evidence:
 
 Any handoff must name its scope, acceptance KPI, and resulting test/trace evidence; unmet KPIs require a reason and remain open. Closing this issue requires evidence for the applicable conclusions across all four fixtures, not merely higher run counts, renamed labels, or a passing UI suite. Automatic experiments must continue to preserve the original deck, test three alternatives by default, and change at most three cards between simulation runs. Delivery remains QA-only until separately authorized.
 
+## Milestone 2 — native mechanics, 2026-10-13
+
+Native 0.4.3 / policy `native-diagnostics.v3` extends the existing Build simulator
+with persistent scry/surveil/Ponder/Brainstorm ordering, Serum Visions draw-then-
+scry, Faithless Looting/Frantic Search draw-then-discard, Frantic Search land-only
+untap, actual-color Mox Amber, and paid Springleaf Drum helper taps. The exporter
+now includes optional actual face colors; unknown colors supply no Amber mana.
+The assistant and Goldfish receive these capabilities through the existing
+per-card coverage tool and native report; no second simulation service is added.
+
+Native acceptance: 181 cases / 90,514 assertions in the full suite; two followup
+payment-remapping cases / 258 assertions. Export/service verification passed
+161 cases initially; one old assembly golden changed because shared payment bugs
+were fixed. Controlled old/new runs isolated the change to Amber/Drum/Gene/Chord;
+all three affected integration tests pass with the documented 0.4.3 baseline.
+Independent review caught and resolved phantom damage events with zero opponents
+and pathological payment search. Four fixtures each replayed identically across
+five 2,000-game batches, taking 0.21–0.57 seconds per CLI invocation on the Mac.
+
+Coverage remains partial: affordable Vivi 40 partial / 58 unsupported / 2 inactive;
+high-power Vivi 38 / 49 / 13; affordable Sauron 30 / 70 / 0; high-power Sauron
+43 / 41 / 16. None has whole-card completeness certification. The affordable
+Sauron gap is unchanged and remains a priority. Rituals, mixed-output Signets,
+pain-land modes, combat, complete tokens, trigger multipliers and full combo
+sequencing are still missing. The Open P1 remains open; more authored effects
+are not purchase advice or proof of deck improvement.
+
+The new engine/policy fingerprint requires a new comparative baseline. Stored
+reports remain historical evidence under their recorded settings. QA delivery
+and live coverage/assistant checks are recorded in the infrastructure receipts;
+production is not authorized by this milestone.
+
 ## Current architecture
 
 ### Milestone 1 specification — 2026-10-13
