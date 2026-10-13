@@ -453,20 +453,37 @@ class AssistantTools:
                 "comparison_note": "Before/after observations and held-out validation remain descriptive; unknowns and coverage differences cannot establish superiority.",
                 "alternatives": [
                     {
-                        key: item.get(key)
-                        for key in (
-                            "id",
-                            "name",
-                            "rationale",
-                            "replacements",
-                            "status",
-                            "comparison",
-                            "validation",
-                            "error",
-                        )
+                        "id": item.get("id"),
+                        "name": str(item.get("name") or "")[:200],
+                        "status": item.get("status"),
+                        "replacements": item.get("replacements"),
+                        "error": str(item.get("error") or "")[:300],
+                        "coverage": {
+                            key: (item.get("training_report") or {})
+                            .get("coverage", {})
+                            .get(key)
+                            for key in (
+                                "modeled_cards",
+                                "inert_cards",
+                                "unauthored_cards",
+                            )
+                        },
+                        "comparison_comparable": (item.get("comparison") or {}).get(
+                            "comparable"
+                        ),
+                        "comparison_reason": str(
+                            (item.get("comparison") or {}).get("reason") or ""
+                        )[:300],
+                        "validation_status": (item.get("validation") or {}).get(
+                            "status"
+                        ),
+                        "validation_reason": str(
+                            (item.get("validation") or {}).get("reason") or ""
+                        )[:300],
                     }
                     for item in result["alternatives"]
                 ],
+                "summary_note": "One selected actual metric per test per alternative; remaining metrics, complete reports and rationales are retained in the persisted experiment.",
                 "error": result.get("error"),
                 "original_changed": False,
             }
@@ -520,7 +537,7 @@ class AssistantTools:
             client = HttpSimulatorClient(
                 settings.url,
                 games=2000,
-                objective_turn=7,
+                objective_turn=settings.objective_turn,
                 timeout_seconds=min(settings.timeout_seconds, 45),
                 diagnostics=True,
                 diagnostics_seed=20261012,
@@ -567,12 +584,13 @@ def _experiment_metrics(result: dict[str, Any]) -> list[dict[str, Any]]:
     """Flatten actual experiment values so bounded chat context preserves them."""
     baseline = result.get("baseline") or {}
     rows = []
-    priorities = [
-        ("opening", "qualified_opening_rate"),
-        ("development", "engine_online_rate"),
-        ("development", "mean_missed_land_drops"),
-        ("finish", "positive_finish_proof_rate"),
-    ]
+    priorities = {
+        "opening": "qualified_opening_rate",
+        "development": "engine_online_rate",
+        "commander_loss": "recovery_draw_rate",
+        "creature_wipe": "recovery_board_rate",
+        "finish": "positive_finish_proof_rate",
+    }
 
     def value(report, test, metric):
         return (
@@ -582,16 +600,16 @@ def _experiment_metrics(result: dict[str, Any]) -> list[dict[str, Any]]:
 
     for alternative in result.get("alternatives", []):
         report = alternative.get("training_report") or {}
-        available = [
-            (test, metric)
-            for test, body in report.get("tests", {}).items()
-            for metric in body.get("metrics", {})
-        ]
-        selected = [pair for pair in priorities if pair in available]
-        selected += [pair for pair in available if pair not in selected]
+        selected = []
+        for test, preferred in priorities.items():
+            metrics = report.get("tests", {}).get(test, {}).get("metrics", {})
+            if metrics:
+                selected.append(
+                    (test, preferred if preferred in metrics else next(iter(metrics)))
+                )
         comparison = alternative.get("comparison") or {}
         validation = alternative.get("validation") or {}
-        for test, metric in selected[:4]:
+        for test, metric in selected:
             delta = comparison.get("metric_deltas", {}).get(test, {}).get(metric, {})
             heldout = (
                 (validation.get("comparison") or {})
@@ -608,7 +626,9 @@ def _experiment_metrics(result: dict[str, Any]) -> list[dict[str, Any]]:
                     "before": value(baseline.get("training_report"), test, metric),
                     "after": value(report, test, metric),
                     "delta": delta.get("delta"),
-                    "reason": delta.get("reason") or comparison.get("reason"),
+                    "reason": str(
+                        delta.get("reason") or comparison.get("reason") or ""
+                    )[:240],
                     "comparable": delta.get("comparable", False),
                     "validation_before": value(
                         baseline.get("validation_report"), test, metric
@@ -618,8 +638,11 @@ def _experiment_metrics(result: dict[str, Any]) -> list[dict[str, Any]]:
                     ),
                     "validation_delta": heldout.get("delta"),
                     "validation_status": validation.get("status"),
-                    "validation_reason": heldout.get("unvalidated_reason")
-                    or validation.get("reason"),
+                    "validation_reason": str(
+                        heldout.get("unvalidated_reason")
+                        or validation.get("reason")
+                        or ""
+                    )[:240],
                 }
             )
     return rows

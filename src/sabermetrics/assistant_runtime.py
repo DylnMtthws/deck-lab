@@ -80,7 +80,14 @@ def _compact(value: Any, depth: int = 0) -> Any:
         return value if len(value) <= 1200 else value[:1200] + " [truncated]"
     if isinstance(value, dict):
         items = list(value.items())
-        result = {str(key): _compact(item, depth + 1) for key, item in items[:32]}
+        result: dict[str, Any] = {}
+        for key, item in items[:32]:
+            if key == "metric_summary" and isinstance(item, list):
+                result[str(key)] = [_compact(row, depth + 2) for row in item[:20]]
+                if len(item) > 20:
+                    result["metric_summary_omitted_count"] = len(item) - 20
+            else:
+                result[str(key)] = _compact(item, depth + 1)
         if len(items) > 32:
             result["omitted_fields"] = len(items) - 32
         return result
@@ -267,7 +274,7 @@ def run_turn(
                 {
                     "role": "assistant",
                     "content": step.content,
-                    "tool_calls": [call.model_dump() for call in step.tool_calls],
+                    "tool_calls": [{"name": call.name} for call in step.tool_calls],
                 }
             )
             for call in step.tool_calls:

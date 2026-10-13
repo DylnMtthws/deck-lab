@@ -476,3 +476,147 @@ def test_latest_goldfish_values_and_unknowns_survive_model_context(
     observations = receipt["data"]["observations"]
     assert observations[0]["value"] == 0.3185
     assert observations[1]["value"] is None
+
+
+def test_large_experiment_reports_keep_all_five_tests_for_three_alternatives(
+    prepared, monkeypatch
+):
+    service, path, owner, deck_id, _document, alternatives = prepared
+
+    def report(value):
+        tests = {}
+        for name in (
+            "opening",
+            "development",
+            "commander_loss",
+            "creature_wipe",
+            "finish",
+        ):
+            tests[name] = {
+                "status": "partial",
+                "metrics": {
+                    f"metric-{i}": {
+                        "value": value,
+                        "unit": "proportion",
+                        "denominator": 2000,
+                    }
+                    for i in range(40)
+                },
+                "limitations": ["Missing mechanics " * 50] * 10,
+            }
+        return {
+            "tests": tests,
+            "coverage": {
+                "modeled_cards": 38,
+                "inert_cards": 16,
+                "unauthored_cards": 46,
+            },
+        }
+
+    def execute(owner_id, experiment_id, should_stop):
+        payload = service.get(owner_id, experiment_id)
+        payload["status"] = "done"
+        payload["baseline"]["training_report"] = report(0.25)
+        payload["baseline"]["validation_report"] = report(0.2)
+        for alternative in payload["alternatives"]:
+            alternative["status"] = "done"
+            alternative["training_report"] = report(0.5)
+            alternative["validation_report"] = report(0.45)
+            alternative["comparison"] = {
+                "comparable": False,
+                "reason": "Coverage changed",
+                "metric_deltas": {
+                    test: {
+                        f"metric-{i}": {
+                            "before": 0.25,
+                            "after": 0.5,
+                            "delta": None,
+                            "reason": "Coverage changed " * 20,
+                        }
+                        for i in range(40)
+                    }
+                    for test in report(0.5)["tests"]
+                },
+            }
+            alternative["validation"] = {
+                "status": "descriptive",
+                "comparison": alternative["comparison"],
+            }
+        service._save(owner_id, payload)
+
+    monkeypatch.setattr(service, "execute", execute)
+    gateway = Gateway(
+        [
+            step(call("start_experiment", {"alternatives": alternatives})),
+            step(
+                content="Coverage changed; these observations do not establish improvement."
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [],
+        mode="automate",
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests[1].user) < 16000
+    context = json.loads(gateway.requests[1].user)
+    data = next(
+        item["result"]["data"]
+        for item in context["conversation"]
+        if item.get("role") == "tool"
+    )
+    rows = data["metric_summary"]
+    assert len(rows) == 15
+    assert len({row["alternative_id"] for row in rows}) == 3
+    assert {row["test"] for row in rows} == {
+        "opening",
+        "development",
+        "commander_loss",
+        "creature_wipe",
+        "finish",
+    }
+    assert all(
+        row["before"] == 0.25
+        and row["after"] == 0.5
+        and row["validation_after"] == 0.45
+        for row in rows
+    )
+    assert all(
+        "comparison" not in alternative and "validation" not in alternative
+        for alternative in data["alternatives"]
+    )
+    assert "remaining metrics" in data["summary_note"]
+
+
+def test_goldfish_uses_configured_objective_turn(prepared, monkeypatch):
+    service, path, owner, deck_id, document, _alternatives = prepared
+    recorded = {}
+    monkeypatch.setattr(
+        "sabermetrics.cedh.settings.load_cedh_settings",
+        lambda: SimpleNamespace(
+            simulator=SimpleNamespace(
+                mode="http",
+                url="http://test.invalid",
+                timeout_seconds=20,
+                objective_turn=4,
+            )
+        ),
+    )
+
+    class Client:
+        def __init__(self, url, **kwargs):
+            recorded.update(kwargs)
+            raise RuntimeError("Stop before network")
+
+    monkeypatch.setattr("sabermetrics.cedh.simulator.HttpSimulatorClient", Client)
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    with pytest.raises(RuntimeError, match="Stop before network"):
+        tools._run_goldfish(document)
+    assert recorded["objective_turn"] == 4
