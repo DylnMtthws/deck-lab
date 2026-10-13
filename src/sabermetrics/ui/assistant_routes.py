@@ -106,6 +106,9 @@ def invalid(error):
 @bp.get("/api/decks/<deck_id>/assistant")
 def session(deck_id):
     path, owner, document, store = context(deck_id)
+    from sabermetrics.assistant_tools import recover_interrupted_goldfish
+
+    recover_interrupted_goldfish(path, owner, deck_id)
     payload = store.get(owner, deck_id)
     payload.update(
         provider=provider_status(),

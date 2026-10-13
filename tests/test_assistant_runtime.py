@@ -620,3 +620,46 @@ def test_goldfish_uses_configured_objective_turn(prepared, monkeypatch):
     with pytest.raises(RuntimeError, match="Stop before network"):
         tools._run_goldfish(document)
     assert recorded["objective_turn"] == 4
+
+
+def test_recovery_expires_only_old_marked_assistant_goldfish(prepared):
+    from datetime import UTC, datetime, timedelta
+
+    from sabermetrics.assistant_tools import recover_interrupted_goldfish
+
+    _service, path, owner, deck_id, _document, _alternatives = prepared
+    now = datetime.now(UTC)
+    repo = db.DeckDocumentSimulationsRepo(path)
+
+    def insert(age, marked=True, status="running"):
+        payload = {
+            "snapshot": {"real_evidence": "retained"},
+            "provenance": {"source": "fixture"},
+        }
+        if marked:
+            payload["assistant_run"] = {
+                "schema_version": "decklab-assistant-goldfish.v1",
+                "started_at": (now - timedelta(minutes=age)).isoformat(),
+            }
+        simulation = repo.insert(
+            deck_id=deck_id, owner_id=owner, result_json=json.dumps(payload)
+        )
+        repo.update(simulation, status=status)
+        return simulation
+
+    old = insert(16)
+    fresh = insert(14)
+    unrelated = insert(30, marked=False)
+    completed = insert(30, status="done")
+    assert recover_interrupted_goldfish(path, owner, deck_id, now) == 1
+    row = repo.get(old)
+    assert row["status"] == "not_simulated"
+    frozen = json.loads(row["result_json"])
+    assert frozen["snapshot"]["real_evidence"] == "retained"
+    assert frozen["provenance"]["source"] == "fixture"
+    assert frozen["assistant_run"]["status"] == "interrupted"
+    assert "interrupted" in row["reason"]
+    assert repo.get(fresh)["status"] == "running"
+    assert repo.get(unrelated)["status"] == "running"
+    assert repo.get(completed)["status"] == "done"
+    assert recover_interrupted_goldfish(path, owner, deck_id, now) == 0

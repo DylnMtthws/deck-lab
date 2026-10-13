@@ -10,6 +10,7 @@ import json
 import sqlite3
 from collections import Counter
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -517,6 +518,13 @@ class AssistantTools:
                 "Native HTTP Goldfish is unavailable; no simulation was run."
             )
         digest, frozen = prepare_simulation(self.path, document)
+        payload = json.loads(frozen)
+        payload["assistant_run"] = {
+            "schema_version": "decklab-assistant-goldfish.v1",
+            "started_at": datetime.now(UTC).isoformat(),
+            "status": "running",
+        }
+        frozen = json.dumps(payload)
         candidate = candidate_from_document(
             document, load_provenance(self.path, document)
         )
@@ -684,3 +692,56 @@ def _goldfish_observations(view: dict[str, Any]) -> dict[str, Any]:
         "report_status": view.get("status"),
         "report_note": "Null metrics are unknown. A stale report measures a previous list; do not treat it as current.",
     }
+
+
+def recover_interrupted_goldfish(
+    db_path: str | Path, owner_id: str, deck_id: str, now: datetime | None = None
+) -> int:
+    """Expire only unfinished assistant-owned requests past their recovery TTL.
+
+    Native requests have a 45-second timeout. A fifteen-minute unfinished
+    marker is therefore interrupted work, not a current run or a measured
+    failure. Frozen snapshots/provenance and any evidence remain in the row.
+    """
+    DeckDocumentRepo(db_path).get(owner_id, deck_id)
+    current = now or datetime.now(UTC)
+    cutoff = current - timedelta(minutes=15)
+    recovered = 0
+    with db.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id,status,result_json FROM deck_document_simulations WHERE owner_id=? AND deck_id=? AND status IN ('queued','running') AND CASE WHEN json_valid(result_json) THEN json_extract(result_json,'$.assistant_run.schema_version') END=? ORDER BY created_at,id LIMIT 50",
+            (owner_id, deck_id, "decklab-assistant-goldfish.v1"),
+        ).fetchall()
+        for row in rows:
+            try:
+                payload = json.loads(row["result_json"] or "null")
+                marker = (
+                    payload.get("assistant_run") if isinstance(payload, dict) else None
+                )
+                if (
+                    not isinstance(marker, dict)
+                    or marker.get("schema_version") != "decklab-assistant-goldfish.v1"
+                ):
+                    continue
+                started = datetime.fromisoformat(str(marker.get("started_at") or ""))
+                if started.tzinfo is None or started >= cutoff:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            marker.update(status="interrupted", recovered_at=current.isoformat())
+            updated = json.dumps(payload)
+            cursor = conn.execute(
+                "UPDATE deck_document_simulations SET status='not_simulated',reason=?,result_json=? WHERE id=? AND owner_id=? AND deck_id=? AND status=? AND result_json=?",
+                (
+                    "Not simulated: assistant Goldfish request was interrupted; no completed measurement is available.",
+                    updated,
+                    row["id"],
+                    owner_id,
+                    deck_id,
+                    row["status"],
+                    row["result_json"],
+                ),
+            )
+            recovered += cursor.rowcount
+        conn.commit()
+    return recovered
