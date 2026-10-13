@@ -78,6 +78,9 @@ def test_multi_turn_search_inspect_propose_is_validated_and_source_unchanged(pre
     assert '"name": "search_cards"' in gateway.requests[1].user
     assert "untrusted data" in gateway.requests[0].system
     assert gateway.requests[0].call_type == "build:assistant"
+    assert gateway.requests[0].max_output_tokens == 4096
+    assert "requested facts first" in gateway.requests[0].system
+    assert "under 300 words" in gateway.requests[0].system
 
 
 def test_automate_creates_exactly_three_isolated_copies_and_no_adoption(
@@ -682,6 +685,7 @@ def test_transient_provider_overload_has_three_bounded_attempts(
 
     def handler(request):
         attempts.append(request)
+        assert json.loads(request.content)["max_tokens"] == 4096
         if eventually_succeeds and len(attempts) == 3:
             return httpx.Response(
                 200,
@@ -715,6 +719,11 @@ def test_transient_provider_overload_has_three_bounded_attempts(
         assert settings.model.max_retries == 2
         assert settings.model.max_validation_retries == 0
         assert settings.model.timeout_seconds == 60
+        from sabermetrics.cedh.model_gateway import ReasoningMode
+
+        assert (
+            settings.model.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 4096
+        )
         client = httpx.Client(
             base_url="https://mock.invalid", transport=httpx.MockTransport(handler)
         )

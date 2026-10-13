@@ -60,6 +60,11 @@ To call a tool emit the typed tool_calls array. After reading actual receipts,
 return content with tool_calls empty. Do not claim that requested actions ran
 unless their returned receipts confirm the outcome. Use concise explanations
 and honest limitations; ask for missing preferences when needed.
+Answer the user's requested facts first (for example commander name and actual
+land count when asked), then explain relevant evidence and limitations. Keep the
+final answer under 300 words; do not narrate every tool call or repeat the full
+comparison table. Emit complete JSON, including its closing braces; budget for
+reasoning separately from the concise user-facing answer.
 """
 
 
@@ -184,6 +189,14 @@ def run_turn(
                     "timeout_seconds": 60.0,
                     "max_retries": 2,
                     "max_validation_retries": 0,
+                    "modes": {
+                        **settings.model.modes,
+                        ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
+                            ReasoningMode.EXPLAIN
+                        ).model_copy(
+                            update={"max_output_tokens": 4096, "temperature": 0.0}
+                        ),
+                    },
                 }
             )
             settings = settings.model_copy(update={"model": model})
@@ -241,7 +254,7 @@ def run_turn(
                 schema=AssistantStep,
                 mode=ReasoningMode.EXPLAIN,
                 call_type="build:assistant",
-                max_output_tokens=1800,
+                max_output_tokens=4096,
                 evidence_hash=hashlib.sha256(encoded.encode()).hexdigest(),
                 metadata={
                     "deck_id": deck_id,
