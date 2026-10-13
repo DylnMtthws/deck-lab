@@ -88,7 +88,7 @@
     preview.appendChild(element("strong", card.name));
     var meta = [card.mana_cost, card.type_line].filter(function (value) { return typeof value === "string" && value; }).join(" · ");
     if (meta) preview.appendChild(element("small", meta));
-    if (typeof card.oracle_text === "string" && card.oracle_text.trim()) preview.appendChild(element("p", card.oracle_text.trim().slice(0, 360)));
+    if (typeof card.oracle_text === "string" && card.oracle_text.trim()) preview.appendChild(element("p", card.oracle_text.trim()));
     var close = element("button", "Close preview", "dl-button is-ghost is-sm"); close.type = "button";
     close.addEventListener("click", function () { hidePreview(true); }); preview.appendChild(close);
     var ask = element("button", "Ask about this card", "dl-button is-sm"); ask.type = "button";
