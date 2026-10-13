@@ -42,6 +42,19 @@ def test_sidebar_targets_persistent_assistant_contract_and_accessible_drawer():
     assert "function appendSearchResults(article, message)" in js
     assert 'action.name !== "search_cards"' in js
     assert "slice(0, 12)" in js
+    assert "data-assistant-scroll" in TEMPLATE.read_text()
+    assert "function appendMarkdown(parent, text, cards)" in js
+    assert "parent.appendChild(document.createTextNode" in js
+    assert "innerHTML" not in js
+    assert "data-known-card-id" in js
+    assert 'className = "dl-assistant-card-preview"' in js
+    assert "stopImmediatePropagation" in js
+    assert 'report.status === "partial"' not in js
+    assert 'item.metric === "verified_finish_rate"' not in js
+    assert "positive_finish_proof_rate" in js
+    assert "function appendComparisonFigure(host, comparison, label)" in js
+    assert "Full experiment evidence" in js
+    assert "data-assistant-starter" in TEMPLATE.read_text()
 
 
 def test_existing_native_simulator_can_mount_inline():
@@ -60,6 +73,26 @@ def test_adopted_server_document_updates_live_builder_history_without_reload():
     assert "replaceDocument: function (document)" in builder
     assert "render();\n      return true;" in builder
     assert "api.onRender(function () { observe(); })" in history
-    assert 'comparisonLines(alternative.comparison, "Training")' in assistant
-    assert 'comparisonLines(alternative.validation.comparison, "Held-out")' in assistant
-    assert "unknown/suppressed" in assistant
+    assert (
+        'appendComparisonFigure(section, alternative.comparison, "Training")'
+        in assistant
+    )
+    assert (
+        'appendComparisonFigure(section, alternative.validation.comparison, "Held-out")'
+        in assistant
+    )
+    assert '"Unknown / suppressed"' in assistant
+
+
+def test_observation_visualization_keeps_finish_proof_unknown_honest_and_compact():
+    assistant = SCRIPT.read_text()
+    css = STYLE.read_text()
+    assert '"Finish proof · lower bound", "positive_finish_proof_rate"' in assistant
+    assert "No proof observed; other outcomes unknown" in assistant
+    assert "Partial observations use only the authored subset of cards." in assistant
+    assert ".dl-assistant-metric-grid { display:grid; grid-template-columns:minmax(0,1fr);" in css
+    assert ".dl-assistant-card-link img { width:64px; height:88px;" in css
+    assert "Number(reportRevision) !== Number(state.revision)" in assistant
+    assert "refreshChartStaleness();" in assistant
+    assert "function printDelta(value)" in assistant
+    assert "value * 100).toFixed(1).replace(/\\.0$/, \"\") + \" percentage points\"" in assistant

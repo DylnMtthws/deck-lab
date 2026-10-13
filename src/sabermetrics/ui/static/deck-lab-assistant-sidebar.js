@@ -9,6 +9,7 @@
   var deckId = encodeURIComponent(state.id);
   var base = "/api/decks/" + deckId + "/assistant";
   var transcript = sidebar.querySelector("[data-assistant-transcript]");
+  var scrollSurface = sidebar.querySelector("[data-assistant-scroll]");
   var experimentsNode = sidebar.querySelector("[data-assistant-experiments]");
   var proposalsNode = sidebar.querySelector("[data-assistant-proposals]");
   var status = sidebar.querySelector("[data-assistant-status]");
@@ -16,6 +17,22 @@
   var protectedDirty = false;
   var pollTimer = 0;
   var data = { mode: "suggest", constraints: {}, messages: [], experiments: [], provider: {} };
+  var previewCardId = null;
+  var previewOpener = null;
+  var previewPinned = false;
+  var suppressPreviewFocusId = null;
+  var previewTimer = 0;
+  var renderedMessageSignature = null;
+  var renderedExperimentSignature = null;
+  var renderedProposalSignature = null;
+  var renderedMessageCount = 0;
+  var renderedMessageIds = [];
+  var preview = document.createElement("div");
+  preview.className = "dl-assistant-card-preview";
+  preview.setAttribute("role", "dialog");
+  preview.setAttribute("aria-label", "Card preview");
+  preview.hidden = true;
+  document.body.appendChild(preview);
   proposalsNode.addEventListener("change", function () {
     var checked = proposalsNode.querySelectorAll("[data-replacement]:checked");
     var button = proposalsNode.querySelector("[data-assistant-apply]");
@@ -32,6 +49,113 @@
     if (text !== undefined && text !== null) node.textContent = String(text);
     return node;
   }
+  function cardId(card) { return card && (card.id || card.card_id || card.incoming_card_id); }
+  function knownCards(extra) {
+    var byId = Object.create(null);
+    function add(card) {
+      var id = cardId(card);
+      if (id && card && typeof card.name === "string") byId[String(id)] = Object.assign({}, byId[String(id)] || {}, card, { id: String(id) });
+    }
+    (state.entries || []).forEach(add);
+    (data.messages || []).forEach(function (message) {
+      (message.presentation && message.presentation.cards || []).forEach(add);
+      var action = message.action || {};
+      (action.data && action.data.cards || []).forEach(add);
+    });
+    (extra || []).forEach(add);
+    return Object.keys(byId).map(function (id) { return byId[id]; })
+      .sort(function (a, b) { return b.name.length - a.name.length; });
+  }
+  function showPreview(card, opener, toggle) {
+    if (!card || !opener) return;
+    window.clearTimeout(previewTimer);
+    if (previewOpener && previewOpener !== opener) previewOpener.setAttribute("aria-expanded", "false");
+    if (toggle && !preview.hidden && previewCardId === String(card.id)) { previewPinned = true; preview.classList.add("is-pinned"); var closeButton = preview.querySelector("button"); if (closeButton) closeButton.focus(); return; }
+    previewCardId = String(card.id);
+    previewOpener = opener;
+    previewPinned = !!toggle;
+    preview.classList.toggle("is-pinned", previewPinned);
+    preview.replaceChildren();
+    var image = card.image_uri;
+    var safeImage = false;
+    try { safeImage = typeof image === "string" && new URL(image, window.location.href).protocol === "https:"; } catch (_) {}
+    if (safeImage) {
+      var img = document.createElement("img"); img.src = image; img.alt = ""; img.loading = "lazy";
+      img.addEventListener("error", function () { img.hidden = true; });
+      preview.appendChild(img);
+    }
+    preview.appendChild(element("strong", card.name));
+    var meta = [card.mana_cost, card.type_line].filter(function (value) { return typeof value === "string" && value; }).join(" · ");
+    if (meta) preview.appendChild(element("small", meta));
+    if (typeof card.oracle_text === "string" && card.oracle_text.trim()) preview.appendChild(element("p", card.oracle_text.trim().slice(0, 360)));
+    var close = element("button", "Close preview", "dl-button is-ghost is-sm"); close.type = "button";
+    close.addEventListener("click", function () { hidePreview(true); }); preview.appendChild(close);
+    var ask = element("button", "Ask about this card", "dl-button is-sm"); ask.type = "button";
+    ask.addEventListener("click", function () {
+      var input = sidebar.querySelector("[data-assistant-message]");
+      if (input) { input.value = "What role could " + card.name + " fill in this deck?"; showTab("chat", false); input.focus(); }
+      hidePreview();
+    }); preview.appendChild(ask);
+    preview.hidden = false;
+    var rect = opener.getBoundingClientRect();
+    var width = Math.min(300, window.innerWidth - 24);
+    var left = rect.left;
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
+    var top = rect.bottom + 8;
+    preview.style.width = width + "px";
+    preview.style.left = left + "px";
+    preview.style.top = Math.min(top, Math.max(8, window.innerHeight - 300)) + "px";
+    opener.setAttribute("aria-expanded", "true");
+    if (toggle && close.focus) close.focus();
+  }
+  function hidePreview(returnFocus) {
+    window.clearTimeout(previewTimer);
+    preview.hidden = true; previewCardId = null; previewPinned = false; preview.classList.remove("is-pinned");
+    sidebar.querySelectorAll("[data-known-card-id][aria-expanded='true']").forEach(function (button) { button.setAttribute("aria-expanded", "false"); });
+    if (returnFocus && previewOpener && previewOpener.focus) { suppressPreviewFocusId = String(previewOpener.dataset.knownCardId || ""); previewOpener.focus(); }
+    previewOpener = null;
+  }
+  preview.addEventListener("mouseenter", function () { window.clearTimeout(previewTimer); });
+  preview.addEventListener("mouseleave", function () { if (!previewPinned) previewTimer = window.setTimeout(hidePreview, 120); });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !preview.hidden) { event.preventDefault(); event.stopImmediatePropagation(); hidePreview(true); }
+  });
+  document.addEventListener("pointerdown", function (event) {
+    var target = event.target;
+    if (!preview.hidden && !preview.contains(target) && !(target.closest && target.closest("[data-known-card-id]"))) hidePreview();
+  });
+  sidebar.addEventListener("pointerover", function (event) {
+    var button = event.target.closest && event.target.closest("[data-known-card-id]");
+    if (!button || button.contains(event.relatedTarget) || previewPinned) return;
+    var card = knownCards().find(function (item) { return String(item.id) === button.dataset.knownCardId; });
+    if (card) showPreview(card, button, false);
+  });
+  sidebar.addEventListener("focusin", function (event) {
+    var button = event.target.closest && event.target.closest("[data-known-card-id]");
+    if (!button) return;
+    if (suppressPreviewFocusId === button.dataset.knownCardId) { suppressPreviewFocusId = null; return; }
+    var card = knownCards().find(function (item) { return String(item.id) === button.dataset.knownCardId; });
+    if (card) showPreview(card, button, false);
+  });
+  sidebar.addEventListener("click", function (event) {
+    var button = event.target.closest && event.target.closest("[data-known-card-id]");
+    if (!button) return;
+    event.preventDefault();
+    var card = knownCards().find(function (item) { return String(item.id) === button.dataset.knownCardId; });
+    if (card) showPreview(card, button, true);
+  });
+  sidebar.addEventListener("keydown", function (event) {
+    var button = event.target.closest && event.target.closest("[data-known-card-id]");
+    if (button && event.key === "Tab" && !event.shiftKey && !preview.hidden) {
+      event.preventDefault();
+      var close = preview.querySelector("button"); if (close) close.focus();
+    }
+  });
+  sidebar.addEventListener("pointerout", function (event) {
+    var button = event.target.closest && event.target.closest("[data-known-card-id]");
+    var focusedHere = button && document.activeElement === button;
+    if (button && !previewPinned && !focusedHere && !button.contains(event.relatedTarget) && !preview.contains(event.relatedTarget)) previewTimer = window.setTimeout(hidePreview, 140);
+  });
   function request(url, options) {
     options = options || {};
     options.headers = Object.assign({ "Accept": "application/json" }, options.headers || {});
@@ -91,6 +215,17 @@
     var savedTab = localStorage.getItem("deck-lab-assistant-tab:" + state.id);
     if (tabs.some(function (tab) { return tab.dataset.assistantTab === savedTab; })) showTab(savedTab, false);
   } catch (_) {}
+  sidebar.querySelectorAll("[data-assistant-starter]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var input = sidebar.querySelector("[data-assistant-message]");
+      if (!input) return;
+      input.value = button.dataset.assistantStarter || "";
+      showTab("chat", false); input.focus();
+    });
+  });
+  sidebar.querySelectorAll("[data-assistant-open-tab]").forEach(function (button) {
+    button.addEventListener("click", function () { showTab(button.dataset.assistantOpenTab, false); });
+  });
   var mobileOpen = document.querySelector("[data-assistant-open]");
   var close = sidebar.querySelector("[data-assistant-close]");
   function mobile(value) {
@@ -173,43 +308,302 @@
     if (typeof content === "string") return content;
     try { return JSON.stringify(content, null, 2); } catch (_) { return String(content || ""); }
   }
+  function cardMatchAt(text, offset, cards) {
+    var lower = text.toLocaleLowerCase();
+    var best = null;
+    cards.forEach(function (card) {
+      var name = card.name.toLocaleLowerCase();
+      var at = lower.indexOf(name, offset);
+      while (at >= 0) {
+        var before = at > 0 ? lower.charAt(at - 1) : "";
+        var after = lower.charAt(at + name.length);
+        var word = /[a-z0-9]/i;
+        if ((!word.test(name.charAt(0)) || !word.test(before)) && (!word.test(name.charAt(name.length - 1)) || !word.test(after))) break;
+        at = lower.indexOf(name, at + 1);
+      }
+      if (at >= 0 && (!best || at < best.at)) best = { at: at, end: at + card.name.length, card: card };
+    });
+    return best;
+  }
+  function appendInline(parent, text, cards, allowBold) {
+    var offset = 0;
+    while (offset < text.length) {
+      var bold = allowBold !== false && text.slice(offset).match(/^\*\*([^*\n]+)\*\*/);
+      if (bold) {
+        var strong = document.createElement("strong");
+        appendInline(strong, bold[1], cards, false);
+        parent.appendChild(strong); offset += bold[0].length; continue;
+      }
+      var match = cardMatchAt(text, offset, cards);
+      if (match && match.at === offset) {
+        var link = element("button", text.slice(match.at, match.end), "dl-assistant-card-link");
+        link.type = "button"; link.dataset.knownCardId = String(match.card.id);
+        link.setAttribute("aria-label", "Preview " + match.card.name); link.setAttribute("aria-expanded", "false");
+        parent.appendChild(link); offset = match.end; continue;
+      }
+      var nextBold = allowBold !== false ? text.indexOf("**", offset) : -1;
+      var nextCard = match ? match.at : -1;
+      var end = text.length;
+      if (nextBold >= 0) end = Math.min(end, nextBold);
+      if (nextCard >= 0) end = Math.min(end, nextCard);
+      if (end <= offset) end = offset + 1;
+      parent.appendChild(document.createTextNode(text.slice(offset, end)));
+      offset = end;
+    }
+  }
+  function appendMarkdown(parent, text, cards) {
+    var lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+    var paragraph = [];
+    var list = null;
+    function flushParagraph() {
+      if (!paragraph.length) return;
+      var p = element("p"); appendInline(p, paragraph.join(" "), cards, true); parent.appendChild(p); paragraph = [];
+    }
+    function closeList() { if (list) { parent.appendChild(list); list = null; } }
+    lines.forEach(function (line) {
+      var item = line.match(/^\s*[-*•]\s+(.+)$/);
+      if (item) {
+        flushParagraph();
+        if (!list) list = document.createElement("ul");
+        var li = document.createElement("li"); appendInline(li, item[1], cards, true); list.appendChild(li);
+      } else if (!line.trim()) {
+        flushParagraph(); closeList();
+      } else {
+        closeList(); paragraph.push(line.trim());
+      }
+    });
+    flushParagraph(); closeList();
+  }
+  function cardsFrom(message) {
+    return knownCards(message && message.presentation && message.presentation.cards || []);
+  }
+  function appendCardResults(article, cards) {
+    if (!Array.isArray(cards)) return;
+    var list = element("ul", null, "dl-assistant-card-results");
+    list.setAttribute("aria-label", "Card search results");
+    cards.slice(0, 12).forEach(function (card) {
+      if (!card || typeof card.name !== "string" || !cardId(card)) return;
+      var row = element("li", null, "dl-assistant-card-result");
+      var link = element("button", null, "dl-assistant-card-link"); link.type = "button";
+      link.dataset.knownCardId = String(cardId(card)); link.setAttribute("aria-label", "Preview " + card.name); link.setAttribute("aria-expanded", "false");
+      var image = card.image_uri;
+      try {
+        if (typeof image === "string" && new URL(image, window.location.href).protocol === "https:") {
+          var thumb = document.createElement("img"); thumb.src = image; thumb.alt = ""; thumb.loading = "lazy"; thumb.addEventListener("error", function () { thumb.hidden = true; }); link.appendChild(thumb);
+        }
+      } catch (_) {}
+      link.appendChild(element("span", card.name));
+      row.appendChild(link);
+      var details = [card.mana_cost, card.type_line].filter(function (value) { return typeof value === "string" && value.trim(); }).join(" · ");
+      if (details) row.appendChild(element("small", details));
+      list.appendChild(row);
+    });
+    if (list.children.length) article.appendChild(list);
+  }
+  function observationChart(host, goldfish) {
+    if (!goldfish || typeof goldfish !== "object") return;
+    var tests = [
+      ["opening", "Opening", "qualified_opening_rate"],
+      ["development", "Engine activity", "engine_online_rate"],
+      ["commander_loss", "Commander recovery", "recovery_draw_rate"],
+      ["creature_wipe", "Wipe recovery", "recovery_board_rate"],
+      ["finish", "Finish proof · lower bound", "positive_finish_proof_rate"]
+    ];
+    var observations = Array.isArray(goldfish.observations) ? goldfish.observations : [];
+    if (!observations.length && !(goldfish.test_statuses || []).length) return;
+    var statuses = Object.create(null);
+    (goldfish.test_statuses || []).forEach(function (item) { statuses[item.test] = item; });
+    var figure = element("figure", null, "dl-assistant-goldfish-chart");
+    figure.dataset.reportRevision = goldfish.report_revision == null ? "" : String(goldfish.report_revision);
+    figure.dataset.reportStale = goldfish.stale ? "true" : "false";
+    var reportLine = "Native Goldfish observations · " + (goldfish.report_status || "status unknown") + " · not a multiplayer win-rate forecast";
+    if (goldfish.report_revision != null) reportLine += " · revision " + goldfish.report_revision;
+    figure.appendChild(element("figcaption", reportLine));
+    updateChartStaleness(figure);
+    if (goldfish.report_deck_sha256) figure.appendChild(element("small", "Deck fingerprint: " + String(goldfish.report_deck_sha256).slice(0, 16) + "…"));
+    if ((goldfish.test_statuses || []).some(function (item) { return item.status === "partial"; })) {
+      figure.appendChild(element("p", "Partial observations use only the authored subset of cards."));
+    }
+    var grid = element("div", null, "dl-assistant-metric-grid");
+    tests.forEach(function (test) {
+      var metric = observations.find(function (item) { return item.test === test[0] && item.metric === test[2]; });
+      var testStatus = statuses[test[0]] || {};
+      var card = element("section", null, "dl-assistant-metric");
+      card.appendChild(element("strong", test[1]));
+      if (!metric || testStatus.status === "unsupported" || typeof metric.value !== "number" || !Number.isFinite(metric.value)) {
+        var why = (metric && (metric.reason || metric.status)) || (testStatus.status === "unsupported" ? "unsupported / not measured" : goldfish.report_reason || "not reported");
+        if (test[0] === "finish") why = "positive finish proof not reported; conditional proof is omitted";
+        card.appendChild(element("span", "Unknown · " + why));
+      } else {
+        var isRate = ["proportion", "rate", "probability"].indexOf(String(metric.unit || "")) >= 0 && metric.value >= 0 && metric.value <= 1;
+        var value = isRate ? (metric.value * 100).toFixed(1).replace(/\.0$/, "") + "%" : formatScalar(metric.value, metric.unit);
+        var sample = metric.denominator != null ? metric.denominator : (metric.n || metric.sample_size);
+        var numerator = metric.numerator != null ? metric.numerator : null;
+        var sampleLabel = numerator != null && sample != null ? " · " + numerator + "/" + sample : sample != null ? " · n=" + sample : "";
+        if (test[0] === "finish" && metric.value === 0) {
+          card.appendChild(element("span", "No proof observed; other outcomes unknown" + sampleLabel));
+        } else {
+          card.appendChild(element("span", value + sampleLabel));
+        }
+        if (isRate && metric.ci95 && typeof metric.ci95.low === "number" && typeof metric.ci95.high === "number") card.appendChild(element("small", "95% interval · " + (metric.ci95.low * 100).toFixed(1) + "%–" + (metric.ci95.high * 100).toFixed(1) + "%"));
+        if (isRate && testStatus.status !== "unsupported") {
+          var track = element("div", null, "dl-assistant-meter"); track.setAttribute("role", "img"); track.setAttribute("aria-label", test[1] + " observed rate " + value);
+          var fill = element("span"); fill.style.width = Math.max(0, Math.min(100, metric.value * 100)) + "%"; track.appendChild(fill); card.appendChild(track);
+        }
+      }
+      grid.appendChild(card);
+    });
+    figure.appendChild(grid);
+    var coverage = goldfish.coverage;
+    if (coverage && typeof coverage === "object") {
+      figure.appendChild(element("p", "Model coverage · " + ["modeled_cards", "total_cards", "inert_cards", "unauthored_cards"].map(function (key) { return key.replace(/_cards$/, "") + ": " + (coverage[key] == null ? "unknown" : coverage[key]); }).join(" · ")));
+    }
+    if (goldfish.report_note) figure.appendChild(element("small", goldfish.report_note));
+    var notes = element("details"); notes.appendChild(element("summary", "Test coverage and limitations"));
+    (goldfish.test_statuses || []).forEach(function (item) { notes.appendChild(element("p", String(item.test || "Test").replace(/_/g, " ") + " · " + (item.status || "unknown") + ((item.limitations || []).length ? " · " + item.limitations.join("; ") : ""))); });
+    figure.appendChild(notes);
+    host.appendChild(figure);
+  }
+  function updateChartStaleness(figure) {
+    var reportRevision = figure.dataset.reportRevision;
+    var revisionMismatch = reportRevision !== "" && state.revision != null && Number(reportRevision) !== Number(state.revision);
+    var stale = figure.dataset.reportStale === "true" || revisionMismatch;
+    var note = figure.querySelector(".dl-assistant-stale-note");
+    if (stale && !note) {
+      note = element("p", null, "dl-assistant-stale-note");
+      figure.insertBefore(note, figure.querySelector(".dl-assistant-metric-grid"));
+    }
+    if (note) {
+      note.hidden = !stale;
+      note.textContent = "This report is stale for the current deck revision" + (revisionMismatch ? " (report revision " + reportRevision + "; current revision " + state.revision + ")." : ".");
+    }
+  }
+  function refreshChartStaleness() {
+    sidebar.querySelectorAll(".dl-assistant-goldfish-chart").forEach(updateChartStaleness);
+  }
   function appendSearchResults(article, message) {
     var action = message && message.action;
     if (!action || action.name !== "search_cards" || action.ok !== true) return;
-    var cards = action.data && Array.isArray(action.data.cards) ? action.data.cards.slice(0, 12) : null;
+    var cards = action.data && Array.isArray(action.data.cards) ? action.data.cards : null;
     if (!cards) return;
     if (!cards.length) {
       article.appendChild(element("p", "No matching cards were found."));
       return;
     }
-    var list = element("ul", null, "dl-assistant-card-results");
-    list.setAttribute("aria-label", "Card search results");
-    cards.forEach(function (card) {
-      if (!card || typeof card.name !== "string") return;
-      var row = element("li", null, "dl-assistant-card-result");
-      row.appendChild(element("strong", card.name));
-      var details = [card.mana_cost, card.type_line].filter(function (value) {
-        return typeof value === "string" && value.trim();
-      }).join(" · ");
-      if (details) row.appendChild(element("small", details));
-      if (typeof card.oracle_text === "string" && card.oracle_text.trim()) {
-        row.appendChild(element("p", card.oracle_text.trim().slice(0, 240)));
-      }
-      list.appendChild(row);
-    });
-    if (list.children.length) article.appendChild(list);
+    appendCardResults(article, cards);
+  }
+  function appendStructuredPresentation(article, message) {
+    var presentation = message && message.presentation;
+    if (!presentation || typeof presentation !== "object") return;
+    appendCardResults(article, presentation.cards);
+    if (presentation.goldfish) observationChart(article, presentation.goldfish);
+  }
+  function toolLabel(action) {
+    var names = { inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    return names[action && action.name] || "Assistant tool";
+  }
+  function renderToolStep(message) {
+    var action = message.action || {};
+    var step = element("div", null, "dl-assistant-tool-step");
+    if (action.type === "tool_started") {
+      step.appendChild(element("span", toolLabel(action) + " · working"));
+      return step;
+    }
+    var failed = action.ok === false;
+    var title = toolLabel(action) + (failed ? " · unavailable" : " · complete");
+    if (action.name === "search_cards" && action.ok === true) {
+      var cards = action.data && Array.isArray(action.data.cards) ? action.data.cards : [];
+      title = "Card catalog search · " + cards.length + (cards.length === 1 ? " result" : " results");
+    }
+    step.appendChild(element("strong", title));
+    if (failed && message.content) appendMarkdown(step, messageContent(message), cardsFrom(message));
+    if (action.name === "search_cards" && action.ok === true) appendSearchResults(step, message);
+    if (action.ok === true && action.data && Array.isArray(action.data.observations)) observationChart(step, action.data);
+    if (action.ok === true && action.name === "start_experiment" && action.data && action.data.metric_summary) appendMetricSummary(step, action.data.metric_summary);
+    return step;
   }
   function renderMessages() {
     if (!transcript) return;
-    var nearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 48;
-    transcript.replaceChildren();
-    (data.messages || []).forEach(function (message) {
+    var messages = data.messages || [];
+    var signature = JSON.stringify(messages);
+    if (signature === renderedMessageSignature) return;
+    var canAppend = renderedMessageSignature !== null && messages.length >= renderedMessageCount;
+    for (var index = 0; canAppend && index < renderedMessageCount; index += 1) {
+      if ((messages[index] && messages[index].id) !== (renderedMessageIds[index] || null)) canAppend = false;
+    }
+    var surface = scrollSurface || transcript;
+    var nearBottom = surface.scrollHeight - surface.scrollTop - surface.clientHeight < 72;
+    if (!canAppend) { transcript.replaceChildren(); renderedMessageCount = 0; renderedMessageIds = []; }
+    var cursor = renderedMessageCount;
+    while (cursor < messages.length) {
+      var message = messages[cursor];
       var role = ["user", "assistant", "tool"].indexOf(message.role) >= 0 ? message.role : "tool";
-      transcript.appendChild(element("article", messageContent(message), "dl-assistant-message"));
-      transcript.lastElementChild.dataset.role = role;
-      appendSearchResults(transcript.lastElementChild, message);
+      if (role === "tool") {
+        var group = transcript.lastElementChild;
+        var activity = group && group.classList.contains("dl-assistant-activity") ? group.querySelector("details") : null;
+        if (!activity) {
+          group = element("article", null, "dl-assistant-message dl-assistant-activity"); group.dataset.role = "tool";
+          activity = document.createElement("details");
+          activity.appendChild(element("summary", "Research activity · 0 steps"));
+          group.appendChild(activity); transcript.appendChild(group);
+        }
+        var toolMessages = [];
+        var end = cursor;
+        while (end < messages.length && messages[end] && messages[end].role === "tool") { toolMessages.push(messages[end]); end += 1; }
+        var count = Number(activity.dataset.stepCount || 0);
+        var pending = Number(activity.dataset.pendingCount || 0);
+        toolMessages.forEach(function (item) {
+          activity.appendChild(renderToolStep(item)); count += 1;
+          if (item.action && item.action.type === "tool_started") pending += 1;
+          else if (item.action && item.action.type === "tool_result") pending = Math.max(0, pending - 1);
+        });
+        activity.dataset.stepCount = String(count); activity.dataset.pendingCount = String(pending);
+        activity.querySelector("summary").textContent = "Research activity · " + count + (count === 1 ? " step" : " steps") + (pending ? " · working" : "");
+        for (; cursor < end; cursor += 1) { renderedMessageIds.push(messages[cursor] && messages[cursor].id || null); renderedMessageCount += 1; }
+        continue;
+      }
+      var article = element("article", null, "dl-assistant-message");
+      article.dataset.role = role;
+      appendMarkdown(article, messageContent(message), cardsFrom(message));
+      appendStructuredPresentation(article, message);
+      transcript.appendChild(article);
+      renderedMessageIds.push(message && message.id || null);
+      renderedMessageCount += 1;
+      cursor += 1;
+    }
+    renderedMessageSignature = signature;
+    if (nearBottom) surface.scrollTop = surface.scrollHeight;
+  }
+  function appendMetricSummary(host, rows) {
+    if (!Array.isArray(rows) || !rows.length) return;
+    var figure = element("figure", null, "dl-assistant-experiment-chart");
+    figure.appendChild(element("figcaption", "Measured training observations · descriptive only"));
+    rows.slice(0, 5).forEach(function (row) {
+      var item = element("div", null, "dl-assistant-experiment-metric");
+      var label = [row.alternative_name, row.test, row.metric].filter(function (value) { return typeof value === "string" && value; }).join(" · ");
+      item.appendChild(element("strong", label || "Observation"));
+      var isRate = /(?:rate|probability)$/.test(String(row.metric || "")) || ["proportion", "rate", "probability"].indexOf(String(row.unit || "")) >= 0;
+      function print(value) {
+        if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
+        return isRate && value >= 0 && value <= 1 ? (value * 100).toFixed(1).replace(/\.0$/, "") + "%" : formatScalar(value, "");
+      }
+      function printDelta(value) {
+        if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
+        if (isRate) return (value > 0 ? "+" : "") + (value * 100).toFixed(1).replace(/\.0$/, "") + " percentage points";
+        return formatDelta(value, row.unit || "");
+      }
+      if (row.comparable && typeof row.before === "number" && typeof row.after === "number") {
+        item.appendChild(element("span", print(row.before) + " → " + print(row.after) + (typeof row.delta === "number" ? " · Δ " + printDelta(row.delta) : "")));
+        if (isRate) {
+          [row.before, row.after].forEach(function (value, index) {
+            var track = element("div", null, "dl-assistant-meter"); track.setAttribute("aria-hidden", "true");
+            var fill = document.createElement("span"); fill.style.width = Math.max(0, Math.min(100, value * 100)) + "%"; track.appendChild(fill); item.appendChild(track);
+          });
+        }
+      } else item.appendChild(element("span", "Unknown / suppressed" + (row.reason ? " · " + row.reason : "")));
+      figure.appendChild(item);
     });
-    if (nearBottom) transcript.scrollTop = transcript.scrollHeight;
+    host.appendChild(figure);
   }
   function addReplacementChoices(host, replacements, context) {
     if (!Array.isArray(replacements) || !replacements.length) return;
@@ -226,6 +620,10 @@
     });
   }
   function renderProposals() {
+    var proposalData = (data.messages || []).map(function (message) { return message.proposals || []; });
+    var signature = JSON.stringify(proposalData);
+    if (signature === renderedProposalSignature) return;
+    renderedProposalSignature = signature;
     var selected = new Set(Array.prototype.slice.call(proposalsNode.querySelectorAll("[data-replacement]:checked")).map(function (box) { return box.value; }));
     proposalsNode.replaceChildren();
     (data.messages || []).forEach(function (message) {
@@ -270,30 +668,40 @@
     if (number.indexOf(".") >= 0) number = number.replace(/0+$/, "").replace(/\.$/, "");
     return (value > 0 ? "+" : "") + number + (rate ? " percentage points" : (unit ? " " + unit : ""));
   }
-  function comparisonLines(comparison, label) {
-    if (!comparison || typeof comparison !== "object") return [label + ": unavailable; no comparison report was supplied."];
-    var lines = [];
-    if (!comparison.comparable) lines.push(label + ": unavailable or suppressed" + (comparison.reason ? " — " + comparison.reason : "."));
-    var tests = comparison.metric_deltas || {};
-    Object.keys(tests).forEach(function (testName) {
-      var metrics = tests[testName] || {};
-      Object.keys(metrics).forEach(function (metricName) {
-        var metric = metrics[metricName] || {};
-        var row = label + " · " + testName.replace(/_/g, " ") + " · " + metricName.replace(/_/g, " ") + ": ";
-        if (metric.comparable && typeof metric.delta === "number" && Number.isFinite(metric.delta)) {
-          row += formatScalar(metric.before, metric.unit) + " → " + formatScalar(metric.after, metric.unit) +
-            " (Δ " + formatDelta(metric.delta, metric.unit) + ")";
-          if (metric.validated === false) row += " · descriptive only; " + (metric.unvalidated_reason || "validation requirements were not met");
-        } else {
-          row += "unknown/suppressed" + (metric.reason ? " — " + metric.reason : " — metric or comparison is not supported");
-        }
-        lines.push(row);
+  function appendComparisonFigure(host, comparison, label) {
+    var figure = element("figure", null, "dl-assistant-experiment-chart");
+    figure.appendChild(element("figcaption", label + " observations · descriptive only; no overall winner is inferred"));
+    var metrics = [];
+    Object.keys(comparison && comparison.metric_deltas || {}).forEach(function (test) {
+      Object.keys(comparison.metric_deltas[test] || {}).forEach(function (name) {
+        metrics.push({ test: test, name: name, value: comparison.metric_deltas[test][name] });
       });
     });
-    if (!lines.length) lines.push(label + ": no comparable scalar metrics were supplied." + (comparison.reason ? " " + comparison.reason : ""));
-    return lines;
+    if (!comparison || comparison.comparable === false) figure.appendChild(element("p", "Unavailable or suppressed" + (comparison && comparison.reason ? " · " + comparison.reason : "")));
+    metrics.slice(0, 5).forEach(function (item) {
+      var metric = item.value || {};
+      var row = element("div", null, "dl-assistant-experiment-metric");
+      row.appendChild(element("strong", item.test.replace(/_/g, " ") + " · " + item.name.replace(/_/g, " ")));
+      if (metric.comparable && typeof metric.before === "number" && typeof metric.after === "number") {
+        row.appendChild(element("span", formatScalar(metric.before, metric.unit) + " → " + formatScalar(metric.after, metric.unit) + (typeof metric.delta === "number" ? " · Δ " + formatDelta(metric.delta, metric.unit) : "")));
+        if (metric.validated === false) row.appendChild(element("small", "Descriptive only · " + (metric.unvalidated_reason || "validation requirements were not met")));
+        if (metric.unit === "proportion" && metric.before >= 0 && metric.before <= 1 && metric.after >= 0 && metric.after <= 1) {
+          [metric.before, metric.after].forEach(function (value) {
+            var track = element("div", null, "dl-assistant-meter"); track.setAttribute("aria-hidden", "true");
+            var fill = document.createElement("span"); fill.style.width = Math.max(0, Math.min(100, value * 100)) + "%"; track.appendChild(fill); row.appendChild(track);
+          });
+        }
+      } else row.appendChild(element("span", "Unknown / suppressed" + (metric.reason ? " · " + metric.reason : "")));
+      figure.appendChild(row);
+    });
+    if (!metrics.length) figure.appendChild(element("p", "No comparable scalar values were supplied."));
+    host.appendChild(figure);
   }
   function renderExperiments() {
+    var signature = JSON.stringify(data.experiments || []);
+    if (signature === renderedExperimentSignature) return;
+    var opened = Array.prototype.map.call(experimentsNode.querySelectorAll("details"), function (details, index) { return details.open ? index : -1; }).filter(function (index) { return index >= 0; });
+    var focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.experimentFocus;
     experimentsNode.replaceChildren();
     (data.experiments || []).forEach(function (experiment) {
       var card = element("article", null, "dl-assistant-experiment");
@@ -304,32 +712,21 @@
         section.appendChild(element("strong", alternative.name || "Alternative"));
         if (alternative.rationale) section.appendChild(element("p", alternative.rationale));
         if (alternative.validation) {
-          comparisonLines(alternative.validation.comparison, "Held-out").forEach(function (line) { section.appendChild(element("p", line)); });
-          section.appendChild(element("p", "Independent validation: " + (alternative.validation.status || "descriptive") +
-            (alternative.validation.note ? " · " + alternative.validation.note : "") +
+          appendComparisonFigure(section, alternative.validation.comparison, "Held-out");
+          section.appendChild(element("p", "Independent validation · " + (alternative.validation.status || "descriptive") +
             (alternative.validation.reason ? " · " + alternative.validation.reason : "")));
-          var validationDetails = element("details");
-          validationDetails.appendChild(element("summary", "Validation details"));
-          validationDetails.appendChild(element("pre", readableReport(alternative.validation)));
-          section.appendChild(validationDetails);
         }
-        if (alternative.comparison) {
-          comparisonLines(alternative.comparison, "Training").forEach(function (line) { section.appendChild(element("p", line)); });
-          var comparisonDetails = element("details");
-          comparisonDetails.appendChild(element("summary", "Metric comparison details"));
-          comparisonDetails.appendChild(element("pre", readableReport(alternative.comparison)));
-          section.appendChild(comparisonDetails);
-        }
-        if (alternative.training_report) section.appendChild(element("details") );
-        if (alternative.training_report) {
-          var details = section.lastElementChild; details.appendChild(element("summary", "Training report details"));
-          details.appendChild(element("pre", readableReport(alternative.training_report)));
-        }
-        if (alternative.validation_report) {
-          var validation = element("details"); validation.appendChild(element("summary", "Validation report details"));
-          validation.appendChild(element("pre", readableReport(alternative.validation_report))); section.appendChild(validation);
-        }
-        var adopt = element("button", "Adopt this alternative", "dl-button is-sm"); adopt.type = "button";
+        if (alternative.comparison) appendComparisonFigure(section, alternative.comparison, "Training");
+        var fullEvidence = element("details"); fullEvidence.dataset.experimentDetails = String(experiment.id) + "|" + String(alternative.id);
+        fullEvidence.appendChild(element("summary", "Full experiment evidence"));
+        fullEvidence.appendChild(element("pre", readableReport({
+          training_report: alternative.training_report,
+          comparison: alternative.comparison,
+          validation: alternative.validation,
+          validation_report: alternative.validation_report
+        })));
+        section.appendChild(fullEvidence);
+        var adopt = element("button", "Adopt this alternative", "dl-button is-sm"); adopt.type = "button"; adopt.dataset.experimentFocus = String(experiment.id) + "|" + String(alternative.id);
         adopt.disabled = alternative.status === "unavailable" || experiment.status === "failed";
         adopt.addEventListener("click", function () {
           adopt.disabled = true; status.textContent = "Adopting selected alternative…";
@@ -344,6 +741,9 @@
       if (!experiment.alternatives || !experiment.alternatives.length) card.appendChild(element("p", "No alternatives are available yet."));
       experimentsNode.appendChild(card);
     });
+    Array.prototype.forEach.call(experimentsNode.querySelectorAll("details"), function (details, index) { details.open = opened.indexOf(index) >= 0; });
+    if (focused) Array.prototype.find.call(experimentsNode.querySelectorAll("[data-experiment-focus]"), function (button) { return button.dataset.experimentFocus === focused; })?.focus();
+    renderedExperimentSignature = signature;
   }
   function render() {
     renderSettings(); renderMessages(); renderProposals(); renderExperiments();
@@ -409,6 +809,7 @@
     if (!event.detail || !event.detail.state) return;
     state = event.detail.state;
     protectedCards();
+    refreshChartStaleness();
   });
   if (window.location.hash === "#goldfish") showTab("goldfish", false);
   refresh();
