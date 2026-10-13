@@ -239,3 +239,22 @@ def test_deleting_deck_removes_conversation(setup):
             ).fetchone()[0]
             == 0
         )
+
+
+def test_expired_conversation_recovers_and_ignores_late_worker(setup, monkeypatch):
+    from sabermetrics import assistant_store
+
+    _client, path, owner, deck, _ = setup
+    store = AssistantStore(path)
+    started = store.begin(owner, deck, "Inspect", 0)
+    assert store.get(owner, deck)["busy"]
+    monkeypatch.setattr(
+        assistant_store.time, "time", lambda: started["started_at"] + 1201
+    )
+    expired = store.get(owner, deck)
+    assert not expired["busy"]
+    assert expired["turn_id"] is None
+    assert expired["messages"][-1]["status"] == "failed"
+    store.finish(owner, deck, started["turn_id"], {"content": "Late result"})
+    assert store.get(owner, deck)["messages"] == expired["messages"]
+    assert store.begin(owner, deck, "Retry", 0)["busy"]

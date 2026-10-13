@@ -80,13 +80,35 @@ class AssistantStore:
             )
             conn.commit()
             row = conn.execute(
-                "SELECT payload_json FROM build_assistant_sessions "
+                "SELECT payload_json,version FROM build_assistant_sessions "
                 "WHERE deck_id=? AND owner_id=?",
                 (deck_id, owner_id),
             ).fetchone()
         if row is None:
             raise ValueError("Conversation unavailable.")
-        return cast(dict[str, Any], json.loads(row["payload_json"]))
+        payload = cast(dict[str, Any], json.loads(row["payload_json"]))
+        if payload.get("busy") and time.time() - payload.get("started_at", 0) > 1200:
+            payload.update(busy=False, turn_id=None, updated_at=time.time())
+            payload["messages"].append(
+                {
+                    "id": uuid.uuid4().hex,
+                    "role": "assistant",
+                    "status": "failed",
+                    "content": "This task was interrupted or expired. Its saved results remain available; send a new message to continue.",
+                    "created_at": time.time(),
+                }
+            )
+            payload["messages"] = payload["messages"][-100:]
+            with db.connect(self.db_path) as conn:
+                changed = conn.execute(
+                    "UPDATE build_assistant_sessions SET payload_json=?,version=version+1 "
+                    "WHERE deck_id=? AND owner_id=? AND version=?",
+                    (json.dumps(payload), deck_id, owner_id, row["version"]),
+                )
+                conn.commit()
+            if changed.rowcount != 1:
+                return self.get(owner_id, deck_id)
+        return payload
 
     def _update(
         self, owner_id: str, deck_id: str, change: Callable[[dict[str, Any]], None]
