@@ -146,6 +146,98 @@
           "items": {
             "type": "string"
           }
+        },
+        "card_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "unit",
+            "counts",
+            "cards"
+          ],
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "unit": {
+              "const": "card_slots"
+            },
+            "counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "supported",
+                "partial",
+                "unsupported",
+                "inactive"
+              ],
+              "properties": {
+                "supported": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "partial": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unsupported": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "inactive": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "cards": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "slot",
+                  "name",
+                  "status",
+                  "supported_effects",
+                  "limitations"
+                ],
+                "properties": {
+                  "slot": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "enum": [
+                      "supported",
+                      "partial",
+                      "unsupported",
+                      "inactive"
+                    ]
+                  },
+                  "supported_effects": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "limitations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

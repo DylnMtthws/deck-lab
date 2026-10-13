@@ -109,3 +109,37 @@ def test_actual_engine_proportions_are_compared_as_percentage_points(tmp_path):
         assert comparison["deltas"][0]["delta"] == 15.0
         assert comparison["deltas"][0]["before"] == 40.0
         assert comparison["deltas"][0]["after"] == 55.0
+
+
+def test_experiment_freshness_uses_content_not_revision(tmp_path):
+    from sabermetrics.goldfish_service import experiment_view
+    from tests.test_goldfish_experiments import OWNER, SETTINGS, _document
+
+    repo = GoldfishExperimentsRepo(tmp_path / "freshness.db")
+    document = _document()
+    row = repo.create(OWNER, document, SETTINGS)
+    edited = copy.deepcopy(document)
+    edited["revision"] += 20
+    edited["entries"].reverse()
+    view = experiment_view(row, edited, repo)
+    assert view["freshness"] == "current"
+    assert view["stale"] is False
+    assert view["freshness_scope"] == "deck_content_under_recorded_settings"
+    edited["entries"][0]["oracle_id"] = "replacement-card"
+    view = experiment_view(row, edited, repo)
+    assert view["freshness"] == "stale"
+    assert view["stale"] is True
+
+
+def test_experiment_missing_identity_is_unknown(tmp_path):
+    from sabermetrics.goldfish_service import experiment_view
+    from tests.test_goldfish_experiments import OWNER, SETTINGS, _document
+
+    repo = GoldfishExperimentsRepo(tmp_path / "freshness.db")
+    document = _document()
+    row = repo.create(OWNER, document, SETTINGS)
+    row["deck_sha256"] = ""
+    assert experiment_view(row, document, repo)["freshness"] == "unknown"
+    row["deck_sha256"] = "old-hash"
+    document["entries"] = []
+    assert experiment_view(row, document, repo)["freshness"] == "unknown"

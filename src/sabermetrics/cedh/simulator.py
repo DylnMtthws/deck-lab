@@ -237,6 +237,30 @@ def _diagnostics_result_validator() -> Draft202012Validator:
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
+def _validate_card_coverage(coverage: dict[str, Any]) -> None:
+    """Optional audit is authoritative only when every card slot reconciles."""
+    audit = coverage.get("card_coverage")
+    if audit is None:
+        return
+    counts = audit["counts"]
+    cards = audit["cards"]
+    total = coverage["total_cards"]
+    slots = [card["slot"] for card in cards]
+    categories = ("supported", "partial", "unsupported", "inactive")
+    if (
+        len(cards) != total
+        or sorted(slots) != list(range(total))
+        or sum(counts.values()) != total
+        or any(
+            counts[key] != sum(card["status"] == key for card in cards)
+            for key in categories
+        )
+    ):
+        raise SimulatorContractError(
+            "card coverage counts and unique card slots do not reconcile"
+        )
+
+
 def _parse_http_result(
     payload: dict[str, Any],
     candidate: DeckCandidate,
@@ -277,6 +301,7 @@ def _parse_http_result(
             raise SimulatorContractError(
                 "simulator diagnostics response does not identify the requested scenario"
             )
+        _validate_card_coverage(diagnostics["coverage"])
         settings = diagnostics["settings"]
         if settings["games"] != 2000 or settings["seed"] != diagnostics_seed:
             raise SimulatorContractError(

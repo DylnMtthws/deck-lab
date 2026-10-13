@@ -126,7 +126,22 @@ def test_fully_supported_same_catalog_metric_can_be_validated_without_verdict():
     seed = validation_seed(17)
     before, after = report(seed), report(seed, 0.6)
     for item in (before, after):
-        item["coverage"] = {"inert_cards": 0, "unauthored_cards": 0}
+        item["coverage"] = {
+            "total_cards": 100,
+            "inert_cards": 0,
+            "unauthored_cards": 0,
+            "card_coverage": {
+                "version": 1,
+                "unit": "card_slots",
+                "cards": [{"slot": slot, "status": "supported"} for slot in range(100)],
+                "counts": {
+                    "supported": 100,
+                    "partial": 0,
+                    "unsupported": 0,
+                    "inactive": 0,
+                },
+            },
+        }
         item["settings"].update(
             policy="pilot", effects_sha256="global-catalog", strategy_pack_sha256="pack"
         )
@@ -136,3 +151,58 @@ def test_fully_supported_same_catalog_metric_can_be_validated_without_verdict():
     assert metric["validated"]
     assert metric["unvalidated_reason"] == ""
     assert metric["verdict"] == "descriptive"
+
+
+@pytest.mark.parametrize("legacy", [True, False])
+def test_authored_counts_do_not_hide_partial_or_unverified_effects(legacy):
+    seed = validation_seed(17)
+    before, after = report(seed), report(seed, 0.6)
+    for item in (before, after):
+        item["coverage"] = {
+            "total_cards": 100,
+            "modeled_cards": 100,
+            "inert_cards": 0,
+            "unauthored_cards": 0,
+        }
+        if not legacy:
+            item["coverage"]["card_coverage"] = {
+                "version": 1,
+                "unit": "card_slots",
+                "counts": {
+                    "supported": 99,
+                    "partial": 1,
+                    "unsupported": 0,
+                    "inactive": 0,
+                },
+            }
+        item["settings"].update(
+            policy="pilot", effects_sha256="catalog", strategy_pack_sha256="pack"
+        )
+    metric = compare_validation(before, after, training_seed=17)["comparison"][
+        "metric_deltas"
+    ]["opening"]["keep"]
+    assert not metric["validated"]
+    assert "unverified" in metric["unvalidated_reason"]
+
+
+def test_complete_counts_without_slot_evidence_are_not_certified():
+    from sabermetrics.goldfish_validation import _coverage_complete
+
+    value = {
+        "coverage": {
+            "total_cards": 1,
+            "card_coverage": {
+                "version": 1,
+                "unit": "card_slots",
+                "counts": {
+                    "supported": 1,
+                    "partial": 0,
+                    "unsupported": 0,
+                    "inactive": 0,
+                },
+            },
+        }
+    }
+    assert not _coverage_complete(value)
+    value["coverage"]["card_coverage"]["cards"] = [{"slot": 0, "status": "partial"}]
+    assert not _coverage_complete(value)

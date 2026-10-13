@@ -282,6 +282,7 @@ const views = {
   diagnostics: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
 };
 
+views["unknown-freshness"] = { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { ...doneView, freshness: "unknown", freshness_reason: "Stored fingerprint unavailable." } };
 const initialState = views[scenario] || views.states;
 const data = el("script", { id: "deck-document-data", type: "application/json" });
 data.textContent = JSON.stringify(initialState);
@@ -358,6 +359,7 @@ async function fireNext() {
 }
 
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(new URL("../src/sabermetrics/ui/static/deck-lab-coverage.js", import.meta.url), "utf8"), context);
 vm.runInContext(source, context);
 
 const section = slot;

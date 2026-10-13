@@ -1145,3 +1145,174 @@ def test_final_findings_and_next_action_form_user_facing_answer(prepared):
     )
     assert receipt["data"]["front_land_count"] == 99
     assert receipt["data"]["commanders"][0]["name"] == commander["name"]
+
+
+def test_card_coverage_lookup_returns_only_requested_slots(prepared, monkeypatch):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    cards = [
+        {
+            "slot": index,
+            "name": "Vivi " + str(index),
+            "status": "partial",
+            "supported_effects": ["spell trigger"],
+            "limitations": ["combat absent"],
+        }
+        for index in range(100)
+    ]
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.simulation_view",
+        lambda *_: {
+            "id": "audit",
+            "freshness": "current",
+            "freshness_scope": "deck_content_under_recorded_settings",
+            "result": {
+                "diagnostics": {
+                    "coverage": {
+                        "card_coverage": {"counts": {"partial": 100}, "cards": cards}
+                    }
+                }
+            },
+        },
+    )
+    gateway = Gateway(
+        [
+            step(
+                call(
+                    "goldfish_card_coverage",
+                    {"query": "Vivi", "offset": 10, "limit": 2},
+                )
+            ),
+            step(content="These two cards have partial coverage."),
+        ]
+    )
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    receipt = next(
+        item
+        for item in result["actions"]
+        if item.get("name") == "goldfish_card_coverage"
+        and item.get("type") == "tool_result"
+    )
+    assert receipt["data"]["cards"] == cards[10:12]
+    assert receipt["data"]["omitted_count"] == 98
+    assert receipt["data"]["freshness_scope"] == "deck_content_under_recorded_settings"
+
+
+def test_freshness_receipts_are_live_evidence_not_replayed_history():
+    from sabermetrics.assistant_runtime import (
+        SYSTEM,
+        _conversation,
+        _encode_context,
+    )
+
+    receipt = {
+        "name": "latest_goldfish",
+        "data": {
+            "freshness": "current",
+            "freshness_reason": "Matches the current deck under recorded settings.",
+            "freshness_scope": "deck_content_under_recorded_settings",
+            "stale": False,
+            "view": {"id": "run-1", "revision": 4, "deck_sha256": "same-list"},
+        },
+    }
+    old_tool = {"role": "tool", "result": receipt}
+    assert _conversation([old_tool]) == []
+    context = json.loads(_encode_context({"revision": 24}, "Explain", [old_tool]))
+    data = context["conversation"][0]["result"]["data"]
+    assert data["freshness"] == "current"
+    assert data["report_revision"] == 4
+    assert data["freshness_scope"] == "deck_content_under_recorded_settings"
+    assert "revision mismatch alone does not make" in SYSTEM
+    assert "Call latest_goldfish again" in SYSTEM
+
+
+def test_full_turn_coverage_preserves_ui_audit_and_bounded_model_details(
+    prepared, monkeypatch
+):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    cards = [
+        {
+            "slot": i,
+            "name": "Vivi " + str(i),
+            "status": "partial",
+            "supported_effects": ["spell damage trigger"],
+            "limitations": ["combat not implemented"],
+        }
+        for i in range(100)
+    ]
+    view = {
+        "id": "audit",
+        "status": "done",
+        "freshness": "current",
+        "result": {
+            "diagnostics": {
+                "coverage": {
+                    "total_cards": 100,
+                    "card_coverage": {
+                        "version": 1,
+                        "unit": "card_slots",
+                        "counts": {
+                            "supported": 0,
+                            "partial": 100,
+                            "unsupported": 0,
+                            "inactive": 0,
+                        },
+                        "cards": cards,
+                    },
+                },
+                "tests": {
+                    "opening": {
+                        "status": "partial",
+                        "metrics": {
+                            "qualified_opening_rate": {
+                                "value": 0.5,
+                                "unit": "proportion",
+                            }
+                        },
+                    }
+                },
+            }
+        },
+    }
+    monkeypatch.setattr("sabermetrics.assistant_tools.simulation_view", lambda *_: view)
+    gateway = Gateway(
+        [
+            step(call("latest_goldfish")),
+            step(call("goldfish_card_coverage", {"query": "Vivi", "limit": 2})),
+            step(content="Coverage remains partial."),
+        ]
+    )
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    assert (
+        result["presentation"]["goldfish"]["coverage"]["card_coverage"]["cards"]
+        == cards
+    )
+    receipt = next(
+        action
+        for action in result["actions"]
+        if action.get("name") == "latest_goldfish"
+        and action.get("type") == "tool_result"
+    )
+    assert receipt["data"]["coverage"]["card_coverage"]["cards"] == cards
+    context = json.loads(gateway.requests[1].user)
+    latest = next(
+        item["result"]
+        for item in context["conversation"]
+        if item.get("name") == "latest_goldfish"
+    )
+    audit = latest["data"]["coverage"]["card_coverage"]
+    assert audit["omitted_slots"] == 100
+    assert audit["counts"]["partial"] == 100
+    assert "cards" not in audit
+    context = json.loads(gateway.requests[2].user)
+    detail = next(
+        item["result"]
+        for item in context["conversation"]
+        if item.get("name") == "goldfish_card_coverage"
+    )
+    assert detail["data"]["cards"][0]["supported_effects"] == ["spell damage trigger"]
+    assert detail["data"]["cards"][0]["limitations"] == ["combat not implemented"]
+    assert all(len(request.user) <= 16000 for request in gateway.requests)

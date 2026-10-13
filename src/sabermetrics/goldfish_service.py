@@ -17,6 +17,11 @@ from pathlib import Path
 from typing import Any
 
 from sabermetrics.deck_documents import _is_public_library_zone
+from sabermetrics.deck_simulation import (
+    candidate_from_document,
+    report_freshness,
+    user_edited_provenance,
+)
 from sabermetrics.goldfish_experiments import GoldfishExperimentsRepo
 
 ARTIFACT = Path(__file__).parent / "vendor" / "goldfish_diagnostics.pyz"
@@ -204,7 +209,14 @@ def experiment_view(
             "owner_id",
         }
     }
-    view["stale"] = int(row["deck_revision"]) != int(current_document["revision"])
+    try:
+        current_hash = candidate_from_document(
+            current_document, user_edited_provenance()
+        ).deck_sha256
+    except ValueError:
+        current_hash = None
+    view.update(report_freshness(row.get("deck_sha256"), current_hash))
+    view["stale"] = view["freshness"] == "stale"
     view["recommendations"] = recommendations(result) if result else []
     comparisons = []
     for label, related_id in (

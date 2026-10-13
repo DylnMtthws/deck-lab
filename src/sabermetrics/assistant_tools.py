@@ -97,6 +97,11 @@ class EvidenceCall(StrictModel):
     arguments: EvidenceArgs
 
 
+class CoverageCall(StrictModel):
+    name: Literal["goldfish_card_coverage"]
+    arguments: InspectArgs
+
+
 class LatestCall(StrictModel):
     name: Literal["latest_goldfish"]
     arguments: EmptyArgs
@@ -128,6 +133,7 @@ ToolCall = Annotated[
     | CardCall
     | EvidenceCall
     | LatestCall
+    | CoverageCall
     | RunCall
     | IntelligenceCall
     | ProposeCall
@@ -323,6 +329,33 @@ class AssistantTools:
                 "revision": self.revision,
                 "note": "Recorded list inclusion is evidence of use, not a win forecast or proof of a swap's effect.",
             }
+        if call.name == "goldfish_card_coverage":
+            view = simulation_view(self.path, self.deck_id)
+            coverage = ((view.get("result") or {}).get("diagnostics") or {}).get(
+                "coverage"
+            ) or {}
+            audit = coverage.get("card_coverage") or {}
+            cards = [
+                card
+                for card in audit.get("cards", [])
+                if args.query.casefold() in card.get("name", "").casefold()
+            ]
+            return {
+                "report_id": view.get("id"),
+                "freshness": view.get("freshness", "unknown"),
+                "freshness_scope": view.get("freshness_scope"),
+                "counts": audit.get("counts"),
+                "cards": cards[args.offset : args.offset + args.limit],
+                "matching_slots": len(cards),
+                "omitted_count": max(
+                    0, len(cards) - len(cards[args.offset : args.offset + args.limit])
+                ),
+                "note": (
+                    "Legacy authoring categories do not distinguish partial from missing effects."
+                    if not audit
+                    else "Coverage applies to recorded simulation settings; unknown outcomes are not failures."
+                ),
+            }
         if call.name == "latest_goldfish":
             view = simulation_view(self.path, self.deck_id)
             return {"view": view, **_goldfish_observations(view)}
@@ -492,6 +525,12 @@ class AssistantTools:
                                 "unauthored_cards",
                             )
                         },
+                        "card_coverage_counts": (
+                            (item.get("training_report") or {})
+                            .get("coverage", {})
+                            .get("card_coverage")
+                            or {}
+                        ).get("counts"),
                         "comparison_comparable": (item.get("comparison") or {}).get(
                             "comparable"
                         ),
@@ -716,7 +755,10 @@ def _goldfish_observations(view: dict[str, Any]) -> dict[str, Any]:
         "test_statuses": statuses,
         "settings": diagnostics.get("settings"),
         "coverage": diagnostics.get("coverage"),
-        "coverage_note": "Coverage counts classify whole cards, not individual effects. Cards counted unauthored may still execute partial diagnostic effects. Consult the native coverage assumptions and test limitations before declaring any mechanic unsupported.",
+        "coverage_note": "Per-card coverage, when present, counts card slots under recorded simulation settings. Supported does not imply multiplayer validation. Legacy authoring labels do not distinguish missing effects from partial diagnostic effects. Consult each card’s implemented effects and limitations; unknown is not failure.",
+        "freshness": view.get("freshness", "unknown"),
+        "freshness_scope": view.get("freshness_scope"),
+        "freshness_reason": view.get("freshness_reason"),
         "stale": view.get("stale"),
         "report_status": view.get("status"),
         "report_id": view.get("id"),

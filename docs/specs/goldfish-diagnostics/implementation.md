@@ -24,6 +24,26 @@ Any handoff must name its scope, acceptance KPI, and resulting test/trace eviden
 
 ## Current architecture
 
+### Milestone 1 specification — 2026-10-13
+
+Scope: make the current native diagnostic coverage inspectable and report freshness consistent in Build, Goldfish and Chat. This milestone changes evidence contracts/presentation, not simulation mechanics or the meaning of a verified finish. The P1 above remains open after this milestone.
+
+Add an optional `diagnostics.coverage.card_coverage` object, version `1`, unit `card_slots`, with exclusive `supported`, `partial`, `unsupported`, and `inactive` counts and a `cards` list. Each slot contains `slot`, `name`, `status`, `supported_effects`, and `limitations`. Counts must reconcile to the supplied commander plus library; sideboard cards are excluded. Supported means verified within the explicitly stated solo scope, not merely an existing authored definition. Unverified completeness remains partial. Known missing mechanics and unaudited remainder must be distinguishable. Existing count fields stay compatible; historical reports lacking the new object remain visibly legacy evidence without fabricated reclassification.
+
+Present a compact summary with expandable per-card detail using safe semantic DOM. Assistant evidence must remain bounded: do not inline all cards into every model turn. Preserve explicit omissions and a route to relevant detail. Unknown outcomes must not become zero or deck failure.
+
+Freshness uses the authoritative simulation input identity and applicable settings, not revision inequality alone. Editing a title/order must not invalidate an unchanged simulation input; changing a card or applicable run configuration must invalidate it or explicitly require rechecking. Stored chat charts must not silently assert freshness after edits. Optimistic concurrency checks for adopting an experiment remain revision-based and separate from report freshness.
+
+Handoffs: native coverage owns producer/schema and reconciled four-fixture audit; app coverage owns consumer/schema, bounded assistant evidence and accessible UI; freshness owns server identity checks and regression tests, coordinating chart behavior with app coverage. Every handoff reports changed files, targeted test evidence, and reasons for unmet KPIs. Coordinator reviews the combined diff, challenges misleading completeness/freshness claims, runs integration checks, and iterates before QA release. No production deployment is authorized.
+
+#### Freshness scope and endpoints
+
+The existing owner-scoped `GET /api/decks/<id>/simulate` latest-result view and archived experiment view expose `freshness` (`current`, `stale`, or `unknown`), `freshness_reason`, and `freshness_scope=deck_content_under_recorded_settings`. Identity uses the shared commander/public-library oracle-ID and quantity hash; ordering, presentation revisions and private sideboard edits do not change it. Missing or unhashable identity is unknown. The compatibility `stale` boolean must not be interpreted as proof of current identity when freshness is unknown.
+
+Current means the deck content matches the receipt **under that run's recorded settings and engine**. It does not assert that a newly deployed engine or configuration matches the historical run. There is no mutable per-deck run-settings selector to validate here. Existing settings/engine compatibility checks separately suppress incompatible comparisons and require a new baseline. Changes to mechanics or configuration require rerunning before making new comparative claims. Adoption continues to use revision checks to protect concurrent edits.
+
+Chat rechecks the latest endpoint after deck/message rendering. Only matching report IDs can inherit its authoritative freshness; older saved chat reports remain unverified rather than guessing from revisions. A future owner-scoped historical-report lookup could verify those older hashes individually.
+
 Goldfish is a selectable feature within Build on an existing deck. It opens in a builder dialog and invokes the existing native simulator through the established owner-only `/api/decks/<id>/simulate` endpoint. There is no separate Goldfish navigation destination. Old page URLs redirect into Build; the separate Python diagnostics POST returns 410. Its stored results remain an owner-only archive, not inputs to native comparisons.
 
 The earlier Python zipapp milestone below is historical and superseded. It was the wrong execution path: the existing C++ engine already provides seeded batches, effects, policy, statistics, coverage, and a private QA service. The five diagnostics must extend that engine.

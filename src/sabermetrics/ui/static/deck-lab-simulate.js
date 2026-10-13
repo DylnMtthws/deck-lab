@@ -283,14 +283,7 @@
       }
       var coverage = diagnostics.coverage;
       if (coverage && typeof coverage === "object") {
-        var coverageLine = document.createElement("p");
-        coverageLine.className = "dl-sim-diagnostic-coverage";
-        var coverageParts = [];
-        if (coverage.modeled_cards != null) coverageParts.push(numberText(coverage.modeled_cards) + " modeled");
-        if (coverage.inert_cards != null) coverageParts.push(numberText(coverage.inert_cards) + " inactive in solo play");
-        if (coverage.unauthored_cards != null) coverageParts.push(numberText(coverage.unauthored_cards) + " without simulator-authored rules");
-        coverageLine.textContent = (coverageParts.length ? coverageParts.join(" · ") : "Coverage counts not reported") + ". These results describe only the reported simulation scope, not a multiplayer win-rate forecast.";
-        diagnosticsEl.appendChild(coverageLine);
+        window.DeckLabCoverage.render(diagnosticsEl, coverage);
       }
       diagnosticTests.forEach(function (entry) {
         var key = entry[0];
@@ -436,7 +429,7 @@
       activeView = view;
       var status = String(view.status || "");
       var running = status === "queued" || status === "running";
-      if (rerunButton) rerunButton.hidden = shared || !view.stale;
+      if (rerunButton) rerunButton.hidden = shared || !(view.stale || (view.freshness === "unknown" && view.result));
       syncReadiness();
       if (running) {
         setText(statusEl, status === "queued" ? "Simulation queued…" : "Running Goldfish…");
@@ -478,10 +471,10 @@
         var unauthored = result.unauthored_card_count == null ? NaN : Number(result.unauthored_card_count);
         if (Number.isFinite(modeled)) coverageParts.push(modeled + " modeled");
         if (Number.isFinite(inactive)) coverageParts.push(inactive + " inactive in solo play");
-        if (Number.isFinite(unauthored)) coverageParts.push(unauthored + " without simulator-authored rules");
+        if (Number.isFinite(unauthored)) coverageParts.push(unauthored + " in the legacy unauthored category (partial or missing effects)");
         if (!coverageParts.length && result.unseen_card_count != null && Number.isFinite(Number(result.unseen_card_count))) coverageParts.push("Unavailable cards: " + Number(result.unseen_card_count));
         var coverageText = coverageParts.length ? coverageParts.join(" · ") + ". " : "Card coverage was not reported. ";
-        setText(coverageEl, coverageText + "Results apply only to modeled cards; they do not verify a deck-wide win.");
+        setText(coverageEl, coverageText + "Legacy authoring counts cannot distinguish partial from missing effects; they do not verify a deck-wide win.");
         runMetaEl.hidden = !runMeta.length;
         coverageEl.hidden = false;
         var objectives = Array.isArray(result.assembly_objectives) && result.assembly_objectives.length ? " Supported objectives: " + result.assembly_objectives.map(function (name) { return String(name).replace(/_/g, " "); }).join("; ") + "." : "";
@@ -501,7 +494,7 @@
       var unseen = delta && delta.unseen_card_count ? delta.unseen_card_count.text : "";
       setText(unseenEl, unseen ? String(unseen) : "");
       setText(baselineEl, view.baseline_message ? String(view.baseline_message) : "");
-      setText(staleEl, view.stale_message ? String(view.stale_message) : "");
+      setText(staleEl, view.freshness === "unknown" ? "Report freshness unknown: " + (view.freshness_reason || "The current deck could not be compared.") : view.stale_message ? String(view.stale_message) : view.freshness === "current" ? "Current deck list under recorded simulation settings; engine and settings changes are not checked." : "");
     }
 
     function stopPoll() {

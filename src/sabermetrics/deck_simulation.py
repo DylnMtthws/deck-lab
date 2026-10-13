@@ -303,10 +303,10 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
     status = str(row.get("status") or "")
     stored_hash = str(row.get("deck_sha256") or "")
     reason = str(row.get("reason") or "")
-    stale = False
-    if status in {"done", "not_simulated"} and stored_hash and document is not None:
-        current = _hash_of(path, document)
-        stale = current != stored_hash
+    freshness = report_freshness(
+        stored_hash, _hash_of(path, document) if document is not None else None
+    )
+    stale = freshness["freshness"] == "stale"
     result_payload: dict[str, Any] | None = None
     delta: dict[str, Any] | None = None
     baseline_message = ""
@@ -333,6 +333,7 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
         "id": row.get("id"),
         "status": status,
         "reason": reason if status == "not_simulated" else "",
+        **freshness,
         "stale": stale,
         "stale_message": STALE_MESSAGE if stale else "",
         "baseline_message": baseline_message,
@@ -842,6 +843,33 @@ def _baseline_result(
     return None
 
 
+def report_freshness(
+    stored_hash: str | None, current_hash: str | None
+) -> dict[str, Any]:
+    """Compare list identity only; settings and engine remain pinned to the receipt.
+
+    Revisions include presentation edits and are not evidence of changed input.
+    Missing identity is unknown, never affirmative evidence of a current report.
+    This does not certify comparison compatibility across run settings or engines.
+    """
+    if not stored_hash or not current_hash:
+        state = "unknown"
+        reason = (
+            "Deck identity could not be verified; rerun before relying on this report."
+        )
+    elif stored_hash != current_hash:
+        state = "stale"
+        reason = STALE_MESSAGE
+    else:
+        state = "current"
+        reason = "Matches the current deck list under this report's recorded settings and engine."
+    return {
+        "freshness": state,
+        "freshness_reason": reason,
+        "freshness_scope": "deck_content_under_recorded_settings",
+    }
+
+
 def _hash_of(path: Path, document: dict[str, Any]) -> str | None:
     try:
         return candidate_from_document(
@@ -868,6 +896,7 @@ def _empty_view() -> dict[str, Any]:
     return {
         "id": None,
         "status": "none",
+        **report_freshness(None, None),
         "reason": "",
         "stale": False,
         "stale_message": "",

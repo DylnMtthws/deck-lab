@@ -47,10 +47,18 @@ may describe supported partial effects on those cards; do not turn that into a
 claim that those effects never execute. Distinguish effect support from whole-card
 coverage and from a verified complete win.
 Preserve measured revision and provenance in receipts; explain stale reports
-as measurements of an earlier list, not the current deck. Role tags and model claims are not verified card mechanics.
+as measurements of an earlier list, not the current deck. Use the tool's
+freshness status as authoritative: a revision mismatch alone does not make a
+report stale. Unknown freshness is unverified, not current. Current freshness
+means matching deck content under the recorded settings and engine; it does not
+certify that settings match another run or that card mechanics are complete.
+Freshness in saved conversation receipts only describes the state when the tool
+ran. Call latest_goldfish again before assessing the present deck from a saved
+report; do not reuse an old current flag as evidence of present freshness. Role tags and model claims are not verified card mechanics.
 Use search_cards for real catalog IDs; inspect_deck for outgoing entry IDs;
 card_details for printed facts; research_evidence for tournament-list use;
 latest_goldfish or run_goldfish for measured native observations;
+goldfish_card_coverage for bounded per-card supported effects and limitations;
 generator_intelligence for stored candidate explanations and heuristic roles.
 Use propose_replacements to validate a named preview of one to three swaps.
 Only validated tool previews may be offered as actionable proposals. Respect
@@ -170,6 +178,25 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
                 data["report_" + key] = view.get(key)
         del data["view"]
         omitted.append("view (full report retained in Goldfish)")
+        coverage = data.get("coverage")
+        if isinstance(coverage, dict) and isinstance(
+            coverage.get("card_coverage"), dict
+        ):
+            audit = coverage["card_coverage"]
+            data["coverage"] = {
+                key: value
+                for key, value in coverage.items()
+                if key not in {"card_coverage", "unauthored_names", "unsupported_cards"}
+            }
+            data["coverage"]["card_coverage"] = {
+                key: audit.get(key) for key in ("version", "unit", "counts")
+            }
+            data["coverage"]["card_coverage"]["omitted_slots"] = len(
+                audit.get("cards", [])
+            )
+            omitted.append(
+                "coverage.card_coverage.cards (use goldfish_card_coverage query/offset for per-card effects)"
+            )
         data["test_statuses"] = [
             {
                 **status,
@@ -184,6 +211,9 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
             }
             for status in data.get("test_statuses", [])
         ]
+    # Compact once relative to tool data, before envelope nesting can hide effects.
+    data = _compact(data)
+    result["data"] = data
     # Tool/catalog growth must not abort a turn. Remove the largest detail
     # fields first, preserving actual values in the fields that fit. Never
     # invent a summary or replace unknown measurements with zero.
@@ -205,15 +235,17 @@ def _encode_context(
     state: dict[str, Any], latest_request: str, transcript: list
 ) -> str:
     """Pin the request and preferences while evicting older evidence as needed."""
-    conversation = [
-        (
-            dict(item, result=_model_receipt(item["result"]))
-            if item.get("role") == "tool" and isinstance(item.get("result"), dict)
-            else item
-        )
-        for item in transcript[-10:]
-    ]
-    payload = _compact({"state": state, "conversation": conversation})
+    conversation = []
+    for item in transcript[-10:]:
+        if item.get("role") == "tool" and isinstance(item.get("result"), dict):
+            entry = _compact(
+                {key: value for key, value in item.items() if key != "result"}
+            )
+            entry["result"] = _model_receipt(item["result"])
+        else:
+            entry = _compact(item)
+        conversation.append(entry)
+    payload = {"state": _compact(state), "conversation": conversation}
     # Do not truncate the actual instruction to the generic 1,200-character
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
@@ -487,6 +519,9 @@ def run_turn(
                                 "coverage",
                                 "coverage_note",
                                 "stale",
+                                "freshness",
+                                "freshness_reason",
+                                "freshness_scope",
                                 "report_status",
                                 "report_note",
                             )
@@ -504,7 +539,7 @@ def run_turn(
                         "ok": outcome_status
                         not in {"failed", "stopped", "not_simulated"},
                         "status": outcome_status,
-                        "data": _compact(data),
+                        "data": data,
                         "revision": result["revision"],
                     }
                 except ToolStopped:

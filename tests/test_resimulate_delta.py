@@ -1032,3 +1032,33 @@ def test_zero_finish_proof_is_not_presented_as_verified_failure():
     assert (
         "Proven finish lower bound: No proof observed; other outcomes unknown" in text
     )
+
+
+def test_native_freshness_ignores_presentation_revision(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    _install(monkeypatch, FakeSimulator(frozenset({COMMANDER})), ImmediateExecutor())
+    _post(client, deck_id)
+    before = _latest(client, deck_id)
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_documents SET revision=revision+1 WHERE id=?", (deck_id,)
+        )
+    after = _latest(client, deck_id)
+    assert after["revision"] == before["revision"]
+    assert after["freshness"] == "current"
+    assert after["stale"] is False
+    assert after["freshness_scope"] == "deck_content_under_recorded_settings"
+
+
+def test_missing_freshness_identity_is_unknown():
+    from sabermetrics.deck_simulation import report_freshness
+
+    for stored, current in [(None, "hash"), ("hash", None), ("", "")]:
+        assert report_freshness(stored, current)["freshness"] == "unknown"
+
+
+def test_ui_unknown_freshness_explains_and_allows_rerun():
+    result = _harness("unknown-freshness")
+    assert "Stored fingerprint unavailable" in result["stale"]
+    assert result["rerun"] == "Run Goldfish again"

@@ -13,6 +13,40 @@ from typing import Any
 from sabermetrics.native_diagnostics_comparison import compare_reports
 
 
+def _coverage_complete(report: dict[str, Any]) -> bool:
+    """Legacy authored counts never establish complete effect coverage."""
+    coverage = report.get("coverage")
+    if not isinstance(coverage, dict):
+        return False
+    detail = coverage.get("card_coverage")
+    if not isinstance(detail, dict) or detail.get("version") != 1:
+        return False
+    counts = detail.get("counts")
+    cards = detail.get("cards")
+    total = coverage.get("total_cards")
+    return (
+        detail.get("unit") == "card_slots"
+        and isinstance(counts, dict)
+        and type(total) is int
+        and total > 0
+        and isinstance(cards, list)
+        and len(cards) == total
+        and all(
+            isinstance(card, dict)
+            and card.get("status") == "supported"
+            and type(card.get("slot")) is int
+            for card in cards
+        )
+        and sorted(card["slot"] for card in cards) == list(range(total))
+        and type(counts.get("supported")) is int
+        and counts["supported"] == total
+        and all(
+            type(counts.get(key)) is int and counts[key] == 0
+            for key in ("partial", "unsupported", "inactive")
+        )
+    )
+
+
 def validation_seed(training_seed: int) -> int:
     if (
         isinstance(training_seed, bool)
@@ -47,12 +81,7 @@ def compare_validation(
         settings.get(key) and settings.get(key) == after.get("settings", {}).get(key)
         for key in identity
     )
-    coverage_complete = all(
-        isinstance(report.get("coverage"), dict)
-        and report["coverage"].get("inert_cards") == 0
-        and report["coverage"].get("unauthored_cards") == 0
-        for report in (before, after)
-    )
+    coverage_complete = all(_coverage_complete(report) for report in (before, after))
     for test, metrics in comparison["metric_deltas"].items():
         for name, metric in metrics.items():
             left = (
@@ -74,7 +103,7 @@ def compare_validation(
                 )
             if not coverage_complete:
                 reasons.append(
-                    "Coverage is incomplete: inert or unauthored cards remain, or coverage counts are missing."
+                    "Coverage is incomplete or unverified: partial, unsupported, or inactive cards remain, or explicit effect-coverage counts are missing."
                 )
             if not all(
                 isinstance(item.get("denominator"), int)

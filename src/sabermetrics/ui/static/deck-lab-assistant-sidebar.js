@@ -450,7 +450,8 @@
     (goldfish.test_statuses || []).forEach(function (item) { statuses[item.test] = item; });
     var figure = element("figure", null, "dl-assistant-goldfish-chart");
     figure.dataset.reportRevision = goldfish.report_revision == null ? "" : String(goldfish.report_revision);
-    figure.dataset.reportStale = goldfish.stale ? "true" : "false";
+    figure.dataset.reportId = goldfish.report_id || "";
+    figure.dataset.reportFreshness = goldfish.freshness || "unknown";
     var reportLine = "Native Goldfish observations · " + (goldfish.report_status || "status unknown") + " · not a multiplayer win-rate forecast";
     if (goldfish.report_revision != null) reportLine += " · revision " + goldfish.report_revision;
     figure.appendChild(element("figcaption", reportLine));
@@ -491,7 +492,7 @@
     figure.appendChild(grid);
     var coverage = goldfish.coverage;
     if (coverage && typeof coverage === "object") {
-      figure.appendChild(element("p", "Model coverage · " + ["modeled_cards", "total_cards", "inert_cards", "unauthored_cards"].map(function (key) { return key.replace(/_cards$/, "") + ": " + (coverage[key] == null ? "unknown" : coverage[key]); }).join(" · ")));
+      window.DeckLabCoverage.render(figure, coverage);
     }
     if (goldfish.report_note) figure.appendChild(element("small", goldfish.report_note));
     var notes = element("details"); notes.appendChild(element("summary", "Test coverage and limitations"));
@@ -502,21 +503,29 @@
     host.appendChild(figure);
   }
   function updateChartStaleness(figure) {
-    var reportRevision = figure.dataset.reportRevision;
-    var revisionMismatch = reportRevision !== "" && state.revision != null && Number(reportRevision) !== Number(state.revision);
-    var stale = figure.dataset.reportStale === "true" || revisionMismatch;
+    var freshness = figure.dataset.reportFreshness || "unknown";
     var note = figure.querySelector(".dl-assistant-stale-note");
-    if (stale && !note) {
+    if (!note) {
       note = element("p", null, "dl-assistant-stale-note");
       figure.insertBefore(note, figure.querySelector(".dl-assistant-metric-grid"));
     }
-    if (note) {
-      note.hidden = !stale;
-      note.textContent = "This report is stale for the current deck revision" + (revisionMismatch ? " (report revision " + reportRevision + "; current revision " + state.revision + ")." : ".");
-    }
+    note.hidden = freshness === "current";
+    note.textContent = freshness === "stale" ? "This report measures a previous deck list." : "Report freshness has not been verified for the current deck. Recorded settings still apply.";
   }
+  var freshnessRequest = 0;
   function refreshChartStaleness() {
-    sidebar.querySelectorAll(".dl-assistant-goldfish-chart").forEach(updateChartStaleness);
+    var sequence = ++freshnessRequest;
+    sidebar.querySelectorAll(".dl-assistant-goldfish-chart").forEach(function (figure) {
+      figure.dataset.reportFreshness = "unknown"; updateChartStaleness(figure);
+    });
+    if (!sidebar.querySelector(".dl-assistant-goldfish-chart")) return;
+    request("/api/decks/" + deckId + "/simulations/latest").then(function (view) {
+      if (sequence !== freshnessRequest) return;
+      sidebar.querySelectorAll(".dl-assistant-goldfish-chart").forEach(function (figure) {
+        figure.dataset.reportFreshness = view.id && figure.dataset.reportId === String(view.id) ? (view.freshness || "unknown") : "unknown";
+        updateChartStaleness(figure);
+      });
+    }).catch(function () { /* Keep unknown when the authoritative check fails. */ });
   }
   function appendSearchResults(article, message) {
     var action = message && message.action;
@@ -610,6 +619,7 @@
       cursor += 1;
     }
     renderedMessageSignature = signature;
+    refreshChartStaleness();
     if (nearBottom) surface.scrollTop = surface.scrollHeight;
   }
   function appendMetricSummary(host, rows) {
