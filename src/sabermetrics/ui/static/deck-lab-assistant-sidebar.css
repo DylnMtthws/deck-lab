@@ -147,14 +147,14 @@
 }
 
 /* Semantic prose: predictable reading rhythm, visible markers and no fixed text height. */
-.dl-assistant-prose { font-size:1rem; line-height:1.6; text-align:start; max-width:65ch; }
-.dl-assistant-prose p { margin:0 0 1em; }
-.dl-assistant-prose ul,.dl-assistant-prose ol { display:block; margin:0 0 1em; padding-inline-start:1.5em; }
+.dl-assistant-prose { font-size:.875rem; line-height:1.55; text-align:start; max-width:65ch; }
+.dl-assistant-prose p { margin:0 0 .8em; }
+.dl-assistant-prose ul,.dl-assistant-prose ol { display:block; margin:0 0 .8em; padding-inline-start:1.5em; }
 .dl-assistant-prose ul { list-style:disc outside; }
 .dl-assistant-prose ol { list-style:decimal outside; }
-.dl-assistant-prose li { display:list-item; margin-block:.6em; padding-inline-start:.15em; }
+.dl-assistant-prose li { display:list-item; margin-block:.45em; padding-inline-start:.15em; }
 .dl-assistant-prose li::marker { color:var(--body); }
-.dl-assistant-prose h3 { margin:1.25em 0 .5em; font:600 1rem/1.5 var(--sans); color:var(--body); }
+.dl-assistant-prose h3 { margin:1.25em 0 .5em; font:600 .875rem/1.5 var(--sans); color:var(--body); }
 .dl-assistant-prose > :first-child { margin-top:0; }
 .dl-assistant-prose > :last-child { margin-bottom:0; }
 .dl-assistant-next-action { margin-top:1em; padding-top:1em; border-top:1px solid var(--line); }
@@ -164,4 +164,35 @@
 .dl-assistant-starters button,.dl-assistant-tabs button { min-height:28px; }
 @media (max-width:380px) {
   .dl-workspace-header { flex-wrap:wrap; height:auto; min-height:56px; padding-block:4px; }
+}
+
+/* Keep navigation, conversation and composition visually distinct. */
+.dl-assistant-head { min-height:44px; }
+.dl-assistant-head h2 { margin:0; }
+.dl-assistant-tabs { padding-block:6px; }
+.dl-assistant-pane[data-assistant-pane="chat"] { gap:10px; }
+.dl-assistant-chat-controls { flex:none; flex-wrap:nowrap; justify-content:space-between; }
+.dl-assistant-chat-controls .dl-segments { flex:0 1 auto; }
+.dl-assistant-chat-controls > button { margin-left:auto; }
+.dl-assistant-transcript { margin:0; padding:4px 2px; gap:20px; }
+.dl-assistant-message[data-role="assistant"] { width:100%; max-width:100%; padding:4px 2px; border:0; border-radius:0; background:transparent; }
+.dl-assistant-message[data-role="tool"] { padding:4px 2px; border:0; background:transparent; }
+.dl-assistant-message[data-role="user"] { max-width:92%; padding:8px 10px; }
+.dl-assistant-next-action { margin-top:.8em; padding-top:.8em; }
+.dl-assistant-welcome { padding:20px 2px; }
+.dl-assistant-welcome > p { margin:0 0 12px; font-size:.875rem; color:var(--body); }
+.dl-assistant-welcome[hidden],.dl-assistant-provider[hidden] { display:none; }
+.dl-assistant-starters { display:grid; gap:8px; }
+.dl-assistant-starters button { text-align:left; border-radius:var(--r-sm); padding:9px 10px; color:var(--body); }
+.dl-assistant-provider { margin:0; }
+.dl-assistant-status { margin:0; }
+.dl-assistant-status:empty { display:none; }
+.dl-assistant-composer { gap:4px; padding:8px; border:1px solid var(--line); border-radius:var(--r-md); background:var(--panel-2); }
+.dl-assistant-composer:focus-within { border-color:var(--muted); }
+.dl-assistant-composer textarea { min-height:48px; max-height:140px; padding:4px; border:0; background:transparent; box-shadow:none; font-size:.875rem; line-height:1.5; }
+.dl-assistant-composer-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.dl-assistant-composer-actions [data-assistant-stop] { margin-right:auto; }
+.dl-assistant-composer-actions button { min-height:30px; }
+@media (min-width:768px) {
+  .dl-assistant-sidebar { height:calc(100% - 36px); }
 }

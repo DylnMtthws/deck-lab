@@ -83,7 +83,7 @@
     {% if not shared %}
     <aside class="dl-assistant-sidebar" id="assistant-sidebar" data-assistant-sidebar aria-label="Research Assistant">
         <div class="dl-assistant-head">
-            <div><div class="dl-eyebrow">Build</div><h2>Research Assistant</h2></div>
+            <h2>Research Assistant</h2>
             <div class="dl-assistant-head-actions"><button class="dl-icon-button" type="button" data-toggle-rail="left" aria-label="Collapse Research Assistant" aria-expanded="true" title="Collapse sidebar">‹</button><button class="dl-icon-button" type="button" data-assistant-close aria-label="Close Research Assistant drawer" title="Close drawer">×</button></div>
         </div>
         <div class="dl-assistant-tabs" role="tablist" aria-label="Research Assistant panels">
@@ -97,16 +97,11 @@
                     <button type="button" data-assistant-mode="suggest" aria-pressed="true">Suggest</button>
                     <button type="button" data-assistant-mode="automate" aria-pressed="false">Automate</button>
                 </div>
-                <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false">Constraints</button>
-                <button class="dl-button is-sm" type="button" data-assistant-stop hidden>Stop</button>
+                <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false" aria-controls="assistant-constraints" title="Budget, power level, theme and protected cards">Settings</button>
             </div>
-            <div class="dl-assistant-starters" aria-label="Start a research question">
-                <button type="button" data-assistant-starter="Review this deck. Summarize what the current measured evidence does and does not say.">Review this deck</button>
-                <button type="button" data-assistant-starter="Find cards that could support this deck's plan. Show catalog-backed options without adding them.">Find cards</button>
-                <button type="button" data-assistant-starter="Explain the latest Goldfish observations, including unknowns and coverage limits.">Explain results</button>
-                <button type="button" data-assistant-open-tab="goldfish">Open Goldfish</button>
-            </div>
-            <form class="dl-assistant-constraints" data-assistant-constraints hidden>
+            <p class="dl-assistant-provider" data-assistant-provider hidden role="status"></p>
+            <div class="dl-assistant-scroll" data-assistant-scroll>
+            <form class="dl-assistant-constraints" id="assistant-constraints" data-assistant-constraints hidden>
                 <label>Budget cap · USD<input class="dl-field" type="number" min="0" step="0.01" data-assistant-budget placeholder="Optional"></label>
                 <label>Power level<input class="dl-field" type="text" maxlength="80" data-assistant-power placeholder="Optional"></label>
                 <label>Theme<input class="dl-field" type="text" maxlength="160" data-assistant-theme placeholder="Optional"></label>
@@ -114,8 +109,11 @@
                 <button class="dl-button is-sm" type="submit">Save constraints</button>
                 <output data-assistant-settings-status aria-live="polite"></output>
             </form>
-            <p class="dl-assistant-provider" data-assistant-provider></p>
-            <div class="dl-assistant-scroll" data-assistant-scroll>
+            <div class="dl-assistant-welcome" data-assistant-welcome><p>What would you like to improve?</p><div class="dl-assistant-starters" aria-label="Start a research question">
+                <button type="button" data-assistant-starter="Review this deck. Summarize what the current measured evidence does and does not say.">Review this deck</button>
+                <button type="button" data-assistant-starter="Find cards that could support this deck's plan. Show catalog-backed options without adding them.">Find cards</button>
+                <button type="button" data-assistant-starter="Explain the latest Goldfish observations, including unknowns and coverage limits.">Explain results</button>
+            </div></div>
                 <div class="dl-assistant-transcript" data-assistant-transcript role="log" aria-label="Conversation with Research Assistant" aria-live="polite" aria-relevant="additions text"></div>
                 <div class="dl-assistant-experiments" data-assistant-experiments></div>
                 <div class="dl-assistant-proposals" data-assistant-proposals></div>
@@ -123,7 +121,7 @@
             <form class="dl-assistant-composer" data-assistant-composer>
                 <label class="dl-visually-hidden" for="assistant-message">Message the Research Assistant</label>
                 <textarea id="assistant-message" class="dl-field" data-assistant-message maxlength="2000" placeholder="Ask about this deck or request a specific change" required></textarea>
-                <button class="dl-button is-primary" type="submit" data-assistant-send>Send</button>
+                <div class="dl-assistant-composer-actions"><button class="dl-button is-ghost is-sm" type="button" data-assistant-stop hidden>Stop</button><button class="dl-button is-primary is-sm" type="submit" data-assistant-send>Send</button></div>
             </form>
             <p class="dl-assistant-status" data-assistant-status role="status" aria-live="polite"></p>
         </div>

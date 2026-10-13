@@ -300,9 +300,10 @@
     if (theme && document.activeElement !== theme) theme.value = constraints.theme || "";
     if (!protectedDirty) protectedCards();
     var provider = sidebar.querySelector("[data-assistant-provider]");
-    if (provider) provider.textContent = data.provider && data.provider.enabled
-      ? "Assistant provider enabled. Responses may take a moment."
-      : "Assistant provider is unavailable; messages and settings remain saved.";
+    if (provider) {
+      provider.hidden = !(data.provider && data.provider.enabled === false);
+      provider.textContent = provider.hidden ? "" : "Assistant unavailable. Your conversation is saved.";
+    }
     var stop = sidebar.querySelector("[data-assistant-stop]");
     if (stop) stop.hidden = !(data.busy || (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; }));
   }
@@ -784,6 +785,8 @@
   }
   function render() {
     renderSettings(); renderMessages(); renderProposals(); renderExperiments();
+    var welcome = sidebar.querySelector("[data-assistant-welcome]");
+    if (welcome) welcome.hidden = (data.messages || []).length > 0;
     busy = !!data.busy || (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; });
     var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = busy;
     var stop = sidebar.querySelector("[data-assistant-stop]"); if (stop) stop.hidden = !busy;
@@ -806,6 +809,7 @@
   if (constraintToggle) constraintToggle.addEventListener("click", function () {
     var form = sidebar.querySelector("[data-assistant-constraints]"); form.hidden = !form.hidden;
     constraintToggle.setAttribute("aria-expanded", form.hidden ? "false" : "true");
+    if (!form.hidden) { sidebar.querySelector("[data-assistant-scroll]").scrollTop = 0; form.querySelector("input").focus({ preventScroll: true }); }
   });
   var constraintsForm = sidebar.querySelector("[data-assistant-constraints]");
   var protectedList = sidebar.querySelector("[data-assistant-protected]");
