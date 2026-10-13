@@ -206,3 +206,33 @@ def test_complete_counts_without_slot_evidence_are_not_certified():
     assert not _coverage_complete(value)
     value["coverage"]["card_coverage"]["cards"] = [{"slot": 0, "status": "partial"}]
     assert not _coverage_complete(value)
+
+
+def test_same_profile_card_swap_is_descriptive_but_partial_coverage_is_not_validated():
+    seed = validation_seed(17)
+    before, after = report(seed, status="partial"), report(seed, 0.6, status="partial")
+    for item, name in ((before, "Island"), (after, "Mountain")):
+        item["settings"].update(
+            policy="pilot", effects_sha256="catalog", strategy_pack_sha256="pack"
+        )
+        item["coverage"] = {
+            "total_cards": 1,
+            "card_coverage": {
+                "version": 1,
+                "unit": "card_slots",
+                "counts": {
+                    "supported": 0,
+                    "partial": 1,
+                    "unsupported": 0,
+                    "inactive": 0,
+                },
+                "cards": [{"slot": 0, "name": name, "status": "partial"}],
+            },
+        }
+    result = compare_validation(before, after, training_seed=17)
+    assert result["comparison"]["comparable"]
+    metric = result["comparison"]["metric_deltas"]["opening"]["keep"]
+    assert metric["delta"] == pytest.approx(0.1)
+    assert not metric["validated"]
+    assert "Coverage is incomplete" in metric["unvalidated_reason"]
+    assert metric["verdict"] == "descriptive"

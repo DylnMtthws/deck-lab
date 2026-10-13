@@ -513,10 +513,9 @@ def _attach_heldout_validation(
         )
         from sabermetrics.native_diagnostics_comparison import compare_reports
 
-        if not compare_reports(report, previous_report)["comparable"]:
-            raise ValueError(
-                "Training settings or engine changed; start a new baseline."
-            )
+        comparison = compare_reports(report, previous_report)
+        if not comparison["comparable"]:
+            raise ValueError(comparison["reason"])
         training_seed = report["settings"]["seed"]
         heldout_client = HttpSimulatorClient(
             client._url.removesuffix("/simulate"),

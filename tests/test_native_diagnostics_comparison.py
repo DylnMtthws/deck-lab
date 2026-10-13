@@ -181,3 +181,102 @@ def test_changed_coverage_suppresses_descriptive_gain():
     assert not result["comparable"]
     assert result["metric_deltas"] == {}
     assert "coverage changed" in result["reason"]
+
+
+def audited_coverage(rows):
+    return {
+        "total_cards": 2,
+        "modeled_cards": 2,
+        "unauthored_cards": 0,
+        "unauthored_names": [],
+        "assumptions": ["same assumptions"],
+        "card_coverage": {
+            "version": 1,
+            "unit": "card_slots",
+            "counts": {"supported": 1, "partial": 1, "unsupported": 0},
+            "cards": rows,
+        },
+    }
+
+
+def test_basic_land_name_and_slot_changes_keep_comparison_descriptive():
+    before, after = report(), report(0.6)
+    before["coverage"] = audited_coverage(
+        [
+            {
+                "name": "Island",
+                "slot": 0,
+                "status": "supported",
+                "supported_effects": ["blue"],
+            },
+            {"name": "Island", "slot": 1, "status": "partial", "limitations": ["tap"]},
+        ]
+    )
+    after["coverage"] = audited_coverage(
+        [
+            {
+                "name": "Mountain",
+                "slot": 9,
+                "status": "supported",
+                "supported_effects": ["blue"],
+            },
+            {
+                "name": "Mountain",
+                "slot": 8,
+                "status": "partial",
+                "limitations": ["tap"],
+            },
+        ]
+    )
+    frozen = copy.deepcopy((before, after))
+    result = compare_reports(after, before)
+    assert result["comparable"]
+    assert result["metric_deltas"]["opening"]["kept"]["delta"] == pytest.approx(0.1)
+    assert (before, after) == frozen
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda cov: cov["card_coverage"].update(version=2),
+        lambda cov: cov["card_coverage"]["counts"].update(supported=2),
+        lambda cov: cov.update(total_cards=3),
+        lambda cov: cov.update(unauthored_names=["Unknown"]),
+        lambda cov: cov.update(assumptions=["different"]),
+        lambda cov: cov["card_coverage"]["cards"][0].update(status="partial"),
+        lambda cov: cov["card_coverage"]["cards"][0].update(supported_effects=["red"]),
+        lambda cov: cov["card_coverage"]["cards"][0].update(limitations=["new"]),
+        lambda cov: cov["card_coverage"]["cards"][0].update(future_field=True),
+    ],
+)
+def test_meaningful_audit_changes_block_comparison(mutate):
+    before, after = report(), report(0.9)
+    rows = [
+        {
+            "name": "Island",
+            "slot": 0,
+            "status": "supported",
+            "supported_effects": ["blue"],
+        },
+        {"name": "Island", "slot": 1, "status": "partial", "limitations": ["tap"]},
+    ]
+    before["coverage"] = audited_coverage(copy.deepcopy(rows))
+    after["coverage"] = audited_coverage(copy.deepcopy(rows))
+    mutate(after["coverage"])
+    result = compare_reports(after, before)
+    assert not result["comparable"]
+    assert result["metric_deltas"] == {}
+
+
+def test_card_audit_is_quantity_aware_multiset():
+    before, after = report(), report()
+    before["coverage"] = audited_coverage(
+        [{"name": "Island", "slot": 0, "status": "supported"}]
+    )
+    after["coverage"] = audited_coverage(
+        [
+            {"name": "Mountain", "slot": 1, "status": "supported"},
+            {"name": "Mountain", "slot": 2, "status": "supported"},
+        ]
+    )
+    assert not compare_reports(after, before)["comparable"]

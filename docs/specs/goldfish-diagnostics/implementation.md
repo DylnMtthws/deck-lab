@@ -54,6 +54,16 @@ reports remain historical evidence under their recorded settings. QA delivery
 and live coverage/assistant checks are recorded in the infrastructure receipts;
 production is not authorized by this milestone.
 
+Live QA integration exposed a comparison defect from milestone 1: adding
+per-card audit rows made even Island-to-Mountain swaps non-comparable because
+names and slot positions changed. The follow-up normalizes only those two row
+fields for comparison and preserves a quantity-aware multiset of every other
+field. All counts, assumptions, semantic effects/limitations and legacy metadata
+remain exact gates. Raw reports and completeness checks are unchanged. Rejection
+messages now state the actual comparison reason. Verification: 43 comparison/
+validation tests, 79 rerun/experiment tests, targeted mypy and independent Sol
+review. Partial coverage still cannot become a validated improvement claim.
+
 ## Current architecture
 
 ### Milestone 1 specification — 2026-10-13

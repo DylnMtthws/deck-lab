@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import math
+from collections import Counter
 from typing import Any, cast
 
 NOTE = (
@@ -10,6 +12,33 @@ NOTE = (
     "statistical proof of paired improvement. Catalog and modeling differences "
     "are not isolated from card changes. No winner verdict is inferred."
 )
+
+
+def _comparison_coverage(value: Any) -> Any:
+    """Ignore card identity/order in detailed audit rows for comparison only."""
+    if not isinstance(value, dict):
+        return value
+    audit = value.get("card_coverage")
+    if not isinstance(audit, dict) or not isinstance(audit.get("cards"), list):
+        return value
+    normalized = dict(value)
+    normalized_audit = dict(audit)
+    rows = []
+    for row in audit["cards"]:
+        if isinstance(row, dict):
+            rows.append(
+                {key: item for key, item in row.items() if key not in {"name", "slot"}}
+            )
+        else:
+            rows.append(row)
+    # A sorted multiset retains duplicate quantities while ignoring row order.
+    normalized_audit["cards"] = sorted(
+        Counter(
+            json.dumps(row, sort_keys=True, separators=(",", ":")) for row in rows
+        ).items()
+    )
+    normalized["card_coverage"] = normalized_audit
+    return normalized
 
 
 def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
@@ -43,7 +72,9 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
             "No comparable diagnostics baseline: engine, settings, or settings fingerprint changed or are unavailable."
         )
         return result
-    if after.get("coverage") != before.get("coverage"):
+    if _comparison_coverage(after.get("coverage")) != _comparison_coverage(
+        before.get("coverage")
+    ):
         result["reason"] = (
             "No comparable diagnostics baseline: modeled coverage changed; card and modeling differences cannot be isolated."
         )
