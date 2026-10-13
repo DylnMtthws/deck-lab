@@ -439,3 +439,94 @@ def test_adoption_rolls_back_every_swap_if_later_command_fails(prepared, monkeyp
         )
     assert DeckDocumentRepo(path).get(owner, deck) == original
     assert service.get(owner, payload["id"])["adopted_alternative_id"] is None
+
+
+def age_experiment(service, path, owner, payload, status="running"):
+    from datetime import UTC, datetime, timedelta
+
+    aged = copy.deepcopy(payload)
+    aged["created_at"] = (datetime.now(UTC) - timedelta(minutes=16)).isoformat()
+    aged["status"] = status
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE assistant_experiments SET created_at=?,payload_json=?,state=? WHERE id=? AND owner_id=?",
+            (aged["created_at"], json.dumps(aged), status, aged["id"], owner),
+        )
+        conn.commit()
+    return aged
+
+
+@pytest.mark.parametrize("status", ["queued", "running"])
+def test_old_unfinished_experiment_expires_on_get_preserving_partial_reports(
+    prepared, status
+):
+    service, path, owner, _deck, _document, _alternatives = prepared
+    payload = create(prepared)
+    payload["baseline"]["training_report"] = report(
+        payload["settings"]["training_seed"]
+    )
+    payload["alternatives"][0].update(status="done", training_report=report(17))
+    payload["alternatives"][1].update(status="running", training_report=report(17))
+    aged = age_experiment(service, path, owner, payload, status)
+    expired = service.get(owner, payload["id"])
+    assert expired["status"] == "failed"
+    assert expired["expiry_reason"] == "interrupted_expired"
+    assert "Partial measurements are preserved" in expired["error"]
+    assert expired["baseline"]["training_report"] == aged["baseline"]["training_report"]
+    assert expired["alternatives"][0] == aged["alternatives"][0]
+    assert (
+        expired["alternatives"][1]["training_report"]
+        == aged["alternatives"][1]["training_report"]
+    )
+    assert expired["alternatives"][1]["status"] == "failed"
+    with pytest.raises(ValueError, match="completed"):
+        service.adopt(
+            owner,
+            payload["id"],
+            expired["alternatives"][0]["id"],
+            expired["baseline"]["revision"],
+        )
+    service._save(owner, aged)  # A late worker cannot resurrect an expired run.
+    assert service.get(owner, payload["id"])["status"] == "failed"
+
+
+def test_list_expires_only_old_unfinished_experiments(prepared):
+    service, path, owner, deck, _document, _alternatives = prepared
+    old = create(prepared)
+    age_experiment(service, path, owner, old)
+    fresh = create(prepared)
+    fresh["status"] = "running"
+    service._save(owner, fresh)
+    done = create(prepared)
+    age_experiment(service, path, owner, done, status="done")
+    states = {item["id"]: item["status"] for item in service.list_for_deck(owner, deck)}
+    assert states == {old["id"]: "failed", fresh["id"]: "running", done["id"]: "done"}
+
+
+def test_expired_execution_never_resumes_native_trials(prepared, monkeypatch):
+    service, path, owner, _deck, _document, _alternatives = prepared
+    payload = create(prepared)
+    age_experiment(service, path, owner, payload, status="queued")
+    monkeypatch.setattr(
+        service, "_simulate", lambda *args: pytest.fail("expired run must not resume")
+    )
+    service.execute(owner, payload["id"])
+    assert service.get(owner, payload["id"])["status"] == "failed"
+
+
+def test_read_side_expiry_stops_late_worker_before_next_trial(prepared, monkeypatch):
+    service, path, owner, _deck, _document, _alternatives = prepared
+    payload = create(prepared)
+    calls = []
+
+    def expire_during_native(document, seed, settings):
+        calls.append(seed)
+        current = service.get(owner, payload["id"])
+        age_experiment(service, path, owner, current)
+        assert service.get(owner, payload["id"])["status"] == "failed"
+        return report(seed)
+
+    monkeypatch.setattr(service, "_simulate", expire_during_native)
+    service.execute(owner, payload["id"])
+    assert len(calls) == 1
+    assert service.get(owner, payload["id"])["status"] == "failed"

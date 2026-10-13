@@ -37,6 +37,9 @@ from sabermetrics.goldfish_experiments import _check_lineage
 from sabermetrics.goldfish_validation import compare_validation, validation_seed
 from sabermetrics.native_diagnostics_comparison import compare_reports
 
+EXPERIMENT_EXPIRY_SECONDS = 15 * 60
+EXPERIMENT_EXPIRY_REASON = "Experiment interrupted or expired before completion. Partial measurements are preserved; no further trials will run. Start a new experiment to continue."
+
 _TABLE = """CREATE TABLE IF NOT EXISTS assistant_experiments (
  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, deck_id TEXT NOT NULL REFERENCES deck_documents(id) ON DELETE CASCADE,
  created_at TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'queued', payload_json TEXT NOT NULL
@@ -353,6 +356,38 @@ class ExperimentService:
             conn.commit()
         return copy.deepcopy(payload)
 
+    def _expire(self, owner_id: str, raw: str) -> dict[str, Any]:
+        payload = cast(dict[str, Any], json.loads(raw))
+        if payload["status"] not in {"queued", "running"}:
+            return payload
+        try:
+            created = datetime.fromisoformat(payload["created_at"])
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=UTC)
+            overdue = (
+                datetime.now(UTC) - created
+            ).total_seconds() > EXPERIMENT_EXPIRY_SECONDS
+        except (KeyError, TypeError, ValueError):
+            overdue = True
+        if not overdue:
+            return payload
+        payload.update(
+            status="failed",
+            error=EXPERIMENT_EXPIRY_REASON,
+            expiry_reason="interrupted_expired",
+        )
+        for alternative in payload["alternatives"]:
+            if alternative["status"] in {"queued", "running"}:
+                alternative.update(status="failed", error=EXPERIMENT_EXPIRY_REASON)
+        with db.connect(self.db_path) as conn:
+            changed = conn.execute(
+                "UPDATE assistant_experiments SET payload_json=?,state='failed' WHERE id=? AND owner_id=? AND payload_json=? AND state IN ('queued','running')",
+                (json.dumps(payload), payload["id"], owner_id, raw),
+            )
+            conn.commit()
+        # A concurrently completed run wins over the stale snapshot we read.
+        return payload if changed.rowcount == 1 else self.get(owner_id, payload["id"])
+
     def get(self, owner_id: str, experiment_id: str) -> dict[str, Any]:
         with db.connect(self.db_path) as conn:
             row = conn.execute(
@@ -361,7 +396,7 @@ class ExperimentService:
             ).fetchone()
         if row is None:
             raise DeckNotFound()
-        return cast(dict[str, Any], json.loads(row["payload_json"]))
+        return self._expire(owner_id, row["payload_json"])
 
     def list_for_deck(self, owner_id: str, deck_id: str) -> list[dict[str, Any]]:
         DeckDocumentRepo(self.db_path).get(owner_id, deck_id)
@@ -370,13 +405,20 @@ class ExperimentService:
                 "SELECT payload_json FROM assistant_experiments WHERE owner_id=? AND deck_id=? ORDER BY created_at DESC,id DESC LIMIT 20",
                 (owner_id, deck_id),
             ).fetchall()
-        return [json.loads(row["payload_json"]) for row in rows]
+        return [self._expire(owner_id, row["payload_json"]) for row in rows]
 
     def _save(self, owner_id: str, payload: dict[str, Any]) -> None:
         with db.connect(self.db_path) as conn:
             conn.execute(
-                "UPDATE assistant_experiments SET payload_json=?,state=? WHERE id=? AND owner_id=?",
-                (json.dumps(payload), payload["status"], payload["id"], owner_id),
+                "UPDATE assistant_experiments SET payload_json=?,state=? WHERE id=? AND owner_id=? "
+                "AND (state IN ('queued','running') OR (state='done' AND ?='done'))",
+                (
+                    json.dumps(payload),
+                    payload["status"],
+                    payload["id"],
+                    owner_id,
+                    payload["status"],
+                ),
             )
             conn.commit()
 
@@ -439,6 +481,14 @@ class ExperimentService:
                 return
 
         def stopped() -> bool:
+            # Read-side expiry or source deletion also terminates a late worker.
+            with db.connect(self.db_path) as conn:
+                row = conn.execute(
+                    "SELECT state FROM assistant_experiments WHERE id=? AND owner_id=?",
+                    (experiment_id, owner_id),
+                ).fetchone()
+            if row is None or row["state"] != "running":
+                return True
             if not should_stop():
                 return False
             payload["status"] = "stopped"
