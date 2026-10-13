@@ -90,9 +90,15 @@ def test_observation_visualization_keeps_finish_proof_unknown_honest_and_compact
     assert '"Finish proof · lower bound", "positive_finish_proof_rate"' in assistant
     assert "No proof observed; other outcomes unknown" in assistant
     assert "Partial observations use only the authored subset of cards." in assistant
-    assert ".dl-assistant-metric-grid { display:grid; grid-template-columns:minmax(0,1fr);" in css
+    assert (
+        ".dl-assistant-metric-grid { display:grid; grid-template-columns:minmax(0,1fr);"
+        in css
+    )
     assert ".dl-assistant-card-link img { width:64px; height:88px;" in css
     assert "Number(reportRevision) !== Number(state.revision)" in assistant
     assert "refreshChartStaleness();" in assistant
     assert "function printDelta(value)" in assistant
-    assert "value * 100).toFixed(1).replace(/\\.0$/, \"\") + \" percentage points\"" in assistant
+    assert (
+        'value * 100).toFixed(1).replace(/\\.0$/, "") + " percentage points"'
+        in assistant
+    )
