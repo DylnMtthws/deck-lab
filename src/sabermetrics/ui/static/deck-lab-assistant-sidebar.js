@@ -173,6 +173,32 @@
     if (typeof content === "string") return content;
     try { return JSON.stringify(content, null, 2); } catch (_) { return String(content || ""); }
   }
+  function appendSearchResults(article, message) {
+    var action = message && message.action;
+    if (!action || action.name !== "search_cards" || action.ok !== true) return;
+    var cards = action.data && Array.isArray(action.data.cards) ? action.data.cards.slice(0, 12) : null;
+    if (!cards) return;
+    if (!cards.length) {
+      article.appendChild(element("p", "No matching cards were found."));
+      return;
+    }
+    var list = element("ul", null, "dl-assistant-card-results");
+    list.setAttribute("aria-label", "Card search results");
+    cards.forEach(function (card) {
+      if (!card || typeof card.name !== "string") return;
+      var row = element("li", null, "dl-assistant-card-result");
+      row.appendChild(element("strong", card.name));
+      var details = [card.mana_cost, card.type_line].filter(function (value) {
+        return typeof value === "string" && value.trim();
+      }).join(" · ");
+      if (details) row.appendChild(element("small", details));
+      if (typeof card.oracle_text === "string" && card.oracle_text.trim()) {
+        row.appendChild(element("p", card.oracle_text.trim().slice(0, 240)));
+      }
+      list.appendChild(row);
+    });
+    if (list.children.length) article.appendChild(list);
+  }
   function renderMessages() {
     if (!transcript) return;
     var nearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 48;
@@ -181,6 +207,7 @@
       var role = ["user", "assistant", "tool"].indexOf(message.role) >= 0 ? message.role : "tool";
       transcript.appendChild(element("article", messageContent(message), "dl-assistant-message"));
       transcript.lastElementChild.dataset.role = role;
+      appendSearchResults(transcript.lastElementChild, message);
     });
     if (nearBottom) transcript.scrollTop = transcript.scrollHeight;
   }

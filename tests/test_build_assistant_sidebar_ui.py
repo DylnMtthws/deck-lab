@@ -30,6 +30,18 @@ def test_sidebar_targets_persistent_assistant_contract_and_accessible_drawer():
     assert 'role="separator"' in TEMPLATE.read_text()
     assert "height:100dvh" in STYLE.read_text()
     assert "overflow-x:hidden" in STYLE.read_text()
+    css = STYLE.read_text()
+    assert '.dl-assistant-pane[data-assistant-pane="chat"] { overflow:hidden; }' in css
+    assert ".dl-assistant-transcript" in css and "min-height:0" in css
+    assert ".dl-assistant-experiments,.dl-assistant-proposals" in css
+    assert ".dl-assistant-composer" in css and "flex:0 0 auto" in css
+    assert "@media (max-width: 430px)" in css
+    assert ".dl-assistant-mobile-open { padding-inline:7px; }" in css
+    assert ".dl-workspace-header > .push { display:none; }" in css
+    assert "[data-undo]" in css and "[data-redo]" in css
+    assert "function appendSearchResults(article, message)" in js
+    assert 'action.name !== "search_cards"' in js
+    assert "slice(0, 12)" in js
 
 
 def test_existing_native_simulator_can_mount_inline():
