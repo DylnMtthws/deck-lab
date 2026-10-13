@@ -38,7 +38,7 @@ from sabermetrics.goldfish_validation import compare_validation, validation_seed
 from sabermetrics.native_diagnostics_comparison import compare_reports
 
 _TABLE = """CREATE TABLE IF NOT EXISTS assistant_experiments (
- id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, deck_id TEXT NOT NULL,
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, deck_id TEXT NOT NULL REFERENCES deck_documents(id) ON DELETE CASCADE,
  created_at TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'queued', payload_json TEXT NOT NULL
 )"""
 

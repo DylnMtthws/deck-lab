@@ -69,6 +69,9 @@ def create_app(db_path: Path | None = None) -> Flask:
     app.config["DECK_LAB_GOLDFISH_ENABLED"] = _env_bool(
         "SABER_DECK_LAB_GOLDFISH", False
     )
+    app.config["DECK_LAB_ASSISTANT_AI_ENABLED"] = _env_bool(
+        "SABER_DECK_LAB_ASSISTANT_AI", False
+    )
     app.config["DECK_LAB_RESEARCH_ENABLED"] = _env_bool(
         "SABER_DECK_LAB_RESEARCH", redesign_enabled
     )
@@ -179,6 +182,7 @@ def create_app(db_path: Path | None = None) -> Flask:
 
     # --- Blueprints ---
     from sabermetrics.ui.admin_routes import bp as admin_bp
+    from sabermetrics.ui.assistant_routes import bp as assistant_bp
     from sabermetrics.ui.builder_routes import bp as builder_bp
     from sabermetrics.ui.cedh_routes import bp as cedh_bp
     from sabermetrics.ui.goldfish_routes import bp as goldfish_bp
@@ -187,6 +191,7 @@ def create_app(db_path: Path | None = None) -> Flask:
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(assistant_bp)
     app.register_blueprint(cedh_bp)
     app.register_blueprint(builder_bp)
     app.register_blueprint(research_bp)
