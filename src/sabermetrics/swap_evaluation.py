@@ -75,21 +75,36 @@ def _evidence(before: dict, after: dict, objective: str) -> dict[str, Any]:
         r.get("tests", {}).get(test, {}).get("metrics", {}).get(name, {})
         for r in (before, after)
     ]
+    intervals = []
     for metric in metrics:
         ci = metric.get("ci95", {})
+        value = metric.get("value")
+        # Native Wilson arithmetic can return low=1e-19 for a zero estimate.
+        # Permit floating-point roundoff only, and widen outward to include the
+        # estimate. Never create an absent interval or tighten supplied bounds.
+        finite_interval = isinstance(ci, dict) and all(
+            _finite(ci.get(k)) for k in ("low", "high")
+        )
+        tolerance = (
+            8 * math.ulp(max(1.0, abs(value), abs(ci["low"]), abs(ci["high"])))
+            if finite_interval and _finite(value)
+            else 0.0
+        )
         if (
             type(metric.get("denominator")) is not int
             or metric["denominator"] < 100
             or not isinstance(ci, dict)
             or not all(_finite(ci.get(k)) for k in ("low", "high"))
             or not _finite(metric.get("value"))
-            or not ci["low"] <= metric["value"] <= ci["high"]
+            or ci["low"] > ci["high"]
+            or not ci["low"] - tolerance <= value <= ci["high"] + tolerance
         ):
             result["reason"] = (
                 "At least 100 measured trials and finite ordered uncertainty intervals containing each estimate are required."
             )
             return result
-    old, new = (m["ci95"] for m in metrics)
+        intervals.append({"low": min(ci["low"], value), "high": max(ci["high"], value)})
+    old, new = intervals
     low, high = new["low"] - old["high"], new["high"] - old["low"]
     if direction == -1:
         low, high = -high, -low

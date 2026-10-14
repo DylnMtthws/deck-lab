@@ -178,3 +178,35 @@ def test_lower_is_better_objective_exposes_consistent_improvement_sign():
     assert result["evidence"]["improvement_delta"] == 1
     assert result["evidence"]["difference_interval"]["low"] > 0
     assert result["display_label"] == "Selected measured objective improved"
+
+
+def test_native_zero_success_wilson_roundoff_does_not_hide_improvement():
+    before, training = report(2, 0), report(1, 0)
+    # Exact native Wilson(0, 2000), z=1.959963984540054 output.
+    for item in (before, training):
+        metric = item["tests"]["opening"]["metrics"]["qualified_opening_rate"]
+        metric.update(
+            numerator=0,
+            ci95={"low": 1.0842021724855044e-19, "high": 0.001917047281252934},
+        )
+    result = evaluate(
+        before=before,
+        after=report(2, 0.1),
+        training_before=training,
+        training_after=report(1, 0.1),
+    )
+    assert result["verdict"] == "improved"
+    assert result["display_label"] == "Opening-policy proxy improved"
+    assert result["evidence"]["difference_interval"]["high"] == pytest.approx(0.11)
+
+
+@pytest.mark.parametrize(
+    "low,high", [(0.01, 0.02), (0.01, -0.01), (float("nan"), 0.01)]
+)
+def test_real_interval_inconsistency_is_not_rounding(low, high):
+    before = report(2, 0)
+    before["tests"]["opening"]["metrics"]["qualified_opening_rate"]["ci95"] = {
+        "low": low,
+        "high": high,
+    }
+    assert evaluate(before=before)["verdict"] == "indeterminate"
