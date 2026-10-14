@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import time
+from copy import deepcopy
 from typing import Any, Self, TypeVar
 
 import httpx
@@ -62,6 +63,62 @@ def _strip_fences(text: str) -> str:
     if body.rstrip().endswith("```"):
         body = body.rstrip()[: -len("```")]
     return body.strip()
+
+
+def _deepinfra_wire_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Omit only DeepInfra's unsupported propertyNames grammar keyword.
+
+    Pydantic still validates the original model, including dictionary key names,
+    before returning any result. Walk schema positions rather than arbitrary
+    JSON data so a property called propertyNames or an enum/default value is
+    preserved. Provider-neutral schema generation remains unchanged.
+    """
+    result = deepcopy(schema)
+    result.pop("propertyNames", None)
+    for keyword in (
+        "$defs",
+        "definitions",
+        "properties",
+        "patternProperties",
+        "dependentSchemas",
+    ):
+        children = result.get(keyword)
+        if isinstance(children, dict):
+            result[keyword] = {
+                name: (
+                    _deepinfra_wire_schema(child) if isinstance(child, dict) else child
+                )
+                for name, child in children.items()
+            }
+    for keyword in ("allOf", "anyOf", "oneOf", "prefixItems"):
+        children = result.get(keyword)
+        if isinstance(children, list):
+            result[keyword] = [
+                _deepinfra_wire_schema(child) if isinstance(child, dict) else child
+                for child in children
+            ]
+    for keyword in (
+        "items",
+        "additionalItems",
+        "additionalProperties",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+        "contains",
+        "not",
+        "if",
+        "then",
+        "else",
+        "contentSchema",
+    ):
+        child = result.get(keyword)
+        if isinstance(child, dict):
+            result[keyword] = _deepinfra_wire_schema(child)
+        elif keyword == "items" and isinstance(child, list):
+            result[keyword] = [
+                _deepinfra_wire_schema(item) if isinstance(item, dict) else item
+                for item in child
+            ]
+    return result
 
 
 class DeepSeekGateway:
@@ -262,7 +319,7 @@ class DeepSeekGateway:
                 "json_schema": {
                     "name": request.schema.__name__,
                     "strict": True,
-                    "schema": json_schema_for(request.schema),
+                    "schema": _deepinfra_wire_schema(json_schema_for(request.schema)),
                 },
             },
         }
