@@ -177,6 +177,14 @@ def ingest_text(
                 conn.execute(
                     f"ALTER TABLE reference_chunk_metadata ADD COLUMN {field} {kind}"
                 )
+        existing_content = conn.execute(
+            "SELECT r.content FROM reference_chunk_metadata m JOIN reference_chunks r ON r.id=m.chunk_id WHERE m.source_id=? ORDER BY m.char_start",
+            (source_id,),
+        ).fetchall()
+        if existing_content and "".join(row[0] for row in existing_content) != text:
+            raise ValueError(
+                "Source version already contains different text; supply a new version to preserve historical evidence"
+            )
         if (
             not activate
             and conn.execute(

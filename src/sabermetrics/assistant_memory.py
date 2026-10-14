@@ -518,6 +518,13 @@ def _experiment(
         "error": _text(row["error"], 200) or "",
         "baseline_revision": row["baseline_revision"],
         "freshness": freshness,
+        "freshness_scope": "deck_content_only",
+        "measurement_freshness": "not_revalidated",
+        "measurement_note": (
+            "Memory compares deck content only. Current simulator version, rules coverage "
+            "and run settings have not been revalidated; retrieve a current Goldfish report "
+            "before treating historical measurements as current performance."
+        ),
         "applies_to_current_deck": freshness
         in {"current", "same_content_new_revision"},
         "constraints": {

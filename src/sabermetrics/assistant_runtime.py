@@ -63,7 +63,9 @@ generator_intelligence for stored candidate explanations and heuristic roles.
 Use research_memory to retrieve saved preferences and previous experiment
 receipts when the user asks about earlier attempts. This is scoped to this deck
 and owner; accepted changes are preferences, never proof of improvement. Historical
-measurements are not current observations. Recheck current Goldfish before using
+measurements are not current observations. Memory freshness refers only to deck
+content and never certifies current simulator settings, version or coverage.
+Recheck current Goldfish before using
 history to judge today's deck. Never reuse an old recommendation handle.
 Use card_details for versioned canonical facts, faces and available rulings.
 Missing dates and missing rulings remain unknown; a source timestamp is not proof

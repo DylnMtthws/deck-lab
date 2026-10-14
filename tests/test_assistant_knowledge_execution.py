@@ -249,3 +249,18 @@ def test_large_plan_preserves_sources_and_proposal_handle_before_optional_detail
     assert receipt["data"]["recommendation_id"] == "stable"
     assert len(receipt["data"]["alternatives"]) == 3
     assert receipt["evidence_omitted"]
+
+
+def test_history_matching_content_does_not_certify_current_engine(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_memory import research_memory
+    from tests.test_assistant_memory import complete
+
+    _, path, owner, deck_id, _, _ = prepared
+    complete(prepared, monkeypatch)
+    item = research_memory(path, owner, deck_id)["experiments"]["items"][0]
+    assert item["freshness"] == "current"
+    assert item["freshness_scope"] == "deck_content_only"
+    assert item["measurement_freshness"] == "not_revalidated"
+    assert "simulator version" in item["measurement_note"]

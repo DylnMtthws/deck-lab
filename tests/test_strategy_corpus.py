@@ -304,3 +304,39 @@ def test_concurrent_requests_share_one_model_and_serialized_cached_inference(
         vectors = list(pool.map(lambda _: service.embed("same query"), range(4)))
     assert len(calls) == 1
     assert all(vector == [1.0, 0.0] for vector in vectors)
+
+
+def test_source_version_content_is_immutable_but_identical_reembedding_is_allowed(
+    tmp_path, monkeypatch
+):
+    db = tmp_path / "corpus.db"
+    text = "Draw original creature cards. " * 100
+    ingest(db, text, chunk_chars=200)
+    before = retrieve_strategy_evidence(db, "original creature")
+    with pytest.raises(ValueError, match="supply a new version"):
+        ingest(db, "Discard different creature cards.", chunk_chars=200)
+    assert retrieve_strategy_evidence(db, "original creature") == before
+
+    class UpgradedProvider(Provider):
+        _model_name = "provider@upgraded-version"
+
+    monkeypatch.setattr(module, "local_embedding_service", lambda: UpgradedProvider())
+    ingest(db, text, chunk_chars=400, embed=True)
+    with sqlite3.connect(db) as conn:
+        assert {
+            row[0]
+            for row in conn.execute(
+                "SELECT embedding_model FROM reference_chunk_metadata"
+            )
+        } == {UpgradedProvider._model_name}
+        restored = "".join(
+            row[0]
+            for row in conn.execute(
+                "SELECT r.content FROM reference_chunks r JOIN reference_chunk_metadata m ON m.chunk_id=r.id ORDER BY m.char_start"
+            )
+        )
+    assert restored == text
+    assert (
+        retrieve_strategy_evidence(db, "original creature")["retrieval_mode"]
+        == "hybrid_bm25_semantic"
+    )
