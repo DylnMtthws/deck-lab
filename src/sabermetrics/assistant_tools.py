@@ -139,7 +139,7 @@ class Replacement(StrictModel):
 class Proposal(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     rationale: str = Field(min_length=1, max_length=2000)
-    replacements: list[Replacement] = Field(min_length=1, max_length=3)
+    replacements: list[Replacement] = Field(min_length=1, max_length=1)
 
 
 class ProposalArgs(StrictModel):
@@ -147,7 +147,7 @@ class ProposalArgs(StrictModel):
 
 
 class ExperimentArgs(StrictModel):
-    alternatives: list[Proposal] = Field(min_length=3, max_length=3)
+    alternatives: list[Proposal] = Field(min_length=1, max_length=3)
     semantic_reviews: list[SemanticReview] = Field(default_factory=list, max_length=3)
 
 
@@ -286,7 +286,10 @@ class AssistantTools:
         should_stop: Callable[[], bool],
         *,
         experiment_service=None,
+        review_gateway=None,
     ):
+        self.review_gateway = review_gateway
+        self.reviewed_proposals: set[str] = set()
         self.path = Path(db_path)
         self.owner = owner_id
         self.deck_id = deck_id
@@ -306,6 +309,95 @@ class AssistantTools:
         self.experiments_started = 0
         self.recommendations: dict[str, list[dict[str, Any]]] = {}
         self.discovery_results: dict[str, dict[str, Any]] = {}
+        self.strategy_evidence: dict[str, Any] = {}
+
+    @staticmethod
+    def _proposal_key(proposal: dict[str, Any]) -> str:
+        return json.dumps(proposal.get("replacements", []), sort_keys=True)
+
+    def _require_review(
+        self, document: dict[str, Any], proposals: list[dict[str, Any]]
+    ) -> None:
+        """Direct model-written proposals use the same gate as discovery."""
+        from sabermetrics.assistant_swap_review import review_candidates
+        from sabermetrics.functional_candidates import oracle_facts
+
+        pending = [
+            p for p in proposals if self._proposal_key(p) not in self.reviewed_proposals
+        ]
+        if not pending:
+            return
+        evidence = []
+        for proposal in pending:
+            replacements = proposal.get("replacements", [])
+            if len(replacements) != 1:
+                raise ValueError(
+                    "Review and test one replacement per alternative; combined swaps need joint strategic evidence."
+                )
+            replacement = replacements[0]
+            preview = self.experiments.validate_replacements(
+                self.owner,
+                self.deck_id,
+                self.revision,
+                replacements,
+                self.constraints,
+            )
+            old = next(
+                e
+                for e in document["entries"]
+                if e["id"] == replacement["outgoing_entry_id"]
+            )
+            new = next(
+                e
+                for e in preview["document"]["entries"]
+                if e.get("card_id") == replacement["incoming_card_id"]
+            )
+            evidence.append(
+                {
+                    "incoming_oracle_facts": oracle_facts(new),
+                    "outgoing_oracle_facts": oracle_facts(old),
+                }
+            )
+        self.check()
+        reviewed = review_candidates(
+            self.review_gateway,
+            {**document, "strategy_evidence": self.strategy_evidence},
+            self.constraints,
+            str(
+                self.constraints.get("objective")
+                or "Assess strategic fit; no measured objective selected"
+            ),
+            pending,
+            evidence,
+        )
+        self.check()
+        accepted = {self._proposal_key(p) for p in reviewed.get("alternatives", [])}
+        if any(self._proposal_key(p) not in accepted for p in pending):
+            rejected = [
+                {
+                    key: receipt.get(key)
+                    for key in (
+                        "outgoing_name",
+                        "incoming_name",
+                        "reason",
+                        "tradeoffs",
+                        "validation_reason",
+                    )
+                }
+                for receipt in reviewed.get("review_receipts", [])
+                if receipt.get("decision") != "accept"
+            ]
+            raise ValueError(
+                "Strategic review did not support this proposal: "
+                + (
+                    json.dumps(rejected, ensure_ascii=False)[:2500]
+                    if rejected
+                    else str(
+                        reviewed.get("reason") or "missing or conflicting evidence"
+                    )
+                )
+            )
+        self.reviewed_proposals.update(accepted)
 
     def check(self) -> dict[str, Any]:
         if self.should_stop():
@@ -456,9 +548,10 @@ class AssistantTools:
                 for entry in document.get("entries", [])
                 if entry.get("is_commander")
             )
-            return retrieve_strategy_evidence(
+            self.strategy_evidence = retrieve_strategy_evidence(
                 self.path, args.query, commander=commanders, limit=args.limit
             )
+            return self.strategy_evidence
         if call.name == "assess_deck_requirements":
             from sabermetrics.assistant_deck_intelligence import (
                 assess_deck_requirements,
@@ -475,9 +568,27 @@ class AssistantTools:
             if focus_key in self.discovery_results:
                 return {**self.discovery_results[focus_key], "already_completed": True}
             result = recommend_replacements(
-                self.path, document, self.constraints, focus=args.focus
+                self.path,
+                document,
+                self.constraints,
+                focus=args.focus,
+                candidate_limit=8,
             )
             self.check()
+            from sabermetrics.assistant_swap_review import review_candidates
+
+            reviewed = review_candidates(
+                self.review_gateway,
+                {**document, "strategy_evidence": self.strategy_evidence},
+                self.constraints,
+                args.focus,
+                result.get("alternatives", []),
+                result.get("candidate_evidence", []),
+            )
+            self.check()
+            result.update(reviewed)
+            result["alternatives"] = result.get("alternatives", [])[:3]
+            result["candidate_evidence"] = result.get("candidate_evidence", [])[:3]
             # Store only schema-checked proposals. Execution revalidates all
             # constraints against the current revision and current price data.
             alternatives = [
@@ -486,19 +597,21 @@ class AssistantTools:
             ]
             if len(alternatives) > 3:
                 raise ValueError("Recommendation exceeded the three-alternative limit.")
+            for alternative in alternatives:
+                self.reviewed_proposals.add(self._proposal_key(alternative))
             recommendation_id = db.new_id()
             self.recommendations[recommendation_id] = alternatives
             result = {
                 **result,
                 "recommendation_id": recommendation_id,
                 "revision": self.revision,
-                "experiment_ready": len(alternatives) == 3,
+                "experiment_ready": bool(alternatives),
                 "original_changed": False,
             }
             result["next_step"] = (
-                "Review the three alternatives, then call test_recommended_alternatives with this recommendation_id in Automate mode. Do not rediscover the same candidates."
-                if self.mode == "automate" and len(alternatives) == 3
-                else "Use propose_replacements for a selected validated preview; fewer than three alternatives cannot start an experiment."
+                "Review the supported alternatives, then call test_recommended_alternatives with this recommendation_id in Automate mode. Do not rediscover the same candidates."
+                if self.mode == "automate" and alternatives
+                else "Use propose_replacements for a selected reviewed preview. If no alternatives survived review, report why rather than inventing a recommendation."
             )
             self.discovery_results[focus_key] = result
             return result
@@ -508,9 +621,9 @@ class AssistantTools:
                 raise ValueError(
                     "Recommendation is unavailable; call find_replacements in this turn first."
                 )
-            if len(recommended) != 3:
+            if not 1 <= len(recommended) <= 3:
                 raise ValueError(
-                    "Three valid distinct alternatives are required; constraints will not be relaxed automatically."
+                    "One to three reviewed alternatives are required; constraints will not be relaxed automatically."
                 )
             return self.execute(
                 {
@@ -765,6 +878,7 @@ class AssistantTools:
                 proposal["replacements"],
                 self.constraints,
             )
+            self._require_review(document, [proposal])
             self.check()
             enriched_replacements = []
             for replacement in proposal["replacements"]:
@@ -806,6 +920,7 @@ class AssistantTools:
             alternatives = [
                 alternative.model_dump() for alternative in args.alternatives
             ]
+            self._require_review(document, alternatives)
             required = [
                 field
                 for constraint, field in (
@@ -818,9 +933,11 @@ class AssistantTools:
                 review.alternative_index: review for review in args.semantic_reviews
             }
             if required:
-                if len(reviews) != 3 or len(args.semantic_reviews) != 3:
+                if set(reviews) != set(range(len(alternatives))) or len(
+                    args.semantic_reviews
+                ) != len(alternatives):
                     raise ValueError(
-                        "Review theme and power fit for all three alternatives before testing; include evidence-based reasoning and mark uncertain fit unknown."
+                        "Review theme and power fit for every alternative before testing; include evidence-based reasoning and mark uncertain fit unknown."
                     )
                 if any(
                     getattr(review, field) != "fit"
@@ -858,12 +975,13 @@ class AssistantTools:
                     "deck_sha256": result["baseline"]["deck_sha256"],
                 },
                 "metric_summary": _experiment_metrics(result),
-                "comparison_note": "Before/after observations and held-out validation remain descriptive; unknowns and coverage differences cannot establish superiority.",
+                "comparison_note": "Use each outcome verdict for the selected objective only. Improvement requires compatible measured evidence and independent validation; no verdict establishes an overall deck upgrade.",
                 "alternatives": [
                     {
                         "id": item.get("id"),
                         "name": str(item.get("name") or "")[:200],
                         "status": item.get("status"),
+                        "outcome": item.get("outcome"),
                         "replacements": item.get("replacements"),
                         "error": str(item.get("error") or "")[:300],
                         "coverage": {

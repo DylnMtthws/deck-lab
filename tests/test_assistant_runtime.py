@@ -7,6 +7,7 @@ import pytest
 
 from sabermetrics import db
 from sabermetrics.assistant_runtime import AssistantStep, run_turn
+from sabermetrics.assistant_swap_review import SwapReviewResponse
 from sabermetrics.assistant_tools import TOOL_ADAPTER, AssistantTools
 from sabermetrics.cedh.errors import ModelConfigurationError
 from sabermetrics.deck_documents import DeckDocumentRepo
@@ -21,13 +22,66 @@ class Gateway:
     def __init__(self, steps):
         self.steps = iter(steps)
         self.requests = []
+        self.review_requests = []
 
     def generate(self, request):
+        if request.schema is SwapReviewResponse:
+            self.review_requests.append(request)
+            return SimpleNamespace(value=_accepted_review(request))
         self.requests.append(request)
         value = next(self.steps)
         if isinstance(value, Exception):
             raise value
         return SimpleNamespace(value=value)
+
+
+def _accepted_review(request):
+    pairs = json.loads(request.user)["candidates"]
+    return SwapReviewResponse.model_validate(
+        {
+            "decisions": [
+                {
+                    "candidate_index": pair["candidate_index"],
+                    "decision": "accept",
+                    "theme_fit": "fit",
+                    "power_fit": "fit",
+                    "reason": "Suitable for an isolated mock experiment.",
+                    "benefit": "Adds the supplied modeled artifact function.",
+                    "tradeoffs": [
+                        "Loses the outgoing card function; performance remains unmeasured."
+                    ],
+                    "citations": [
+                        {
+                            "side": side,
+                            "source_field": (
+                                "oracle_text"
+                                if pair[side].get("oracle_text")
+                                else "type_line"
+                            ),
+                            "quote": pair[side].get("oracle_text")
+                            or pair[side]["type_line"],
+                        }
+                        for side in ("incoming", "outgoing")
+                    ],
+                }
+                for pair in pairs
+            ]
+        }
+    )
+
+
+@pytest.fixture(autouse=True)
+def complete_review_sources(request):
+    if "prepared" not in request.fixturenames:
+        return
+    _service, path, _owner, _deck, _document, _alternatives = request.getfixturevalue(
+        "prepared"
+    )
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cards SET oracle_text='{T}: Draw a card.', mana_cost='{2}', cmc=2 WHERE id LIKE 'incoming-%'"
+        )
+        conn.commit()
 
 
 def call(name, arguments=None):
@@ -1443,8 +1497,9 @@ def test_mixed_swap_blanket_trigger_claim_is_grounded_in_typed_facts():
 
 def test_live_swap_answer_and_presentation_both_use_cast_check(prepared, monkeypatch):
     from sabermetrics import assistant_deck_intelligence
+    from sabermetrics.functional_candidates import oracle_facts
 
-    service, path, owner, deck_id, _, _ = prepared
+    service, path, owner, deck_id, document, alternatives = prepared
     evidence = [
         {
             "name": name,
@@ -1454,10 +1509,31 @@ def test_live_swap_answer_and_presentation_both_use_cast_check(prepared, monkeyp
         }
         for name, eligible in [("Island", False), ("Cornucopia", True)]
     ]
+    for proposal, row in zip(alternatives, evidence):
+        preview = service.validate_replacements(
+            owner, deck_id, document["revision"], proposal["replacements"], {}
+        )
+        old = next(
+            e
+            for e in document["entries"]
+            if e["id"] == proposal["replacements"][0]["outgoing_entry_id"]
+        )
+        incoming = next(
+            e
+            for e in preview["document"]["entries"]
+            if e.get("card_id") == proposal["replacements"][0]["incoming_card_id"]
+        )
+        row.update(
+            incoming_oracle_facts=oracle_facts(incoming),
+            outgoing_oracle_facts=oracle_facts(old),
+        )
     monkeypatch.setattr(
         assistant_deck_intelligence,
         "recommend_replacements",
-        lambda *a, **k: {"alternatives": [], "candidate_evidence": evidence},
+        lambda *a, **k: {
+            "alternatives": alternatives[:2],
+            "candidate_evidence": evidence,
+        },
     )
     gateway = Gateway(
         [
@@ -1471,3 +1547,108 @@ def test_live_swap_answer_and_presentation_both_use_cast_check(prepared, monkeyp
     assert "Island → Vivi Ornitier: does not match" in result["content"]
     assert result["presentation"]["reply"]["lead"] == result["content"]
     assert result["grounding_corrections"]
+
+
+def test_missing_review_gateway_returns_no_recommendations(prepared):
+    service, path, owner, deck_id, _document, _alternatives = prepared
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    result = tools.execute(call("find_replacements", {"focus": "draw"}))
+    assert result["alternatives"] == []
+    assert result["candidate_evidence"] == []
+    assert result["experiment_ready"] is False
+    assert tools.reviewed_proposals == set()
+
+
+@pytest.mark.parametrize("tool_name", ["propose_replacements", "start_experiment"])
+def test_direct_proposal_and_experiment_require_review(prepared, tool_name):
+    service, path, owner, deck_id, document, alternatives = prepared
+    tools = AssistantTools(
+        path, owner, deck_id, "automate", {}, lambda: False, experiment_service=service
+    )
+    arguments = (
+        {"proposal": alternatives[0]}
+        if tool_name == "propose_replacements"
+        else {"alternatives": alternatives}
+    )
+    with pytest.raises(ValueError, match="Strategic review"):
+        tools.execute(call(tool_name, arguments))
+    assert tools.proposals == []
+    assert service.list_for_deck(owner, deck_id) == []
+    assert DeckDocumentRepo(path).get(owner, deck_id) == document
+
+
+def test_accepted_review_cache_avoids_repeated_semantic_calls(prepared):
+    service, path, owner, deck_id, _document, alternatives = prepared
+    gateway = Gateway([])
+    tools = AssistantTools(
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=gateway,
+    )
+    tools.execute(call("propose_replacements", {"proposal": alternatives[0]}))
+    tools.execute(call("propose_replacements", {"proposal": alternatives[0]}))
+    assert len(gateway.review_requests) == 1
+    assert gateway.requests == []
+
+
+def test_rejected_pair_is_never_exposed_as_preview(prepared):
+    service, path, owner, deck_id, _document, alternatives = prepared
+
+    class RejectGateway(Gateway):
+        def generate(self, request):
+            response = super().generate(request)
+            for decision in response.value.decisions:
+                decision.decision = "reject"
+                decision.reason = (
+                    "This removes needed mana for an unrelated conditional draw effect."
+                )
+            return response
+
+    gateway = RejectGateway([])
+    tools = AssistantTools(
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=gateway,
+    )
+    with pytest.raises(ValueError, match="Strategic review"):
+        tools.execute(call("propose_replacements", {"proposal": alternatives[0]}))
+    assert tools.proposals == []
+    assert tools.reviewed_proposals == set()
+    assert len(gateway.review_requests) == 1
+
+
+def test_selected_objective_is_preserved_through_review_and_experiment(
+    prepared, monkeypatch
+):
+    service, path, owner, deck_id, _document, alternatives = prepared
+    monkeypatch.setattr(service, "execute", lambda *_args: None)
+    gateway = Gateway([])
+    tools = AssistantTools(
+        path,
+        owner,
+        deck_id,
+        "automate",
+        {"objective": "positive_finish_proof_rate"},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=gateway,
+    )
+    result = tools.execute(call("start_experiment", {"alternatives": alternatives}))
+    payload = service.get(owner, result["experiment_id"])
+    assert payload["constraints"]["objective"] == "positive_finish_proof_rate"
+    assert (
+        json.loads(gateway.review_requests[0].user)["focus"]
+        == "positive_finish_proof_rate"
+    )

@@ -28,6 +28,12 @@ from sabermetrics.combination_intelligence import (
 )
 from sabermetrics.combo_catalog import known_combinations
 from sabermetrics.deck_evidence import _card_roles, _library_entries
+from sabermetrics.functional_candidates import (
+    basic_land_color_tradeoff,
+    functional_improvement,
+    oracle_facts,
+    strategic_tradeoff,
+)
 
 GENERIC_TARGETS = {"land": 37, "ramp": 10, "draw": 12, "removal": 12, "protection": 4}
 LAND_TARGETS = {
@@ -334,12 +340,14 @@ def recommend_replacements(
     document: dict[str, Any],
     constraints: dict[str, Any] | None = None,
     focus: str = "",
+    candidate_limit: int = 3,
 ) -> dict[str, Any]:
-    """Return up to three distinct one-swap proposals; never mutate or queue.
+    """Return a bounded pool of distinct one-swap proposals; never mutate or queue.
 
     Final experiment validation remains authoritative. Search is bounded and
     deterministic; insufficient valid candidates are reported, never padded.
     """
+    candidate_limit = max(1, min(12, int(candidate_limit)))
     service = ExperimentService(path)
     constraints = service._constraints(constraints or {})
     assessment = assess_deck_requirements(document, constraints)
@@ -367,13 +375,17 @@ def recommend_replacements(
         if actual < 3:
             gaps["recursion"] = 3 - actual
         focus += " recursion"
-    requested = {role for role in gaps if role.replace("_", " ") in focus}
+    requested = {
+        role
+        for role in {row["requirement"] for row in assessment["requirements"]}
+        if role.replace("_", " ") in focus
+    }
     if "mana" in focus:
-        requested.update(set(gaps) & {"land", "ramp"})
+        requested.update({"land", "ramp"})
     if any(
         term in focus for term in ("card advantage", "card selection", "consistency")
     ):
-        requested.update(set(gaps) & {"draw"})
+        requested.update({"draw", "card_selection"})
     colors: set[str] = set()
     for entry in document.get("entries", []):
         if entry.get("is_commander"):
@@ -462,6 +474,8 @@ def recommend_replacements(
                     or "basic land" in str(card.get("type_line") or "").lower()
                 ) and _identity(card.get("color_identity")).issubset(colors):
                     pool.setdefault(card["oracle_id"], card)
+    improvements = {}
+    tradeoffs = {}
     ranked = []
     for card in pool.values():
         caps = _features(card)
@@ -470,11 +484,40 @@ def recommend_replacements(
         # establish baseline ramp. Prefer the narrower supported source shapes.
         if "ramp" in gains and not caps & {"direct_mana_source", "land_ramp"}:
             gains.discard("ramp")
-        if not gains:
+        for old in outgoing:
+            benefit = functional_improvement(old, card, features[old["id"]], caps)
+            tradeoff = strategic_tradeoff(
+                old, card, features[old["id"]], caps
+            ) or basic_land_color_tradeoff(document, old, card)
+            if not _catalog_preservation_penalty(old, catalog_lines):
+                if benefit:
+                    improvements[(old["id"], card["oracle_id"])] = benefit
+                elif tradeoff and (
+                    not requested
+                    or features[old["id"]] & caps & requested
+                    or (
+                        tradeoff["kind"] == "mana_color_tradeoff"
+                        and bool(requested & {"land", "ramp", "draw", "card_selection"})
+                    )
+                ):
+                    tradeoffs[(old["id"], card["oracle_id"])] = tradeoff
+        if not gains and not any(
+            key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
+        ):
             continue
         ranked.append((card, caps, gains))
     ranked.sort(
         key=lambda item: (
+            -2
+            * int(
+                any(key[1] == item[0]["oracle_id"] for key in improvements)
+                or any(
+                    key[1] == item[0]["oracle_id"]
+                    and value["kind"] == "mana_color_tradeoff"
+                    for key, value in tradeoffs.items()
+                )
+            )
+            - int(bool(item[2] & requested)),
             -len(item[2] & requested),
             -len(item[2]),
             int(
@@ -507,10 +550,14 @@ def recommend_replacements(
     # First pass seeks different functions, second allows distinct options for one gap.
     for diverse in (True, False):
         for card, caps, gains in ranked:
-            if len(alternatives) == 3 or attempts >= 60:
+            if len(alternatives) == candidate_limit or attempts >= 60:
                 break
             if card["oracle_id"] in used_oracles or (
-                diverse and not gains - used_roles
+                diverse
+                and not gains - used_roles
+                and not any(
+                    key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
+                )
             ):
                 continue
             incoming_cast_interactions = document_cast_trigger_evidence(document, card)
@@ -522,6 +569,8 @@ def recommend_replacements(
             pair_outgoing = sorted(
                 outgoing,
                 key=lambda old: (
+                    -2 * int((old["id"], card["oracle_id"]) in improvements)
+                    - int((old["id"], card["oracle_id"]) in tradeoffs),
                     old["id"] in used_outgoing,
                     sum(
                         item.get("matches_trigger") is True
@@ -533,15 +582,27 @@ def recommend_replacements(
                 ),
             )
             for old in pair_outgoing[:8]:
+                improvement = improvements.get((old["id"], card["oracle_id"]))
+                tradeoff = tradeoffs.get((old["id"], card["oracle_id"]))
+                contextual = improvement or tradeoff
                 net_gains = gains - features[old["id"]]
                 # Changing one mana source into another does not fill a missing
                 # ramp slot merely because one has costs our baseline excludes.
                 if "nonland_mana_resource" in features[old["id"]]:
                     net_gains.discard("ramp")
                 if (
-                    not net_gains
-                    or (requested and not net_gains & requested)
-                    or (diverse and not net_gains - used_roles)
+                    (not net_gains and not contextual)
+                    or (
+                        requested
+                        and not net_gains & requested
+                        and not (contextual and features[old["id"]] & caps & requested)
+                        and not (
+                            tradeoff
+                            and tradeoff["kind"] == "mana_color_tradeoff"
+                            and requested & {"land", "ramp", "draw", "card_selection"}
+                        )
+                    )
+                    or (diverse and not net_gains - used_roles and not contextual)
                 ):
                     continue
                 lost = features[old["id"]] - caps
@@ -581,6 +642,8 @@ def recommend_replacements(
                     continue
                 roles = sorted(net_gains)
                 reason = f"Replace {old['name']} with {card['name']} to address {', '.join(r.replace('_', ' ') for r in roles)}. Text-based ingredient fit; measure the isolated alternative before adoption."
+                if contextual:
+                    reason = f"Test {card['name']} over {old['name']}: {contextual['benefit']}. Review additional abilities and measure the isolated swap."
                 alternatives.append(
                     {
                         "name": f"Test {card['name']}",
@@ -604,6 +667,20 @@ def recommend_replacements(
                 ]
                 evidence.append(
                     {
+                        "recommendation_type": (
+                            "functional_improvement"
+                            if improvement
+                            else (
+                                "strategic_tradeoff"
+                                if tradeoff
+                                else "exploratory_infrastructure"
+                            )
+                        ),
+                        "review_required": True,
+                        "functional_improvement": improvement,
+                        "strategic_tradeoff": tradeoff,
+                        "incoming_oracle_facts": oracle_facts(card),
+                        "outgoing_oracle_facts": oracle_facts(old),
                         "card_id": card["id"],
                         "name": card["name"],
                         "type_line": card.get("type_line"),
@@ -652,13 +729,15 @@ def recommend_replacements(
                 used_roles.update(net_gains)
                 break
     return {
-        "status": "ready" if len(alternatives) == 3 else "insufficient_candidates",
+        "status": (
+            "ready"
+            if len(alternatives) == candidate_limit
+            else "insufficient_candidates"
+        ),
         "alternatives": alternatives,
         "candidate_evidence": evidence,
         "assessment": assessment,
-        "requires_semantic_review": bool(
-            constraints["theme"] or constraints["power_level"]
-        ),
+        "requires_semantic_review": bool(alternatives),
         "rejections": dict(rejected.most_common(3)),
         "constraints": {k: constraints[k] for k in ("budget", "power_level", "theme")},
         "limitations": [

@@ -105,6 +105,14 @@ Use citation titles in the reply, leaving file paths, chunk IDs, schema versions
 and internal status names in the source disclosures and receipts.
 Use assess_deck_requirements for supported archetype ingredients and explicit
 gaps; unsupported/general plans and heuristic targets are not verified win lines.
+Recommendations pass a separate bounded strategic review before becoming
+available to preview or test. A rejected or missing review is not permission to
+invent alternative swaps. Report that no supported recommendation was found.
+A strategic fit judgment is not a measured upgrade. Only an experiment outcome
+with verdict improved supports a claim of improvement, strictly for its returned
+objective and evidence scope. Never extend it to overall deck power or win rate.
+If no objective is selected, ask the user to choose one in preferences before
+promising a measured improvement; do not silently choose opening consistency.
 Use find_replacements with the user's focus to get constrained, functionally
 diverse proposals and their evidence. Distinguish inferred synergy from measured
 improvement. Review every suggestion before endorsing it: explain what the
@@ -134,11 +142,11 @@ before making positive OR negative rules claims. Never turn unknown into false.
 In Suggest mode pass selected returned alternatives to
 propose_replacements for actionable previews. In Automate mode use
 test_recommended_alternatives with the returned recommendation_id to test the
-three server-held alternatives without reconstructing their card IDs. If fewer
-than three valid alternatives are available, explain the constraint instead of
-relaxing it. Retrieval, assessment and recommendation do not run simulations.
-When theme or power preferences are set, both experiment tools require three
-semantic_reviews (alternative_index 0,1,2; theme_fit and power_fit each fit,
+server-held alternatives without reconstructing their card IDs. Seek three,
+but test fewer when only one or two pass review. Explain rejected candidates;
+never fill the quota with unsupported suggestions. Retrieval, assessment and recommendation do not run simulations.
+When theme or power preferences are set, both experiment tools require one per-alternative
+semantic_review (alternative_index 0 through the last alternative; theme_fit and power_fit each fit,
 unknown or conflict; evidence-based reasoning). Review the proposed incoming and
 outgoing cards against the user's actual preferences. Use card_details for
 missing facts. Mark uncertain fit unknown; never assert fit just to pass a gate.
@@ -158,12 +166,13 @@ research tools remain available for focused questions. Embedding similarity and
 heuristic reranking are relevance signals, not proof of synergy or correctness.
 Complete all requested card lookups before answering; batch independent reads
 where possible rather than asking the user to repeat an already clear request.
-Use propose_replacements to validate a named preview of one to three swaps.
+Use propose_replacements to validate one reviewed replacement per preview.
+Joint multi-card packages are not supported by the current strategic review.
 Only validated tool previews may be offered as actionable proposals. Respect
 budget, protected cards, power and theme preferences. Explain uncertainty when
 power/theme are not mechanically verified. In suggest mode never start an
-experiment. In automate mode start_experiment may test exactly three distinct
-alternatives, each changing at most three cards. That tool uses isolated copies,
+experiment. In automate mode start_experiment may test one to three distinct
+alternatives, each changing one card. That tool uses isolated copies,
 retains before/after results and held-out validation. No tool can adopt an
 alternative or modify the original deck: adoption always belongs to the user.
 Do not repeat a write tool: at most one Goldfish run and one experiment per turn.
@@ -432,6 +441,14 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
                 "incoming": card_summary(item),
                 "outgoing": card_summary(item.get("outgoing_card") or {}),
                 "conditions": item.get("conditions", [])[:8],
+                "review": {
+                    key: (
+                        str((item.get("strategic_review") or {}).get(key) or "")[:500]
+                        if key != "tradeoffs"
+                        else (item.get("strategic_review") or {}).get(key, [])[:3]
+                    )
+                    for key in ("decision", "benefit", "reason", "tradeoffs")
+                },
             }
             for item in data.get("candidate_evidence", [])[:3]
         ],
@@ -660,6 +677,7 @@ def run_turn(
             gateway = build_gateway(
                 settings, db_path=str(db_path), user_id=owner_id, deck_id=deck_id
             )
+        tools.review_gateway = gateway
         result.update(provider=gateway.provider, model_id=gateway.model_id)
         transcript: list[dict[str, Any]] = _conversation(messages)
         state: dict[str, Any] = {

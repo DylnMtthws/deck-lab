@@ -37,6 +37,7 @@ from sabermetrics.deck_simulation import (
 from sabermetrics.goldfish_experiments import _check_lineage
 from sabermetrics.goldfish_validation import compare_validation, validation_seed
 from sabermetrics.native_diagnostics_comparison import compare_reports
+from sabermetrics.swap_evaluation import evaluate_swap, present_outcome
 
 EXPERIMENT_EXPIRY_SECONDS = 15 * 60
 EXPERIMENT_EXPIRY_REASON = "Experiment interrupted or expired before completion. Partial measurements are preserved; no further trials will run. Start a new experiment to continue."
@@ -72,6 +73,7 @@ class ExperimentService:
             raise ValueError("Protected cards must be a list of card ids.")
         return {
             "budget": budget,
+            "objective": str(raw.get("objective") or "unverified")[:200],
             "power_level": str(raw.get("power_level") or "")[:200],
             "theme": str(raw.get("theme") or "")[:2000],
             "protected_cards": sorted(set(protected)),
@@ -277,9 +279,9 @@ class ExperimentService:
     ) -> dict[str, Any]:
         document = self._document(owner_id, deck_id, expected_revision)
         constraints = self._constraints(constraints)
-        if not isinstance(alternatives, list) or len(alternatives) != 3:
+        if not isinstance(alternatives, list) or not 1 <= len(alternatives) <= 3:
             raise ValueError(
-                "An experiment requires exactly three distinct alternatives."
+                "An experiment requires one to three distinct alternatives."
             )
         baseline_hash = candidate_from_document(
             document, user_edited_provenance()
@@ -294,7 +296,7 @@ class ExperimentService:
             )
             if candidate["deck_sha256"] in hashes:
                 raise ValueError(
-                    "All three alternatives must be distinct from the baseline and each other."
+                    "Alternatives must be distinct from the baseline and each other."
                 )
             hashes.add(candidate["deck_sha256"])
             candidates.append(
@@ -307,6 +309,7 @@ class ExperimentService:
                     "training_report": None,
                     "validation_report": None,
                     "comparison": None,
+                    "outcome": None,
                     "validation": None,
                     "error": "",
                 }
@@ -392,6 +395,29 @@ class ExperimentService:
         # A concurrently completed run wins over the stale snapshot we read.
         return payload if changed.rowcount == 1 else self.get(owner_id, payload["id"])
 
+    def _current_outcomes(
+        self, owner_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Old measurements remain visible, but cannot claim a current-source win."""
+        document = DeckDocumentRepo(self.db_path).get(owner_id, payload["deck_id"])
+        baseline = payload["baseline"]
+        stale = (
+            document["revision"] != baseline["revision"]
+            or candidate_from_document(document, user_edited_provenance()).deck_sha256
+            != baseline["deck_sha256"]
+        )
+        payload["stale"] = stale
+        if stale:
+            for alternative in payload["alternatives"]:
+                outcome = alternative.get("outcome")
+                if isinstance(outcome, dict):
+                    outcome.update(
+                        verdict="stale",
+                        reason="Source revision or deck fingerprint changed.",
+                    )
+                    present_outcome(outcome)
+        return payload
+
     def get(self, owner_id: str, experiment_id: str) -> dict[str, Any]:
         with db.connect(self.db_path) as conn:
             row = conn.execute(
@@ -400,7 +426,9 @@ class ExperimentService:
             ).fetchone()
         if row is None:
             raise DeckNotFound()
-        return self._expire(owner_id, row["payload_json"])
+        return self._current_outcomes(
+            owner_id, self._expire(owner_id, row["payload_json"])
+        )
 
     def list_for_deck(self, owner_id: str, deck_id: str) -> list[dict[str, Any]]:
         DeckDocumentRepo(self.db_path).get(owner_id, deck_id)
@@ -409,7 +437,12 @@ class ExperimentService:
                 "SELECT payload_json FROM assistant_experiments WHERE owner_id=? AND deck_id=? ORDER BY created_at DESC,id DESC LIMIT 20",
                 (owner_id, deck_id),
             ).fetchall()
-        return [self._expire(owner_id, row["payload_json"]) for row in rows]
+        return [
+            self._current_outcomes(
+                owner_id, self._expire(owner_id, row["payload_json"])
+            )
+            for row in rows
+        ]
 
     def _save(self, owner_id: str, payload: dict[str, Any]) -> None:
         with db.connect(self.db_path) as conn:
@@ -541,6 +574,17 @@ class ExperimentService:
                         payload["baseline"]["validation_report"],
                         alternative["validation_report"],
                         training_seed=settings["training_seed"],
+                    )
+                    alternative["outcome"] = evaluate_swap(
+                        payload["baseline"]["validation_report"],
+                        alternative["validation_report"],
+                        objective=payload["constraints"].get("objective", "unverified"),
+                        baseline_id=payload["deck_id"],
+                        candidate_id=alternative["id"],
+                        baseline_fingerprint=payload["baseline"]["deck_sha256"],
+                        candidate_fingerprint=alternative["deck_sha256"],
+                        training_before=payload["baseline"]["training_report"],
+                        training_after=alternative["training_report"],
                     )
                     alternative["status"] = "done"
                 except Exception as exc:

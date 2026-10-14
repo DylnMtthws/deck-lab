@@ -601,3 +601,224 @@ def test_intrinsic_basic_mana_and_repeatable_trigger_are_not_lost_to_text_stripp
         "oracle_text": "Whenever enchanted creature deals damage to a player, return target creature that player controls to its owner's hand.",
     }
     assert "triggered_ability" in _features(aura)
+
+
+def test_cheaper_role_preserving_mana_candidate_without_role_gap_gain(prepared):
+    path, document = prepared
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    library["quantity"] = 98
+    old = {
+        **library,
+        "id": "slow-entry",
+        "card_id": "slow",
+        "oracle_id": "slow",
+        "name": "Slow Rock",
+        "quantity": 1,
+        "type_line": "Artifact",
+        "cmc": 3,
+        "mana_cost": "{3}",
+        "oracle_text": "{T}: Add one mana of any color.",
+    }
+    document["entries"].append(old)
+    with db.connect(path) as conn:
+        for cid, name, text, cmc in [
+            ("slow", "Slow Rock", old["oracle_text"], 3),
+            (
+                "fast",
+                "Fast Rock",
+                "{T}: Add one mana of any color in your commander’s color identity.",
+                2,
+            ),
+        ]:
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+                (cid, cid, name, "Artifact", text, "[]", cmc, 1),
+            )
+        conn.commit()
+    report = recommend_replacements(path, document, focus="mana", candidate_limit=6)
+    first = report["candidate_evidence"][0]
+    assert first["name"] == "Fast Rock"
+    assert first["outgoing_card"]["entry_id"] == "slow-entry"
+    assert first["recommendation_type"] == "functional_improvement"
+    assert first["requirements"] == []
+    assert first["functional_improvement"]["mana_value_reduction"] == 1
+    assert first["outgoing_oracle_facts"]["oracle_text"] == old["oracle_text"]
+    assert report == recommend_replacements(
+        path, document, focus="mana", candidate_limit=6
+    )
+
+
+def test_functional_candidates_do_not_conflate_mana_outputs_or_engines():
+    from sabermetrics.assistant_deck_intelligence import _features
+    from sabermetrics.functional_candidates import functional_improvement
+
+    old = {"type_line": "Artifact", "cmc": 3, "oracle_text": "{T}: Add {C}{C}."}
+    new = {
+        "type_line": "Artifact",
+        "cmc": 2,
+        "oracle_text": "{T}: Add one mana of any color.",
+    }
+    assert functional_improvement(old, new, _features(old), _features(new)) is None
+    old = {
+        "type_line": "Enchantment",
+        "cmc": 3,
+        "oracle_text": "Whenever you cast a noncreature spell, draw a card.",
+    }
+    new = {"type_line": "Sorcery", "cmc": 1, "oracle_text": "Draw a card."}
+    assert functional_improvement(old, new, _features(old), _features(new)) is None
+
+
+def test_stored_document_generates_explicit_card_access_tradeoff(prepared):
+    path, document = prepared
+    deck_id = document["id"]
+    with db.connect(path) as conn:
+        owner = conn.execute(
+            "SELECT owner_id FROM deck_documents WHERE id=?", (deck_id,)
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE deck_entries SET quantity=98 WHERE deck_id=? AND is_commander=0",
+            (deck_id,),
+        )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES('slow-access','slow-access','Deep Access','Sorcery','Target player draws two cards. Flashback {1}{U} (You may cast this card from your graveyard for its flashback cost.)','[]',4,1)"
+        )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES('fast-access','fast-access','Fast Access','Sorcery','Scry 2. Draw a card.','[]',1,1)"
+        )
+        conn.execute(
+            "INSERT INTO deck_entries(id,deck_id,card_id,oracle_id,name,quantity,is_commander,sort_order,type_line,mana_value,oracle_text,color_identity) VALUES('slow-access-entry',?,'slow-access','slow-access','Deep Access',1,0,2,'Sorcery',4,'Target player draws two cards. Flashback {1}{U} (You may cast this card from your graveyard for its flashback cost.)','[]')",
+            (deck_id,),
+        )
+        conn.commit()
+    stored = DeckDocumentRepo(path).get(owner, deck_id)
+    old = next(e for e in stored["entries"] if e["id"] == "slow-access-entry")
+    assert "cmc" not in old and old["mana_value"] == 4
+    report = recommend_replacements(path, stored, focus="card selection consistency")
+    pair = next(e for e in report["candidate_evidence"] if e["name"] == "Fast Access")
+    assert pair["recommendation_type"] == "strategic_tradeoff"
+    assert pair["functional_improvement"] is None
+    assert pair["strategic_tradeoff"]["mana_value_reduction"] == 3
+    assert pair["outgoing_oracle_facts"]["cmc"] == 4
+
+
+def test_tradeoff_never_uses_delve_printed_cost_as_upgrade():
+    from sabermetrics.assistant_deck_intelligence import _features
+    from sabermetrics.functional_candidates import strategic_tradeoff
+
+    old = {
+        "type_line": "Sorcery",
+        "mana_value": 8,
+        "oracle_text": "Delve\nDraw three cards.",
+    }
+    new = {"type_line": "Sorcery", "cmc": 1, "oracle_text": "Draw a card."}
+    assert strategic_tradeoff(old, new, _features(old), _features(new)) is None
+
+
+def test_functional_matcher_preserves_timing_and_extra_mana_abilities():
+    from sabermetrics.assistant_deck_intelligence import _features
+    from sabermetrics.functional_candidates import functional_improvement
+
+    old = {"type_line": "Instant", "mana_value": 3, "oracle_text": "Draw two cards."}
+    new = {"type_line": "Sorcery", "cmc": 2, "oracle_text": "Draw two cards."}
+    assert functional_improvement(old, new, _features(old), _features(new)) is None
+    old = {
+        "type_line": "Artifact",
+        "mana_value": 3,
+        "oracle_text": "Indestructible\n{T}: Add one mana of any color.",
+    }
+    new = {
+        "type_line": "Artifact",
+        "cmc": 2,
+        "oracle_text": "{T}: Add one mana of any color.",
+    }
+    assert functional_improvement(old, new, _features(old), _features(new)) is None
+
+
+def test_stored_wrong_color_deck_discovers_first_needed_basic_source(prepared):
+    path, document = prepared
+    deck_id = document["id"]
+    with db.connect(path) as conn:
+        owner = conn.execute(
+            "SELECT owner_id FROM deck_documents WHERE id=?", (deck_id,)
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE deck_entries SET quantity=46,card_id='card-mountain',oracle_id=(SELECT oracle_id FROM cards WHERE id='card-mountain'),name='Mountain',type_line='Basic Land — Mountain',oracle_text='',color_identity='[\"R\"]' WHERE deck_id=? AND is_commander=0",
+            (deck_id,),
+        )
+        conn.execute(
+            "UPDATE deck_entries SET color_identity='[\"U\",\"R\"]',mana_cost='{1}{U}{R}' WHERE deck_id=? AND is_commander=1",
+            (deck_id,),
+        )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99,mana_cost) VALUES('blue-spell','blue-spell','Blue Spell','Sorcery','Draw a card.','[\"U\"]',1,1,'{U}')"
+        )
+        for index in range(53):
+            card_id = f"blue-card-{index}"
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99,mana_cost) VALUES(?,?,?,'Sorcery','Draw a card.','[\"U\"]',1,1,'{U}')",
+                (card_id, card_id, f"Blue Spell {index}"),
+            )
+            conn.execute(
+                "INSERT INTO deck_entries(id,deck_id,card_id,oracle_id,name,quantity,is_commander,sort_order,type_line,mana_value,mana_cost,oracle_text,color_identity) VALUES(?,?,?,?,?,1,0,2,'Sorcery',1,'{U}','Draw a card.','[\"U\"]')",
+                (
+                    f"blue-entry-{index}",
+                    deck_id,
+                    card_id,
+                    card_id,
+                    f"Blue Spell {index}",
+                ),
+            )
+        conn.commit()
+    stored = DeckDocumentRepo(path).get(owner, deck_id)
+    report = recommend_replacements(path, stored, focus="mana consistency")
+    assert report["candidate_evidence"], report
+    pair = next(
+        e
+        for e in report["candidate_evidence"]
+        if (e.get("strategic_tradeoff") or {}).get("kind") == "mana_color_tradeoff"
+    )
+    assert pair["name"] == "Island"
+    proof = pair["strategic_tradeoff"]["color_demand_evidence"]
+    assert proof["recognized_source_counts_before"]["U"] == 0
+    assert proof["colored_pip_demand"]["U"] == 54
+    assert proof["outgoing_sources_after"] == 45
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "illegal",
+        "same_color",
+        "existing_blue",
+        "unknown_nonbasic",
+        "conditional_source",
+    ],
+)
+def test_basic_color_tradeoff_abstains_without_zero_source_proof(change):
+    from sabermetrics.functional_candidates import basic_land_color_tradeoff
+
+    mountain = {"type_line": "Basic Land — Mountain", "quantity": 46}
+    island = {"type_line": "Basic Land — Island"}
+    entries = [
+        {"is_commander": True, "color_identity": ["U", "R"], "mana_cost": "{U}{R}"},
+        mountain,
+        {"type_line": "Sorcery", "mana_cost": "{U}", "oracle_text": "Draw a card."},
+    ]
+    if change == "illegal":
+        entries[0]["color_identity"] = ["R"]
+    elif change == "same_color":
+        island = mountain
+    elif change == "existing_blue":
+        entries.append(island)
+    elif change == "unknown_nonbasic":
+        entries.append(
+            {"type_line": "Land", "oracle_text": "{T}: Add one mana of any color."}
+        )
+    else:
+        entries.append(
+            {
+                "type_line": "Artifact",
+                "oracle_text": "Whenever you cast a spell, add {U}.",
+            }
+        )
+    assert basic_land_color_tradeoff({"entries": entries}, mountain, island) is None

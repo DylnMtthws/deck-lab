@@ -5,9 +5,16 @@ import json
 import pytest
 
 from sabermetrics.assistant_runtime import _encode_context, _model_receipt, run_turn
+from sabermetrics.assistant_swap_review import SwapReviewResponse
 from sabermetrics.assistant_tools import AssistantTools
 from sabermetrics.deck_documents import DeckDocumentRepo
-from tests.test_assistant_runtime import Gateway, call, step
+from tests.test_assistant_intelligence_workflow import reviewable_candidates
+from tests.test_assistant_runtime import (
+    Gateway,
+    call,
+    complete_review_sources,  # noqa: F401 - registers the valid Oracle fixture
+    step,
+)
 
 pytest_plugins = ["tests.test_assistant_experiments"]
 
@@ -20,10 +27,7 @@ def setup_plan(prepared, monkeypatch):
     monkeypatch.setattr(
         intelligence,
         "recommend_replacements",
-        lambda *a, **kw: {
-            "alternatives": alternatives,
-            "requires_semantic_review": False,
-        },
+        lambda *a, **kw: reviewable_candidates(prepared),
     )
     monkeypatch.setattr(
         evidence,
@@ -48,7 +52,14 @@ def setup_plan(prepared, monkeypatch):
 def test_prepare_is_read_only_stable_and_retains_sources(prepared, monkeypatch):
     service, path, owner, deck_id, original, _ = setup_plan(prepared, monkeypatch)
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     plan = tools.execute(call("prepare_improvement", {"focus": "recovery"}))
     repeated = tools.execute(call("prepare_improvement", {"focus": "recovery"}))
@@ -77,6 +88,8 @@ def test_prepare_to_three_copy_execution_and_presentation(prepared, monkeypatch)
 
     class PlanningGateway(Gateway):
         def generate(self, request):
+            if request.schema is SwapReviewResponse:
+                return super().generate(request)
             if len(self.requests) == 1:
                 state = json.loads(request.user)
                 recommendation = state["state"]["workflow"]["recommendation"]
@@ -178,7 +191,14 @@ def test_memory_tool_reads_persisted_preferences_without_starting_experiment(pre
         owner, deck_id, "suggest", {"theme": "Keep the theme", "budget": 200}
     )
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     memory = tools.execute(call("research_memory"))
     assert memory["preferences"]["constraints"]["theme"] == "Keep the theme"
@@ -190,14 +210,21 @@ def test_memory_tool_reads_persisted_preferences_without_starting_experiment(pre
 def test_prepare_with_stopword_focus_still_assesses_and_prepares(prepared, monkeypatch):
     from sabermetrics import assistant_deck_intelligence as intelligence
 
-    service, path, owner, deck_id, _, alternatives = prepared
+    service, path, owner, deck_id, _, _alternatives = prepared
     monkeypatch.setattr(
         intelligence,
         "recommend_replacements",
-        lambda *a, **kw: {"alternatives": alternatives},
+        lambda *a, **kw: reviewable_candidates(prepared),
     )
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     result = tools.execute(call("prepare_improvement", {"focus": "how can I"}))
     assert result["experiment_ready"]
@@ -283,7 +310,14 @@ def test_combination_tool_is_read_only_scoped_and_strips_internal_models(
 
     monkeypatch.setattr(combination_intelligence, "analyze_combinations", analyze)
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     result = tools.execute(call("analyze_deck_combinations"))
     assert seen == [original]
@@ -312,7 +346,14 @@ def test_hypothetical_replay_uses_current_deck_and_never_claims_game_observation
     document, state = fixture()
     document["entries"].append({"name": "Other"})
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     monkeypatch.setattr(tools, "check", lambda: document)
     result = tools.execute(
@@ -484,7 +525,14 @@ def test_hypothetical_attachment_prose_is_rejected_with_exact_name_repair_hint(
     service, path, owner, deck_id, original, _ = prepared
     document = reference_decks()["affordable-vivi"]
     tools = AssistantTools(
-        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        "suggest",
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
     monkeypatch.setattr(tools, "check", lambda: document)
     state = {

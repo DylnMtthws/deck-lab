@@ -97,11 +97,21 @@
                     <button type="button" data-assistant-mode="suggest" aria-pressed="true">Suggest</button>
                     <button type="button" data-assistant-mode="automate" aria-pressed="false">Automate</button>
                 </div>
-                <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false" aria-controls="assistant-constraints" title="Budget, power level, theme and protected cards">Settings</button>
+                <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false" aria-controls="assistant-constraints" title="Measurement objective, budget, power level, theme and protected cards">Settings</button>
             </div>
             <p class="dl-assistant-provider" data-assistant-provider hidden role="status"></p>
             <div class="dl-assistant-scroll" data-assistant-scroll>
             <form class="dl-assistant-constraints" id="assistant-constraints" data-assistant-constraints hidden>
+                <label>Measure improvement in<select class="dl-field" data-assistant-objective>
+                    <option value="">Choose an objective</option>
+                    <option value="qualified_opening_rate">Modeled opening-policy proxy</option>
+                    <option value="mean_missed_land_drops">Fewer missed land drops · requires full native coverage</option>
+                    <option value="positive_finish_proof_rate">Verified solo finishes · requires full native coverage</option>
+                    <option value="engine_online_rate">Engine development · requires full native coverage</option>
+                    <option value="recovery_draw_rate">Draw recovery after commander loss · requires full native coverage</option>
+                    <option value="recovery_board_rate">Board recovery after creature wipe · requires full native coverage</option>
+                </select></label>
+                <p>Opening results describe a modeled policy proxy, not real opening success. Other objectives require full native coverage, currently uncommon; incomplete coverage leaves improvement unknown.</p>
                 <label>Budget cap · USD<input class="dl-field" type="number" min="0" step="0.01" data-assistant-budget placeholder="Optional"></label>
                 <label>Power level<input class="dl-field" type="text" maxlength="80" data-assistant-power placeholder="Optional"></label>
                 <label>Theme<input class="dl-field" type="text" maxlength="160" data-assistant-theme placeholder="Optional"></label>

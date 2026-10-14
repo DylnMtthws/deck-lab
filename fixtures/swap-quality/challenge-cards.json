@@ -1,0 +1,98 @@
+[
+  {
+    "id": "challenge-astral-cornucopia",
+    "oracle_id": "challenge-astral-cornucopia",
+    "name": "Astral Cornucopia",
+    "mana_cost": "{X}{X}{X}",
+    "cmc": 0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters with X charge counters on it.\n{T}: Choose a color. Add one mana of that color for each charge counter on this artifact.",
+    "color_identity": "[]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-darksteel-ingot",
+    "oracle_id": "challenge-darksteel-ingot",
+    "name": "Darksteel Ingot",
+    "mana_cost": "{3}",
+    "cmc": 3,
+    "type_line": "Artifact",
+    "oracle_text": "Indestructible\n{T}: Add one mana of any color.",
+    "color_identity": "[]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-mind-stone",
+    "oracle_id": "challenge-mind-stone",
+    "name": "Mind Stone",
+    "mana_cost": "{2}",
+    "cmc": 2,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "color_identity": "[]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-cancel",
+    "oracle_id": "challenge-cancel",
+    "name": "Cancel",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "color_identity": "[\"U\"]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-counterspell",
+    "oracle_id": "challenge-counterspell",
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "color_identity": "[\"U\"]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-diabolic-tutor",
+    "oracle_id": "challenge-diabolic-tutor",
+    "name": "Diabolic Tutor",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a card, put that card into your hand, then shuffle.",
+    "color_identity": "[\"B\"]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-divination",
+    "oracle_id": "challenge-divination",
+    "name": "Divination",
+    "mana_cost": "{2}{U}",
+    "cmc": 3,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "color_identity": "[\"U\"]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  },
+  {
+    "id": "challenge-manalith",
+    "oracle_id": "challenge-manalith",
+    "name": "Manalith",
+    "mana_cost": "{3}",
+    "cmc": 3,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add one mana of any color.",
+    "color_identity": "[]",
+    "is_legal_in_99": 1,
+    "fixture_provenance": "Authored card-text challenge snapshot; not current legality or price verification."
+  }
+]

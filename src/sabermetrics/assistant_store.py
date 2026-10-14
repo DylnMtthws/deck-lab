@@ -33,6 +33,14 @@ def validate_constraints(value: Any) -> dict[str, Any]:
         if not isinstance(text, str) or len(text) > 500:
             raise ValueError(f"{key} must be text of at most 500 characters.")
         result[key] = text.strip()
+    from sabermetrics.swap_evaluation import OBJECTIVES
+
+    objective = value.get("objective", "")
+    if objective is None:
+        objective = ""
+    if not isinstance(objective, str) or objective not in {"", *OBJECTIVES}:
+        raise ValueError("Choose a supported improvement objective, or leave it empty.")
+    result["objective"] = objective
     cards = value.get("protected_cards", [])
     if (
         not isinstance(cards, list)

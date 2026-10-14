@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "feature": "Evidence-based swap experiments",
+  "policy": {
+    "candidate_discovery": "Bounded role and functional search; equivalence, strategic tradeoffs and typed zero-color-source repairs carry distinct evidence",
+    "strategic_review": "Separate structured call using existing configured model; same model, not independent adjudication",
+    "review_bound_bytes": 24576,
+    "review_gate": "Exact meaningful source quotes for both cards, complete pair facts, explicit preference fit; reject missing/uncertain evidence",
+    "experiments": "Default three; one to three distinct isolated alternatives accepted; one reviewed replacement per assistant alternative",
+    "objective": "Explicit user selection; no silent opening default",
+    "measurements": "Matching frozen engine/policy/dependency provenance, meaningful uncertainty separation and agreeing independent validation",
+    "opening_scope": "Native opening-policy proxy, not real opening success or overall strength",
+    "other_objectives": "Require complete supported native coverage; unavailable coverage produces an unknown result",
+    "source_deck": "Unchanged until explicit adoption; stale source invalidates outcome labels"
+  },
+  "validation": {
+    "authored_matcher_cases": 18,
+    "matcher_scope": "Pair matcher only; not expert-scored or full assistant quality",
+    "real_deck_contexts": 4,
+    "reviewers": [
+      "Sol 6.1 coding partners",
+      "Claude Code Opus 5.5 skeptical review"
+    ],
+    "live_model_probe": "Rejected three strategic losses and accepted one disclosed tradeoff on actual Vivi deck",
+    "native_positive": "Separate extreme wrong-color stress fixture demonstrates scoped improved and reversed regressed paths"
+  },
+  "known_limits": [
+    "Semantic review can still be wrong",
+    "No proof of overall deck upgrades or multiplayer win-rate",
+    "Native gaps prevent decisive verdicts for many real swaps",
+    "Joint multi-card packages need joint strategic review before assistant support"
+  ]
+}

@@ -31,6 +31,7 @@ def test_settings_and_transcript_persist_per_owned_deck(setup):
         "budget": 200,
         "power_level": "casual",
         "theme": "Orcs",
+        "objective": "qualified_opening_rate",
         "protected_cards": [],
     }
     assert (

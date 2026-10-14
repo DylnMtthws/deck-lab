@@ -6,17 +6,57 @@ import pytest
 
 from sabermetrics import db
 from sabermetrics.assistant_runtime import _model_receipt, run_turn
+from sabermetrics.assistant_swap_review import SwapReviewResponse
 from sabermetrics.assistant_tools import TOOL_ADAPTER, AssistantTools
 from sabermetrics.deck_documents import DeckDocumentRepo, RevisionConflict
-from tests.test_assistant_runtime import Gateway, call, step
+from sabermetrics.functional_candidates import oracle_facts
+from tests.test_assistant_runtime import (
+    Gateway,
+    _accepted_review,
+    call,
+    complete_review_sources,  # noqa: F401 - registers the valid Oracle fixture
+    step,
+)
 
 pytest_plugins = ["tests.test_assistant_experiments"]
+
+
+def reviewable_candidates(prepared):
+    service, _path, owner, deck_id, document, alternatives = prepared
+    evidence = []
+    for proposal in alternatives:
+        swap = proposal["replacements"][0]
+        preview = service.validate_replacements(
+            owner, deck_id, document["revision"], proposal["replacements"], {}
+        )
+        old = next(
+            e for e in document["entries"] if e["id"] == swap["outgoing_entry_id"]
+        )
+        incoming = next(
+            e
+            for e in preview["document"]["entries"]
+            if e.get("card_id") == swap["incoming_card_id"]
+        )
+        evidence.append(
+            {
+                "incoming_oracle_facts": oracle_facts(incoming),
+                "outgoing_oracle_facts": oracle_facts(old),
+            }
+        )
+    return {"alternatives": alternatives, "candidate_evidence": evidence}
 
 
 def tools_for(prepared, mode="suggest"):
     service, path, owner, deck_id, _, _ = prepared
     return AssistantTools(
-        path, owner, deck_id, mode, {}, lambda: False, experiment_service=service
+        path,
+        owner,
+        deck_id,
+        mode,
+        {},
+        lambda: False,
+        experiment_service=service,
+        review_gateway=Gateway([]),
     )
 
 
@@ -71,11 +111,11 @@ def test_recommendations_use_server_held_ids_and_copy_only_experiment(
     from sabermetrics import assistant_deck_intelligence as intelligence
     from tests.test_assistant_experiments import report
 
-    service, path, owner, deck_id, original, alternatives = prepared
+    service, path, owner, deck_id, original, _alternatives = prepared
     monkeypatch.setattr(
         intelligence,
         "recommend_replacements",
-        lambda *a, **kw: {"alternatives": alternatives},
+        lambda *a, **kw: reviewable_candidates(prepared),
     )
     monkeypatch.setattr(
         service, "_simulate", lambda document, seed, settings: report(seed)
@@ -113,8 +153,8 @@ def test_suggest_unknown_and_insufficient_recommendations_cannot_execute(prepare
         tools.execute(
             call("test_recommended_alternatives", {"recommendation_id": "invented"})
         )
-    tools.recommendations["short"] = prepared[-1][:2]
-    with pytest.raises(ValueError, match="Three valid"):
+    tools.recommendations["short"] = []
+    with pytest.raises(ValueError, match="One to three reviewed"):
         tools.execute(
             call("test_recommended_alternatives", {"recommendation_id": "short"})
         )
@@ -202,12 +242,12 @@ def test_discovery_is_stable_and_workflow_pins_the_next_experiment(
     from sabermetrics import assistant_deck_intelligence as intelligence
     from tests.test_assistant_experiments import report
 
-    service, path, owner, deck_id, original, alternatives = prepared
+    service, path, owner, deck_id, original, _alternatives = prepared
     discoveries = []
 
     def discover(*args, **kwargs):
         discoveries.append(kwargs)
-        return {"alternatives": alternatives, "requires_semantic_review": False}
+        return reviewable_candidates(prepared)
 
     monkeypatch.setattr(intelligence, "recommend_replacements", discover)
     monkeypatch.setattr(
@@ -220,6 +260,8 @@ def test_discovery_is_stable_and_workflow_pins_the_next_experiment(
         calls = 0
 
         def generate(self, request):
+            if request.schema is SwapReviewResponse:
+                return SimpleNamespace(value=_accepted_review(request))
             self.calls += 1
             workflow = json.loads(request.user)["state"]["workflow"]
             if self.calls == 1:

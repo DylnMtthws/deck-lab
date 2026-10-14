@@ -1,0 +1,224 @@
+{
+  "version": "swap-quality-authored-challenge.v1",
+  "validation": "Independent authored rubric; not expert-scored validation or measured game strength.",
+  "source": "Four supplied reference deck documents and public-catalog snapshot, 2026-10-14.",
+  "cases": [
+    {
+      "id": "affordable-vivi-sol-ring",
+      "deck": "affordable-vivi",
+      "outgoing": "Sol Ring",
+      "incoming": "Astral Cornucopia",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "X=0 supplies no mana; productive cast costs 3X. Trigger eligibility alone cannot establish ramp quality."
+    },
+    {
+      "id": "affordable-vivi-arcane-signet",
+      "deck": "affordable-vivi",
+      "outgoing": "Arcane Signet",
+      "incoming": "Astral Cornucopia",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "X=0 supplies no mana; productive cast costs 3X. Trigger eligibility alone cannot establish ramp quality."
+    },
+    {
+      "id": "high-power-vivi-sol-ring",
+      "deck": "high-power-vivi",
+      "outgoing": "Sol Ring",
+      "incoming": "Astral Cornucopia",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "X=0 supplies no mana; productive cast costs 3X. Trigger eligibility alone cannot establish ramp quality."
+    },
+    {
+      "id": "high-power-vivi-arcane-signet",
+      "deck": "high-power-vivi",
+      "outgoing": "Arcane Signet",
+      "incoming": "Astral Cornucopia",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "X=0 supplies no mana; productive cast costs 3X. Trigger eligibility alone cannot establish ramp quality."
+    },
+    {
+      "id": "high-power-vivi-everflowing-chalice",
+      "deck": "high-power-vivi",
+      "outgoing": "Everflowing Chalice",
+      "incoming": "Astral Cornucopia",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "X=0 supplies no mana; productive cast costs 3X. Trigger eligibility alone cannot establish ramp quality."
+    },
+    {
+      "id": "cruise-into-ingot",
+      "deck": "affordable-vivi",
+      "outgoing": "Treasure Cruise",
+      "incoming": "Darksteel Ingot",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "Lose cheap conditional card advantage for three mana ramp; a role gap does not establish a quality improvement."
+    },
+    {
+      "id": "analysis-into-island",
+      "deck": "affordable-vivi",
+      "outgoing": "Deep Analysis",
+      "incoming": "Island",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "Land consistency may improve while flashback draw and noncreature casts decline; disclose exchange explicitly."
+    },
+    {
+      "id": "curiosity-engine-loss",
+      "deck": "affordable-vivi",
+      "outgoing": "Curiosity",
+      "incoming": "Mind Stone",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged"
+      ],
+      "rubric": "Lose commander damage draw engine; generic mana need does not outweigh demonstrated engine dependence."
+    },
+    {
+      "id": "quicksilver-line-loss",
+      "deck": "affordable-vivi",
+      "outgoing": "Quicksilver Elemental",
+      "incoming": "Darksteel Ingot",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged"
+      ],
+      "rubric": "Removal breaks sourced combination ingredient; source is not proof of execution, but loss needs explicit handling."
+    },
+    {
+      "id": "high-vivi-free-protection-loss",
+      "deck": "high-power-vivi",
+      "outgoing": "Force of Will",
+      "incoming": "Cancel",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged"
+      ],
+      "rubric": "High power list depends on alternate free interaction; printed mana-value ranking reverses actual tempo.",
+      "power_level": "high"
+    },
+    {
+      "id": "high-sauron-tutor-loss",
+      "deck": "high-power-sauron",
+      "outgoing": "Demonic Tutor",
+      "incoming": "Diabolic Tutor",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged"
+      ],
+      "rubric": "Same effect costs two extra mana, critical at high power.",
+      "power_level": "high"
+    },
+    {
+      "id": "sauron-ring-engine-loss",
+      "deck": "affordable-sauron",
+      "outgoing": "Call of the Ring",
+      "incoming": "Divination",
+      "acceptable_outcomes": [
+        "rejected",
+        "flagged",
+        "tradeoff"
+      ],
+      "rubric": "Repeatable Ring temptation supports commander discard/refill engine; one-shot draw loses that relationship.",
+      "theme": "Lord of the Rings"
+    },
+    {
+      "id": "sauron-theme-conflict",
+      "deck": "affordable-sauron",
+      "outgoing": "Book of Mazarbul",
+      "incoming": "Rhystic Study",
+      "acceptable_outcomes": [
+        "flagged",
+        "tradeoff",
+        "insufficient_evidence"
+      ],
+      "rubric": "Off-theme stronger generic draw must respect explicit theme preference.",
+      "theme": "Lord of the Rings",
+      "power_level": "casual"
+    },
+    {
+      "id": "unknown-cost-quality",
+      "deck": "affordable-vivi",
+      "outgoing": "Deep Analysis",
+      "incoming": "Rhystic Study",
+      "acceptable_outcomes": [
+        "tradeoff",
+        "insufficient_evidence",
+        "flagged"
+      ],
+      "rubric": "Prices absent from supplied catalog: do not certify budget feasibility.",
+      "budget": 50
+    },
+    {
+      "id": "indestructible-rock-tradeoff",
+      "deck": "affordable-sauron",
+      "outgoing": "Darksteel Ingot",
+      "incoming": "Arcane Signet",
+      "acceptable_outcomes": [
+        "flagged",
+        "tradeoff",
+        "insufficient_evidence"
+      ],
+      "rubric": "Lower casting cost loses indestructible. That ability loss prevents equivalent-function acceptance; flag it for strategic tradeoff review rather than calling it an improvement."
+    },
+    {
+      "id": "plain-counter-efficiency",
+      "deck": "high-power-sauron",
+      "outgoing": "Cancel",
+      "incoming": "Counterspell",
+      "acceptable_outcomes": [
+        "accepted",
+        "quality_candidate"
+      ],
+      "rubric": "Same unconditional spell counter costs one less generic mana; both costs require two blue mana. Printed-cost efficiency only, with no demonstrated win-rate claim."
+    },
+    {
+      "id": "missing-evidence",
+      "deck": "high-power-vivi",
+      "outgoing": "Force of Will",
+      "incoming": "Mystery Card",
+      "acceptable_outcomes": [
+        "insufficient_evidence",
+        "flagged",
+        "rejected"
+      ],
+      "rubric": "Incoming card has no Oracle text; uncertainty must survive ranking."
+    },
+    {
+      "id": "plain-rock-efficiency",
+      "deck": "affordable-sauron",
+      "outgoing": "Manalith",
+      "incoming": "Arcane Signet",
+      "acceptable_outcomes": [
+        "accepted",
+        "quality_candidate"
+      ],
+      "rubric": "One less generic mana for a plain one-mana artifact source in this Grixis commander deck. Manalith can also produce colors outside commander identity; Arcane Signet cannot. This contextual mana-role candidate does not establish overall equivalence for off-color use or game strength.",
+      "counterfactual": true
+    }
+  ]
+}

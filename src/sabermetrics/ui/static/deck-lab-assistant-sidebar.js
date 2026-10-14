@@ -295,9 +295,11 @@
     var budget = sidebar.querySelector("[data-assistant-budget]");
     var power = sidebar.querySelector("[data-assistant-power]");
     var theme = sidebar.querySelector("[data-assistant-theme]");
+    var objective = sidebar.querySelector("[data-assistant-objective]");
     if (budget && document.activeElement !== budget) budget.value = constraints.budget == null ? "" : constraints.budget;
     if (power && document.activeElement !== power) power.value = constraints.power_level || "";
     if (theme && document.activeElement !== theme) theme.value = constraints.theme || "";
+    if (objective && document.activeElement !== objective) objective.value = constraints.objective || "";
     if (!protectedDirty) protectedCards();
     var provider = sidebar.querySelector("[data-assistant-provider]");
     if (provider) {
@@ -590,6 +592,35 @@
     var names = { research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
     return names[action && action.name] || "Assistant tool";
   }
+  function appendSwapReviews(host, receipts) {
+    if (!receipts.length) return;
+    var section = element("section");
+    section.appendChild(element("strong", "Strategic fit review · experiment suitability only"));
+    receipts.slice(0, 8).forEach(function (receipt) {
+      var card = element("div");
+      var labels = { accept: "Suitable to test", reject: "Not recommended", uncertain: "Fit uncertain" };
+      var pair = receipt.outgoing_name && receipt.incoming_name ? "Cut " + receipt.outgoing_name + "; add " + receipt.incoming_name : "Swap under review";
+      card.appendChild(element("p", pair + " · " + (labels[receipt.decision] || "Fit uncertain")));
+      if (receipt.reason) card.appendChild(element("p", receipt.reason));
+      if (receipt.benefit) card.appendChild(element("p", "Potential benefit: " + receipt.benefit));
+      if (Array.isArray(receipt.tradeoffs) && receipt.tradeoffs.length) card.appendChild(element("p", "Tradeoffs: " + receipt.tradeoffs.join("; ")));
+      if (receipt.validation_reason) card.appendChild(element("p", receipt.validation_reason));
+      if (Array.isArray(receipt.citations) && receipt.citations.length && receipt.citations_verified !== true) {
+        card.appendChild(element("p", "Quoted evidence not verified"));
+      }
+      if (receipt.citations_verified === true && Array.isArray(receipt.citations) && receipt.citations.length) {
+        var citations = element("details");
+        citations.appendChild(element("summary", "Card-text evidence"));
+        receipt.citations.slice(0, 8).forEach(function (citation) {
+          citations.appendChild(element("p", String(citation.side || "Card") + ": “" + String(citation.quote || "") + "”"));
+        });
+        card.appendChild(citations);
+      }
+      section.appendChild(card);
+    });
+    section.appendChild(element("p", "Model review of supplied evidence; card strength and measured improvement remain unverified."));
+    host.appendChild(section);
+  }
   function renderToolStep(message) {
     var action = message.action || {};
     var step = element("div", null, "dl-assistant-tool-step");
@@ -607,6 +638,7 @@
     if (failed && message.content) appendMarkdown(step, messageContent(message), cardsFrom(message));
     if (action.name === "search_cards" && action.ok === true) appendSearchResults(step, message);
     if (action.name === "retrieve_strategy_evidence" && action.ok === true) appendStrategyEvidence(step, action.data);
+    if (action.ok === true && action.data && Array.isArray(action.data.review_receipts)) appendSwapReviews(step, action.data.review_receipts);
     if (action.ok === true && action.data && Array.isArray(action.data.observations)) observationChart(step, action.data);
     if (action.ok === true && ["start_experiment", "test_recommended_alternatives"].indexOf(action.name) >= 0 && action.data && action.data.metric_summary) appendMetricSummary(step, action.data.metric_summary);
     return step;
@@ -788,6 +820,42 @@
     if (!metrics.length) figure.appendChild(element("p", "No comparable scalar values were supplied."));
     host.appendChild(figure);
   }
+  function appendSwapOutcome(host, outcome) {
+    var panel = element("div", null, "dl-assistant-swap-outcome");
+    var objectives = {
+      qualified_opening_rate: "Modeled opening-policy proxy",
+      mean_missed_land_drops: "Fewer missed land drops",
+      positive_finish_proof_rate: "Verified solo finishes",
+      engine_online_rate: "Engine development",
+      recovery_draw_rate: "Draw recovery after commander loss",
+      recovery_board_rate: "Board recovery after creature wipe"
+    };
+    var verdicts = { improved: "Improved for selected objective", regressed: "Regressed for selected objective", indeterminate: "Improvement undetermined", incomparable: "Results cannot be compared", stale: "Results are stale" };
+    if (!outcome || typeof outcome !== "object") {
+      panel.appendChild(element("strong", "Improvement undetermined"));
+      panel.appendChild(element("p", "Objective evaluation is not available yet."));
+      host.appendChild(panel); return;
+    }
+    panel.appendChild(element("strong", outcome.display_label || verdicts[outcome.verdict] || "Improvement undetermined"));
+    panel.appendChild(element("p", "Objective: " + (objectives[outcome.objective] || outcome.objective || "Not selected")));
+    if (outcome.reason) panel.appendChild(element("p", outcome.reason));
+    var evidence = outcome.evidence || {};
+    if (evidence.scope) panel.appendChild(element("p", "Test scope: " + String(evidence.scope).replace(/_/g, " ")));
+    if (typeof evidence.delta === "number" && Number.isFinite(evidence.delta)) {
+      panel.appendChild(element("p", "Raw metric change (candidate − baseline): " + evidence.delta.toFixed(3)));
+    }
+    var interval = evidence.difference_interval;
+    if (interval && Number.isFinite(interval.low) && Number.isFinite(interval.high)) {
+      panel.appendChild(element("p", "Interval toward improvement (positive is better): " + interval.low.toFixed(3) + " to " + interval.high.toFixed(3)));
+    }
+    if (evidence.direction === -1) panel.appendChild(element("p", "Lower values are better for this metric; the improvement interval reverses the raw change direction."));
+    if (outcome.training_evidence && outcome.training_evidence.reason) {
+      panel.appendChild(element("p", "Training evidence: " + outcome.training_evidence.reason));
+    }
+    panel.appendChild(element("p", "Solo evidence for this objective. Overall deck strength and other tradeoffs remain unverified."));
+    if (outcome.note) panel.appendChild(element("p", outcome.note));
+    host.appendChild(panel);
+  }
   function renderExperiments() {
     var signature = JSON.stringify(data.experiments || []);
     if (signature === renderedExperimentSignature) return;
@@ -802,6 +870,7 @@
         var section = element("section");
         section.appendChild(element("strong", alternative.name || "Alternative"));
         if (alternative.rationale) section.appendChild(element("p", alternative.rationale));
+        appendSwapOutcome(section, alternative.outcome);
         if (alternative.validation) {
           appendComparisonFigure(section, alternative.validation.comparison, "Held-out");
           section.appendChild(element("p", "Independent validation · " + (alternative.validation.status || "descriptive") +
@@ -811,6 +880,7 @@
         var fullEvidence = element("details"); fullEvidence.dataset.experimentDetails = String(experiment.id) + "|" + String(alternative.id);
         fullEvidence.appendChild(element("summary", "Full experiment evidence"));
         fullEvidence.appendChild(element("pre", readableReport({
+          outcome: alternative.outcome,
           training_report: alternative.training_report,
           comparison: alternative.comparison,
           validation: alternative.validation,
@@ -873,6 +943,7 @@
     var budgetText = sidebar.querySelector("[data-assistant-budget]").value.trim();
     var constraints = {
       budget: budgetText ? Number(budgetText) : null,
+      objective: sidebar.querySelector("[data-assistant-objective]").value,
       power_level: sidebar.querySelector("[data-assistant-power]").value.trim(),
       theme: sidebar.querySelector("[data-assistant-theme]").value.trim(),
       protected_cards: Array.prototype.slice.call(sidebar.querySelectorAll("[data-protected-card]:checked")).map(function (box) { return box.value; })

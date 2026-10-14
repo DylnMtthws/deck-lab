@@ -602,3 +602,47 @@ def test_read_side_expiry_stops_late_worker_before_next_trial(prepared, monkeypa
     service.execute(owner, payload["id"])
     assert len(calls) == 1
     assert service.get(owner, payload["id"])["status"] == "failed"
+
+
+def test_outcomes_are_invalidated_when_source_revision_changes(prepared, monkeypatch):
+    service, path, owner, deck, original, _alternatives = prepared
+    payload = complete(prepared, monkeypatch)
+    assert payload["stale"] is False
+    assert all(
+        item["outcome"]["verdict"] == "indeterminate"
+        for item in payload["alternatives"]
+    )
+    DeckDocumentRepo(path).apply_commands(
+        owner,
+        deck,
+        expected_revision=original["revision"],
+        mutation_id="outcome-stale",
+        commands=[{"type": "rename_deck", "title": "Changed"}],
+    )
+    current = service.get(owner, payload["id"])
+    assert current["stale"] is True
+    assert all(
+        item["outcome"]["verdict"] == "stale" for item in current["alternatives"]
+    )
+    assert (
+        service.list_for_deck(owner, deck)[0]["alternatives"][0]["outcome"]["verdict"]
+        == "stale"
+    )
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_one_to_three_alternatives_are_frozen_without_source_changes(prepared, count):
+    service, path, owner, deck, document, alternatives = prepared
+    result = service.create(owner, deck, document["revision"], alternatives[:count], {})
+    assert len(result["alternatives"]) == count
+    assert len({item["deck_sha256"] for item in result["alternatives"]}) == count
+    assert DeckDocumentRepo(path).get(owner, deck) == document
+
+
+@pytest.mark.parametrize("count", [0, 4])
+def test_experiment_alternative_bounds(prepared, count):
+    service, _path, owner, deck, document, alternatives = prepared
+    with pytest.raises(ValueError, match="one to three"):
+        service.create(
+            owner, deck, document["revision"], (alternatives * 2)[:count], {}
+        )

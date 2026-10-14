@@ -216,3 +216,120 @@ assert.equal(rendered, null);
         [node, "-e", script], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_swap_outcome_renderer_keeps_uncertainty_and_scope_visible():
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required for renderer harness")
+    source = SCRIPT.read_text()
+    renderer = (
+        "function appendSwapOutcome("
+        + source.split("  function appendSwapOutcome(", 1)[1].split(
+            "  function renderExperiments(", 1
+        )[0]
+    )
+    harness = r"""
+const assert = require('node:assert/strict');
+function element(tag, text) { return {tag, text: text || '', children: [], appendChild(child) { this.children.push(child); }}; }
+function text(node) { return [node.text, ...node.children.map(text)].join(' '); }
+RENDERER
+let host = element('section');
+appendSwapOutcome(host, {verdict: 'indeterminate', objective: 'engine_online_rate', reason: 'Intervals overlap.', evidence: {scope: 'native_solo_profile', delta: .01, difference_interval: {low: -.03, high: .05}}, note: '<script>unsafe</script>'});
+let rendered = text(host);
+assert.match(rendered, /Improvement undetermined/);
+assert.match(rendered, /Engine development/);
+assert.match(rendered, /Intervals overlap/);
+assert.match(rendered, /native solo profile/);
+assert.match(rendered, /Interval toward improvement \(positive is better\): -0.030 to 0.050/);
+assert.match(rendered, /Overall deck strength and other tradeoffs remain unverified/);
+assert.match(rendered, /<script>unsafe<\/script>/);
+host = element('section');
+appendSwapOutcome(host, {verdict: 'improved', objective: 'qualified_opening_rate'});
+assert.match(text(host), /Improved for selected objective/);
+assert.doesNotMatch(text(host), /Overall upgrade|Demonstrated upgrade/);
+host = element('section');
+appendSwapOutcome(host, {verdict: 'improved', display_label: 'Improved opening-policy proxy', objective: 'qualified_opening_rate', evidence: {delta: .03}});
+assert.match(text(host), /Improved opening-policy proxy/);
+assert.match(text(host), /Modeled opening-policy proxy/);
+host = element('section');
+appendSwapOutcome(host, {verdict: 'improved', objective: 'mean_missed_land_drops', evidence: {delta: -.2, direction: -1, difference_interval: {low: .1, high: .3}}});
+assert.match(text(host), /Raw metric change \(candidate − baseline\): -0.200/);
+assert.match(text(host), /positive is better\): 0.100 to 0.300/);
+assert.match(text(host), /Lower values are better/);
+host = element('section'); appendSwapOutcome(host, null);
+assert.match(text(host), /not available yet/);
+""".replace("RENDERER", renderer)
+    result = subprocess.run(
+        [node, "-e", harness], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_improvement_objective_settings_match_measurement_contract():
+    from sabermetrics.swap_evaluation import OBJECTIVES
+
+    html = TEMPLATE.read_text()
+    for objective in OBJECTIVES:
+        assert f'value="{objective}"' in html
+    js = SCRIPT.read_text()
+    assert 'objective.value = constraints.objective || ""' in js
+    assert 'objective: sidebar.querySelector("[data-assistant-objective]").value' in js
+    assert "appendSwapOutcome(section, alternative.outcome)" in js
+
+
+def test_objective_menu_explains_proxy_and_coverage_limits():
+    html = TEMPLATE.read_text()
+    assert ">Modeled opening-policy proxy</option>" in html
+    assert html.count("requires full native coverage</option>") == 5
+    assert "incomplete coverage leaves improvement unknown" in html
+
+
+def test_strategic_review_receipt_exposes_tradeoffs_without_upgrade_claim():
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required for renderer harness")
+    source = SCRIPT.read_text()
+    renderer = (
+        "function appendSwapReviews("
+        + source.split("  function appendSwapReviews(", 1)[1].split(
+            "  function renderToolStep(", 1
+        )[0]
+    )
+    harness = r"""
+const assert = require('node:assert/strict');
+function element(tag, text) { return {tag, text: text || '', children: [], appendChild(child) { this.children.push(child); }}; }
+function text(node) { return [node.text, ...node.children.map(text)].join(' '); }
+RENDERER
+const host = element('section');
+appendSwapReviews(host, [{candidate_index: 7, outgoing_name: 'Old Card', incoming_name: 'New Card', citations_verified: true, decision: 'uncertain', reason: 'Theme fit unknown.', benefit: 'Lower casting cost.', tradeoffs: ['Lose flash.'], validation_reason: 'Missing text.', citations: [{side: 'outgoing', quote: 'Flash'}]}]);
+const rendered = text(host);
+for (const phrase of ['Cut Old Card; add New Card', 'Fit uncertain', 'Theme fit unknown.', 'Lose flash.', 'Missing text.', 'Card-text evidence', 'outgoing: “Flash”', 'measured improvement remain unverified']) assert.ok(rendered.includes(phrase), phrase);
+assert.doesNotMatch(rendered, /Demonstrated upgrade|Independent review|Candidate 8/);
+for (const verification of [false, undefined, 'true']) {
+  const unverified = element('section');
+  appendSwapReviews(unverified, [{candidate_index: 3, outgoing_name: 'Known Out', incoming_name: 'Known In', citations_verified: verification, decision: 'uncertain', citations: [{side: 'incoming', quote: 'Invented mana ability'}]}]);
+  const content = text(unverified);
+  assert.match(content, /Cut Known Out; add Known In/);
+  assert.match(content, /Quoted evidence not verified/);
+  assert.doesNotMatch(content, /Invented mana ability|Card-text evidence|Candidate 4/);
+}
+const legacy = element('section');
+appendSwapReviews(legacy, [{candidate_index: 7, decision: 'uncertain'}]);
+assert.match(text(legacy), /Swap under review/);
+assert.doesNotMatch(text(legacy), /Candidate 8|undefined/);
+""".replace("RENDERER", renderer)
+    result = subprocess.run(
+        [node, "-e", harness], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
