@@ -32,7 +32,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v5"
+PROMPT_VERSION = "build-conversation.v6"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -75,6 +75,17 @@ Goldfish state. Explain prerequisites and any unresolved spell or unsupported
 effect; a model replay does not measure how often the setup occurs in the deck.
 An abstention means no supported line was found, not that the deck has no combos.
 Never present an unfinished spell-resolution prefix as a complete legal sequence.
+Hypothetical zone lists contain exact current-deck card names only. Put attachment
+and soulbond relationships in attachments/paired_with, never in prose zone names.
+For example battlefield=["Vivi Ornitier", "Curiosity"] and
+attachments={"Curiosity": "Vivi Ornitier"}, not "Curiosity attached to Vivi Ornitier".
+If replay rejects state_name_representation, explain the supplied-name encoding
+error; do not say that the model cannot handle the actual attachment or interaction.
+You may retry that replay once within remaining budgets, correcting only an
+unambiguous representation of the user's existing assumptions. Preserve every
+resource, zone membership, attachment, timing and optional-choice assumption;
+never invent a missing card, mana, library size or established setup to get a pass.
+For other prerequisite rejections, report the actual missing prerequisite.
 Use research_memory to retrieve saved preferences and previous experiment
 receipts when the user asks about earlier attempts. This is scoped to this deck
 and owner; accepted changes are preferences, never proof of improvement. Historical
@@ -684,9 +695,9 @@ def run_turn(
                         "test_recommended_alternatives",
                     }:
                         state["workflow"]["experiment_status"] = data.get("status")
-                        state["workflow"]["next_step"] = (
-                            "Report the actual experiment receipt; do not start another experiment."
-                        )
+                        state["workflow"][
+                            "next_step"
+                        ] = "Report the actual experiment receipt; do not start another experiment."
                     if call.name == "research_known_combinations":
                         combo_sources = {
                             "status": data.get("status"),

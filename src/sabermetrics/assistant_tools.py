@@ -71,11 +71,29 @@ CardName = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class HypotheticalCombinationState(StrictModel):
-    battlefield: list[CardName] = Field(max_length=100)
-    hand: list[CardName] = Field(max_length=100)
-    graveyard: list[CardName] = Field(default_factory=list, max_length=100)
-    attachments: dict[CardName, CardName] = Field(default_factory=dict, max_length=20)
-    paired_with: dict[CardName, CardName] = Field(default_factory=dict, max_length=20)
+    battlefield: list[CardName] = Field(
+        max_length=100,
+        description='Exact canonical card names from the current deck, without prose or statuses. Example: ["Vivi Ornitier", "Curiosity"]. Never write "Curiosity attached to Vivi Ornitier" here; encode attachment separately.',
+    )
+    hand: list[CardName] = Field(
+        max_length=100,
+        description='Exact current-deck card names only, e.g. ["Opt"]. No descriptions such as "Opt in hand". Unknown drawn card identities belong only in hand_count, never invented names.',
+    )
+    graveyard: list[CardName] = Field(
+        default_factory=list,
+        max_length=100,
+        description='Exact current-deck card names only; no prose statuses. Example: ["Opt"].',
+    )
+    attachments: dict[CardName, CardName] = Field(
+        default_factory=dict,
+        max_length=20,
+        description='Attachment relationships using exact card names as keys and values. Example: {"Curiosity": "Vivi Ornitier"}; both names must also appear separately in battlefield.',
+    )
+    paired_with: dict[CardName, CardName] = Field(
+        default_factory=dict,
+        max_length=20,
+        description='Soulbond relationships using exact card names. Example: {"Tandem Lookout": "Vivi Ornitier"}; both names must also appear separately in battlefield. Do not describe pairing inside zone names.',
+    )
     mana: dict[
         Literal["W", "U", "B", "R", "G", "C"], Annotated[int, Field(ge=0, le=100)]
     ] = Field(max_length=6)
@@ -321,15 +339,49 @@ class AssistantTools:
             if args.combination_index >= len(lines):
                 raise ValueError("Combination index unavailable for the current deck.")
             line = lines[args.combination_index]
+            starting_state = args.hypothetical_state.model_dump()
+            known_names = {
+                entry.get("name") for entry in _library_entries(document)
+            } | {
+                entry.get("name")
+                for entry in document.get("entries", [])
+                if isinstance(entry, dict) and entry.get("is_commander")
+            }
+            name_errors = []
+            for zone in ("battlefield", "hand", "graveyard"):
+                name_errors.extend(
+                    {"field": zone, "supplied_name": name}
+                    for name in starting_state[zone]
+                    if name not in known_names
+                )
+            for relation in ("attachments", "paired_with"):
+                for source, target in starting_state[relation].items():
+                    name_errors.extend(
+                        {"field": relation, "supplied_name": name}
+                        for name in (source, target)
+                        if name not in known_names
+                    )
+            if name_errors:
+                replay = {
+                    "status": "rejected",
+                    "reason": "Supplied hypothetical state contains names that are not exact current-deck card names; this is a state representation error, not a failed card interaction.",
+                    "invalid_names": name_errors[:12],
+                    "invalid_names_omitted_count": max(0, len(name_errors) - 12),
+                    "expected_exact_combination_names": line["cards"],
+                    "repair_hint": 'Use exact card names only in zone lists. Keep attachment/pairing relationships in their separate maps; e.g. battlefield=["Vivi Ornitier", "Curiosity"] and attachments={"Curiosity": "Vivi Ornitier"}. Correct only an unambiguous name representation; preserve all supplied resources and setup assumptions. Do not substitute a different card or silently change the state.',
+                    "rejection_kind": "state_name_representation",
+                    "trace": [],
+                    "win_verified": False,
+                }
+            else:
+                replay = replay_combination(line, starting_state)
             return {
                 "revision": self.revision,
                 "cards": line["cards"],
                 "kind": line["kind"],
                 "state_origin": "hypothetical_tool_input_not_observed_game",
-                "starting_state": args.hypothetical_state.model_dump(),
-                "replay": replay_combination(
-                    line, args.hypothetical_state.model_dump()
-                ),
+                "starting_state": starting_state,
+                "replay": replay,
                 "original_changed": False,
                 "goldfish_executed": False,
                 "limitation": "Tests only the authored interaction model under the supplied hypothetical assumptions. It does not establish deck consistency, complete rules legality or a win.",

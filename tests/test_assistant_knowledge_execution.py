@@ -310,6 +310,7 @@ def test_hypothetical_replay_uses_current_deck_and_never_claims_game_observation
 
     service, path, owner, deck_id, original, _ = prepared
     document, state = fixture()
+    document["entries"].append({"name": "Other"})
     tools = AssistantTools(
         path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
     )
@@ -471,3 +472,72 @@ def test_combination_claim_identity_survives_full_receipt_eviction():
     assert retained["combination_replay"]["status"] == "verified_prefix_only"
     assert retained["combination_replay"]["state_origin"].startswith("hypothetical")
     assert retained["combination_replay"]["win_verified"] is False
+
+
+def test_hypothetical_attachment_prose_is_rejected_with_exact_name_repair_hint(
+    prepared, monkeypatch
+):
+    from copy import deepcopy
+
+    from tests.test_combination_intelligence import reference_decks
+
+    service, path, owner, deck_id, original, _ = prepared
+    document = reference_decks()["affordable-vivi"]
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    monkeypatch.setattr(tools, "check", lambda: document)
+    state = {
+        "battlefield": ["Vivi Ornitier", "Curiosity attached to Vivi Ornitier"],
+        "hand": ["Opt"],
+        "attachments": {"Curiosity": "Vivi Ornitier"},
+        "mana": {"U": 1},
+        "library_count": 90,
+        "hand_count": 1,
+        "opponent_count": 3,
+        "priority": True,
+        "stack_empty": True,
+        "no_interference": True,
+        "no_other_effects": True,
+        "choose_optional_draw": True,
+    }
+    initial = deepcopy(state)
+    lines = tools.execute(call("analyze_deck_combinations"))["combinations"]
+    # Full list index remains stable even when the summary chooses another cast.
+    from sabermetrics.combination_intelligence import analyze_combinations
+
+    index = next(
+        i
+        for i, l in enumerate(analyze_combinations(document)["combinations"])
+        if l["cards"] == ["Vivi Ornitier", "Opt", "Curiosity"]
+    )
+    assert lines
+    rejected = tools.execute(
+        call(
+            "replay_deck_combination",
+            {"combination_index": index, "hypothetical_state": state},
+        )
+    )
+    replay = rejected["replay"]
+    assert replay["status"] == "rejected"
+    assert replay["rejection_kind"] == "state_name_representation"
+    assert replay["invalid_names"] == [
+        {"field": "battlefield", "supplied_name": "Curiosity attached to Vivi Ornitier"}
+    ]
+    assert "Curiosity" in replay["expected_exact_combination_names"]
+    assert "attachments" in replay["repair_hint"]
+    assert "not a failed card interaction" in replay["reason"]
+    assert state == initial
+    state["battlefield"] = ["Vivi Ornitier", "Curiosity"]
+    corrected = tools.execute(
+        call(
+            "replay_deck_combination",
+            {"combination_index": index, "hypothetical_state": state},
+        )
+    )
+    assert corrected["replay"]["status"] == "verified_prefix_only"
+    assert corrected["replay"]["final_resources"]["mana"] == {"U": 0}
+    assert corrected["replay"]["final_resources"]["hand_count"] == 3
+    assert corrected["replay"]["win_verified"] is False
+    assert DeckDocumentRepo(path).get(owner, deck_id) == original
+    assert not service.list_for_deck(owner, deck_id)
