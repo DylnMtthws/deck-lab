@@ -153,3 +153,23 @@ def test_bundled_signatures_match_actual_project_config():
         archetype = chunk["section"].removeprefix("archetypes.")
         for card, weight in source["archetypes"][archetype]["signatures"].items():
             assert f"{card} ({weight})" in chunk["content"]
+
+
+def test_authored_reanimator_guidance_explains_plan_and_preserves_abstention(tmp_path):
+    path = corpus(tmp_path / "corpus.db", [])
+    result = retrieve_strategy_evidence(
+        path, "bring big creatures back from the graveyard"
+    )
+    evidence = result["excerpts"][0]
+    assert evidence["citation"]["chunk_id"] == "authored-archetype-reanimator"
+    assert evidence["source_kind"] == "authored_guidance"
+    assert (
+        evidence["citation"]["document"]
+        == "src/sabermetrics/config_data/assistant_strategy_guidance.json"
+    )
+    assert "returns them to the battlefield" in evidence["excerpt"]
+    assert evidence["citation"]["source_url"] is None
+    assert (
+        retrieve_strategy_evidence(path, "quantum chromodynamics lattice")["status"]
+        == "no_matches"
+    )
