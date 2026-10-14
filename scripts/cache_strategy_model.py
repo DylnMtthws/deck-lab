@@ -20,7 +20,14 @@ def main() -> None:
         snapshot_download(
             REPO,
             revision=revision,
-            allow_patterns=["*.json", "*.txt", "onnx/model.onnx", "model.onnx"],
+            allow_patterns=[
+                "*.json",
+                "*.txt",
+                "onnx/model.onnx",
+                "model.onnx",
+                "LICENSE*",
+                "README.md",
+            ],
         )
     )
     shutil.copytree(source, target, dirs_exist_ok=True)
