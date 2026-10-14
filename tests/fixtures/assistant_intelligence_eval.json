@@ -1,0 +1,431 @@
+{
+  "version": "assistant-intelligence-eval.v1",
+  "description": "Baseline labeled cases for Build assistant memory, strategy retrieval, and requirement assessment. Labels were authored from card oracle text and the declared scenario before running; a failed check is a finding, not a label to edit.",
+  "scenarios": {
+    "memory_basic": {
+      "now": "2026-10-14T00:00:00+00:00",
+      "decks": [
+        {"id": "alice-deck", "owner": "alice", "revision": 3},
+        {"id": "alice-fresh", "owner": "alice", "revision": 0},
+        {"id": "alice-short", "owner": "alice", "revision": 2, "library_quantity": 98},
+        {"id": "bob-deck", "owner": "bob", "revision": 1}
+      ],
+      "preferences": [
+        {"owner": "alice", "deck": "alice-deck", "mode": "suggest", "constraints": {"theme": "Artifact ramp", "power_level": "cEDH"}}
+      ],
+      "experiments": [
+        {
+          "id": "exp-current", "owner": "alice", "deck": "alice-deck",
+          "created_at": "2026-10-12T00:00:00+00:00", "baseline": "current", "baseline_revision": 3,
+          "complete_coverage": true, "constraints": {"theme": "Artifact ramp"},
+          "alternatives": [
+            {"id": "alt-held-out", "comparison": "comparable", "value": 0.6, "incoming_name": "Mox Diamond"},
+            {"id": "alt-noncomparable", "comparison": "noncomparable", "value": 0.9},
+            {"id": "alt-failed", "status": "failed", "error": "Simulator timed out."}
+          ]
+        },
+        {
+          "id": "exp-stale", "owner": "alice", "deck": "alice-deck",
+          "created_at": "2026-10-01T00:00:00+00:00", "baseline": "previous", "baseline_revision": 1,
+          "complete_coverage": false, "adopted": "alt-adopted",
+          "alternatives": [
+            {"id": "alt-adopted", "comparison": "comparable", "value": 0.4, "deck": "current"}
+          ]
+        },
+        {
+          "id": "exp-running-old", "owner": "alice", "deck": "alice-deck", "status": "running",
+          "created_at": "2026-10-13T00:00:00+00:00", "baseline": "current", "baseline_revision": 3,
+          "alternatives": [{"id": "alt-queued", "status": "queued"}]
+        },
+        {
+          "id": "exp-foreign-row", "owner": "bob", "deck": "alice-deck",
+          "created_at": "2026-10-13T12:00:00+00:00", "baseline": "current", "baseline_revision": 3,
+          "complete_coverage": true,
+          "alternatives": [{"id": "alt-foreign", "comparison": "comparable", "value": 0.99}]
+        },
+        {
+          "id": "exp-big", "owner": "alice", "deck": "alice-short",
+          "created_at": "2026-10-10T00:00:00+00:00", "baseline": "current", "baseline_revision": 2,
+          "pad_chars": 400000, "complete_coverage": true,
+          "alternatives": [{"id": "alt-big", "comparison": "comparable", "value": 0.55}]
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "memory-owner-current-held-out",
+      "kind": "memory", "capability": "memory.freshness", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "available"},
+        {"path": "improvement_claims", "op": "equals", "value": "none"},
+        {"path": "experiments.total_for_deck", "op": "equals", "value": 3},
+        {"path": "experiments.returned", "op": "equals", "value": 3},
+        {"path": "experiments.items[1].id", "op": "equals", "value": "exp-current"},
+        {"path": "experiments.items[1].freshness", "op": "equals", "value": "current"},
+        {"path": "experiments.items[1].applies_to_current_deck", "op": "equals", "value": true},
+        {"path": "experiments.items[1].alternatives[0].measured_outcome", "op": "equals", "value": "descriptive_held_out"},
+        {"path": "experiments.items[1].alternatives[0].verdict", "op": "equals", "value": "none"},
+        {"path": "experiments.items[1].alternatives[0].metrics[0].held_out_validated", "op": "equals", "value": true},
+        {"path": "experiments.items[1].alternatives[0].metrics[0].delta", "op": "gte", "value": 0.0999},
+        {"path": "experiments.items[1].alternatives[0].metrics[0].delta", "op": "lte", "value": 0.1001},
+        {"path": "experiments.items[1].alternatives[0].replacements[0].incoming_name", "op": "equals", "value": "Mox Diamond"},
+        {"path": "experiments.items[1].alternatives[0].replacements[0].outgoing_name", "op": "equals", "value": "Island"}
+      ]
+    },
+    {
+      "id": "memory-noncomparable-never-wins",
+      "kind": "memory", "capability": "memory.comparability", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "experiments.items[1].alternatives[1].id", "op": "equals", "value": "alt-noncomparable"},
+        {"path": "experiments.items[1].alternatives[1].measured_outcome", "op": "equals", "value": "noncomparable"},
+        {"path": "experiments.items[1].alternatives[1].metrics", "op": "length", "value": 0},
+        {"path": "experiments.items[1].alternatives[1].comparison_reason", "op": "any_contains", "value": "engine"},
+        {"path": "experiments.items[1].alternatives[1].verdict", "op": "equals", "value": "none"},
+        {"path": "warnings", "op": "any_contains", "value": "not comparable"}
+      ]
+    },
+    {
+      "id": "memory-failed-alternative-not-measured",
+      "kind": "memory", "capability": "memory.comparability", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "experiments.items[1].alternatives[2].status", "op": "equals", "value": "failed"},
+        {"path": "experiments.items[1].alternatives[2].measured_outcome", "op": "equals", "value": "not_measured"},
+        {"path": "experiments.items[1].alternatives[2].comparison_reason", "op": "any_contains", "value": "timed out"}
+      ]
+    },
+    {
+      "id": "memory-stale-adoption-is-not-improvement",
+      "kind": "memory", "capability": "memory.freshness", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "experiments.items[2].id", "op": "equals", "value": "exp-stale"},
+        {"path": "experiments.items[2].freshness", "op": "equals", "value": "stale"},
+        {"path": "experiments.items[2].applies_to_current_deck", "op": "equals", "value": false},
+        {"path": "experiments.items[2].alternatives[0].adopted", "op": "equals", "value": true},
+        {"path": "experiments.items[2].alternatives[0].matches_current_deck", "op": "equals", "value": true},
+        {"path": "experiments.items[2].alternatives[0].measured_outcome", "op": "equals", "value": "descriptive_unvalidated"},
+        {"path": "experiments.items[2].age_days", "op": "equals", "value": 13},
+        {"path": "warnings", "op": "any_contains", "value": "not evidence of improvement"},
+        {"path": "warnings", "op": "any_contains", "value": "do not describe the current list"}
+      ]
+    },
+    {
+      "id": "memory-expired-run-not-measured",
+      "kind": "memory", "capability": "memory.freshness", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "experiments.items[0].id", "op": "equals", "value": "exp-running-old"},
+        {"path": "experiments.items[0].status", "op": "equals", "value": "interrupted_expired"},
+        {"path": "experiments.items[0].alternatives[0].measured_outcome", "op": "equals", "value": "not_measured"}
+      ]
+    },
+    {
+      "id": "memory-saved-preferences-unverified",
+      "kind": "memory", "capability": "memory.preferences", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck"},
+      "checks": [
+        {"path": "preferences.status", "op": "equals", "value": "saved"},
+        {"path": "preferences.constraints.theme", "op": "equals", "value": "Artifact ramp"},
+        {"path": "preferences.constraints.power_level", "op": "equals", "value": "cEDH"},
+        {"path": "preferences.verification", "op": "equals", "value": "user_stated_unverified"}
+      ]
+    },
+    {
+      "id": "memory-foreign-owner-denied",
+      "kind": "memory", "capability": "memory.ownership", "labels": {"scope": "foreign"},
+      "expect_abstention": true,
+      "input": {"scenario": "memory_basic", "owner": "bob", "deck": "alice-deck"},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "not_found"},
+        {"path": "experiments", "op": "exists", "value": false},
+        {"path": "preferences", "op": "exists", "value": false}
+      ]
+    },
+    {
+      "id": "memory-foreign-owner-own-deck-no-history",
+      "kind": "memory", "capability": "memory.ownership", "labels": {"scope": "foreign"},
+      "expect_abstention": true,
+      "input": {"scenario": "memory_basic", "owner": "bob", "deck": "bob-deck"},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "no_history"},
+        {"path": "experiments.total_for_deck", "op": "equals", "value": 0},
+        {"path": "preferences.status", "op": "equals", "value": "no_history"}
+      ]
+    },
+    {
+      "id": "memory-missing-deck-not-found",
+      "kind": "memory", "capability": "memory.ownership", "labels": {"scope": "owner"},
+      "expect_abstention": true,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "ghost-deck"},
+      "checks": [{"path": "status", "op": "equals", "value": "not_found"}]
+    },
+    {
+      "id": "memory-no-history",
+      "kind": "memory", "capability": "memory.no_history", "labels": {"scope": "owner"},
+      "expect_abstention": true,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-fresh"},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "no_history"},
+        {"path": "experiments.status", "op": "equals", "value": "no_history"},
+        {"path": "experiments.items", "op": "length", "value": 0},
+        {"path": "preferences.status", "op": "equals", "value": "no_history"}
+      ]
+    },
+    {
+      "id": "memory-large-payload-unverifiable-deck",
+      "kind": "memory", "capability": "memory.bounds", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-short"},
+      "checks": [
+        {"path": "deck.deck_sha256", "op": "equals", "value": null},
+        {"path": "experiments.items[0].freshness", "op": "equals", "value": "unverifiable"},
+        {"path": "experiments.items[0].applies_to_current_deck", "op": "equals", "value": false},
+        {"path": "experiments.items[0].payload_chars", "op": "gte", "value": 400000},
+        {"path": "experiments.items[0].alternatives[0].measured_outcome", "op": "equals", "value": "descriptive_held_out"},
+        {"path": "warnings", "op": "any_contains", "value": "cannot be hashed"}
+      ]
+    },
+    {
+      "id": "memory-limit-respected",
+      "kind": "memory", "capability": "memory.bounds", "labels": {"scope": "owner"},
+      "expect_abstention": false,
+      "input": {"scenario": "memory_basic", "owner": "alice", "deck": "alice-deck", "limit": 1},
+      "checks": [
+        {"path": "experiments.returned", "op": "equals", "value": 1},
+        {"path": "experiments.items", "op": "length", "value": 1},
+        {"path": "experiments.total_for_deck", "op": "equals", "value": 3}
+      ]
+    },
+    {
+      "id": "retrieval-landfall-guidance",
+      "kind": "retrieval", "capability": "retrieval.archetype", "labels": {"archetype": "landfall", "corpus": "bundled"},
+      "expect_abstention": false,
+      "input": {"corpus": "bundled", "query": "landfall lands matter", "relevant_chunk_ids": ["authored-archetype-landfall"]},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "available"},
+        {"path": "corpus_source", "op": "equals", "value": "bundled_authored_guidance"},
+        {"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "authored-archetype-landfall"}
+      ]
+    },
+    {
+      "id": "retrieval-aristocrats-guidance",
+      "kind": "retrieval", "capability": "retrieval.archetype", "labels": {"archetype": "aristocrats", "corpus": "bundled"},
+      "expect_abstention": false,
+      "input": {"corpus": "bundled", "query": "aristocrats sacrifice", "relevant_chunk_ids": ["authored-archetype-aristocrats"]},
+      "checks": [{"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "authored-archetype-aristocrats"}]
+    },
+    {
+      "id": "retrieval-storm-synonym",
+      "kind": "retrieval", "capability": "retrieval.archetype", "labels": {"archetype": "spellslinger", "corpus": "bundled"},
+      "expect_abstention": false,
+      "input": {"corpus": "bundled", "query": "storm spells matter", "relevant_chunk_ids": ["authored-archetype-spellslinger"]},
+      "checks": [{"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "authored-archetype-spellslinger"}]
+    },
+    {
+      "id": "retrieval-flicker-synonym",
+      "kind": "retrieval", "capability": "retrieval.archetype", "labels": {"archetype": "blink", "corpus": "bundled"},
+      "expect_abstention": false,
+      "input": {"corpus": "bundled", "query": "flicker my creatures for value", "relevant_chunk_ids": ["authored-archetype-blink"]},
+      "checks": [{"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "authored-archetype-blink"}]
+    },
+    {
+      "id": "retrieval-reanimation-paraphrase",
+      "kind": "retrieval", "capability": "retrieval.paraphrase", "labels": {"archetype": "reanimator", "corpus": "bundled"},
+      "expect_abstention": false,
+      "input": {"corpus": "bundled", "query": "bring big creatures back from the graveyard", "relevant_chunk_ids": ["authored-archetype-reanimator"]},
+      "checks": [{"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "authored-archetype-reanimator"}]
+    },
+    {
+      "id": "retrieval-off-topic-abstains",
+      "kind": "retrieval", "capability": "retrieval.abstention", "labels": {"archetype": "none", "corpus": "bundled"},
+      "expect_abstention": true,
+      "input": {"corpus": "bundled", "query": "quantum chromodynamics lattice"},
+      "checks": [
+        {"path": "status", "op": "equals", "value": "no_matches"},
+        {"path": "excerpts", "op": "length", "value": 0}
+      ]
+    },
+    {
+      "id": "retrieval-fixture-ranking-and-commander-tiebreak",
+      "kind": "retrieval", "capability": "retrieval.ranking", "labels": {"archetype": "none", "corpus": "fixture"},
+      "expect_abstention": false,
+      "input": {
+        "corpus": "fixture", "query": "board wipe recovery", "commander": "Kinnan, Bonder Prodigy",
+        "relevant_chunk_ids": ["fx-full-match"],
+        "chunks": [
+          {"id": "fx-full-match", "document": "https://example.org/recovery", "section": "Recovery", "content": "Recovery after a board wipe needs card advantage that works from an empty board."},
+          {"id": "fx-partial-commander", "document": "https://example.org/a", "section": "Kinnan", "content": "Kinnan players rebuild after wipe."},
+          {"id": "fx-partial-plain", "document": "https://example.org/b", "section": "Simic", "content": "Simic players rebuild after wipe."},
+          {"id": "fx-unrelated", "document": "https://example.org/mulligans", "section": "Mulligans", "content": "Keep seven-card hands with two lands and fast mana."}
+        ]
+      },
+      "checks": [
+        {"path": "status", "op": "equals", "value": "available"},
+        {"path": "corpus_source", "op": "equals", "value": "reference_chunks"},
+        {"path": "excerpts[0].citation.chunk_id", "op": "equals", "value": "fx-full-match"},
+        {"path": "excerpts[1].citation.chunk_id", "op": "equals", "value": "fx-partial-commander"},
+        {"path": "excerpts[2].citation.chunk_id", "op": "equals", "value": "fx-partial-plain"},
+        {"path": "excerpts", "op": "length", "value": 3}
+      ]
+    },
+    {
+      "id": "requirements-landfall-withheld-commander-text",
+      "kind": "requirements", "capability": "requirements.archetype", "labels": {"archetype": "landfall", "intent": "withheld"},
+      "expect_abstention": false,
+      "input": {
+        "constraints": {"theme": ""},
+        "commander": {"name": "Tatyova, Benthic Druid", "type_line": "Legendary Creature — Merfolk Druid", "cmc": 5, "oracle_text": "Landfall — Whenever a land you control enters, you gain 1 life and draw a card."},
+        "library": [
+          {"name": "Rampant Growth", "type_line": "Sorcery", "cmc": 2, "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."},
+          {"name": "Exploration", "type_line": "Enchantment", "cmc": 1, "oracle_text": "You may play an additional land on each of your turns."},
+          {"name": "Crucible of Worlds", "type_line": "Artifact", "cmc": 3, "oracle_text": "You may play lands from your graveyard."},
+          {"name": "Life from the Loam", "type_line": "Sorcery", "cmc": 2, "oracle_text": "Return up to three target land cards from your graveyard to your hand.\nDredge 3 (If you would draw a card, you may mill three cards instead. If you do, return this card from your graveyard to your hand.)"},
+          {"name": "Tireless Tracker", "type_line": "Creature — Human Scout", "cmc": 3, "oracle_text": "Landfall — Whenever a land you control enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhenever you sacrifice a Clue, put a +1/+1 counter on Tireless Tracker."},
+          {"name": "Scute Swarm", "type_line": "Creature — Insect", "cmc": 3, "oracle_text": "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of Scute Swarm instead."},
+          {"name": "Island", "type_line": "Basic Land — Island", "cmc": 0, "oracle_text": "({T}: Add {U}.)", "quantity": 15},
+          {"name": "Forest", "type_line": "Basic Land — Forest", "cmc": 0, "oracle_text": "({T}: Add {G}.)", "quantity": 15}
+        ]
+      },
+      "checks": [
+        {"path": "archetype", "op": "equals", "value": "landfall"},
+        {"path": "specialized_status", "op": "equals", "value": "supported_shapes"},
+        {"path": "by_requirement.land.actual", "op": "equals", "value": 30},
+        {"path": "by_requirement.land_ramp.actual", "op": "equals", "value": 1},
+        {"path": "by_requirement.extra_land_play.actual", "op": "equals", "value": 1},
+        {"path": "by_requirement.land_recursion.actual", "op": "equals", "value": 2},
+        {"path": "by_requirement.landfall_cards.actual", "op": "equals", "value": 2},
+        {"path": "by_requirement.landfall_board.actual", "op": "equals", "value": 1}
+      ]
+    },
+    {
+      "id": "requirements-landfall-stated-theme",
+      "kind": "requirements", "capability": "requirements.archetype", "labels": {"archetype": "landfall", "intent": "stated"},
+      "expect_abstention": false,
+      "input": {
+        "constraints": {"theme": "Landfall value"},
+        "commander": {"name": "Kinnan, Bonder Prodigy", "type_line": "Legendary Creature — Human Druid", "cmc": 2, "oracle_text": "Whenever you tap a nonland permanent for mana, add one additional mana of any type that permanent produced.\n{5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order."},
+        "library": [
+          {"name": "Rampant Growth", "type_line": "Sorcery", "cmc": 2, "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."},
+          {"name": "Tireless Tracker", "type_line": "Creature — Human Scout", "cmc": 3, "oracle_text": "Landfall — Whenever a land you control enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhenever you sacrifice a Clue, put a +1/+1 counter on Tireless Tracker."},
+          {"name": "Island", "type_line": "Basic Land — Island", "cmc": 0, "oracle_text": "({T}: Add {U}.)", "quantity": 30}
+        ]
+      },
+      "checks": [
+        {"path": "archetype", "op": "equals", "value": "landfall"},
+        {"path": "by_requirement.landfall_cards.actual", "op": "equals", "value": 1},
+        {"path": "by_requirement.land_ramp.actual", "op": "equals", "value": 1},
+        {"path": "by_requirement.land.actual", "op": "equals", "value": 30}
+      ]
+    },
+    {
+      "id": "requirements-same-list-withheld-abstains",
+      "kind": "requirements", "capability": "requirements.abstention", "labels": {"archetype": "general", "intent": "withheld"},
+      "expect_abstention": true,
+      "input": {
+        "constraints": {"theme": ""},
+        "commander": {"name": "Kinnan, Bonder Prodigy", "type_line": "Legendary Creature — Human Druid", "cmc": 2, "oracle_text": "Whenever you tap a nonland permanent for mana, add one additional mana of any type that permanent produced.\n{5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order."},
+        "library": [
+          {"name": "Rampant Growth", "type_line": "Sorcery", "cmc": 2, "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."},
+          {"name": "Tireless Tracker", "type_line": "Creature — Human Scout", "cmc": 3, "oracle_text": "Landfall — Whenever a land you control enters, investigate.\nWhenever you sacrifice a Clue, put a +1/+1 counter on Tireless Tracker."},
+          {"name": "Island", "type_line": "Basic Land — Island", "cmc": 0, "oracle_text": "({T}: Add {U}.)", "quantity": 30}
+        ]
+      },
+      "checks": [
+        {"path": "archetype", "op": "equals", "value": "general"},
+        {"path": "specialized_status", "op": "equals", "value": "unavailable"},
+        {"path": "by_requirement.land_ramp", "op": "exists", "value": false}
+      ]
+    },
+    {
+      "id": "requirements-cast-damage-draw-stated",
+      "kind": "requirements", "capability": "requirements.archetype", "labels": {"archetype": "cast_damage_draw", "intent": "stated"},
+      "expect_abstention": false,
+      "input": {
+        "constraints": {"theme": "Curiosity damage draw"},
+        "commander": {"name": "Eval Archer Commander", "type_line": "Legendary Creature — Human Archer", "cmc": 2, "oracle_text": "Whenever you cast a noncreature spell, Eval Archer Commander deals 1 damage to each opponent."},
+        "library": [
+          {"name": "Brainstorm", "type_line": "Instant", "cmc": 1, "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order."},
+          {"name": "Sol Ring", "type_line": "Artifact", "cmc": 1, "oracle_text": "{T}: Add {C}{C}."},
+          {"name": "Swords to Plowshares", "type_line": "Instant", "cmc": 1, "oracle_text": "Exile target creature. Its controller gains life equal to its power."},
+          {"name": "Mana Crypt", "type_line": "Artifact", "cmc": 0, "oracle_text": "At the beginning of your upkeep, flip a coin. If you lose the flip, Mana Crypt deals 3 damage to you.\n{T}: Add {C}{C}."},
+          {"name": "Lightning Bolt", "type_line": "Instant", "cmc": 1, "oracle_text": "Lightning Bolt deals 3 damage to any target."},
+          {"name": "Curiosity", "type_line": "Enchantment — Aura", "cmc": 1, "oracle_text": "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card."},
+          {"name": "Ophidian Eye", "type_line": "Enchantment — Aura", "cmc": 3, "oracle_text": "Flash\nEnchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card."},
+          {"name": "Mountain", "type_line": "Basic Land — Mountain", "cmc": 0, "oracle_text": "({T}: Add {R}.)", "quantity": 30}
+        ]
+      },
+      "checks": [
+        {"path": "archetype", "op": "equals", "value": "cast_damage_draw"},
+        {"path": "by_requirement.cheap_noncreature_cast.actual", "op": "equals", "value": 6},
+        {"path": "by_requirement.opponent_damage_draw.actual", "op": "equals", "value": 2},
+        {"path": "by_requirement.land.actual", "op": "equals", "value": 30}
+      ]
+    },
+    {
+      "id": "requirements-cast-damage-withheld-commander-text",
+      "kind": "requirements", "capability": "requirements.archetype", "labels": {"archetype": "cast_damage", "intent": "withheld"},
+      "expect_abstention": false,
+      "input": {
+        "constraints": {"theme": ""},
+        "commander": {"name": "Eval Archer Commander", "type_line": "Legendary Creature — Human Archer", "cmc": 2, "oracle_text": "Whenever you cast a noncreature spell, Eval Archer Commander deals 1 damage to each opponent."},
+        "library": [
+          {"name": "Brainstorm", "type_line": "Instant", "cmc": 1, "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order."},
+          {"name": "Curiosity", "type_line": "Enchantment — Aura", "cmc": 1, "oracle_text": "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card."},
+          {"name": "Mountain", "type_line": "Basic Land — Mountain", "cmc": 0, "oracle_text": "({T}: Add {R}.)", "quantity": 30}
+        ]
+      },
+      "checks": [
+        {"path": "archetype", "op": "equals", "value": "cast_damage"},
+        {"path": "by_requirement.cheap_noncreature_cast.actual", "op": "equals", "value": 2},
+        {"path": "by_requirement.opponent_damage_draw", "op": "exists", "value": false}
+      ]
+    },
+    {
+      "id": "requirements-protection-scoped-not-self",
+      "kind": "requirements", "capability": "requirements.role_precision", "labels": {"archetype": "general", "intent": "withheld"},
+      "expect_abstention": true,
+      "input": {
+        "constraints": {"theme": ""},
+        "commander": {"name": "Kinnan, Bonder Prodigy", "type_line": "Legendary Creature — Human Druid", "cmc": 2, "oracle_text": "Whenever you tap a nonland permanent for mana, add one additional mana of any type that permanent produced."},
+        "library": [
+          {"name": "Swiftfoot Boots", "type_line": "Artifact — Equipment", "cmc": 2, "oracle_text": "Equipped creature has hexproof and haste.\nEquip {1}"},
+          {"name": "Lightning Greaves", "type_line": "Artifact — Equipment", "cmc": 2, "oracle_text": "Equipped creature has haste and shroud.\nEquip {0}"},
+          {"name": "Heroic Intervention", "type_line": "Instant", "cmc": 2, "oracle_text": "Permanents you control gain hexproof and indestructible until end of turn."},
+          {"name": "Mother of Runes", "type_line": "Creature — Human Cleric", "cmc": 1, "oracle_text": "{T}: Target creature you control gains protection from the color of your choice until end of turn."},
+          {"name": "Carnage Tyrant", "type_line": "Creature — Dinosaur", "cmc": 6, "oracle_text": "This spell can't be countered.\nTrample, hexproof"}
+        ]
+      },
+      "checks": [
+        {"path": "by_requirement.protection.actual", "op": "equals", "value": 4},
+        {"path": "by_requirement.protection.basis", "op": "equals", "value": "generic-role-tag-starter-target"}
+      ]
+    },
+    {
+      "id": "requirements-combat-treasure-not-ramp",
+      "kind": "requirements", "capability": "requirements.role_precision", "labels": {"archetype": "general", "intent": "withheld"},
+      "expect_abstention": true,
+      "input": {
+        "constraints": {"theme": ""},
+        "commander": {"name": "Kinnan, Bonder Prodigy", "type_line": "Legendary Creature — Human Druid", "cmc": 2, "oracle_text": "Whenever you tap a nonland permanent for mana, add one additional mana of any type that permanent produced."},
+        "library": [
+          {"name": "Sol Ring", "type_line": "Artifact", "cmc": 1, "oracle_text": "{T}: Add {C}{C}."},
+          {"name": "Arcane Signet", "type_line": "Artifact", "cmc": 2, "oracle_text": "{T}: Add one mana of any color in your commander's color identity."},
+          {"name": "Professional Face-Breaker", "type_line": "Creature — Human Warrior", "cmc": 3, "oracle_text": "Menace\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nSacrifice a Treasure: Exile the top card of your library. You may play that card this turn."}
+        ]
+      },
+      "checks": [
+        {"path": "by_requirement.ramp.actual", "op": "equals", "value": 2}
+      ]
+    }
+  ]
+}

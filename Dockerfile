@@ -3,6 +3,8 @@ FROM python:3.11-slim-bookworm
 LABEL org.opencontainers.image.version="0.1.0"
 
 ARG SABER_BUILD_SHA=unknown
+ARG SABER_STRATEGY_SEMANTIC=0
+ARG SABER_STRATEGY_MODEL_REVISION=d13954661f83248295ba75c1ed411eef3b7b936e
 ENV SABER_BUILD_SHA=$SABER_BUILD_SHA
 LABEL org.opencontainers.image.revision=$SABER_BUILD_SHA
 
@@ -20,11 +22,18 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY src ./src
-RUN pip install --no-cache-dir ".[postgres]"
+COPY scripts/cache_strategy_model.py ./scripts/cache_strategy_model.py
+RUN if [ "$SABER_STRATEGY_SEMANTIC" = "1" ]; then \
+      pip install --no-cache-dir ".[postgres,strategy]" && \
+      python scripts/cache_strategy_model.py /app/strategy-model "$SABER_STRATEGY_MODEL_REVISION"; \
+    else pip install --no-cache-dir ".[postgres]"; fi
+ENV DECK_LAB_STRATEGY_ONNX_PATH=/app/strategy-model
 
 COPY config ./config
 COPY --chown=1001:1001 fixtures ./fixtures
 COPY scripts/setup_db.py ./scripts/setup_db.py
+COPY scripts/ingest_strategy_corpus.py ./scripts/ingest_strategy_corpus.py
+COPY scripts/seed_strategy_corpus.py ./scripts/seed_strategy_corpus.py
 
 RUN mkdir -p /data && chown 1001:1001 /data
 

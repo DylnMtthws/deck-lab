@@ -149,8 +149,18 @@ class RequirementsCall(StrictModel):
     arguments: EmptyArgs
 
 
+class MemoryCall(StrictModel):
+    name: Literal["research_memory"]
+    arguments: EmptyArgs
+
+
 class RecommendCall(StrictModel):
     name: Literal["find_replacements"]
+    arguments: RecommendArgs
+
+
+class PrepareCall(StrictModel):
+    name: Literal["prepare_improvement"]
     arguments: RecommendArgs
 
 
@@ -180,7 +190,9 @@ ToolCall = Annotated[
     | IntelligenceCall
     | StrategyCall
     | RequirementsCall
+    | MemoryCall
     | RecommendCall
+    | PrepareCall
     | RecommendedExperimentCall
     | ProposeCall
     | ExperimentCall,
@@ -239,6 +251,52 @@ class AssistantTools:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
         args = call.arguments
+        if call.name == "research_memory":
+            from sabermetrics.assistant_memory import research_memory
+
+            return research_memory(self.path, self.owner, self.deck_id, limit=3)
+        if call.name == "prepare_improvement":
+            # One bounded read plan, no implicit simulation or deck mutation.
+            # Reuse the same validators and recommendation handles as individual
+            # tools. Evidence and assessment cannot authorize experiment writes.
+            try:
+                strategy_evidence = self.execute(
+                    {
+                        "name": "retrieve_strategy_evidence",
+                        "arguments": {
+                            "query": args.focus or "deck strategy engine recovery"
+                        },
+                    }
+                )
+            except ValueError as exc:
+                if "searchable words" not in str(exc):
+                    raise
+                strategy_evidence = self.execute(
+                    {
+                        "name": "retrieve_strategy_evidence",
+                        "arguments": {"query": "deck strategy engine recovery"},
+                    }
+                )
+                strategy_evidence["query_note"] = (
+                    "The focus contained no searchable words; used general strategy evidence."
+                )
+            assessment = self.execute(
+                {"name": "assess_deck_requirements", "arguments": {}}
+            )
+            candidates = self.execute(
+                {"name": "find_replacements", "arguments": {"focus": args.focus}}
+            )
+            return {
+                **candidates,
+                "strategy_evidence": strategy_evidence,
+                "assessment": candidates.get("assessment") or assessment,
+                "plan_status": (
+                    "ready_for_review"
+                    if candidates.get("experiment_ready")
+                    else "insufficient_alternatives"
+                ),
+                "execution_started": False,
+            }
         if call.name == "retrieve_strategy_evidence":
             from sabermetrics.assistant_strategy_evidence import (
                 retrieve_strategy_evidence,
@@ -411,35 +469,16 @@ class AssistantTools:
                 "revision": self.revision,
             }
         if call.name == "card_details":
-            with sqlite3.connect(self.path, timeout=5) as conn:
-                conn.row_factory = sqlite3.Row
-                row = conn.execute(
-                    "SELECT * FROM cards WHERE id=?", (args.card_id,)
-                ).fetchone()
-            if row is None:
-                raise ValueError(
-                    "The requested card ID is absent from the imported catalog."
+            from sabermetrics.assistant_card_facts import card_facts
+            from sabermetrics.card_capabilities import relationships
+
+            facts = card_facts(self.path, args.card_id)
+            if facts.get("card"):
+                facts["capability_relationships"] = relationships(facts["card"])
+                facts["capability_note"] = (
+                    "Bounded Oracle-text inferences with prerequisites; not certified rules execution or native simulation coverage."
                 )
-            card = dict(row)
-            keys = (
-                "id",
-                "oracle_id",
-                "name",
-                "type_line",
-                "mana_cost",
-                "cmc",
-                "oracle_text",
-                "image_uri",
-                "color_identity",
-                "is_legal_in_99",
-                "roles",
-                "power",
-                "toughness",
-            )
-            return {
-                "card": {key: card.get(key) for key in keys},
-                "source": "Imported card attributes; missing values remain unknown.",
-            }
+            return facts
         if call.name == "research_evidence":
             evidence = DeckEvidenceService(self.path)
             result = (

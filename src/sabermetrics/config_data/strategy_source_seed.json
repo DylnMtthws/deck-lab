@@ -1,0 +1,261 @@
+{
+  "observed_at": "2026-10-14",
+  "limitations": "Selected official rule snapshots, a brief attributed public quotation, and explicitly labeled original Deck Lab strategy guidance. External Vivi/Sauron primers could not be fetched (HTTP 403); none of their contents is claimed. Strategy guidance is a hypothesis framework, not competitive validation.",
+  "sources": [
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "106.1.",
+      "text": "106.1. Mana is the primary resource in the game. Players spend mana to pay costs, usually when casting spells and activating abilities."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "106.4.",
+      "text": "106.4. When an effect instructs a player to add mana, that mana goes into a player\u2019s mana pool. From there, it can be used to pay costs immediately, or it can stay in the player\u2019s mana pool as unspent mana. Each player\u2019s mana pool empties at the end of each step and phase, and the player is said to lose this mana. Cards with abilities that produce mana or refer to unspent mana have received errata in the Oracle\u2122 card reference to no longer explicitly refer to the mana pool."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "117.3b",
+      "text": "117.3b The active player receives priority after a spell or ability (other than a mana ability) resolves."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "121.2.",
+      "text": "121.2. Cards may only be drawn one at a time. If a player is instructed to draw multiple cards, that player performs that many individual card draws."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.1.",
+      "text": "603.1. Triggered abilities have a trigger condition and an effect. They are written as \u201c[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]\u201d"
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.2.",
+      "text": "603.2. Whenever a game event or game state matches a triggered ability\u2019s trigger event, that ability automatically triggers. The ability doesn\u2019t do anything at this point."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.3.",
+      "text": "603.3. Once an ability has triggered, its controller puts it on the stack as an object that\u2019s not a card the next time a player would receive priority. See rule 117, \u201cTiming and Priority.\u201d The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it\u2019s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "605.1a",
+      "text": "605.1a An activated ability is a mana ability if it meets all of the following criteria: it doesn\u2019t require a target (see rule 115.6), it could add mana to a player\u2019s mana pool when it resolves, it\u2019s not a loyalty ability (see rule 606, \u201cLoyalty Abilities\u201d), and its cost and effect don\u2019t move any card to or from a library. Do not take into account replacement effects that may apply, other than self-replacement effects, when evaluating these criteria."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.4.",
+      "text": "903.4. The Commander variant uses color identity to determine what cards can be in a deck with a certain commander. The color identity of a card is the color or colors of any mana symbols in that card\u2019s mana cost or rules text, plus any colors defined by its characteristic-defining abilities (see rule 604.3) or color indicator (see rule 204).\nExample: Bosh, Iron Golem is a legendary artifact creature with mana cost {8} and the ability \u201c{3}{R}, Sacrifice an artifact: Bosh, Iron Golem deals damage equal to the sacrificed artifact\u2019s mana value to any target.\u201d Bosh\u2019s color identity is red."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5a",
+      "text": "903.5a Each deck must contain exactly 100 cards, including its commander. In other words, the minimum deck size and the maximum deck size are both 100."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5b",
+      "text": "903.5b Other than basic lands, each card in a Commander deck must have a different English name. For the purposes of deck construction, cards with interchangeable names have the same English name (see rule 201.3)."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5c",
+      "text": "903.5c A card can be included in a Commander deck only if every color in its color identity is also found in the color identity of the deck\u2019s commander.\nExample: Wort, the Raidmother is a legendary creature with mana cost {4}{R/G}{R/G}. Wort\u2019s color identity is red and green. Each card in a Wort Commander deck must be only red, only green, both red and green, or have no color. Each mana symbol in the mana cost or rules text of a card in this deck must be only red, only green, both red and green, or have no color."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.8.",
+      "text": "903.8. A player may cast a commander they own from the command zone. A commander cast from the command zone costs an additional {2} for each previous time the player casting it has cast it from the command zone that game. This additional cost is informally known as the \u201ccommander tax.\u201d"
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.9a",
+      "text": "903.9a If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704."
+    },
+    {
+      "document": "Gavin Verhey: My Most Important Deck-Building Rule",
+      "source_url": "https://magic.wizards.com/en/news/feature/my-most-important-deck-building-rule-2018-02-08",
+      "version": "published 2018-02-09; observed 2026-10-14",
+      "permission": "Brief attributed quotation (18 words); no article reproduction",
+      "source_kind": "strategy_excerpt",
+      "section": "Making a Statement",
+      "text": "Every deck should have a mission statement\u2014some kind of game plan that guides your deck-building decisions."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Opening consistency",
+      "archetype": "general",
+      "text": "An opening-hand assessment should use only the actual hand and the declared mulligan policy. Check usable colors, a sequence of affordable plays and access to land or mana development. Land counts alone do not establish a keep: five lands with two expensive payoffs can be inactive, while two lands plus castable selection may offer a development path. Treat unseen draws as uncertainty rather than guaranteed fixes. Compare keep rate, mulligans and the distribution of first useful action turns under identical policies."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Independent development and recovery",
+      "archetype": "general",
+      "text": "A commander-independent engine can produce useful resources before the commander resolves and after it is removed. Distinguish cards that work from an empty creature board from cards needing a target, an attacker, a sacrifice body or an established payoff. After a creature wipe, use the actual surviving lands, artifacts, enchantments, graveyard and hand. A one-turn recovery check should identify a legal useful action and its prerequisite resources. Destruction is not unconditional removal: indestructibility, replacement effects and death triggers require modeled rules support."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Spellslinger resource balance",
+      "archetype": "spellslinger",
+      "text": "A spellslinger plan needs affordable castable spells, enough mana to continue, and a way to replace spent cards. Distinguish a cantrip that replaces itself from card advantage that increases available resources. Damage triggers and temporary mana are payoffs with conditions, not interchangeable sources of unconditional draw or ramp. Protect functional diversity: cutting selection, draw or protection merely because its printed mana value is high can weaken the engine. Alternate costs such as delve require graveyard resources and must not be assumed free."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Damage and draw relationships",
+      "archetype": "spellslinger",
+      "text": "For a damage-to-draw engine, inspect the exact damage source, enchanted or paired creature, recipient, whether damage is combat-only, whether drawing is optional, and each once-per-turn restriction. A noncreature-cast damage trigger and a damage-triggered draw effect are candidate ingredients, not proof of a self-sustaining loop. State mana, hand, battlefield and library prerequisites and verify the full sequence before describing a combo or a win. Commander-dependent pieces should be distinguished from cards that retain a second useful role without the commander."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Army and Ring strategy assessment",
+      "archetype": "army_ring_discard",
+      "text": "Separate creating or growing an Army from effects that reward having an Army. Similarly, distinguish an effect that tempts the Ring from a trigger that responds when the Ring tempts you. A commander may reward an opponent casting spells; a solo simulation with no opponents must not manufacture those events. For Sauron-oriented themes, consider independent token development, draw or discard recovery, and ways to convert a developed board into damage. Theme fit does not establish competitive power, and a high-powered combo shell may use a different plan from a thematic Army deck."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Finish conversion",
+      "archetype": "general",
+      "text": "An engine accumulating cards, tokens or mana is not by itself a verified finish. Identify the conversion route: combat damage, drain, direct damage or a demonstrated combo payoff. State the required pieces, timing, usable mana and relevant opponent assumptions. A turn-seven frozen-board test must not add an absent permanent to claim success. Missing native combat or combo semantics makes finish unverified rather than a measured loss or win. Solo goldfish observations do not predict multiplayer win rate."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Controlled replacement experiments",
+      "archetype": "general",
+      "text": "Keep budget, intended power, theme and protected cards explicit. Suggest mode presents choices; automatic mode tests copies. Compare three distinct alternatives, changing no more than three cards per alternative between measurements. Keep randomization and simulation settings comparable, retain a baseline and evaluate on held-out seeds. Report how modeled coverage changes with swaps; different missing mechanics can invalidate an apparent improvement. Choosing or adopting a card records user preference, not evidence that the card improved performance."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Landfall engine requirements",
+      "archetype": "landfall",
+      "text": "Landfall development needs a way to put lands onto the battlefield and a payoff for those entries. Extra land-play permissions require lands available to play; land recursion requires appropriate cards in the graveyard and a legal permission or effect. Land-search ramp, extra land plays and land recursion fill different functions and should not all be replaced by the cheapest mana artifact. Distinguish an ingredient match from a verified sequence, and preserve scarce engine enablers when improving generic draw or removal counts."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Sacrifice engine requirements",
+      "archetype": "sacrifice",
+      "text": "A sacrifice engine needs a body or other legal resource, a usable sacrifice outlet and a payoff. Token production without an outlet or an outlet without expendable resources does not complete the engine. Record activation costs, once-per-turn restrictions, legal targets and whether deaths actually trigger the payoff. A death-dependent draw effect is conditional draw, and a creature sacrifice cost cannot be paid from an empty creature board. Recovery recommendations should supply the missing function rather than accumulate redundant payoffs."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Commander combat and equipment",
+      "archetype": "voltron",
+      "text": "A commander combat plan needs a castable commander, an opportunity to attack and sufficient damage or another conversion route. Equipment requires its attachment conditions and costs; protection that applies only to the equipment does not necessarily protect the commander. Protection held in hand requires available mana and legal timing. A creature cannot be assumed ready to attack immediately without relevant permission. Without modeled combat, describe readiness ingredients and unsupported damage outcomes separately."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Reanimator engine requirements",
+      "archetype": "reanimator",
+      "text": "A reanimator plan puts creature cards into the graveyard, then returns them to the battlefield. Discard outlets, self-mill and graveyard tutors supply targets; reanimation spells and recurring abilities bring those creatures back. Large creatures can provide immediate value through enters-the-battlefield abilities without first paying their full printed mana cost. Returning a creature to hand is recovery rather than battlefield reanimation and still requires a way to cast it. Check creature target restrictions, timing, life or sacrifice costs, exile clauses and available resources. Keep worthwhile targets, graveyard setup and return effects in balance, and plan for opposing graveyard removal. The presence of these ingredients does not prove a legal sequence, a supported simulation or a stronger deck."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Blink engine requirements",
+      "archetype": "blink",
+      "text": "Blink or flicker temporarily exiles a permanent and returns it to the battlefield. A blink plan combines reusable creatures with valuable enters-the-battlefield abilities and effects that flicker those creatures for repeated value. Some effects return the permanent immediately; others return it at a later step, which changes timing and available blockers. Check which permanents an effect can target and whether it returns them under their owner or controller. A returned card is generally a new object; tokens that leave the battlefield cannot be assumed to return. Cheap protection and repeatable engines can serve different roles even when both exile a creature. Unlike reanimation from the graveyard, blink normally starts with a permanent already on the battlefield. These are planning distinctions, not confirmation that the simulator models each effect or that every loop is legal."
+    }
+  ]
+}

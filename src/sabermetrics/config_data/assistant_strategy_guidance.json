@@ -26,10 +26,10 @@
     },
     {
       "id": "authored-archetype-reanimator",
-      "document": "config/archetype_signatures.yaml",
+      "document": "src/sabermetrics/config_data/assistant_strategy_guidance.json",
       "section": "archetypes.reanimator",
       "tier": null,
-      "content": "reanimator archetype, also tagged Reanimator. Authored signature-card guidance: Reanimate (1.0), Animate Dead (1.0), Necromancy (1.0), Living Death (0.9), Victimize (0.9), Unburial Rites (0.9), Entomb (0.8), Buried Alive (0.8), Stitch Together (0.8), Dance of the Dead (0.8). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+      "content": "A reanimator plan puts creature cards into the graveyard, then returns them to the battlefield. Discard outlets, self-mill and graveyard tutors supply targets; reanimation spells and recurring abilities bring those creatures back. Large creatures can provide immediate value through enters-the-battlefield abilities without first paying their full printed mana cost. Returning a creature to hand is recovery rather than battlefield reanimation and still requires a way to cast it. Check creature target restrictions, timing, life or sacrifice costs, exile clauses and available resources. Keep worthwhile targets, graveyard setup and return effects in balance, and plan for opposing graveyard removal. The presence of these ingredients does not prove a legal sequence, a supported simulation or a stronger deck. reanimator archetype, also tagged Reanimator. Authored signature-card guidance: Reanimate (1.0), Animate Dead (1.0), Necromancy (1.0), Living Death (0.9), Victimize (0.9), Unburial Rites (0.9), Entomb (0.8), Buried Alive (0.8), Stitch Together (0.8), Dance of the Dead (0.8). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
     },
     {
       "id": "authored-archetype-spellslinger",
@@ -61,10 +61,10 @@
     },
     {
       "id": "authored-archetype-blink",
-      "document": "config/archetype_signatures.yaml",
+      "document": "src/sabermetrics/config_data/assistant_strategy_guidance.json",
       "section": "archetypes.blink",
       "tier": null,
-      "content": "blink archetype, also tagged Blink, Flicker. Authored signature-card guidance: Ephemerate (1.0), Ghostly Flicker (0.9), Conjurer's Closet (0.9), Soulherder (0.9), Deadeye Navigator (0.9), Eldrazi Displacer (0.8), Thassa, Deep-Dwelling (0.8), Flickerwisp (0.7), Restoration Angel (0.7), Charming Prince (0.6), Panharmonicon (0.6). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+      "content": "Blink or flicker temporarily exiles a permanent and returns it to the battlefield. A blink plan combines reusable creatures with valuable enters-the-battlefield abilities and effects that flicker those creatures for repeated value. Some effects return the permanent immediately; others return it at a later step, which changes timing and available blockers. Check which permanents an effect can target and whether it returns them under their owner or controller. A returned card is generally a new object; tokens that leave the battlefield cannot be assumed to return. Cheap protection and repeatable engines can serve different roles even when both exile a creature. Unlike reanimation from the graveyard, blink normally starts with a permanent already on the battlefield. These are planning distinctions, not confirmation that the simulator models each effect or that every loop is legal. blink archetype, also tagged Blink, Flicker. Authored signature-card guidance: Ephemerate (1.0), Ghostly Flicker (0.9), Conjurer's Closet (0.9), Soulherder (0.9), Deadeye Navigator (0.9), Eldrazi Displacer (0.8), Thassa, Deep-Dwelling (0.8), Flickerwisp (0.7), Restoration Angel (0.7), Charming Prince (0.6), Panharmonicon (0.6). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
     },
     {
       "id": "authored-archetype-mill",

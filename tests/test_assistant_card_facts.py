@@ -1,0 +1,187 @@
+import json
+import sqlite3
+
+import pytest
+
+from sabermetrics.assistant_card_facts import card_facts, import_snapshot
+
+
+@pytest.fixture
+def evidence(tmp_path):
+    db = tmp_path / "cards.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE cards (id TEXT PRIMARY KEY,oracle_id TEXT,name TEXT,oracle_text TEXT)"
+        )
+        con.execute(
+            "INSERT INTO cards VALUES ('printing','oracle','Front // Back','old')"
+        )
+    snapshot = tmp_path / "snapshot.json"
+    card = {
+        "object": "card",
+        "id": "printing",
+        "oracle_id": "oracle",
+        "name": "Front // Back",
+        "card_faces": [
+            {"name": "Front", "oracle_text": "front"},
+            {"name": "Back", "oracle_text": "back"},
+        ],
+        "legalities": {"commander": "legal"},
+        "prices": {"usd": None},
+        "rulings": [
+            {
+                "oracle_id": "oracle",
+                "source": "wotc",
+                "published_at": "2020-01-01",
+                "comment": "A ruling",
+            }
+        ],
+    }
+    snapshot.write_text(json.dumps([card]))
+    return db, snapshot, card
+
+
+def test_faces_rulings_and_distinct_dates(evidence):
+    db, snapshot, _ = evidence
+    imported = import_snapshot(
+        db, snapshot, observed_at="2025-01-01", retrieved_at="2026-01-01", version="v1"
+    )
+    facts = card_facts(db, "printing")
+    assert len(facts["card"]["card_faces"]) == 2
+    assert facts["provenance"]["content_hash"] == imported["content_hash"]
+    assert facts["provenance"]["observed_at"] == "2025-01-01"
+    assert facts["provenance"]["retrieved_at"] == "2026-01-01"
+    assert facts["provenance"]["freshness"] == "not_verified_current"
+    assert facts["rulings"][0]["oracle_id"] == "oracle"
+    assert facts["rulings"][0]["source"] == "wotc"
+    assert facts["prices"]["values"]["usd"] is None
+
+
+def test_unknown_date_and_missing_prices(evidence):
+    db, snapshot, card = evidence
+    del card["prices"]
+    snapshot.write_text(json.dumps([card]))
+    assert card_facts(db, "printing")["status"] == "catalog_only"
+    import_snapshot(db, snapshot, retrieved_at="2026-01-01")
+    facts = card_facts(db, "printing")
+    assert facts["provenance"]["date_status"] == "unknown"
+    assert facts["prices"] is None
+    assert facts["legalities"]["observed_at"] is None
+
+
+def test_mismatch_is_atomic_and_catalog_change_rejects(evidence):
+    db, snapshot, card = evidence
+    import_snapshot(db, snapshot)
+    before = card_facts(db, "printing")["provenance"]["content_hash"]
+    bad = dict(card, id="missing", oracle_id="different")
+    snapshot.write_text(json.dumps([dict(card, oracle_text="changed"), bad]))
+    with pytest.raises(ValueError):
+        import_snapshot(db, snapshot)
+    assert card_facts(db, "printing")["provenance"]["content_hash"] == before
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE cards SET oracle_id='other'")
+    assert card_facts(db, "printing")["status"] == "identity_mismatch"
+
+
+def test_ruling_identity_and_provenance_rewrite_rejected(evidence):
+    db, snapshot, card = evidence
+    import_snapshot(db, snapshot)
+    with pytest.raises(ValueError, match="provenance"):
+        import_snapshot(db, snapshot, observed_at="2025-01-01")
+    card["rulings"][0]["oracle_id"] = "other"
+    snapshot.write_text(json.dumps([card]))
+    with pytest.raises(ValueError, match="ruling"):
+        import_snapshot(db, snapshot)
+
+
+@pytest.mark.parametrize("face", [None, "invalid", 1])
+def test_invalid_face_is_clear_error(evidence, face):
+    db, snapshot, card = evidence
+    card["card_faces"] = [face]
+    snapshot.write_text(json.dumps([card]))
+    with pytest.raises(ValueError, match="objects"):
+        import_snapshot(db, snapshot)
+
+
+def test_nonstring_date_rejected(evidence):
+    db, snapshot, _ = evidence
+    with pytest.raises(ValueError, match="Dates"):
+        import_snapshot(db, snapshot, observed_at=123)
+
+
+def test_older_snapshot_requires_explicit_override(evidence):
+    db, snapshot, card = evidence
+    import_snapshot(db, snapshot, observed_at="2026-01-01")
+    card["oracle_text"] = "older text"
+    snapshot.write_text(json.dumps([card]))
+    with pytest.raises(ValueError, match="Older"):
+        import_snapshot(db, snapshot, observed_at="2025-01-01")
+    assert card_facts(db, "printing")["provenance"]["observed_at"] == "2026-01-01"
+    import_snapshot(db, snapshot, observed_at="2025-01-01", allow_older=True)
+    assert card_facts(db, "printing")["provenance"]["observed_at"] == "2025-01-01"
+
+
+def test_output_budget_notices_and_legacy_fields(evidence):
+    db, snapshot, card = evidence
+    card["oracle_text"] = "x" * 100000
+    card["rulings"] *= 100
+    snapshot.write_text(json.dumps([card]))
+    import_snapshot(db, snapshot)
+    facts = card_facts(db, "printing")
+    assert len(json.dumps(facts)) < 24000
+    assert facts["truncation"]["characters"] > 0
+    assert facts["truncation"]["notice"]
+    assert facts["rulings_total"] == 100
+    assert all(key in facts["card"] for key in ("image_uri", "is_legal_in_99", "roles"))
+
+
+def test_failed_initial_import_leaves_no_sidecar(evidence):
+    db, snapshot, card = evidence
+    card["oracle_id"] = "wrong"
+    snapshot.write_text(json.dumps([card]))
+    with pytest.raises(ValueError, match="identity"):
+        import_snapshot(db, snapshot)
+    with sqlite3.connect(db) as con:
+        assert not con.execute(
+            "SELECT name FROM sqlite_master WHERE name='assistant_fact_snapshots'"
+        ).fetchone()
+
+
+def test_oracle_keyed_catalog_preserves_source_printing(evidence):
+    db, snapshot, _card = evidence
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE cards SET id='oracle'")
+    imported = import_snapshot(db, snapshot)
+    facts = card_facts(db, "oracle")
+    assert facts["card"]["id"] == "oracle"
+    assert facts["provenance"]["printing_id"] == "printing"
+    assert facts["prices"]["printing_id"] == "printing"
+    with sqlite3.connect(db) as con:
+        payload = con.execute("SELECT payload FROM assistant_card_facts").fetchone()[0]
+        assert json.loads(payload)["id"] == "printing"
+        assert con.execute(
+            "SELECT snapshot_hash,catalog_id,printing_id FROM assistant_card_fact_printings"
+        ).fetchone() == (imported["content_hash"], "oracle", "printing")
+
+
+def test_ambiguous_oracle_printings_and_names_rejected(evidence):
+    db, snapshot, card = evidence
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE cards SET id='oracle'")
+    snapshot.write_text(json.dumps([card, dict(card, id="printing2")]))
+    with pytest.raises(ValueError, match="Ambiguous"):
+        import_snapshot(db, snapshot)
+    card["name"] = "Conflicting name"
+    snapshot.write_text(json.dumps([card]))
+    with pytest.raises(ValueError, match="identity"):
+        import_snapshot(db, snapshot)
+
+
+def test_multiple_exact_printing_rows_allowed(evidence):
+    db, snapshot, card = evidence
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO cards VALUES ('printing2','oracle','Front // Back','old')"
+        )
+    snapshot.write_text(json.dumps([card, dict(card, id="printing2")]))
+    assert import_snapshot(db, snapshot)["cards"] == 2

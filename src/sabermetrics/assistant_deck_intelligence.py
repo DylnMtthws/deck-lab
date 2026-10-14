@@ -14,6 +14,13 @@ from typing import Any
 
 from sabermetrics import db
 from sabermetrics.assistant_experiments import ExperimentService
+from sabermetrics.card_capabilities import (
+    casting_cost_basis,
+    engine_features,
+    own_draw_text,
+    relationships,
+    supported_plan,
+)
 from sabermetrics.deck_evidence import _card_roles, _library_entries
 
 GENERIC_TARGETS = {"land": 37, "ramp": 10, "draw": 12, "removal": 12, "protection": 4}
@@ -41,6 +48,16 @@ def _mana_conditions(card: dict[str, Any]) -> list[str]:
         conditions.append("combat_required")
         if "equipped creature" in text:
             conditions.append("equipped_creature_required")
+    if "treasure" in text and re.search(
+        r"whenever [^.\n]*(?:dies|sacrifice|cast)", text
+    ):
+        conditions.append("trigger_required")
+    if (
+        "add " in text
+        and "power" in text
+        and ("equal to" in text or re.search(r"where x is [^.,]*power", text))
+    ):
+        conditions.append("power_required")
     if "add " in text and "activate only" in text:
         conditions.append("activation_restriction")
     if "add " in text and re.search(r"\{t\}[^:\n]*,|, [^:\n]*\{t\}", text):
@@ -54,6 +71,8 @@ def _features(card: dict[str, Any]) -> set[str]:
     # Discovery tags include reminder text and self-protecting keywords. Build
     # requirements need scoped effects, not every keyword on the card.
     result = set(_card_roles({**card, "oracle_text": text, "role_tags": None}))
+    if "draw" in result and not own_draw_text(text):
+        result.discard("draw")
     protection = (
         bool(
             re.search(
@@ -80,7 +99,7 @@ def _features(card: dict[str, Any]) -> set[str]:
     if _mana_conditions(card):
         result.add("conditional_mana")
         # A combat-triggered Treasure is an engine payoff, not baseline ramp.
-        if "combat_required" in _mana_conditions(card):
+        if _mana_conditions(card):
             result.discard("ramp")
     if re.search(
         r"(?:^|\n)\{t\}: add (?:\{[cwubrg]\}|one mana)", text
@@ -124,7 +143,7 @@ def _features(card: dict[str, Any]) -> set[str]:
         and "this turn" not in text
     ):
         result.add("extra_land_play")
-    if re.search(r"(?:play|return)[^.\n]*land(?: cards?)? from your graveyard", text):
+    if "graveyard_land_access" in engine_features(card):
         result.add("land_recursion")
     for clause in re.split(r"[.\n]", text):
         if "whenever a land" not in clause:
@@ -136,6 +155,10 @@ def _features(card: dict[str, Any]) -> set[str]:
             "creature token" in clause or "token creature" in clause
         ):
             result.add("landfall_board")
+    result.update(engine_features(card))
+    for tribe in ("dragon", "vampire", "goblin", "elf", "zombie", "merfolk"):
+        if "creature" in types and re.search(r"\b" + tribe + r"\b", types):
+            result.add("creature_type:" + tribe)
     return result
 
 
@@ -159,6 +182,8 @@ def assess_deck_requirements(
         if "curiosity" in intent or "damage draw" in intent:
             archetype = "cast_damage_draw"
             specific["opponent_damage_draw"] = 2
+    if not specific:
+        archetype, specific = supported_plan(commanders)
     targets = {**GENERIC_TARGETS, **specific}
     counts: Counter[str] = Counter()
     for entry in _library_entries(document):
@@ -186,6 +211,19 @@ def assess_deck_requirements(
         "archetype": archetype,
         "specialized_status": "supported_shapes" if specific else "unavailable",
         "requirements": rows,
+        "commander_relationships": [
+            {"name": c.get("name"), "relationships": relationships(c)}
+            for c in commanders
+        ],
+        "relationship_status": "inferred" if specific else "unknown",
+        "engine_links": [
+            {
+                "requirement": role,
+                "status": "inferred",
+                "basis": "Supported ingredient predicate; compatibility is not a verified interaction.",
+            }
+            for role in specific
+        ],
         "limitations": [
             NOTE,
             "Generic targets are not tuned for every power level or commander.",
@@ -258,7 +296,7 @@ def recommend_replacements(
     outgoing.sort(
         key=lambda e: (
             sum(role in gaps for role in features[e["id"]]),
-            -float(e.get("mana_value") or 0),
+            -casting_cost_basis(e)[0],
             e["id"],
         )
     )
@@ -276,6 +314,9 @@ def recommend_replacements(
         "%additional land%",
         "%search your library%",
         "%from your graveyard%",
+        "%amass%",
+        "%the Ring tempts you%",
+        "%counter%",
     ]
     pool: dict[str, dict[str, Any]] = {}
     with db.connect(path) as conn:
@@ -307,7 +348,8 @@ def recommend_replacements(
             -len(item[2] & requested),
             -len(item[2]),
             int("ramp" in requested and "direct_mana_source" not in item[1]),
-            float(item[0].get("cmc") or 0),
+            -len(item[1] & set(targets) - set(GENERIC_TARGETS)),
+            casting_cost_basis(item[0])[0],
             item[0]["name"],
         )
     )
@@ -335,11 +377,15 @@ def recommend_replacements(
                 ):
                     continue
                 lost = features[old["id"]] - caps
-                engine_features = set(LAND_TARGETS) | {
-                    "cheap_noncreature_cast",
-                    "opponent_damage_draw",
-                }
-                if lost & engine_features:
+                protected_engine_features = (
+                    set(targets) - set(GENERIC_TARGETS)
+                    | set(LAND_TARGETS)
+                    | {
+                        "cheap_noncreature_cast",
+                        "opponent_damage_draw",
+                    }
+                )
+                if lost & protected_engine_features:
                     continue
                 if any(
                     role in targets and counts[role] <= targets[role] for role in lost
@@ -371,6 +417,11 @@ def recommend_replacements(
                         "name": card["name"],
                         "requirements": roles,
                         "conditions": _mana_conditions(card),
+                        "relationships": relationships(card),
+                        "fit_status": "inferred",
+                        "casting_cost_basis": casting_cost_basis(card)[1],
+                        "net_role_gain": len(net_gains),
+                        "synergy_ingredients": sorted(caps & protected_engine_features),
                         "oracle_excerpt": str(card.get("oracle_text") or "")[:360],
                         "source": "Imported Oracle text and generator-derived supported predicates",
                         "price_total_usd": preview["price_total_usd"],
@@ -393,7 +444,7 @@ def recommend_replacements(
         "limitations": [
             NOTE,
             "Power and theme are recorded preferences, not certified filters; review before adoption.",
-            "Outgoing ordering uses printed mana value, not effective casting cost; delve, alternate costs, and card-specific strategic value need review.",
+            "Conditional alternate-cost cards are not penalized by printed mana value; effective costs and card-specific strategic value remain unknown.",
             "Search and preview are bounded to 100 records per family and 60 validation attempts; no source deck was changed.",
         ],
     }

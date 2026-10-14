@@ -586,7 +586,7 @@
     if (presentation.strategy_evidence) appendStrategyEvidence(article, presentation.strategy_evidence);
   }
   function toolLabel(action) {
-    var names = { retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    var names = { prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
     return names[action && action.name] || "Assistant tool";
   }
   function renderToolStep(message) {
