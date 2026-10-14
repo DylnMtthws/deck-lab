@@ -102,7 +102,7 @@
             <p class="dl-assistant-provider" data-assistant-provider hidden role="status"></p>
             <div class="dl-assistant-scroll" data-assistant-scroll>
             <form class="dl-assistant-constraints" id="assistant-constraints" data-assistant-constraints hidden>
-                <label>Measure improvement in<select class="dl-field" data-assistant-objective>
+                <label>Measure improvement in<select class="dl-field" data-assistant-objective aria-describedby="assistant-objective-help">
                     <option value="">Choose an objective</option>
                     <option value="qualified_opening_rate">Modeled opening-policy proxy</option>
                     <option value="mean_missed_land_drops">Fewer missed land drops · requires full native coverage</option>
@@ -111,7 +111,7 @@
                     <option value="recovery_draw_rate">Draw recovery after commander loss · requires full native coverage</option>
                     <option value="recovery_board_rate">Board recovery after creature wipe · requires full native coverage</option>
                 </select></label>
-                <p>Opening results describe a modeled policy proxy, not real opening success. Other objectives require full native coverage, currently uncommon; incomplete coverage leaves improvement unknown.</p>
+                <p class="dl-assistant-settings-help" id="assistant-objective-help">Opening measures the modeled keep policy. Other goals require full native coverage; incomplete coverage leaves improvement unknown.</p>
                 <label>Budget cap · USD<input class="dl-field" type="number" min="0" step="0.01" data-assistant-budget placeholder="Optional"></label>
                 <label>Power level<input class="dl-field" type="text" maxlength="80" data-assistant-power placeholder="Optional"></label>
                 <label>Theme<input class="dl-field" type="text" maxlength="160" data-assistant-theme placeholder="Optional"></label>

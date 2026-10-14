@@ -932,7 +932,7 @@
   if (constraintToggle) constraintToggle.addEventListener("click", function () {
     var form = sidebar.querySelector("[data-assistant-constraints]"); form.hidden = !form.hidden;
     constraintToggle.setAttribute("aria-expanded", form.hidden ? "false" : "true");
-    if (!form.hidden) { sidebar.querySelector("[data-assistant-scroll]").scrollTop = 0; form.querySelector("input").focus({ preventScroll: true }); }
+    if (!form.hidden) { sidebar.querySelector("[data-assistant-scroll]").scrollTop = 0; form.querySelector("select, input").focus({ preventScroll: true }); }
   });
   var constraintsForm = sidebar.querySelector("[data-assistant-constraints]");
   var protectedList = sidebar.querySelector("[data-assistant-protected]");
