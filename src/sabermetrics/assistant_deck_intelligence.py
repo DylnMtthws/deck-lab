@@ -21,6 +21,7 @@ from sabermetrics.card_capabilities import (
     relationships,
     supported_plan,
 )
+from sabermetrics.cast_trigger_evidence import document_cast_trigger_evidence
 from sabermetrics.combination_intelligence import (
     analyze_combinations,
     summarize_combinations,
@@ -63,6 +64,16 @@ def _mana_conditions(card: dict[str, Any]) -> list[str]:
         and ("equal to" in text or re.search(r"where x is [^.,]*power", text))
     ):
         conditions.append("power_required")
+    if "add " in text and "suspend" in text:
+        conditions.append("suspend_delay_required")
+    if "add " in text and "discard a land card" in text:
+        conditions.append("entry_resource_cost_required")
+    if "add " in text and "multikicker" in text:
+        conditions.append("kicker_investment_required")
+    if "add " in text and ("imprint" in text or "exiled card" in text):
+        conditions.append("exiled_card_required")
+    if "add " in text and "{X}" in str(card.get("mana_cost") or "").upper():
+        conditions.append("variable_mana_investment_required")
     if "add " in text and "activate only" in text:
         conditions.append("activation_restriction")
     if "add " in text and re.search(r"\{t\}[^:\n]*,|, [^:\n]*\{t\}", text):
@@ -98,9 +109,21 @@ def _features(card: dict[str, Any]) -> set[str]:
             )
         )
     )
+    if re.search(r"counter target[^.\n]*spell", text):
+        result.add("removal")
+    if "you may cast" in text and "without paying" in text:
+        result.add("free_cast_access")
     result.discard("protection")
     if protection:
         result.add("protection")
+    if "add " in text or "ramp" in result:
+        result.add("mana_resource")
+        if "land" not in types:
+            result.add("nonland_mana_resource")
+    if re.search(
+        r"look at the top [^.\n]*cards?[^\n]*?put [^.\n]*into your hand", text
+    ):
+        result.add("card_selection")
     if _mana_conditions(card):
         result.add("conditional_mana")
         # A combat-triggered Treasure is an engine payoff, not baseline ramp.
@@ -160,6 +183,13 @@ def _features(card: dict[str, Any]) -> set[str]:
             "creature token" in clause or "token creature" in clause
         ):
             result.add("landfall_board")
+    # Preserve explicit broad damage payoffs when filling generic infrastructure.
+    # This is a scoped Oracle predicate, not a claim that the card wins a game.
+    if re.search(
+        r"deals? [^.\n]*damage[^.\n]*? to (?:each|all) (?:other )?(?:opponents?|players?|creatures?)",
+        text,
+    ):
+        result.add("broad_damage_payoff")
     result.update(engine_features(card))
     for tribe in ("dragon", "vampire", "goblin", "elf", "zombie", "merfolk"):
         if "creature" in types and re.search(r"\b" + tribe + r"\b", types):
@@ -331,7 +361,9 @@ def recommend_replacements(
     requested = {role for role in gaps if role.replace("_", " ") in focus}
     if "mana" in focus:
         requested.update(set(gaps) & {"land", "ramp"})
-    if "card advantage" in focus:
+    if any(
+        term in focus for term in ("card advantage", "card selection", "consistency")
+    ):
         requested.update(set(gaps) & {"draw"})
     colors: set[str] = set()
     for entry in document.get("entries", []):
@@ -340,12 +372,25 @@ def recommend_replacements(
     present = {e.get("oracle_id") for e in document.get("entries", [])}
     entries = _library_entries(document)
     features = {e["id"]: _features(e) for e in entries}
+    cast_interactions = {
+        e["id"]: document_cast_trigger_evidence(document, e) for e in entries
+    }
     counts = {r["requirement"]: r["actual"] for r in assessment["requirements"]}
     targets = {r["requirement"]: r["target"] for r in assessment["requirements"]}
     outgoing = [
         e
         for e in entries
-        if e.get("card_id") not in constraints["protected_cards"]
+        if features[e["id"]]
+        & (
+            set(targets)
+            | {"mana_resource", "broad_damage_payoff", "recursion", "card_selection"}
+        )
+        and "//" not in str(e.get("type_line") or "")
+        and (
+            str(e.get("oracle_text") or "").strip()
+            or "basic land" in str(e.get("type_line") or "").lower()
+        )
+        and e.get("card_id") not in constraints["protected_cards"]
         and ("land" not in features[e["id"]] or counts["land"] > targets["land"])
     ]
     combination_lines = analyze_combinations(document)["combinations"]
@@ -368,7 +413,6 @@ def recommend_replacements(
             )
             + _catalog_preservation_penalty(e, catalog_lines),
             sum(role in gaps for role in features[e["id"]]),
-            -casting_cost_basis(e)[0],
             e["id"],
         )
     )
@@ -393,12 +437,13 @@ def recommend_replacements(
     pool: dict[str, dict[str, Any]] = {}
     with db.connect(path) as conn:
         families = [("oracle_text", pattern) for pattern in patterns] + [
-            ("type_line", "%Land%")
+            ("type_line", "%Land%"),
+            ("type_line", "%Basic Land%"),
         ]
         color_slots = ",".join("?" for _ in colors) or "''"
         for column, pattern in families:
             rows = conn.execute(
-                f"SELECT * FROM cards WHERE is_legal_in_99=1 AND oracle_id IS NOT NULL AND {column} LIKE ? AND NOT EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(color_identity,''),'[]')) WHERE value NOT IN ({color_slots})) GROUP BY oracle_id HAVING id=MIN(id) ORDER BY cmc IS NULL, cmc, name, id LIMIT 100",
+                f"SELECT * FROM cards WHERE is_legal_in_99=1 AND oracle_id IS NOT NULL AND type_line NOT LIKE '%Attraction%' AND type_line NOT LIKE '%Contraption%' AND type_line NOT LIKE '%Sticker%' AND type_line NOT LIKE '%Dungeon%' AND type_line NOT LIKE '%Conspiracy%' AND type_line NOT LIKE '%Scheme%' AND type_line NOT LIKE '%Phenomenon%' AND type_line NOT LIKE '%Plane %' AND type_line NOT LIKE 'Plane —%' AND type_line NOT LIKE '%Vanguard%' AND type_line NOT LIKE '%Token%' AND type_line NOT LIKE '%Emblem%' AND {column} LIKE ? AND NOT EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(color_identity,''),'[]')) WHERE value NOT IN ({color_slots})) GROUP BY oracle_id HAVING id=MIN(id) ORDER BY cmc IS NULL, cmc, name, id LIMIT 100",
                 (pattern, *sorted(colors)),
             ).fetchall()
             for row in rows:
@@ -412,6 +457,10 @@ def recommend_replacements(
     for card in pool.values():
         caps = _features(card)
         gains = caps & gaps.keys()
+        # Broad discovery tags (e.g. a conditional Treasure payoff) cannot
+        # establish baseline ramp. Prefer the narrower supported source shapes.
+        if "ramp" in gains and not caps & {"direct_mana_source", "land_ramp"}:
+            gains.discard("ramp")
         if not gains:
             continue
         ranked.append((card, caps, gains))
@@ -419,6 +468,20 @@ def recommend_replacements(
         key=lambda item: (
             -len(item[2] & requested),
             -len(item[2]),
+            int(
+                "land" in item[2]
+                and "basic land" not in str(item[0].get("type_line") or "").lower()
+            ),
+            int(
+                "land" in item[2]
+                and not (
+                    "basic land" in str(item[0].get("type_line") or "").lower()
+                    or re.search(
+                        r"(?:^|\n)\{t\}: add (?:\{[wubrg]\}|(?:one mana|a mana) of any color)",
+                        _text(item[0]),
+                    )
+                )
+            ),
             int("ramp" in requested and "direct_mana_source" not in item[1]),
             -len(item[1] & set(targets) - set(GENERIC_TARGETS)),
             casting_cost_basis(item[0])[0],
@@ -429,6 +492,7 @@ def recommend_replacements(
     evidence: list[dict[str, Any]] = []
     used_roles: set[str] = set()
     used_oracles: set[str] = set()
+    used_outgoing: set[str] = set()
     rejected: Counter[str] = Counter()
     attempts = 0
     # First pass seeks different functions, second allows distinct options for one gap.
@@ -440,7 +504,26 @@ def recommend_replacements(
                 diverse and not gains - used_roles
             ):
                 continue
-            for old in outgoing[:8]:
+            incoming_cast_interactions = document_cast_trigger_evidence(document, card)
+            incoming_triggers = {
+                item.get("commander")
+                for item in incoming_cast_interactions
+                if item.get("matches_trigger") is True
+            }
+            pair_outgoing = sorted(
+                outgoing,
+                key=lambda old: (
+                    old["id"] in used_outgoing,
+                    sum(
+                        item.get("matches_trigger") is True
+                        and item.get("commander") not in incoming_triggers
+                        for item in cast_interactions[old["id"]]
+                    ),
+                    len(features[old["id"]] - caps),
+                    -len(features[old["id"]] & caps),
+                ),
+            )
+            for old in pair_outgoing[:8]:
                 net_gains = gains - features[old["id"]]
                 if (
                     not net_gains
@@ -455,6 +538,11 @@ def recommend_replacements(
                     | {
                         "cheap_noncreature_cast",
                         "opponent_damage_draw",
+                        "broad_damage_payoff",
+                        "mana_resource",
+                        "nonland_mana_resource",
+                        "free_cast_access",
+                        "card_selection",
                     }
                 )
                 if lost & protected_engine_features:
@@ -501,6 +589,19 @@ def recommend_replacements(
                     {
                         "card_id": card["id"],
                         "name": card["name"],
+                        "type_line": card.get("type_line"),
+                        "mana_cost": card.get("mana_cost"),
+                        "commander_cast_interactions": incoming_cast_interactions,
+                        "outgoing_card": {
+                            "entry_id": old["id"],
+                            "name": old["name"],
+                            "type_line": old.get("type_line"),
+                            "mana_cost": old.get("mana_cost"),
+                            "features": sorted(features[old["id"]]),
+                            "commander_cast_interactions": cast_interactions[old["id"]],
+                            "roles_lost": sorted(lost),
+                            "oracle_excerpt": str(old.get("oracle_text") or "")[:360],
+                        },
                         "requirements": roles,
                         "conditions": _mana_conditions(card),
                         "relationships": relationships(card),
@@ -529,6 +630,7 @@ def recommend_replacements(
                         "combination_preservation": "Ranking preference; loss of an inferred line is disclosed, not a prohibition or proof of lost win probability.",
                     }
                 )
+                used_outgoing.add(old["id"])
                 used_oracles.add(card["oracle_id"])
                 used_roles.update(net_gains)
                 break

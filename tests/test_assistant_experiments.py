@@ -54,6 +54,78 @@ def create(prepared, constraints=None):
     )
 
 
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "Artifact — Attraction",
+        "Artifact — Contraption",
+        "Sticker",
+        "Dungeon",
+        "Conspiracy",
+        "Scheme",
+        "Plane — Ravnica",
+        "Phenomenon",
+        "Vanguard",
+        "Token Artifact — Treasure",
+        "Emblem",
+    ],
+)
+def test_supplemental_objects_rejected_even_with_legal_catalog_flag(prepared, kind):
+    service, path, owner, deck, document, alternatives = prepared
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cards SET name='Ferris Wheel',type_line=?,is_legal_in_99=1 WHERE id='incoming-0'",
+            (kind,),
+        )
+        conn.commit()
+    replacements = alternatives[0]["replacements"]
+    with pytest.raises(ValueError, match="Supplemental catalog object"):
+        service.validate_replacements(
+            owner, deck, document["revision"], replacements, {}
+        )
+    with pytest.raises(ValueError, match="Supplemental catalog object"):
+        create(prepared)
+    assert service.list_for_deck(owner, deck) == []
+    assert DeckDocumentRepo(path).get(owner, deck) == document
+
+
+def test_ferris_wheel_rejected_by_proposal_tool(prepared):
+    from sabermetrics.assistant_tools import AssistantTools
+
+    service, path, owner, deck, document, alternatives = prepared
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cards SET name='Ferris Wheel',type_line='Artifact — Attraction',is_legal_in_99=1 WHERE id='incoming-0'"
+        )
+        conn.commit()
+    tools = AssistantTools(
+        path, owner, deck, "suggest", {}, lambda: False, experiment_service=service
+    )
+    with pytest.raises(ValueError, match="Supplemental catalog object"):
+        tools.execute(
+            {"name": "propose_replacements", "arguments": {"proposal": alternatives[0]}}
+        )
+    assert not tools.proposals
+    assert DeckDocumentRepo(path).get(owner, deck) == document
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["Artifact", "Legendary Planeswalker — Jace", "Creature — Human", "Enchantment"],
+)
+def test_normal_cards_still_preview_successfully(prepared, kind):
+    service, path, owner, deck, document, alternatives = prepared
+    with db.connect(path) as conn:
+        conn.execute("UPDATE cards SET type_line=? WHERE id='incoming-0'", (kind,))
+        conn.commit()
+    preview = service.validate_replacements(
+        owner, deck, document["revision"], alternatives[0]["replacements"], {}
+    )
+    assert any(
+        entry.get("card_id") == "incoming-0" for entry in preview["document"]["entries"]
+    )
+
+
 def report(seed, value=0.5):
     return {
         "schema_version": "native",

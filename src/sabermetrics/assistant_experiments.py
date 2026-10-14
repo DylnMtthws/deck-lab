@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from sabermetrics import db
+from sabermetrics.card_eligibility import supplemental_object_reason
 from sabermetrics.cedh.settings import load_cedh_settings
 from sabermetrics.cedh.simulator import (
     HttpSimulatorClient,
@@ -187,6 +188,9 @@ class ExperimentService:
                 if row is None or not row["is_legal_in_99"] or not row["oracle_id"]:
                     raise ValueError("Incoming card is missing or not Commander-legal.")
                 card = dict(row)
+                supplemental_reason = supplemental_object_reason(card)
+                if supplemental_reason:
+                    raise ValueError(supplemental_reason)
                 if card["oracle_id"] == entry.get("oracle_id"):
                     raise ValueError(
                         "A different printing of the same card is not a replacement."

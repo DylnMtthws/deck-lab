@@ -32,7 +32,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v6"
+PROMPT_VERSION = "build-conversation.v7"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -106,7 +106,24 @@ Use assess_deck_requirements for supported archetype ingredients and explicit
 gaps; unsupported/general plans and heuristic targets are not verified win lines.
 Use find_replacements with the user's focus to get constrained, functionally
 diverse proposals and their evidence. Distinguish inferred synergy from measured
-improvement. In Suggest mode pass selected returned alternatives to
+improvement. Review every suggestion before endorsing it: explain what the
+outgoing card contributes, what the incoming card gains, and what is lost.
+A search result is a candidate, not advice that must be repeated. Reject poor
+fits; return fewer suggestions when evidence does not justify three. Three
+alternatives replacing the same card are mutually exclusive, not three swaps
+to apply together. Do not claim a generic role target proves a deck deficiency.
+Printed mana value is not the mana investment needed for an X-cost effect.
+Use returned commander_cast_interactions and printed type lines for cast claims.
+Noncreature means not a creature: cast artifacts, enchantments, planeswalkers,
+and battles can qualify, as can instants and sorceries. Artifact creatures do
+not qualify; playing a land is not casting a spell. A spell with X=0 still
+counts as cast; that does not mean its resolved effect produces useful mana.
+A cast trigger is direct and does not require the spell to resolve. Distinguish
+noncreature triggers from narrower instant-or-sorcery triggers. Unknown native
+support or no relationship predicate does not mean the real card lacks synergy.
+If printed facts or trigger evidence have been omitted, retrieve card_details
+before making positive OR negative rules claims. Never turn unknown into false.
+In Suggest mode pass selected returned alternatives to
 propose_replacements for actionable previews. In Automate mode use
 test_recommended_alternatives with the returned recommendation_id to test the
 three server-held alternatives without reconstructing their card IDs. If fewer
@@ -294,12 +311,13 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         protected = (
             {
                 "strategy_evidence",
+                "candidate_evidence",
                 "recommendation_id",
                 "alternatives",
                 "experiment_ready",
                 "next_step",
             }
-            if result.get("name") == "prepare_improvement"
+            if result.get("name") in {"prepare_improvement", "find_replacements"}
             else set()
         )
         removable = [key for key in data if key not in protected] or list(data)
@@ -314,6 +332,44 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
             "query if needed; do not infer omitted values or repeat the same broad request."
         )
     return result
+
+
+def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
+    """Pin bounded card facts so evicting a broad receipt cannot erase the tradeoff."""
+
+    def card_summary(card: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": str(card.get("name") or "")[:100],
+            "type_line": str(card.get("type_line") or "")[:120],
+            "mana_cost": str(card.get("mana_cost") or "")[:80],
+            "oracle_excerpt": str(card.get("oracle_excerpt") or "")[:360],
+            "roles_lost": card.get("roles_lost", [])[:8],
+            "commander_cast_interactions": [
+                {
+                    key: item.get(key)
+                    for key in (
+                        "commander",
+                        "status",
+                        "matches_trigger",
+                        "trigger_category",
+                        "reason",
+                    )
+                }
+                for item in card.get("commander_cast_interactions", [])[:2]
+            ],
+        }
+
+    state["swap_review"] = {
+        "candidates": [
+            {
+                "incoming": card_summary(item),
+                "outgoing": card_summary(item.get("outgoing_card") or {}),
+                "conditions": item.get("conditions", [])[:8],
+            }
+            for item in data.get("candidate_evidence", [])[:3]
+        ],
+        "note": "Candidates, not measured upgrades. Cast eligibility assumes you cast the specified face with the commander on the battlefield; no altered types or abilities. Omitted details require card_details before further rules claims.",
+    }
 
 
 def _retain_combination_context(
@@ -676,6 +732,7 @@ def run_turn(
                     state["workflow"]["completed_tools"].append(call.name)
                     _retain_combination_context(state, call.name, data)
                     if call.name in {"find_replacements", "prepare_improvement"}:
+                        _retain_swap_context(state, data)
                         state["workflow"]["recommendation"] = {
                             "recommendation_id": data.get("recommendation_id"),
                             "ready": data.get("experiment_ready", False),

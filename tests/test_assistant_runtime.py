@@ -1316,3 +1316,87 @@ def test_full_turn_coverage_preserves_ui_audit_and_bounded_model_details(
     assert detail["data"]["cards"][0]["supported_effects"] == ["spell damage trigger"]
     assert detail["data"]["cards"][0]["limitations"] == ["combat not implemented"]
     assert all(len(request.user) <= 16000 for request in gateway.requests)
+
+
+@pytest.mark.parametrize("tool", ["prepare_improvement", "find_replacements"])
+def test_swap_receipt_preserves_card_facts_ahead_of_broad_assessment(tool):
+    from sabermetrics.assistant_runtime import _model_receipt
+
+    evidence = [
+        {
+            "name": "Astral Cornucopia",
+            "type_line": "Artifact",
+            "mana_cost": "{X}{X}{X}",
+            "commander_cast_interactions": [
+                {"matches_trigger": True, "status": "compatible"}
+            ],
+            "outgoing_card": {
+                "name": "Chandra's Ignition",
+                "roles_lost": ["broad_damage_payoff"],
+            },
+        }
+    ]
+    receipt = _model_receipt(
+        {
+            "name": tool,
+            "data": {
+                "candidate_evidence": evidence,
+                "assessment": {f"detail-{i}": "x" * 1200 for i in range(30)},
+                "alternatives": [{"name": "Test only"}],
+                "recommendation_id": "server-id",
+            },
+        }
+    )
+    assert receipt["data"]["candidate_evidence"] == evidence
+    assert "assessment" in receipt["evidence_omitted"]
+    assert len(json.dumps(receipt)) < 12000
+
+
+def test_swap_facts_survive_context_eviction_without_becoming_performance_proof():
+    from sabermetrics.assistant_runtime import _encode_context, _retain_swap_context
+
+    state = {"constraints": {}, **{f"context-{i}": "y" * 1200 for i in range(4)}}
+    _retain_swap_context(
+        state,
+        {
+            "candidate_evidence": [
+                {
+                    "name": "Astral Cornucopia",
+                    "type_line": "Artifact",
+                    "mana_cost": "{X}{X}{X}",
+                    "conditions": ["variable_mana_investment_required"],
+                    "commander_cast_interactions": [
+                        {
+                            "commander": "Vivi Ornitier",
+                            "matches_trigger": True,
+                            "status": "compatible",
+                            "reason": "Printed types match",
+                        }
+                    ],
+                    "outgoing_card": {
+                        "name": "Chandra's Ignition",
+                        "roles_lost": ["broad_damage_payoff"],
+                    },
+                }
+            ]
+        },
+    )
+    context = json.loads(
+        _encode_context(
+            state,
+            "Recommend swaps",
+            [{"role": "assistant", "content": "x" * 1200} for _ in range(10)],
+        )
+    )
+    assert context["history_truncated"] is True
+    evidence = context["state"]["swap_review"]
+    assert (
+        evidence["candidates"][0]["incoming"]["commander_cast_interactions"][0][
+            "matches_trigger"
+        ]
+        is True
+    )
+    assert evidence["candidates"][0]["outgoing"]["roles_lost"] == [
+        "broad_damage_payoff"
+    ]
+    assert "not measured upgrades" in evidence["note"]

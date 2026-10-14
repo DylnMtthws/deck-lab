@@ -620,9 +620,15 @@ class AssistantTools:
         if call.name == "card_details":
             from sabermetrics.assistant_card_facts import card_facts
             from sabermetrics.card_capabilities import relationships
+            from sabermetrics.cast_trigger_evidence import (
+                document_cast_trigger_evidence,
+            )
 
             facts = card_facts(self.path, args.card_id)
             if facts.get("card"):
+                facts["commander_cast_interactions"] = document_cast_trigger_evidence(
+                    document, facts["card"]
+                )
                 facts["capability_relationships"] = relationships(facts["card"])
                 facts["capability_note"] = (
                     "Bounded Oracle-text inferences with prerequisites; not certified rules execution or native simulation coverage."

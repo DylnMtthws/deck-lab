@@ -339,3 +339,233 @@ def test_sourced_combination_loss_is_disclosed_as_preference_not_prohibition(
         assert loss["variant_id"] == "test-source-quantity"
         assert loss["execution_verified"] is False
         assert "ranking preference" in evidence["sourced_preservation_scope"]
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "Artifact — Attraction",
+        "Dungeon",
+        "Conspiracy",
+        "Scheme",
+        "Plane — Ravnica",
+        "Phenomenon",
+        "Vanguard",
+        "Token Creature",
+        "Emblem",
+    ],
+)
+def test_non_deck_objects_do_not_enter_or_starve_recommendations(prepared, kind):
+    path, document = prepared
+    with db.connect(path) as conn:
+        for i in range(105):
+            cid = f"side-{i}"
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+                (cid, cid, f"AAA {i}", kind, "Draw a card.", "[]", 0, 1),
+            )
+        conn.commit()
+    result = recommend_replacements(path, document, focus="draw")
+    assert result["alternatives"]
+    assert all(
+        p["replacements"][0]["incoming_card_id"] == "draw"
+        for p in result["alternatives"]
+    )
+
+
+def test_generic_gap_does_not_cut_only_broad_damage_payoff(prepared):
+    path, document = prepared
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    payoff = copy.deepcopy(library)
+    payoff.update(
+        {
+            "id": "ignition-entry",
+            "card_id": "ignition",
+            "oracle_id": "ignition",
+            "quantity": 1,
+            "name": "Chandra's Ignition",
+            "type_line": "Sorcery",
+            "cmc": 5,
+            "mana_cost": "{3}{R}{R}",
+            "oracle_text": "Target creature you control deals damage equal to its power to each other creature and each opponent.",
+        }
+    )
+    library["quantity"] = 98
+    document["entries"].append(payoff)
+    with db.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                "ignition",
+                "ignition",
+                payoff["name"],
+                "Sorcery",
+                payoff["oracle_text"],
+                "[]",
+                5,
+                1,
+            ),
+        )
+        conn.commit()
+    result = recommend_replacements(path, document)
+    assert result["alternatives"]
+    assert all(
+        p["replacements"][0]["outgoing_entry_id"] != "ignition-entry"
+        for p in result["alternatives"]
+    )
+    for evidence in result["candidate_evidence"]:
+        assert "type_line" in evidence and "mana_cost" in evidence
+        assert "commander_cast_interactions" in evidence
+        assert "commander_cast_interactions" in evidence["outgoing_card"]
+        assert "roles_lost" in evidence["outgoing_card"]
+    from sabermetrics.assistant_runtime import _retain_swap_context
+
+    state = {}
+    _retain_swap_context(state, result)
+    assert len(state["swap_review"]["candidates"]) == len(result["alternatives"])
+    for retained, evidence in zip(
+        state["swap_review"]["candidates"], result["candidate_evidence"]
+    ):
+        assert retained["incoming"]["type_line"] == evidence["type_line"]
+        assert retained["outgoing"]["name"] == evidence["outgoing_card"]["name"]
+        assert "commander_cast_interactions" in retained["incoming"]
+
+
+def test_variable_cost_rock_separates_cheap_cast_from_productive_mana():
+    from sabermetrics.assistant_deck_intelligence import _features
+
+    caps = _features(
+        {
+            "name": "Astral Cornucopia",
+            "type_line": "Artifact",
+            "cmc": 0,
+            "mana_cost": "{X}{X}{X}",
+            "oracle_text": "This artifact enters with X charge counters on it.\n{T}: Choose a color. Add one mana of that color for each charge counter on this artifact.",
+        }
+    )
+    assert "cheap_noncreature_cast" in caps
+    assert "conditional_mana" in caps
+    assert "ramp" not in caps
+    assert "direct_mana_source" not in caps
+
+
+def test_imprint_mana_is_conditional_not_baseline_ramp():
+    from sabermetrics.assistant_deck_intelligence import _features, _mana_conditions
+
+    card = {
+        "type_line": "Artifact",
+        "cmc": 0,
+        "mana_cost": "{0}",
+        "oracle_text": "Imprint — When this artifact enters, you may exile a nonartifact, nonland card from your hand.\n{T}: Add one mana of any of the exiled card’s colors.",
+    }
+    assert "exiled_card_required" in _mana_conditions(card)
+    assert "ramp" not in _features(card)
+    assert "cheap_noncreature_cast" in _features(card)
+
+
+def test_unknown_multiface_is_not_a_default_cut(prepared):
+    path, document = prepared
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    library.update(
+        {"type_line": "Creature — Monk // Land", "oracle_text": "", "cmc": 5}
+    )
+    assert recommend_replacements(path, document)["alternatives"] == []
+
+
+def test_multikicker_mana_requires_investment():
+    from sabermetrics.assistant_deck_intelligence import _features, _mana_conditions
+
+    card = {
+        "type_line": "Artifact",
+        "cmc": 0,
+        "mana_cost": "{0}",
+        "oracle_text": "Multikicker {2}\nThis artifact enters with a charge counter for each time it was kicked.\n{T}: Add {C} for each charge counter on this artifact.",
+    }
+    assert "kicker_investment_required" in _mana_conditions(card)
+    assert "ramp" not in _features(card)
+    assert "cheap_noncreature_cast" in _features(card)
+
+
+@pytest.mark.parametrize(
+    "card, expected",
+    [
+        (
+            {
+                "type_line": "Instant",
+                "cmc": 8,
+                "oracle_text": "Delve\nLook at the top seven cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.",
+            },
+            "card_selection",
+        ),
+        (
+            {"type_line": "Artifact", "cmc": 2, "oracle_text": "{1}, {T}: Add {U}{R}."},
+            "mana_resource",
+        ),
+    ],
+)
+def test_selection_and_conditional_mana_remain_recognized_functions(card, expected):
+    from sabermetrics.assistant_deck_intelligence import _features
+
+    assert expected in _features(card)
+
+
+def test_discard_land_mana_is_conditional():
+    from sabermetrics.assistant_deck_intelligence import _features, _mana_conditions
+
+    card = {
+        "type_line": "Artifact",
+        "cmc": 0,
+        "oracle_text": "If this artifact would enter, you may discard a land card instead. If you do, put it onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add one mana of any color.",
+    }
+    assert "entry_resource_cost_required" in _mana_conditions(card)
+    assert "ramp" not in _features(card)
+    assert "mana_resource" in _features(card)
+
+
+def test_suspend_mana_and_conditional_counter_keep_real_requirements():
+    from sabermetrics.assistant_deck_intelligence import _features, _mana_conditions
+
+    mox = {
+        "type_line": "Artifact",
+        "cmc": 0,
+        "mana_cost": None,
+        "oracle_text": "Suspend 3—{0}\n{T}: Add one mana of any color.",
+    }
+    assert "suspend_delay_required" in _mana_conditions(mox)
+    assert "ramp" not in _features(mox)
+    assert "removal" in _features(
+        {
+            "type_line": "Instant",
+            "oracle_text": "Counter target noncreature spell unless its controller pays {1}.",
+        }
+    )
+    assert "free_cast_access" in _features(
+        {
+            "type_line": "Sorcery",
+            "oracle_text": "You may cast instant and sorcery spells from among them without paying their mana costs.",
+        }
+    )
+
+
+def test_conditional_treasure_discovery_tag_is_not_baseline_ramp(prepared):
+    path, document = prepared
+    with db.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                "conditional-treasure",
+                "conditional-treasure",
+                "Conditional Treasure",
+                "Artifact",
+                "Whenever you discard a card, create a Treasure token. (It has '{T}, Sacrifice this artifact: Add one mana of any color.')",
+                "[]",
+                0,
+                1,
+            ),
+        )
+        conn.commit()
+    report = recommend_replacements(path, document, focus="ramp")
+    assert report["alternatives"]
+    assert all(
+        e["card_id"] != "conditional-treasure" for e in report["candidate_evidence"]
+    )
