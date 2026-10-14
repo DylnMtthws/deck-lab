@@ -87,6 +87,11 @@ def _features(card: dict[str, Any]) -> set[str]:
     # Discovery tags include reminder text and self-protecting keywords. Build
     # requirements need scoped effects, not every keyword on the card.
     result = set(_card_roles({**card, "oracle_text": text, "role_tags": None}))
+    if "basic land" in types:
+        # Intrinsic basic mana abilities survive removal of reminder text.
+        result.update({"land", "mana_resource", "direct_mana_source"})
+    if re.search(r"\bwhenever\b", text):
+        result.add("triggered_ability")
     if "draw" in result and not own_draw_text(text):
         result.discard("draw")
     protection = (
@@ -531,7 +536,7 @@ def recommend_replacements(
                 net_gains = gains - features[old["id"]]
                 # Changing one mana source into another does not fill a missing
                 # ramp slot merely because one has costs our baseline excludes.
-                if "mana_resource" in features[old["id"]]:
+                if "nonland_mana_resource" in features[old["id"]]:
                     net_gains.discard("ramp")
                 if (
                     not net_gains
@@ -551,9 +556,12 @@ def recommend_replacements(
                         "nonland_mana_resource",
                         "free_cast_access",
                         "triggered_mana_engine",
+                        "triggered_ability",
                         "card_selection",
                     }
                 )
+                if "land" in features[old["id"]] and counts["land"] > targets["land"]:
+                    protected_engine_features.discard("mana_resource")
                 if lost & protected_engine_features:
                     continue
                 if any(

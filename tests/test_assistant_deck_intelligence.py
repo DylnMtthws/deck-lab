@@ -589,3 +589,15 @@ def test_triggered_mana_engine_is_preserved_and_source_swap_does_not_fill_gap(pr
         cmc=2,
     )
     assert recommend_replacements(path, document, focus="ramp")["alternatives"] == []
+
+
+def test_intrinsic_basic_mana_and_repeatable_trigger_are_not_lost_to_text_stripping():
+    from sabermetrics.assistant_deck_intelligence import _features
+
+    island = {"type_line": "Basic Land — Island", "oracle_text": "({T}: Add {U}.)"}
+    assert {"land", "mana_resource", "direct_mana_source"} <= _features(island)
+    aura = {
+        "type_line": "Enchantment — Aura",
+        "oracle_text": "Whenever enchanted creature deals damage to a player, return target creature that player controls to its owner's hand.",
+    }
+    assert "triggered_ability" in _features(aura)
