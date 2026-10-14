@@ -347,7 +347,7 @@ class AssistantTools:
                 for entry in document.get("entries", [])
                 if isinstance(entry, dict) and entry.get("is_commander")
             }
-            name_errors = []
+            name_errors: list[dict[str, str]] = []
             for zone in ("battlefield", "hand", "graveyard"):
                 name_errors.extend(
                     {"field": zone, "supplied_name": name}
