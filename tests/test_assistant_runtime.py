@@ -1400,3 +1400,74 @@ def test_swap_facts_survive_context_eviction_without_becoming_performance_proof(
         "broad_damage_payoff"
     ]
     assert "not measured upgrades" in evidence["note"]
+
+
+def test_mixed_swap_blanket_trigger_claim_is_grounded_in_typed_facts():
+    from sabermetrics.assistant_runtime import _ground_blanket_cast_claims
+
+    state = {
+        "swap_review": {
+            "candidates": [
+                {
+                    "incoming": {
+                        "name": name,
+                        "commander_cast_interactions": [
+                            {"commander": "Vivi Ornitier", "matches_trigger": eligible}
+                        ],
+                    }
+                }
+                for name, eligible in [
+                    ("Island", False),
+                    ("Astral Cornucopia", True),
+                    ("Unknown", None),
+                ]
+            ]
+        }
+    }
+    bad = "- All three incoming cards are noncreature, so each still triggers Vivi when cast. None is a measured upgrade."
+    fixed = _ground_blanket_cast_claims(bad, state)
+    assert "All three" not in fixed
+    assert "Island → Vivi Ornitier: does not match" in fixed
+    assert "Astral Cornucopia → Vivi Ornitier: matches when cast" in fixed
+    assert "Unknown → Vivi Ornitier: unknown" in fixed
+    assert "None is a measured upgrade." in fixed
+    for scoped in [
+        "All noncreature spells trigger Vivi Ornitier.",
+        "Only these cards trigger Vivi Ornitier.",
+        "All three incoming cards except Island trigger Vivi Ornitier.",
+        "All three cards trigger a different engine.",
+        "Both incoming artifacts trigger Vivi.",
+    ]:
+        assert _ground_blanket_cast_claims(scoped, state) == scoped
+
+
+def test_live_swap_answer_and_presentation_both_use_cast_check(prepared, monkeypatch):
+    from sabermetrics import assistant_deck_intelligence
+
+    service, path, owner, deck_id, _, _ = prepared
+    evidence = [
+        {
+            "name": name,
+            "commander_cast_interactions": [
+                {"commander": "Vivi Ornitier", "matches_trigger": eligible}
+            ],
+        }
+        for name, eligible in [("Island", False), ("Cornucopia", True)]
+    ]
+    monkeypatch.setattr(
+        assistant_deck_intelligence,
+        "recommend_replacements",
+        lambda *a, **k: {"alternatives": [], "candidate_evidence": evidence},
+    )
+    gateway = Gateway(
+        [
+            step(call("find_replacements")),
+            step(content="All incoming cards trigger Vivi when cast."),
+        ]
+    )
+    result = run_turn(
+        path, owner, deck_id, [], gateway=gateway, experiment_service=service
+    )
+    assert "Island → Vivi Ornitier: does not match" in result["content"]
+    assert result["presentation"]["reply"]["lead"] == result["content"]
+    assert result["grounding_corrections"]

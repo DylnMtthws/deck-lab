@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -339,6 +340,65 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
             "query if needed; do not infer omitted values or repeat the same broad request."
         )
     return result
+
+
+def _ground_blanket_cast_claims(text: str, state: dict[str, Any]) -> str:
+    """Replace mixed-candidate blanket claims with explicit typed eligibility.
+
+    This is a narrow contradiction check, not general prose verification.
+    It never infers native support, costs, payoff amounts or strategic value.
+    """
+    rows = []
+    for candidate in (state.get("swap_review") or {}).get("candidates", []):
+        card = candidate.get("incoming") or {}
+        for fact in card.get("commander_cast_interactions", []):
+            rows.append(
+                (card.get("name"), fact.get("commander"), fact.get("matches_trigger"))
+            )
+    if (
+        not rows
+        or not any(row[2] is True for row in rows)
+        or all(row[2] is True for row in rows)
+    ):
+        return text
+    commander_names = {str(row[1]).casefold() for row in rows if row[1]}
+    commander_names.update(
+        name.split()[0] for name in tuple(commander_names) if len(name.split()[0]) >= 4
+    )
+    pattern = re.compile(
+        r"(?P<prefix>^|(?<=[.!?])\s+)(?P<bullet>[-*]\s*)?"
+        r"(?P<claim>(?:All|Both|Each|Every)\b[^.!?\n]{0,700}\btriggers?\b[^.!?\n]*[.!?]?)",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        claim = match.group("claim").casefold()
+        if not re.search(
+            r"\b(?:incoming|replacement|candidate|these) cards\b|\ball three cards\b",
+            claim,
+        ):
+            return match.group(0)
+        if re.search(r"\b(?:except|excluding|only)\b", claim):
+            return match.group(0)
+        if (
+            not any(name in claim for name in commander_names)
+            and "commander" not in claim
+        ):
+            return match.group(0)
+        labels = {True: "matches when cast", False: "does not match", None: "unknown"}
+        facts = "; ".join(
+            f"{card} → {commander}: {labels.get(eligible, 'unknown')}"
+            for card, commander, eligible in rows
+        )
+        return (
+            match.group("prefix")
+            + (match.group("bullet") or "")
+            + "Printed-type cast-trigger check (commander on the battlefield): "
+            + facts
+            + "."
+        )
+
+    return pattern.sub(replace, text)
 
 
 def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
@@ -678,6 +738,22 @@ def run_turn(
             )
             tools.check()
             if not step.tool_calls:
+                grounded = [
+                    _ground_blanket_cast_claims(part, state)
+                    for part in [step.content, *step.findings, step.next_action]
+                ]
+                original = [step.content, *step.findings, step.next_action]
+                if grounded != original:
+                    result["grounding_corrections"] = (
+                        "Mixed candidate cast-trigger summary replaced with typed tool facts."
+                    )
+                    step = step.model_copy(
+                        update={
+                            "content": grounded[0],
+                            "findings": grounded[1:-1],
+                            "next_action": grounded[-1],
+                        }
+                    )
                 sections = [step.content.strip()] if step.content.strip() else []
                 if step.findings:
                     sections.append(
