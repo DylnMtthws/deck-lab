@@ -31,10 +31,61 @@ def _text(card: dict[str, Any]) -> str:
     return re.sub(r"\([^)]*\)", "", str(card.get("oracle_text") or "")).lower()
 
 
+def _mana_conditions(card: dict[str, Any]) -> list[str]:
+    """Expose prerequisites; a token's reminder ability is not the card's own."""
+    text = _text(card)
+    conditions: list[str] = []
+    if "treasure" in text and re.search(
+        r"whenever [^.\n]*(?:attacks|combat damage)", text
+    ):
+        conditions.append("combat_required")
+        if "equipped creature" in text:
+            conditions.append("equipped_creature_required")
+    if "add " in text and "activate only" in text:
+        conditions.append("activation_restriction")
+    if "add " in text and re.search(r"\{t\}[^:\n]*,|, [^:\n]*\{t\}", text):
+        conditions.append("additional_activation_cost")
+    return conditions
+
+
 def _features(card: dict[str, Any]) -> set[str]:
     text = _text(card)
     types = str(card.get("type_line") or "").split(" // ")[0].lower()
-    result = set(_card_roles(card))
+    # Discovery tags include reminder text and self-protecting keywords. Build
+    # requirements need scoped effects, not every keyword on the card.
+    result = set(_card_roles({**card, "oracle_text": text, "role_tags": None}))
+    protection = (
+        bool(
+            re.search(
+                r"(?:target (?:creature|permanent)|(?:creatures|permanents) you control|equipped creature|enchanted creature)[^.\n]*(?:hexproof|indestructible|shroud|protection from)",
+                text,
+            )
+        )
+        or bool(
+            re.search(
+                r"target (?:creature|permanent)[^.\n]*\.[ \n]*(?:it|that creature|that permanent) phases out",
+                text,
+            )
+        )
+        or bool(
+            re.search(
+                r"counter target[^.\n]*that targets[^.\n]*(?:you|permanent|creature)",
+                text,
+            )
+        )
+    )
+    result.discard("protection")
+    if protection:
+        result.add("protection")
+    if _mana_conditions(card):
+        result.add("conditional_mana")
+        # A combat-triggered Treasure is an engine payoff, not baseline ramp.
+        if "combat_required" in _mana_conditions(card):
+            result.discard("ramp")
+    if re.search(
+        r"(?:^|\n)\{t\}: add (?:\{[cwubrg]\}|one mana)", text
+    ) and not _mana_conditions(card):
+        result.add("direct_mana_source")
     # Shared broad discovery tags classify some graveyard returns as removal.
     # Do not count that clause as interaction against an opposing board.
     if "from your graveyard" in text and not re.search(
@@ -219,6 +270,7 @@ def recommend_replacements(
         "%destroy target%",
         "%hexproof%",
         "%indestructible%",
+        "%phases out%",
         "%whenever a land%",
         "%land%graveyard%",
         "%additional land%",
@@ -254,6 +306,7 @@ def recommend_replacements(
         key=lambda item: (
             -len(item[2] & requested),
             -len(item[2]),
+            int("ramp" in requested and "direct_mana_source" not in item[1]),
             float(item[0].get("cmc") or 0),
             item[0]["name"],
         )
@@ -317,6 +370,7 @@ def recommend_replacements(
                         "card_id": card["id"],
                         "name": card["name"],
                         "requirements": roles,
+                        "conditions": _mana_conditions(card),
                         "oracle_excerpt": str(card.get("oracle_text") or "")[:360],
                         "source": "Imported Oracle text and generator-derived supported predicates",
                         "price_total_usd": preview["price_total_usd"],
@@ -339,6 +393,7 @@ def recommend_replacements(
         "limitations": [
             NOTE,
             "Power and theme are recorded preferences, not certified filters; review before adoption.",
+            "Outgoing ordering uses printed mana value, not effective casting cost; delve, alternate costs, and card-specific strategic value need review.",
             "Search and preview are bounded to 100 records per family and 60 validation attempts; no source deck was changed.",
         ],
     }

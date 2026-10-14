@@ -193,6 +193,13 @@
 .dl-assistant-composer-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
 .dl-assistant-composer-actions [data-assistant-stop] { margin-right:auto; }
 .dl-assistant-composer-actions button { min-height:30px; }
+.dl-assistant-strategy-evidence { margin-block:12px; font-size:.8125rem; line-height:1.5; overflow-wrap:anywhere; }
+.dl-assistant-strategy-evidence p { margin-block:6px; }
+.dl-assistant-strategy-evidence details { margin-block:8px; padding:8px; border:1px solid var(--line); border-radius:var(--r-sm); }
+.dl-assistant-strategy-evidence summary { cursor:pointer; font-weight:600; }
+.dl-assistant-strategy-evidence small { display:block; margin-block:5px; color:var(--muted); line-height:1.5; }
+.dl-assistant-strategy-evidence blockquote { margin:8px 0; padding-inline-start:10px; border-inline-start:2px solid var(--line); font:inherit; }
+.dl-assistant-strategy-evidence a { display:inline-block; margin-block:5px; text-decoration:underline; }
 @media (min-width:768px) {
   .dl-assistant-sidebar { height:calc(100% - 36px); }
 }

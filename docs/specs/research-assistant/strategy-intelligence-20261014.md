@@ -80,3 +80,14 @@ labels, and comparison rendering for recommendation-based experiments.
 Verification: 129 targeted retrieval, requirements, workflow, runtime, route,
 experiment, pricing and sidebar tests passed. Ruff passed; mypy passed for all
 four new/changed backend modules. No production files or data changed.
+
+The first live QA conversational check successfully called retrieval, assessment
+and recommendation, showed source excerpts/card previews, preserved the deck, and
+passed mobile reflow without JavaScript errors. Reviewing actual recommendations
+exposed self-indestructible artifacts misclassified as protection. Follow-up
+fixtures now exclude self-protection and combat-only Treasure from baseline ramp,
+prioritize direct mana sources, and expose conditional mana prerequisites.
+Source typography and human-readable citation titles were tightened after visual
+inspection. Six additional regression cases cover these card distinctions.
+Printed mana value still does not model delve/alternate costs or strategic value;
+recommendations remain hypotheses for review and measurement.

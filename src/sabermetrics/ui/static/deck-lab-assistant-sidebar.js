@@ -553,8 +553,8 @@
     excerpts.forEach(function (item) {
       if (!item || typeof item.excerpt !== "string" || !item.citation) return;
       var citation = item.citation;
-      var label = String(citation.document || "Indexed document").slice(0, 500);
-      if (citation.section) label += " · " + String(citation.section).slice(0, 200);
+      var label = String(citation.title || citation.document || "Indexed document").slice(0, 500);
+      if (citation.section && !citation.title) label += " · " + String(citation.section).slice(0, 200);
       var details = document.createElement("details");
       var summary = element("summary", label);
       details.appendChild(summary);
@@ -569,7 +569,7 @@
         link.target = "_blank"; link.rel = "noopener noreferrer";
         link.setAttribute("aria-label", "Open source: " + label);
         details.appendChild(link);
-      } else details.appendChild(element("small", "Indexed document; no public source link recorded."));
+      } else if (item.source_kind !== "authored_guidance") details.appendChild(element("small", "Indexed document; no public source link recorded."));
       details.appendChild(element("blockquote", item.excerpt.slice(0, 600)));
       if (item.excerpt_truncated || item.excerpt.length > 600) details.appendChild(element("small", "Excerpt shortened; this is not the complete source."));
       if (citation.metadata_truncated) details.appendChild(element("small", "Source label shortened."));

@@ -177,6 +177,13 @@ def _rank_rows(
         evidence = {
             "source_kind": source_kind,
             "citation": {
+                "title": (
+                    "Deck Lab · "
+                    + section.removeprefix("archetypes.").replace("_", " ").title()
+                    + " guidance"
+                    if source_kind == "authored_guidance"
+                    else document[:500]
+                ),
                 "chunk_id": chunk_id[:160],
                 "document": document[:500],
                 "section": section[:200] or None,
