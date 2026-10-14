@@ -58,6 +58,27 @@ class EvidenceArgs(StrictModel):
     window_days: Literal[0, 7, 30, 90, 365] = 30
 
 
+class StrategyArgs(StrictModel):
+    query: str = Field(min_length=1, max_length=300)
+    limit: int = Field(default=4, ge=1, le=4)
+
+
+class RecommendArgs(StrictModel):
+    focus: str = Field(default="", max_length=300)
+
+
+class SemanticReview(StrictModel):
+    alternative_index: int = Field(ge=0, le=2)
+    theme_fit: Literal["fit", "unknown", "conflict"]
+    power_fit: Literal["fit", "unknown", "conflict"]
+    reasoning: str = Field(min_length=20, max_length=600)
+
+
+class RecommendedExperimentArgs(StrictModel):
+    recommendation_id: str = Field(min_length=1, max_length=128)
+    semantic_reviews: list[SemanticReview] = Field(default_factory=list, max_length=3)
+
+
 class Replacement(StrictModel):
     outgoing_entry_id: str = Field(min_length=1, max_length=128)
     incoming_card_id: str = Field(min_length=1, max_length=128)
@@ -75,6 +96,7 @@ class ProposalArgs(StrictModel):
 
 class ExperimentArgs(StrictModel):
     alternatives: list[Proposal] = Field(min_length=3, max_length=3)
+    semantic_reviews: list[SemanticReview] = Field(default_factory=list, max_length=3)
 
 
 class SearchCall(StrictModel):
@@ -117,6 +139,26 @@ class IntelligenceCall(StrictModel):
     arguments: EmptyArgs
 
 
+class StrategyCall(StrictModel):
+    name: Literal["retrieve_strategy_evidence"]
+    arguments: StrategyArgs
+
+
+class RequirementsCall(StrictModel):
+    name: Literal["assess_deck_requirements"]
+    arguments: EmptyArgs
+
+
+class RecommendCall(StrictModel):
+    name: Literal["find_replacements"]
+    arguments: RecommendArgs
+
+
+class RecommendedExperimentCall(StrictModel):
+    name: Literal["test_recommended_alternatives"]
+    arguments: RecommendedExperimentArgs
+
+
 class ProposeCall(StrictModel):
     name: Literal["propose_replacements"]
     arguments: ProposalArgs
@@ -136,6 +178,10 @@ ToolCall = Annotated[
     | CoverageCall
     | RunCall
     | IntelligenceCall
+    | StrategyCall
+    | RequirementsCall
+    | RecommendCall
+    | RecommendedExperimentCall
     | ProposeCall
     | ExperimentCall,
     Field(discriminator="name"),
@@ -176,6 +222,7 @@ class AssistantTools:
         self.proposals: list[dict[str, Any]] = []
         self.simulations_started = 0
         self.experiments_started = 0
+        self.recommendations: dict[str, list[dict[str, Any]]] = {}
 
     def check(self) -> dict[str, Any]:
         if self.should_stop():
@@ -191,6 +238,73 @@ class AssistantTools:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
         args = call.arguments
+        if call.name == "retrieve_strategy_evidence":
+            from sabermetrics.assistant_strategy_evidence import (
+                retrieve_strategy_evidence,
+            )
+
+            commanders = ", ".join(
+                str(entry.get("name") or "")
+                for entry in document.get("entries", [])
+                if entry.get("is_commander")
+            )
+            return retrieve_strategy_evidence(
+                self.path, args.query, commander=commanders, limit=args.limit
+            )
+        if call.name == "assess_deck_requirements":
+            from sabermetrics.assistant_deck_intelligence import (
+                assess_deck_requirements,
+            )
+
+            return {
+                "revision": self.revision,
+                **assess_deck_requirements(document, self.constraints),
+            }
+        if call.name == "find_replacements":
+            from sabermetrics.assistant_deck_intelligence import recommend_replacements
+
+            result = recommend_replacements(
+                self.path, document, self.constraints, focus=args.focus
+            )
+            self.check()
+            # Store only schema-checked proposals. Execution revalidates all
+            # constraints against the current revision and current price data.
+            alternatives = [
+                Proposal.model_validate(item).model_dump()
+                for item in result.get("alternatives", [])
+            ]
+            if len(alternatives) > 3:
+                raise ValueError("Recommendation exceeded the three-alternative limit.")
+            recommendation_id = db.new_id()
+            self.recommendations[recommendation_id] = alternatives
+            return {
+                **result,
+                "recommendation_id": recommendation_id,
+                "revision": self.revision,
+                "experiment_ready": len(alternatives) == 3,
+                "original_changed": False,
+            }
+        if call.name == "test_recommended_alternatives":
+            recommended = self.recommendations.get(args.recommendation_id)
+            if recommended is None:
+                raise ValueError(
+                    "Recommendation is unavailable; call find_replacements in this turn first."
+                )
+            if len(recommended) != 3:
+                raise ValueError(
+                    "Three valid distinct alternatives are required; constraints will not be relaxed automatically."
+                )
+            return self.execute(
+                {
+                    "name": "start_experiment",
+                    "arguments": {
+                        "alternatives": recommended,
+                        "semantic_reviews": [
+                            review.model_dump() for review in args.semantic_reviews
+                        ],
+                    },
+                }
+            )
         if call.name == "inspect_deck":
             entries = _library_entries(document)
             curve: Counter[str] = Counter()
@@ -484,12 +598,44 @@ class AssistantTools:
                 raise ValueError(
                     "Only one experiment may be started per assistant turn."
                 )
+            alternatives = [
+                alternative.model_dump() for alternative in args.alternatives
+            ]
+            required = [
+                field
+                for constraint, field in (
+                    ("theme", "theme_fit"),
+                    ("power_level", "power_fit"),
+                )
+                if str(self.constraints.get(constraint) or "").strip()
+            ]
+            reviews = {
+                review.alternative_index: review for review in args.semantic_reviews
+            }
+            if required:
+                if len(reviews) != 3 or len(args.semantic_reviews) != 3:
+                    raise ValueError(
+                        "Review theme and power fit for all three alternatives before testing; include evidence-based reasoning and mark uncertain fit unknown."
+                    )
+                if any(
+                    getattr(review, field) != "fit"
+                    for review in reviews.values()
+                    for field in required
+                ):
+                    raise ValueError(
+                        "An alternative conflicts with, or has unknown fit for, the requested theme/power. Revise the candidates; constraints cannot be silently relaxed."
+                    )
+            for index, review in reviews.items():
+                alternatives[index]["rationale"] += (
+                    "\nSemantic preference review (model inference, not verified): "
+                    + review.reasoning
+                )
             self.check()
             experiment = self.experiments.create(
                 self.owner,
                 self.deck_id,
                 self.revision,
-                [alternative.model_dump() for alternative in args.alternatives],
+                alternatives,
                 self.constraints,
             )
             self.experiments_started += 1
@@ -549,6 +695,14 @@ class AssistantTools:
                 "summary_note": "One selected actual metric per test per alternative; remaining metrics, complete reports and rationales are retained in the persisted experiment.",
                 "error": result.get("error"),
                 "original_changed": False,
+                "semantic_reviews": [
+                    review.model_dump() for review in args.semantic_reviews
+                ],
+                "semantic_review_status": (
+                    "model_inference_not_verified"
+                    if reviews
+                    else "no_semantic_constraints"
+                ),
             }
         if call.name == "run_goldfish":
             return self._run_goldfish(document)

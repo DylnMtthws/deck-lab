@@ -1,0 +1,91 @@
+{
+  "source_kind": "authored_guidance",
+  "source_document": "config/archetype_signatures.yaml",
+  "limitations": "Project-authored archetype signatures, not an external primer or learned strategy evidence. Control and Combo are not modeled.",
+  "chunks": [
+    {
+      "id": "authored-archetype-aristocrats",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.aristocrats",
+      "tier": null,
+      "content": "aristocrats archetype, also tagged Aristocrats, Sacrifice. Authored signature-card guidance: Blood Artist (1.0), Zulaport Cutthroat (1.0), Cruel Celebrant (1.0), Bastion of Remembrance (1.0), Poison-Tip Archer (0.9), Corpse Knight (0.8), Viscera Seer (0.8), Carrion Feeder (0.8), Dictate of Erebos (0.8), Grave Pact (0.8), Pitiless Plunderer (0.7), Midnight Reaper (0.7), Grim Haruspex (0.7), Mahadi, Emporium Master (0.7). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-tokens",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.tokens",
+      "tier": null,
+      "content": "tokens archetype, also tagged Tokens, Go Wide. Authored signature-card guidance: Doubling Season (1.0), Parallel Lives (1.0), Anointed Procession (1.0), Divine Visitation (0.9), Mondrak, Glory Dominus (0.9), Cathars' Crusade (0.8), Second Harvest (0.8), Ojer Taq, Deepest Downfall (0.8), Adrix and Nev, Twincasters (0.8), Intangible Virtue (0.7), Bitterblossom (0.9), Chatterfang, Squirrel General (0.9), Mycoloth (0.9), Krenko, Mob Boss (0.9), Assemble the Legion (0.9), Ophiomancer (0.8), Adeline, Resplendent Cathar (0.8), March of the Multitudes (0.8), Secure the Wastes (0.7), Grave Titan (0.6), Purphoros, God of the Forge (0.8), Impact Tremors (0.7), Craterhoof Behemoth (0.6), Skullclamp (0.5). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-landfall",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.landfall",
+      "tier": null,
+      "content": "landfall archetype, also tagged Landfall, Lands Matter. Authored signature-card guidance: Lotus Cobra (1.0), Tireless Provisioner (0.9), Scute Swarm (1.0), Rampaging Baloths (1.0), Ancient Greenwarden (0.9), Avenger of Zendikar (0.9), Felidar Retreat (0.9), Omnath, Locus of Rage (0.9), Field of the Dead (0.8), Crucible of Worlds (0.7), Exploration (0.7), Ramunap Excavator (0.7), Tatyova, Benthic Druid (0.7). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-reanimator",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.reanimator",
+      "tier": null,
+      "content": "reanimator archetype, also tagged Reanimator. Authored signature-card guidance: Reanimate (1.0), Animate Dead (1.0), Necromancy (1.0), Living Death (0.9), Victimize (0.9), Unburial Rites (0.9), Entomb (0.8), Buried Alive (0.8), Stitch Together (0.8), Dance of the Dead (0.8). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-spellslinger",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.spellslinger",
+      "tier": null,
+      "content": "spellslinger archetype, also tagged Spellslinger, Spells Matter, Storm. Authored signature-card guidance: Guttersnipe (1.0), Talrand, Sky Summoner (1.0), Archmage Emeritus (1.0), Thousand-Year Storm (1.0), Storm-Kiln Artist (0.9), Murmuring Mystic (0.9), Young Pyromancer (0.9), Third Path Iconoclast (0.8), Aria of Flame (0.8), Electrostatic Field (0.8), Firebrand Archer (0.8), Monastery Mentor (0.7), Metallurgic Summonings (0.7), Mizzix's Mastery (0.7). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-voltron",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.voltron",
+      "tier": null,
+      "content": "voltron archetype, also tagged Voltron, Auras, Equipment. Authored signature-card guidance: Colossus Hammer (1.0), Ethereal Armor (0.9), Shielded by Faith (0.9), Daybreak Coronet (0.9), All That Glitters (0.9), Blackblade Reforged (0.9), Empyrial Plate (0.8), Grafted Exoskeleton (0.8), Bear Umbra (0.8), Rancor (0.7), Sigarda's Aid (0.7), Umbra Mystic (0.7), Sword of Feast and Famine (0.7), Sword of Fire and Ice (0.7), Champion's Helm (0.7), Fireshrieker (0.7), Kaldra Compleat (0.7), Sword of Hearth and Home (0.6), Batterskull (0.5). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-stax",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.stax",
+      "tier": null,
+      "content": "stax archetype, also tagged Stax, Hatebears, Prison. Authored signature-card guidance: Winter Orb (1.0), Static Orb (1.0), Smokestack (1.0), Tangle Wire (1.0), Trinisphere (0.9), Sphere of Resistance (0.9), Thorn of Amethyst (0.9), Archon of Emeria (0.9), Ethersworn Canonist (0.9), Root Maze (0.8), Rule of Law (0.8), Thalia, Guardian of Thraben (0.8), Drannith Magistrate (0.8), Lodestone Golem (0.8), Cursed Totem (0.7), Collector Ouphe (0.7), Null Rod (0.7), Deafening Silence (0.7). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-counters",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.counters",
+      "tier": null,
+      "content": "counters archetype, also tagged +1/+1 Counters, Counters. Authored signature-card guidance: Hardened Scales (1.0), Branching Evolution (1.0), Winding Constrictor (0.9), Conclave Mentor (0.9), The Ozolith (0.9), Corpsejack Menace (0.8), Kalonian Hydra (0.8), Evolution Sage (0.8), Innkeeper's Talent (0.8), Doubling Season (0.6), Cathars' Crusade (0.5). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-blink",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.blink",
+      "tier": null,
+      "content": "blink archetype, also tagged Blink, Flicker. Authored signature-card guidance: Ephemerate (1.0), Ghostly Flicker (0.9), Conjurer's Closet (0.9), Soulherder (0.9), Deadeye Navigator (0.9), Eldrazi Displacer (0.8), Thassa, Deep-Dwelling (0.8), Flickerwisp (0.7), Restoration Angel (0.7), Charming Prince (0.6), Panharmonicon (0.6). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-mill",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.mill",
+      "tier": null,
+      "content": "mill archetype, also tagged Mill. Authored signature-card guidance: Bruvac the Grandiloquent (1.0), Fraying Sanity (1.0), Traumatize (0.9), Maddening Cacophony (0.9), Sphinx's Tutelage (0.9), Hedron Crab (0.9), Ruin Crab (0.9), Fleet Swallower (0.8), Glimpse the Unthinkable (0.8), Consuming Aberration (0.8), Keening Stone (0.7). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-wheels",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.wheels",
+      "tier": null,
+      "content": "wheels archetype, also tagged Wheels, Wheel. Authored signature-card guidance: Wheel of Fortune (0.7), Windfall (0.7), Timetwister (0.7), Time Spiral (0.7), Magus of the Wheel (0.6), Reforge the Soul (0.6), Whispering Madness (0.6), Jace's Archivist (0.6), Echo of Eons (0.6), Winds of Change (0.5), Molten Psyche (0.5), Notion Thief (0.6), Waste Not (0.6). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    },
+    {
+      "id": "authored-archetype-lifegain",
+      "document": "config/archetype_signatures.yaml",
+      "section": "archetypes.lifegain",
+      "tier": null,
+      "content": "lifegain archetype, also tagged Lifegain, Life Gain. Authored signature-card guidance: Heliod, Sun-Crowned (1.0), Archangel of Thune (0.9), Sanguine Bond (0.9), Exquisite Blood (0.9), Well of Lost Dreams (0.8), Soul Warden (0.8), Soul's Attendant (0.8), Ajani's Pridemate (0.8), Voice of the Blessed (0.7), Vito, Thorn of the Dusk Rose (0.9). Sum the weights of matching cards; default detection threshold is 1.0. These authored weights indicate archetype identity, not card quality, required inclusions, or simulator validation."
+    }
+  ]
+}

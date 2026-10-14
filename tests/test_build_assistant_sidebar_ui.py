@@ -104,3 +104,115 @@ def test_observation_visualization_keeps_finish_proof_unknown_honest_and_compact
         'value * 100).toFixed(1).replace(/\\.0$/, "") + " percentage points"'
         in assistant
     )
+
+
+def test_strategy_sources_render_only_safe_receipt_links_and_bounded_literal_text():
+    """Execute the actual renderer against a tiny DOM, including hostile sources."""
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required for the source-rendering harness")
+    source = SCRIPT.read_text()
+    renderer = source.split("  function appendStrategyEvidence(", 1)[1].split(
+        "  function appendStructuredPresentation(", 1
+    )[0]
+    renderer = "function appendStrategyEvidence(" + renderer
+    script = r"""
+const assert = require("node:assert/strict");
+class Node {
+  constructor(tag) { this.tag = tag; this.children = []; this.attrs = {}; }
+  appendChild(child) { this.children.push(child); return child; }
+  setAttribute(key, value) { this.attrs[key] = value; }
+}
+const document = { createElement: tag => new Node(tag) };
+function element(tag, text, cls) {
+  const node = new Node(tag); node.textContent = text; node.className = cls; return node;
+}
+function flatten(node) { return [node, ...node.children.flatMap(flatten)]; }
+RENDERER
+const host = new Node("article");
+appendStrategyEvidence(host, { retrieval_mode: "lexical", excerpts: [
+  { citation: { document: "Primer <img onerror=attack()>", section: "Engine", source_url: "https://example.test/primer" }, excerpt: "<script>attack()</script>" },
+  { citation: { document: "Injected", source_url: "javascript:attack()" }, excerpt: "x".repeat(900) },
+  { citation: { document: "Credentials", source_url: "https://user:secret@example.test" }, excerpt: "text" },
+  { citation: { document: "Local", source_url: "file:///secret" }, excerpt: "text" },
+  { citation: { document: "Fifth", source_url: "https://ignored.test" }, excerpt: "ignored" }
+] });
+const nodes = flatten(host);
+const links = nodes.filter(n => n.tag === "a");
+assert.equal(links.length, 1);
+assert.equal(links[0].href, "https://example.test/primer");
+assert.equal(links[0].rel, "noopener noreferrer");
+assert.match(links[0].attrs["aria-label"], /Primer/);
+const quotes = nodes.filter(n => n.tag === "blockquote");
+assert.equal(quotes.length, 4);
+assert.equal(quotes[0].textContent, "<script>attack()</script>");
+assert.equal(quotes[1].textContent.length, 600);
+assert(nodes.some(n => n.textContent === "Excerpt shortened; this is not the complete source."));
+const authored = new Node("article");
+appendStrategyEvidence(authored, { corpus_source: "bundled_authored_guidance", excerpts: [
+  { source_kind: "authored_guidance", citation: { document: "Local notes" }, excerpt: "Guidance" }
+] });
+assert(flatten(authored).some(n => n.textContent === "Authored archetype guidance · not a retrieved primer"));
+assert(flatten(authored).some(n => String(n.textContent).includes("No external strategy text is indexed yet")));
+const empty = new Node("article");
+appendStrategyEvidence(empty, { status: "empty_corpus", excerpts: [] });
+assert(flatten(empty).some(n => n.textContent === "No strategy documents have been indexed yet."));
+""".replace("RENDERER", renderer)
+    result = subprocess.run(
+        [node, "-e", script], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+    assert "presentation.strategy_evidence" in source
+    assert (
+        'action.name === "retrieve_strategy_evidence" && action.ok === true' in source
+    )
+    for name in (
+        "assess_deck_requirements",
+        "find_replacements",
+        "test_recommended_alternatives",
+    ):
+        assert f"{name}: " in source
+
+
+def test_recommended_experiment_receipt_renders_actual_metric_summary():
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required for the tool receipt harness")
+    source = SCRIPT.read_text()
+    renderer = (
+        "function renderToolStep("
+        + source.split("  function renderToolStep(", 1)[1].split(
+            "  function renderMessages(", 1
+        )[0]
+    )
+    script = r"""
+const assert = require("node:assert/strict");
+function element() { return { appendChild() {} }; }
+function toolLabel() { return "Experiment"; }
+let rendered = null;
+function appendMetricSummary(host, metrics) { rendered = metrics; }
+RENDERER
+const actual = [{ metric: "opening", value: 0.5 }];
+for (const name of ["start_experiment", "test_recommended_alternatives"]) {
+  rendered = null;
+  renderToolStep({action: {name, ok: true, data: {metric_summary: actual}}});
+  assert.equal(rendered, actual);
+}
+rendered = null;
+renderToolStep({action: {name: "test_recommended_alternatives", ok: false, data: {metric_summary: actual}}});
+assert.equal(rendered, null);
+""".replace("RENDERER", renderer)
+    result = subprocess.run(
+        [node, "-e", script], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr

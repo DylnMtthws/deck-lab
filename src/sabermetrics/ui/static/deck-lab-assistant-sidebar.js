@@ -538,14 +538,55 @@
     }
     appendCardResults(article, cards);
   }
+  function appendStrategyEvidence(host, evidence) {
+    if (!evidence || typeof evidence !== "object") return;
+    var section = element("section", null, "dl-assistant-strategy-evidence");
+    section.setAttribute("aria-label", "Strategy sources");
+    section.appendChild(element("strong", "Strategy sources"));
+    if (evidence.presentation_omitted_sources) section.appendChild(element("small", "Additional sources are available in Research activity."));
+    if (evidence.corpus_source === "bundled_authored_guidance") section.appendChild(element("p", "No external strategy text is indexed yet. These are Deck Lab’s authored archetype notes."));
+    var excerpts = Array.isArray(evidence.excerpts) ? evidence.excerpts.slice(0, 4) : [];
+    if (!excerpts.length) {
+      var statuses = { empty_corpus: "No strategy documents have been indexed yet.", no_matches: "No matching strategy evidence was found.", unavailable: "Strategy evidence is unavailable." };
+      section.appendChild(element("p", statuses[evidence.status] || "No strategy excerpts were returned."));
+    }
+    excerpts.forEach(function (item) {
+      if (!item || typeof item.excerpt !== "string" || !item.citation) return;
+      var citation = item.citation;
+      var label = String(citation.document || "Indexed document").slice(0, 500);
+      if (citation.section) label += " · " + String(citation.section).slice(0, 200);
+      var details = document.createElement("details");
+      var summary = element("summary", label);
+      details.appendChild(summary);
+      if (item.source_kind === "authored_guidance") details.appendChild(element("small", "Authored archetype guidance · not a retrieved primer"));
+      var url = null;
+      try {
+        var parsed = new URL(citation.source_url);
+        if ((parsed.protocol === "https:" || parsed.protocol === "http:") && !parsed.username && !parsed.password) url = parsed.href;
+      } catch (_) {}
+      if (url) {
+        var link = element("a", "Open source"); link.href = url;
+        link.target = "_blank"; link.rel = "noopener noreferrer";
+        link.setAttribute("aria-label", "Open source: " + label);
+        details.appendChild(link);
+      } else details.appendChild(element("small", "Indexed document; no public source link recorded."));
+      details.appendChild(element("blockquote", item.excerpt.slice(0, 600)));
+      if (item.excerpt_truncated || item.excerpt.length > 600) details.appendChild(element("small", "Excerpt shortened; this is not the complete source."));
+      if (citation.metadata_truncated) details.appendChild(element("small", "Source label shortened."));
+      section.appendChild(details);
+    });
+    if (evidence.retrieval_mode === "lexical") section.appendChild(element("small", "Matched by text relevance; sources are evidence, not verified deck performance."));
+    host.appendChild(section);
+  }
   function appendStructuredPresentation(article, message) {
     var presentation = message && message.presentation;
     if (!presentation || typeof presentation !== "object") return;
     appendCardResults(article, presentation.cards);
     if (presentation.goldfish) observationChart(article, presentation.goldfish);
+    if (presentation.strategy_evidence) appendStrategyEvidence(article, presentation.strategy_evidence);
   }
   function toolLabel(action) {
-    var names = { inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    var names = { retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
     return names[action && action.name] || "Assistant tool";
   }
   function renderToolStep(message) {
@@ -564,8 +605,9 @@
     step.appendChild(element("strong", title));
     if (failed && message.content) appendMarkdown(step, messageContent(message), cardsFrom(message));
     if (action.name === "search_cards" && action.ok === true) appendSearchResults(step, message);
+    if (action.name === "retrieve_strategy_evidence" && action.ok === true) appendStrategyEvidence(step, action.data);
     if (action.ok === true && action.data && Array.isArray(action.data.observations)) observationChart(step, action.data);
-    if (action.ok === true && action.name === "start_experiment" && action.data && action.data.metric_summary) appendMetricSummary(step, action.data.metric_summary);
+    if (action.ok === true && ["start_experiment", "test_recommended_alternatives"].indexOf(action.name) >= 0 && action.data && action.data.metric_summary) appendMetricSummary(step, action.data.metric_summary);
     return step;
   }
   function renderMessages() {
