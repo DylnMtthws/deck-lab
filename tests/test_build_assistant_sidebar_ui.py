@@ -328,6 +328,32 @@ const legacy = element('section');
 appendSwapReviews(legacy, [{candidate_index: 7, decision: 'uncertain'}]);
 assert.match(text(legacy), /Swap under review/);
 assert.doesNotMatch(text(legacy), /Candidate 8|undefined/);
+const math = element('section');
+const supported = {status: 'supported_from_hand_clause_accounting', requirements: ['card_in_hand_for_optional_discard'], branches: [{condition: 'optional_discard_paid', cards_drawn: 2, cards_discarded: 1, net_hand_delta: 0}, {condition: 'optional_discard_declined', cards_drawn: 0, cards_discarded: 0, net_hand_delta: -1}]};
+appendSwapReviews(math, [{outgoing_name: "Witch's Mark", incoming_name: 'Divination', outgoing_card_economy: supported, incoming_card_economy: {status: supported.status, branches: [{condition: 'normal_resolution', cards_drawn: 2, cards_discarded: 0, net_hand_delta: 1}]}}]);
+const mathText = text(math);
+assert.match(mathText, /Hand-card accounting/);
+assert.ok(mathText.includes("Cut Witch's Mark · optional discard paid: 2 drawn − 1 discarded − 1 spell = 0 hand cards"));
+assert.ok(mathText.includes('optional discard declined: 0 drawn − 0 discarded − 1 spell = -1 hand cards'));
+assert.ok(mathText.includes('Add Divination · normal resolution: 2 drawn − 0 discarded − 1 spell = +1 hand cards'));
+assert.match(mathText, /Cast from hand and resolve with legal targets/);
+assert.match(mathText, /excludes board value, commander triggers and graveyard reuse/);
+assert.doesNotMatch(mathText, /net overall card advantage/);
+function details(node) { return [node, ...node.children.flatMap(details)].filter(item => item.tag === 'details'); }
+assert.ok(details(math).every(item => item.open !== true));
+for (const profile of [
+  {status: 'unknown', branches: supported.branches},
+  {status: supported.status, branches: [{cards_drawn: '2', cards_discarded: 1, net_hand_delta: 0}]},
+  {status: supported.status, branches: [{cards_drawn: NaN, cards_discarded: 1, net_hand_delta: 0}]},
+  {status: supported.status, branches: [{cards_drawn: 2, cards_discarded: 1, net_hand_delta: 1}]},
+  {status: supported.status, branches: [{cards_drawn: 2, cards_discarded: -1, net_hand_delta: 2}]},
+  {status: supported.status, branches: [{cards_drawn: 2.5, cards_discarded: 1, net_hand_delta: .5}]}
+]) {
+  const malformed = element('section');
+  appendSwapReviews(malformed, [{incoming_card_economy: profile}]);
+  assert.doesNotMatch(text(malformed), /Hand-card accounting|1 spell =/);
+}
+
 """.replace("RENDERER", renderer)
     result = subprocess.run(
         [node, "-e", harness], capture_output=True, text=True, check=False

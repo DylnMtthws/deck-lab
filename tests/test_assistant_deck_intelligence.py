@@ -822,3 +822,113 @@ def test_basic_color_tradeoff_abstains_without_zero_source_proof(change):
             }
         )
     assert basic_land_color_tradeoff({"entries": entries}, mountain, island) is None
+
+
+def test_outgoing_entry_uuid_does_not_choose_different_named_pair(prepared):
+    path, document = prepared
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    library["quantity"] = 97
+    with db.connect(path) as conn:
+        for index, name in enumerate(("Alpha Draw", "Beta Draw")):
+            cid = f"old-draw-{index}"
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,'Sorcery','Draw two cards.','[]',4,1)",
+                (cid, cid, name),
+            )
+            document["entries"].append(
+                {
+                    **library,
+                    "id": f"old-entry-{1 - index}",
+                    "card_id": cid,
+                    "oracle_id": cid,
+                    "name": name,
+                    "type_line": "Sorcery",
+                    "oracle_text": "Draw two cards.",
+                    "mana_value": 4,
+                    "quantity": 1,
+                }
+            )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES('new-draw','new-draw','New Draw','Sorcery','Draw a card.','[]',1,1)"
+        )
+        conn.commit()
+    first = recommend_replacements(path, document, focus="draw")
+    for entry in document["entries"]:
+        if entry["name"] == "Alpha Draw":
+            entry["id"] = "z-entry"
+        elif entry["name"] == "Beta Draw":
+            entry["id"] = "a-entry"
+    second = recommend_replacements(path, document, focus="draw")
+    named = lambda result: [
+        (e["outgoing_card"]["name"], e["name"]) for e in result["candidate_evidence"]
+    ]
+    assert named(first) == named(second)
+    assert named(first)[0] == ("Alpha Draw", "New Draw")
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Scry 1.\nDraw a card.", True),
+        ("Surveil 2.\nDraw a card.", True),
+        (
+            "Look at the top three cards of your library, then put them back in any order. You may shuffle. Draw a card.",
+            True,
+        ),
+        ("Each player scries 2.", False),
+        ("Target opponent surveils 2.", False),
+        (
+            "Look at the top three cards of target opponent's library, then put them back in any order.",
+            False,
+        ),
+    ],
+)
+def test_self_selection_features_are_scoped(text, expected):
+    from sabermetrics.assistant_deck_intelligence import _features
+
+    assert (
+        "card_selection" in _features({"type_line": "Instant", "oracle_text": text})
+    ) == expected
+
+
+def test_selection_family_survives_saturated_draw_pool_and_preserves_opt(prepared):
+    path, document = prepared
+    deck_id = document["id"]
+    with db.connect(path) as conn:
+        owner = conn.execute(
+            "SELECT owner_id FROM deck_documents WHERE id=?", (deck_id,)
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE deck_entries SET quantity=97 WHERE deck_id=? AND is_commander=0",
+            (deck_id,),
+        )
+        for cid, name, text, cost in [
+            ("slow-selection", "Slow Selection", "Scry 2. Draw two cards.", 4),
+            ("existing-opt", "Existing Opt", "Scry 1. Draw a card.", 1),
+        ]:
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,'Instant',?,'[]',?,1)",
+                (cid, cid, name, text, cost),
+            )
+            conn.execute(
+                "INSERT INTO deck_entries(id,deck_id,card_id,oracle_id,name,quantity,is_commander,sort_order,type_line,mana_value,oracle_text,color_identity) VALUES(?,?,?,?,?,1,0,2,'Instant',?,?,'[]')",
+                (cid + "-entry", deck_id, cid, cid, name, cost, text),
+            )
+        for index in range(105):
+            cid = f"irrelevant-{index}"
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,'Sorcery','Draw a card.','[]',1,1)",
+                (cid, cid, f"AAA Cheap Draw {index:03}"),
+            )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES('new-scry','new-scry','ZZZ Scry Candidate','Instant','Scry 2. Draw a card.','[]',1,1)"
+        )
+        conn.commit()
+    stored = DeckDocumentRepo(path).get(owner, deck_id)
+    result = recommend_replacements(path, stored, focus="card selection consistency")
+    assert result["candidate_evidence"][0]["name"] == "ZZZ Scry Candidate"
+    assert result["candidate_evidence"][0]["outgoing_card"]["name"] == "Slow Selection"
+    assert all(
+        e["outgoing_card"]["name"] != "Existing Opt"
+        for e in result["candidate_evidence"]
+    )

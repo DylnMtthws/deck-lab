@@ -616,6 +616,31 @@
         });
         card.appendChild(citations);
       }
+      var accounting = element("details");
+      accounting.appendChild(element("summary", "Hand-card accounting"));
+      var accountingRows = 0;
+      ["outgoing", "incoming"].forEach(function (side) {
+        var profile = receipt[side + "_card_economy"];
+        if (!profile || profile.status !== "supported_from_hand_clause_accounting" || !Array.isArray(profile.branches)) return;
+        profile.branches.slice(0, 4).forEach(function (branch) {
+          if (!branch || !Number.isSafeInteger(branch.cards_drawn) || branch.cards_drawn < 0 ||
+              !Number.isSafeInteger(branch.cards_discarded) || branch.cards_discarded < 0 ||
+              !Number.isSafeInteger(branch.net_hand_delta) ||
+              branch.cards_drawn - branch.cards_discarded - 1 !== branch.net_hand_delta) return;
+          var name = receipt[side + "_name"] || (side === "outgoing" ? "Outgoing card" : "Incoming card");
+          var condition = typeof branch.condition === "string" ? branch.condition.replace(/_/g, " ") : "specified resolution";
+          accounting.appendChild(element("p", (side === "outgoing" ? "Cut " : "Add ") + name + " · " + condition + ": " + branch.cards_drawn + " drawn − " + branch.cards_discarded + " discarded − 1 spell = " + (branch.net_hand_delta > 0 ? "+" : "") + branch.net_hand_delta + " hand cards"));
+          accountingRows += 1;
+        });
+        if (Array.isArray(profile.requirements)) {
+          var requirements = profile.requirements.filter(function (item) { return typeof item === "string"; }).map(function (item) { return item.replace(/_/g, " "); });
+          if (requirements.length) accounting.appendChild(element("p", "Requires: " + requirements.join("; ")));
+        }
+      });
+      if (accountingRows) {
+        accounting.appendChild(element("p", "Cast from hand and resolve with legal targets. Hand cards only; excludes board value, commander triggers and graveyard reuse."));
+        card.appendChild(accounting);
+      }
       section.appendChild(card);
     });
     section.appendChild(element("p", "Model review of supplied evidence; card strength and measured improvement remain unverified."));

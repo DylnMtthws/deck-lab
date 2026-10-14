@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "feature": "Evidence-based swap experiments",
   "policy": {
     "candidate_discovery": "Bounded role and functional search; equivalence, strategic tradeoffs and typed zero-color-source repairs carry distinct evidence",
@@ -11,7 +11,10 @@
     "measurements": "Matching frozen engine/policy/dependency provenance, meaningful uncertainty separation and agreeing independent validation",
     "opening_scope": "Native opening-policy proxy, not real opening success or overall strength",
     "other_objectives": "Require complete supported native coverage; unavailable coverage produces an unknown result",
-    "source_deck": "Unchanged until explicit adoption; stale source invalidates outcome labels"
+    "source_deck": "Unchanged until explicit adoption; stale source invalidates outcome labels",
+    "card_economy": "Bounded exact clause accounting: spell spent, draws, discard, target requirements, explicit branches and unknowns; separate printed commander damage from power-based mana",
+    "card_lookup": "Canonical ID, Oracle ID or unique exact name; no fuzzy identity guesses",
+    "selection_discovery": "Separate bounded scry, surveil and top-library queries; stable semantic tie breaking"
   },
   "validation": {
     "authored_matcher_cases": 18,
@@ -22,12 +25,15 @@
       "Claude Code Opus 5.5 skeptical review"
     ],
     "live_model_probe": "Rejected three strategic losses and accepted one disclosed tradeoff on actual Vivi deck",
-    "native_positive": "Separate extreme wrong-color stress fixture demonstrates scoped improved and reversed regressed paths"
+    "native_positive": "Separate extreme wrong-color stress fixture demonstrates scoped improved and reversed regressed paths",
+    "ordinary_deck_measurement": "Affordable Vivi: two reviewed single-card alternatives, 2000 training and 2000 independent heldout each; both incomparable due dependency coverage changes, intervals overlap",
+    "live_facts": "Witch Mark paid net zero, declined minus one; Ancestral Anger net zero with creature target; Vivi fixed one damage independent of power"
   },
   "known_limits": [
     "Semantic review can still be wrong",
     "No proof of overall deck upgrades or multiplayer win-rate",
     "Native gaps prevent decisive verdicts for many real swaps",
-    "Joint multi-card packages need joint strategic review before assistant support"
+    "Joint multi-card packages need joint strategic review before assistant support",
+    "Ordinary nonbasic replacements change current native uncertainty fingerprints; reviewed spell tradeoffs remain hypotheses until coverage supports comparison"
   ]
 }

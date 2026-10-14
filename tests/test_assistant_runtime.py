@@ -1652,3 +1652,23 @@ def test_selected_objective_is_preserved_through_review_and_experiment(
         json.loads(gateway.review_requests[0].user)["focus"]
         == "positive_finish_proof_rate"
     )
+
+
+def test_card_details_resolves_exact_names_without_model_search(prepared):
+    service, path, owner, deck, _doc, _alternatives = prepared
+    tools = AssistantTools(
+        path, owner, deck, "suggest", {}, lambda: False, experiment_service=service
+    )
+    facts = tools.execute(call("card_details", {"card_id": "Incoming 0"}))
+    assert facts["card"]["id"] == "incoming-0"
+    assert facts["reference_resolution"] == "exact_name"
+    by_oracle = tools.execute(call("card_details", {"card_id": "incoming-oracle-0"}))
+    assert by_oracle["card"]["id"] == "incoming-0"
+    assert by_oracle["reference_resolution"] == "exact_oracle_id"
+    with db.connect(path) as conn:
+        conn.execute("UPDATE cards SET name='Incoming 0' WHERE id='incoming-1'")
+        conn.commit()
+    assert (
+        tools.execute(call("card_details", {"card_id": "Incoming 0"}))["status"]
+        == "ambiguous"
+    )

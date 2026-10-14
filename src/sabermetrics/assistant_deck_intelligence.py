@@ -139,6 +139,15 @@ def _features(card: dict[str, Any]) -> set[str]:
         r"look at the top [^.\n]*cards?[^\n]*?put [^.\n]*into your hand", text
     ):
         result.add("card_selection")
+    # Explicit self selection; opponent/target-player and each-player effects
+    # do not establish access to our own library.
+    if re.search(r"(?:^|[.\n]|, then)\s*(?:you )?(?:scry|surveil) [1-9][0-9]*\b", text):
+        result.add("card_selection")
+    if re.search(
+        r"look at the top [^.\n]*cards? of your library[^.\n]*put them back in any order",
+        text,
+    ):
+        result.add("card_selection")
     if _mana_conditions(card):
         result.add("conditional_mana")
         # A combat-triggered Treasure is an engine payoff, not baseline ramp.
@@ -434,11 +443,16 @@ def recommend_replacements(
             )
             + _catalog_preservation_penalty(e, catalog_lines),
             sum(role in gaps for role in features[e["id"]]),
+            str(e.get("name") or "").casefold(),
+            str(e.get("oracle_id") or ""),
             e["id"],
         )
     )
     # Fetch per functional family, keeping discovery bounded and diverse.
     patterns = [
+        "%scry%",
+        "%surveil%",
+        "%look at the top%",
         "%draw%",
         "%add %",
         "%counter target%",
@@ -518,6 +532,7 @@ def recommend_replacements(
                 )
             )
             - int(bool(item[2] & requested)),
+            -len(item[1] & requested),
             -len(item[2] & requested),
             -len(item[2]),
             int(

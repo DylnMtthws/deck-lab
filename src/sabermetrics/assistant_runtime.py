@@ -33,7 +33,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v8"
+PROMPT_VERSION = "build-conversation.v9"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -127,7 +127,23 @@ zero mana production does not exclude artifact, sacrifice or other synergies.
 A search result is a candidate, not advice that must be repeated. Reject poor
 fits; return fewer suggestions when evidence does not justify three. Three
 alternatives replacing the same card are mutually exclusive, not three swaps
-to apply together. Do not claim a generic role target proves a deck deficiency.
+to apply together. Different outgoing cards do not establish that swaps are
+independent or safe to combine; combined packages need joint review and testing.
+Do not claim a generic role target proves a deck deficiency.
+Use the supplied card_economy profiles for exact hand-card accounting within
+their stated branches and assumptions. Cards drawn are not net card advantage:
+a spell cast from hand consumes a card, and discarding consumes more. Drawing
+two after discarding one and casting the spell nets zero hand cards. A cantrip
+also nets zero. Net-neutral cantrips can still improve selection and early
+velocity; hand arithmetic alone does not determine whether a swap fits the goal.
+Flashback uses a different zone and needs separate accounting.
+Unknown or excluded branches cannot be assigned a guessed net advantage.
+Reactive cantrips needing a legal target spell are not unconditional card flow
+for an unopposed opening; do not sell them as consistency upgrades on that basis.
+Use printed_cast_trigger_damage for the commander's printed base damage.
+Power growth can affect a separate power-based mana ability without increasing
+a fixed-damage trigger. Separate printed damage, number of triggers, and damage
+modifiers; do not infer a power-scaling damage trigger from a power boost.
 Printed mana value is not the mana investment needed for an X-cost effect.
 Use returned commander_cast_interactions and printed type lines for cast claims.
 Noncreature means not a creature: cast artifacts, enchantments, planeswalkers,
@@ -441,6 +457,12 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
                 "incoming": card_summary(item),
                 "outgoing": card_summary(item.get("outgoing_card") or {}),
                 "conditions": item.get("conditions", [])[:8],
+                "incoming_card_economy": (item.get("incoming_oracle_facts") or {}).get(
+                    "card_economy"
+                ),
+                "outgoing_card_economy": (item.get("outgoing_oracle_facts") or {}).get(
+                    "card_economy"
+                ),
                 "review": {
                     key: (
                         str((item.get("strategic_review") or {}).get(key) or "")[:500]
@@ -679,6 +701,8 @@ def run_turn(
             )
         tools.review_gateway = gateway
         result.update(provider=gateway.provider, model_id=gateway.model_id)
+        from sabermetrics.card_economy import printed_cast_trigger_damage
+
         transcript: list[dict[str, Any]] = _conversation(messages)
         state: dict[str, Any] = {
             "mode": mode,
@@ -688,15 +712,18 @@ def run_turn(
             "validation": document.get("validation"),
             "commanders": [
                 {
-                    key: item.get(key)
-                    for key in (
-                        "name",
-                        "card_id",
-                        "oracle_id",
-                        "mana_cost",
-                        "type_line",
-                        "oracle_text",
-                    )
+                    **{
+                        key: item.get(key)
+                        for key in (
+                            "name",
+                            "card_id",
+                            "oracle_id",
+                            "mana_cost",
+                            "type_line",
+                            "oracle_text",
+                        )
+                    },
+                    "printed_cast_trigger_damage": printed_cast_trigger_damage(item),
                 }
                 for item in document.get("entries", [])
                 if item.get("is_commander")
@@ -708,6 +735,8 @@ def run_turn(
         tool_count = 0
         for step_index in range(MAX_MODEL_CALLS):
             tools.check()
+            state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
+            state["conversation_calls_remaining"] = MAX_MODEL_CALLS - step_index
             latest_request = next(
                 (
                     item["content"]
@@ -718,6 +747,8 @@ def run_turn(
             )
             encoded = _encode_context(state, latest_request, transcript)
             system = SYSTEM
+            if tool_count == MAX_TOOL_CALLS:
+                system += "\nNo tool calls remain. Return a final answer from the confirmed receipts, identifying any missing facts. Do not request more tools.\n"
             recommendation = state["workflow"].get("recommendation")
             if recommendation and not tools.experiments_started:
                 system += (

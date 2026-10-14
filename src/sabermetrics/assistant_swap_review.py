@@ -44,7 +44,14 @@ benefit consistent with commander, existing deck functions, requested focus and
 constraints. Reject generic count-gap suggestions that remove important draw,
 selection, commander engines, supported lines, or cast synergy for unrelated ramp.
 Consider mana quantity, colored requirements, conditional resource costs, speed,
-repeatability and lost abilities. If supplied context cannot resolve a material
+repeatability and lost abilities. Use supplied card_economy branch arithmetic;
+spell cards consumed and discard costs count against cards drawn. Net-neutral
+card flow is not net card advantage. Net-neutral hand flow is not itself a
+rejection criterion: cheap selection and velocity can serve early consistency
+while giving up later draw quantity or reuse. Judge that tradeoff against the
+actual focus; card arithmetic alone is not a strategic quality score. Reactive target-spell cantrips need a legal
+spell target and are not unconditional opening development. Printed fixed damage
+does not scale with creature power; a separate mana ability may scale. If supplied context cannot resolve a material
 tradeoff, choose uncertain. Source claims are ingredient evidence, not proof of
 execution. Keep each reason and benefit under 180 characters and tradeoffs to at most
 three concise items. Return exactly one decision per candidate_index. Describe benefit and
@@ -173,6 +180,7 @@ def review_candidates(
     }
     from collections import Counter
 
+    from sabermetrics.card_economy import printed_cast_trigger_damage
     from sabermetrics.deck_evidence import _card_roles
 
     role_counts: Counter[str] = Counter()
@@ -211,7 +219,16 @@ def review_candidates(
                         if entry.get("quantity", 1) != 1
                         else {}
                     ),
-                    **({"is_commander": True} if entry.get("is_commander") else {}),
+                    **(
+                        {
+                            "is_commander": True,
+                            "printed_cast_trigger_damage": printed_cast_trigger_damage(
+                                entry
+                            ),
+                        }
+                        if entry.get("is_commander")
+                        else {}
+                    ),
                     **(
                         {
                             "oracle_context_excerpt": str(
@@ -298,6 +315,13 @@ def review_candidates(
             "citations_verified": bool(valid_citations and both_sides),
             "scope": "Semantic suitability for an isolated experiment; no improvement or rules execution verified",
         }
+        for side in ("incoming", "outgoing"):
+            economy = pair[side].get("card_economy") or {}
+            if economy.get("status") == "supported_from_hand_clause_accounting":
+                receipt[side + "_card_economy"] = {
+                    key: economy.get(key)
+                    for key in ("status", "branches", "requirements", "scope")
+                }
         if not valid_citations or not both_sides:
             receipt["decision"] = "uncertain"
             receipt["validation_reason"] = (

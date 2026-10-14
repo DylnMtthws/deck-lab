@@ -6,6 +6,8 @@ import json
 import re
 from typing import Any
 
+from sabermetrics.card_economy import card_economy_profile, printed_cast_trigger_damage
+
 
 def functional_improvement(
     old: dict[str, Any], new: dict[str, Any], old_caps: set[str], new_caps: set[str]
@@ -94,6 +96,8 @@ def oracle_facts(card: dict[str, Any]) -> dict[str, Any]:
             "color_identity",
         )
     } | {
+        "card_economy": card_economy_profile(card),
+        "printed_cast_trigger_damage": printed_cast_trigger_damage(card),
         "cmc": card.get("cmc", card.get("mana_value")),
         "oracle_text": str(card.get("oracle_text") or "")[:6000],
         "oracle_text_truncated": len(str(card.get("oracle_text") or "")) > 6000,
@@ -133,6 +137,16 @@ def strategic_tradeoff(old, new, old_caps, new_caps):
     ):
         return None
     if any("{X}" in str(card.get("mana_cost") or "").upper() for card in (old, new)):
+        return None
+    incoming_requirements = set(card_economy_profile(new)["requirements"])
+    if incoming_requirements & {
+        "legal_target_spell",
+        "legal_target_creature",
+        "legal_target_aura_you_control",
+        "legal_target_aura",
+        "legal_target_nonplayer",
+        "legal_target_any_eligible",
+    }:
         return None
     shared_access = old_caps & new_caps & {"draw", "card_selection"}
     if not shared_access:

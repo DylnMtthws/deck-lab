@@ -251,6 +251,10 @@ def test_full_reference_deck_fits_review_budget(case, deck_name):
     assert payload["role_counts"]
     commander = next(c for c in payload["deck"] if c.get("is_commander"))
     assert commander["oracle_context_excerpt"]
+    if "vivi" in deck_name:
+        assert (
+            commander["printed_cast_trigger_damage"]["printed_damage_per_opponent"] == 1
+        )
 
 
 @pytest.mark.parametrize(

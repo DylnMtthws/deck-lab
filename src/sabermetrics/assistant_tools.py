@@ -50,7 +50,11 @@ class InspectArgs(StrictModel):
 
 
 class CardArgs(StrictModel):
-    card_id: str = Field(min_length=1, max_length=128)
+    card_id: str = Field(
+        min_length=1,
+        max_length=128,
+        description="Canonical card ID, Oracle ID, or exact card name. Exact names resolve only when they identify one Oracle card; never guess an ID.",
+    )
 
 
 class EvidenceArgs(StrictModel):
@@ -733,14 +737,46 @@ class AssistantTools:
         if call.name == "card_details":
             from sabermetrics.assistant_card_facts import card_facts
             from sabermetrics.card_capabilities import relationships
+            from sabermetrics.card_economy import (
+                card_economy_profile,
+                printed_cast_trigger_damage,
+            )
             from sabermetrics.cast_trigger_evidence import (
                 document_cast_trigger_evidence,
             )
 
             facts = card_facts(self.path, args.card_id)
+            if not facts.get("card"):
+                # Names and Oracle IDs are common conversational references.
+                # Resolve exact matches only; distinct identities are never merged.
+                with db.connect(self.path) as conn:
+                    matches = conn.execute(
+                        "SELECT MIN(id) AS id, oracle_id FROM cards WHERE oracle_id=? GROUP BY oracle_id",
+                        (args.card_id,),
+                    ).fetchall()
+                    resolution = "exact_oracle_id"
+                    if not matches:
+                        matches = conn.execute(
+                            "SELECT MIN(id) AS id, oracle_id FROM cards WHERE name=? COLLATE NOCASE AND oracle_id IS NOT NULL GROUP BY oracle_id LIMIT 2",
+                            (args.card_id.strip(),),
+                        ).fetchall()
+                        resolution = "exact_name"
+                if len(matches) == 1:
+                    facts = card_facts(self.path, matches[0]["id"])
+                    facts["reference_resolution"] = resolution
+                elif len(matches) > 1:
+                    return {
+                        "status": "ambiguous",
+                        "requested_reference": args.card_id,
+                        "note": "Exact name identifies multiple Oracle cards; use a catalog card ID.",
+                    }
             if facts.get("card"):
                 facts["commander_cast_interactions"] = document_cast_trigger_evidence(
                     document, facts["card"]
+                )
+                facts["card_economy"] = card_economy_profile(facts["card"])
+                facts["printed_cast_trigger_damage"] = printed_cast_trigger_damage(
+                    facts["card"]
                 )
                 facts["capability_relationships"] = relationships(facts["card"])
                 facts["capability_note"] = (
