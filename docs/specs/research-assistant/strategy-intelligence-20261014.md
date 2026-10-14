@@ -91,3 +91,12 @@ Source typography and human-readable citation titles were tightened after visual
 inspection. Six additional regression cases cover these card distinctions.
 Printed mana value still does not model delve/alternate costs or strategic value;
 recommendations remain hypotheses for review and measurement.
+
+A live Automate check then exposed repeated discovery: the model called the
+finder five times rather than using the returned handle. The runtime now pins
+workflow progress and the next applicable tool in current-turn state, supplies
+explicit progress instructions, and caches identical discovery with a stable
+handle. It never dispatches a write merely to compensate for model repetition.
+Budget exhaustion explicitly distinguishes prepared recommendations from an
+experiment that never started. A scripted conversational regression completes
+discovery once, executes once on copies, and preserves the source document.

@@ -81,6 +81,13 @@ unknown or conflict; evidence-based reasoning). Review the proposed incoming and
 outgoing cards against the user's actual preferences. Use card_details for
 missing facts. Mark uncertain fit unknown; never assert fit just to pass a gate.
 These are model inferences, not verified constraints or performance predictions.
+The state's workflow records actions already completed IN THIS TURN. Follow it:
+when workflow.recommendation is ready, do not call find_replacements again just
+because the user's request starts with finding candidates. Its recommendation_id
+is already available. If the user asked to test in Automate mode, proceed to
+test_recommended_alternatives after any required review. If they asked only for
+suggestions, preview or report. Never repeat unchanged discovery or rephrase its
+focus to restart it. A repeated read cannot substitute for the requested test.
 For an improvement request, retrieve relevant strategy evidence and assess the
 deck, then find replacements, then preview or test according to the selected mode.
 Complete all requested card lookups before answering; batch independent reads
@@ -455,6 +462,7 @@ def run_turn(
             ],
             "tool_budget": MAX_TOOL_CALLS,
             "model_call_budget": MAX_MODEL_CALLS,
+            "workflow": {"completed_tools": []},
         }
         tool_count = 0
         for step_index in range(MAX_MODEL_CALLS):
@@ -468,9 +476,21 @@ def run_turn(
                 "",
             )
             encoded = _encode_context(state, latest_request, transcript)
+            system = SYSTEM
+            recommendation = state["workflow"].get("recommendation")
+            if recommendation and not tools.experiments_started:
+                system += (
+                    "\nTURN PROGRESS: find_replacements has already completed. "
+                    "Do not call it again for the same request. Use the returned "
+                    "candidate evidence and recommendation_id in state.workflow. "
+                    "If the user requested testing and mode is automate, the next "
+                    "action is test_recommended_alternatives after required semantic "
+                    "review; otherwise preview/report. If ready is false, explain "
+                    "the insufficient candidates instead of trying to run.\n"
+                )
             request = StructuredRequest(
                 prompt_version=PROMPT_VERSION,
-                system=SYSTEM,
+                system=system,
                 user=encoded,
                 schema=AssistantStep,
                 mode=ReasoningMode.EXPLAIN,
@@ -553,6 +573,30 @@ def run_turn(
                 )
                 try:
                     data = tools.execute(call)
+                    state["workflow"]["completed_tools"].append(call.name)
+                    if call.name == "find_replacements":
+                        state["workflow"]["recommendation"] = {
+                            "recommendation_id": data.get("recommendation_id"),
+                            "ready": data.get("experiment_ready", False),
+                            "requires_semantic_review": data.get(
+                                "requires_semantic_review", False
+                            ),
+                            "next_tool_if_user_requested_testing": (
+                                "test_recommended_alternatives"
+                                if data.get("experiment_ready")
+                                else None
+                            ),
+                            "discovery_already_completed": True,
+                            "do_not_repeat_discovery": True,
+                        }
+                    if call.name in {
+                        "start_experiment",
+                        "test_recommended_alternatives",
+                    }:
+                        state["workflow"]["experiment_status"] = data.get("status")
+                        state["workflow"][
+                            "next_step"
+                        ] = "Report the actual experiment receipt; do not start another experiment."
                     if call.name == "retrieve_strategy_evidence":
                         strategy_presentation = _merge_strategy_evidence(
                             strategy_presentation, data
@@ -624,6 +668,10 @@ def run_turn(
             reason="model_call_budget",
             content="The assistant reached its turn budget. The confirmed tool receipts are available; no further actions were performed.",
         )
+        if tools.recommendations and not tools.experiments_started:
+            result["content"] = (
+                "Recommendations were prepared, but the assistant did not start an experiment before reaching its turn budget. No experiment results are available and the original deck was not changed."
+            )
     except AssistantBudgetExceeded as exc:
         result.update(
             status="budget_exhausted", reason="tool_or_context_budget", content=str(exc)

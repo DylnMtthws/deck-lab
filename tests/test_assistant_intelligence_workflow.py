@@ -192,3 +192,71 @@ def test_multiple_strategy_queries_keep_previous_citations():
         ]
         == merged["excerpts"]
     )
+
+
+def test_discovery_is_stable_and_workflow_pins_the_next_experiment(
+    prepared, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from sabermetrics import assistant_deck_intelligence as intelligence
+    from tests.test_assistant_experiments import report
+
+    service, path, owner, deck_id, original, alternatives = prepared
+    discoveries = []
+
+    def discover(*args, **kwargs):
+        discoveries.append(kwargs)
+        return {"alternatives": alternatives, "requires_semantic_review": False}
+
+    monkeypatch.setattr(intelligence, "recommend_replacements", discover)
+    monkeypatch.setattr(
+        service, "_simulate", lambda document, seed, settings: report(seed)
+    )
+
+    class WorkflowGateway:
+        provider = "test"
+        model_id = "workflow-test"
+        calls = 0
+
+        def generate(self, request):
+            self.calls += 1
+            workflow = json.loads(request.user)["state"]["workflow"]
+            if self.calls == 1:
+                answer = step(call("find_replacements", {"focus": "mana"}))
+            elif self.calls == 2:
+                assert workflow["recommendation"]["ready"]
+                assert workflow["recommendation"]["do_not_repeat_discovery"]
+                answer = step(
+                    call(
+                        "test_recommended_alternatives",
+                        {
+                            "recommendation_id": workflow["recommendation"][
+                                "recommendation_id"
+                            ]
+                        },
+                    )
+                )
+            else:
+                assert workflow["experiment_status"] == "done"
+                answer = step(content="Three alternatives were tested on copies.")
+            return SimpleNamespace(value=answer)
+
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [{"role": "user", "content": "Find and test three mana alternatives."}],
+        mode="automate",
+        gateway=WorkflowGateway(),
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(discoveries) == 1
+    assert DeckDocumentRepo(path).get(owner, deck_id) == original
+    tools = tools_for(prepared, "automate")
+    first = tools.execute(call("find_replacements", {"focus": "mana"}))
+    second = tools.execute(call("find_replacements", {"focus": "  MANA  "}))
+    assert first["recommendation_id"] == second["recommendation_id"]
+    assert second["already_completed"] is True
+    assert len(discoveries) == 2

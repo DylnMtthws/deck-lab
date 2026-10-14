@@ -223,6 +223,7 @@ class AssistantTools:
         self.simulations_started = 0
         self.experiments_started = 0
         self.recommendations: dict[str, list[dict[str, Any]]] = {}
+        self.discovery_results: dict[str, dict[str, Any]] = {}
 
     def check(self) -> dict[str, Any]:
         if self.should_stop():
@@ -263,6 +264,9 @@ class AssistantTools:
         if call.name == "find_replacements":
             from sabermetrics.assistant_deck_intelligence import recommend_replacements
 
+            focus_key = " ".join(args.focus.casefold().split())
+            if focus_key in self.discovery_results:
+                return {**self.discovery_results[focus_key], "already_completed": True}
             result = recommend_replacements(
                 self.path, document, self.constraints, focus=args.focus
             )
@@ -277,13 +281,20 @@ class AssistantTools:
                 raise ValueError("Recommendation exceeded the three-alternative limit.")
             recommendation_id = db.new_id()
             self.recommendations[recommendation_id] = alternatives
-            return {
+            result = {
                 **result,
                 "recommendation_id": recommendation_id,
                 "revision": self.revision,
                 "experiment_ready": len(alternatives) == 3,
                 "original_changed": False,
             }
+            result["next_step"] = (
+                "Review the three alternatives, then call test_recommended_alternatives with this recommendation_id in Automate mode. Do not rediscover the same candidates."
+                if self.mode == "automate" and len(alternatives) == 3
+                else "Use propose_replacements for a selected validated preview; fewer than three alternatives cannot start an experiment."
+            )
+            self.discovery_results[focus_key] = result
+            return result
         if call.name == "test_recommended_alternatives":
             recommended = self.recommendations.get(args.recommendation_id)
             if recommended is None:
