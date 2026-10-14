@@ -1,0 +1,151 @@
+{
+  "affordable-vivi": {
+    "entries": [
+      {
+        "name": "Vivi Ornitier",
+        "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+        "quantity": 1,
+        "is_commander": true,
+        "color_identity": "[\"R\", \"U\"]"
+      },
+      {
+        "name": "Quicksilver Elemental",
+        "oracle_id": "c88e3aff-c539-4e8b-8ee1-a43b3d0962b4",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"U\"]"
+      },
+      {
+        "name": "Sol Ring",
+        "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      }
+    ]
+  },
+  "high-power-vivi": {
+    "entries": [
+      {
+        "name": "Vivi Ornitier",
+        "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+        "quantity": 1,
+        "is_commander": true,
+        "color_identity": "[\"R\", \"U\"]"
+      },
+      {
+        "name": "Brain Freeze",
+        "oracle_id": "464c0150-3dbc-403b-9ada-fef25ab1f29d",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"U\"]"
+      },
+      {
+        "name": "Hullbreaker Horror",
+        "oracle_id": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"U\"]"
+      },
+      {
+        "name": "Lion's Eye Diamond",
+        "oracle_id": "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Lotus Petal",
+        "oracle_id": "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Sol Ring",
+        "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Underworld Breach",
+        "oracle_id": "27e0948b-9916-473b-8d8c-a51bdfbc7457",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"R\"]"
+      }
+    ]
+  },
+  "affordable-sauron": {
+    "entries": [
+      {
+        "name": "Sauron, the Dark Lord",
+        "oracle_id": "9f8f29ba-7e64-455d-be05-ec7973f2bd0a",
+        "quantity": 1,
+        "is_commander": true,
+        "color_identity": "[\"B\", \"R\", \"U\"]"
+      },
+      {
+        "name": "Sol Ring",
+        "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      }
+    ]
+  },
+  "high-power-sauron": {
+    "entries": [
+      {
+        "name": "Sauron, the Dark Lord",
+        "oracle_id": "9f8f29ba-7e64-455d-be05-ec7973f2bd0a",
+        "quantity": 1,
+        "is_commander": true,
+        "color_identity": "[\"B\", \"R\", \"U\"]"
+      },
+      {
+        "name": "Brain Freeze",
+        "oracle_id": "464c0150-3dbc-403b-9ada-fef25ab1f29d",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"U\"]"
+      },
+      {
+        "name": "Lion's Eye Diamond",
+        "oracle_id": "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Lotus Petal",
+        "oracle_id": "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Sol Ring",
+        "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[]"
+      },
+      {
+        "name": "Underworld Breach",
+        "oracle_id": "27e0948b-9916-473b-8d8c-a51bdfbc7457",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"R\"]"
+      },
+      {
+        "name": "Vivi Ornitier",
+        "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+        "quantity": 1,
+        "is_commander": false,
+        "color_identity": "[\"R\", \"U\"]"
+      }
+    ]
+  }
+}

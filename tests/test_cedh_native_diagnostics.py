@@ -160,6 +160,24 @@ def _diagnostic_response(candidate, *, diagnostics=True):
     return payload, headers
 
 
+def test_opening_dependency_and_table_contract_accepts_only_known_shape():
+    from jsonschema import ValidationError
+    from sabermetrics.cedh.simulator import _diagnostics_result_validator
+
+    payload = _diagnostics_payload()
+    payload["settings"]["table_context"] = {
+        "opponents": 0, "opponent_colors": 0, "on_the_play": True, "life_floor": 10,
+    }
+    proof = {"version": 1, "scope": "native_opening_policy",
+             "algorithm": "opening-policy-dependencies.v2",
+             "dependency_accounting_complete": True, "dependency_fingerprint": "a" * 64}
+    payload["tests"]["opening"]["comparison_coverage"] = proof
+    _diagnostics_result_validator().validate(payload)
+    proof["dependency_fingerprint"] = "unknown"
+    with pytest.raises(ValidationError):
+        _diagnostics_result_validator().validate(payload)
+
+
 def test_qa_http_client_sends_exact_profile_and_requires_valid_report(candidate):
     seen = {}
     payload, headers = _diagnostic_response(candidate)

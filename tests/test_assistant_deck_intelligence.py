@@ -297,3 +297,45 @@ def test_mana_focus_ranks_actual_rock_ahead_of_combat_equipment(prepared):
     assert all(
         "protection" not in e["requirements"] for e in result["candidate_evidence"]
     )
+
+
+def test_sourced_combination_loss_is_disclosed_as_preference_not_prohibition(
+    prepared, monkeypatch
+):
+    from sabermetrics import assistant_deck_intelligence as intelligence
+
+    path, document = prepared
+    commander = next(e for e in document["entries"] if e["is_commander"])
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    source_line = {
+        "variant_id": "test-source-quantity",
+        "cards": [
+            {
+                "name": library["name"],
+                "oracle_id": library["oracle_id"],
+                "quantity": 99,
+            },
+            {
+                "name": commander["name"],
+                "oracle_id": commander["oracle_id"],
+                "quantity": 1,
+            },
+        ],
+        "required_zones": [{"name": commander["name"], "must_be_commander": True}],
+        "citation": {
+            "source": "Test source quantity contract",
+            "url": "https://example.test/quantity",
+        },
+    }
+    monkeypatch.setattr(
+        intelligence, "_eligible_catalog_lines", lambda *_: [source_line]
+    )
+    result = intelligence.recommend_replacements(path, document)
+    assert result["status"] == "ready"
+    assert len(result["alternatives"]) == 3
+    for evidence in result["candidate_evidence"]:
+        assert len(evidence["sourced_combination_lines_lost"]) == 1
+        loss = evidence["sourced_combination_lines_lost"][0]
+        assert loss["variant_id"] == "test-source-quantity"
+        assert loss["execution_verified"] is False
+        assert "ranking preference" in evidence["sourced_preservation_scope"]

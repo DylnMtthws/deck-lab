@@ -1,0 +1,540 @@
+{
+  "snapshot_version": "commander-spellbook.snapshot.v1",
+  "retrieved_at": "2026-10-14T16:32:29.026633+00:00",
+  "source_url": "https://backend.commanderspellbook.com/variants/",
+  "results": [
+    {
+      "id": "1369-6586",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Vivi Ornitier",
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Quicksilver Elemental",
+            "oracleId": "c88e3aff-c539-4e8b-8ee1-a43b3d0962b4"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite red mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite blue mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite colored mana that can only be spent to activate abilities"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "UR",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "{U}",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "",
+      "description": "Activate Quicksilver Elemental by paying {U}, causing it to gain Vivi's activated abilities until end of turn.\nActivate Quicksilver Elemental using Vivi's ability by paying {0}, adding {U}{U/R}{U/R}.\nRepeat."
+    },
+    {
+      "id": "1409-6586",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Vivi Ornitier",
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Deadeye Navigator",
+            "oracleId": "ebef6d84-b724-4a84-bcde-8eb6dc06717d"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "is paired with Vivi ",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite creature LTB"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite creature ETB"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite red mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite blue mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite blinking"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "UR",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "You control any number of static effects that increase Vivi's power by at least 2.",
+      "description": "Activate Vivi by paying {0}, adding at least {U}{U}.\nActivate Vivi by paying {1}{U}, blinking it.\nWhen Vivi enters the battlefield, Deadeye Navigator's soulbond ability triggers, repairing it and Vivi.\nRepeat."
+    },
+    {
+      "id": "4499-6586",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Vivi Ornitier",
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Emiel the Blessed",
+            "oracleId": "b11c250c-f191-4c52-ba02-a9176f163447"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite creature LTB"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite creature ETB"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite red mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite blue mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite blinking"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "WURG",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "You control any number of static effects that increase Vivi's power by at least 3.",
+      "description": "Activate Vivi by paying {0}, adding at least {U/R}{U/R}{U/R}.\nActivate Emiel by paying {3}, blinking Vivi.\nRepeat."
+    },
+    {
+      "id": "4116-6586",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Vivi Ornitier",
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Volrath, the Shapestealer",
+            "oracleId": "a70d8e3d-a62d-4c4c-890b-e502e48c4475"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite blue mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite red mana"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "UBRG",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "{1}",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "",
+      "description": "Activate Volrath by paying {1}, causing it to become a copy of Vivi that is a 7/5 and retains its ability.\nActivate Volrath by paying {0}, adding seven mana in any combination of {U} and/or {R}.\nRepeat."
+    },
+    {
+      "id": "1368-1414-4856",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Underworld Breach",
+            "oracleId": "27e0948b-9916-473b-8d8c-a51bdfbc7457"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Lotus Petal",
+            "oracleId": "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Brain Freeze",
+            "oracleId": "464c0150-3dbc-403b-9ada-fef25ab1f29d"
+          },
+          "zoneLocations": [
+            "H",
+            "G"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite self-mill"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite magecraft triggers"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite mill"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "UR",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "You have at least six other cards in your graveyard, plus an additional four cards if Brain Freeze is in your graveyard.",
+      "description": "Activate Lotus Petal by tapping and sacrificing it, adding {U}.\nCast Lotus Petal from your graveyard for its escape cost by exiling three cards besides Brain Freeze from your graveyard.\nRepeat from step 1 one additional time.\nCast Brain Freeze either from your hand by paying {1}{U}, or from your graveyard for its escape cost by paying {1}{U} and exiling three cards from your graveyard.\nBrain Freeze's storm ability triggers, creating at least two copies of Brain Freeze targeting yourself, and any remaining copies targeting an opponent.\nResolve each Brain Freeze, causing yourself to mill nine cards and, if applicable, an opponent to mill three cards for each Brain Freeze remaining.\nRepeat."
+    },
+    {
+      "id": "1368-3518-4856",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Underworld Breach",
+            "oracleId": "27e0948b-9916-473b-8d8c-a51bdfbc7457"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Lion's Eye Diamond",
+            "oracleId": "ee6099b0-fb1f-42f1-b862-7708c6e36d05"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Brain Freeze",
+            "oracleId": "464c0150-3dbc-403b-9ada-fef25ab1f29d"
+          },
+          "zoneLocations": [
+            "G"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite self-mill"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite colored mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite magecraft triggers"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite mill"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Near-infinite storm count"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "UR",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "You have at least six other cards in hand and/or graveyard.",
+      "description": "Activate Lion's Eye Diamond by discarding your hand and sacrificing it, adding {U}{U}{U}.\nCast Lion's Eye Diamond from your graveyard for its escape cost by exiling three cards besides Brain Freeze from your graveyard.\nCast Brain Freeze from your graveyard for its escape cost by paying {1}{U} and exiling three cards from your graveyard.\nBrain Freeze's storm ability triggers, creating at least one copy of Brain Freeze targeting yourself, and any remaining copies targeting an opponent.\nResolve each Brain Freeze, causing yourself to mill six cards and, if applicable, an opponent to mill three cards for each Brain Freeze remaining.\nRepeat."
+    },
+    {
+      "id": "513-5034--46",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Hullbreaker Horror",
+            "oracleId": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Sol Ring",
+            "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [
+        {
+          "quantity": 1,
+          "template": {
+            "name": "Permanent Castable for {C}",
+            "id": 46
+          },
+          "zoneLocations": [
+            "H"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite colorless mana"
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "name": "Infinite storm count"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "U",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "",
+      "description": "Activate Sol Ring by tapping it, adding {C} {C}.\nCast the permanent that can be cast using {C} by paying its mana cost.\nHullbreaker Horror triggers, returning Sol Ring from the battlefield to your hand.\nCast Sol Ring by paying {1}. \nHullbreaker Horror triggers, returning the permanent cast in step 2 from the battlefield to your hand.\nRepeat.\nIf the permanent can be cast by paying {0}, this combo nets infinite colorless mana."
+    }
+  ]
+}

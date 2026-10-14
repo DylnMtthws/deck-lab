@@ -21,6 +21,11 @@ from sabermetrics.card_capabilities import (
     relationships,
     supported_plan,
 )
+from sabermetrics.combination_intelligence import (
+    analyze_combinations,
+    summarize_combinations,
+)
+from sabermetrics.combo_catalog import known_combinations
 from sabermetrics.deck_evidence import _card_roles, _library_entries
 
 GENERIC_TARGETS = {"land": 37, "ramp": 10, "draw": 12, "removal": 12, "protection": 4}
@@ -206,7 +211,9 @@ def assess_deck_requirements(
         }
         for role, target in targets.items()
     ]
+    combinations = analyze_combinations(document)
     return {
+        "combination_analysis": summarize_combinations(combinations),
         "version": "assistant-requirements.v1",
         "archetype": archetype,
         "specialized_status": "supported_shapes" if specific else "unavailable",
@@ -233,6 +240,54 @@ def assess_deck_requirements(
 
 def _identity(raw: Any) -> set[str]:
     return set(json.loads(raw) if isinstance(raw, str) else raw or [])
+
+
+def _eligible_catalog_lines(
+    path: str | Path, document: dict[str, Any]
+) -> list[dict[str, Any]]:
+    return [
+        line
+        for line in known_combinations(path, document, limit=4)["matches"]
+        if line["ingredient_match"] == "all_named_cards_present"
+        and line["unresolved_template_count"] == 0
+        and line["constraint_status"] == "eligible_source_ingredients"
+    ]
+
+
+def _catalog_preservation_penalty(
+    entry: dict[str, Any], lines: list[dict[str, Any]]
+) -> int:
+    """Number of eligible source claims affected by cutting this canonical card."""
+    oid = str(entry.get("oracle_id") or "").lower()
+    return sum(
+        any(piece["oracle_id"] == oid for piece in line["cards"]) for line in lines
+    )
+
+
+def _catalog_line_present(line: dict[str, Any], document: dict[str, Any]) -> bool:
+    entries = _library_entries(document) + [
+        e
+        for e in document.get("entries", [])
+        if isinstance(e, dict) and e.get("is_commander")
+    ]
+    quantities: Counter[str] = Counter()
+    commanders = set()
+    for entry in entries:
+        oid = str(entry.get("oracle_id") or "").lower()
+        quantities[oid] += int(entry.get("quantity", 1))
+        if entry.get("is_commander"):
+            commanders.add(oid)
+    for card in line["cards"]:
+        if quantities[card["oracle_id"]] < card["quantity"]:
+            return False
+    required_commanders = {
+        u["name"] for u in line["required_zones"] if u["must_be_commander"]
+    }
+    return all(
+        c["oracle_id"] in commanders
+        for c in line["cards"]
+        if c["name"] in required_commanders
+    )
 
 
 def recommend_replacements(
@@ -293,8 +348,25 @@ def recommend_replacements(
         if e.get("card_id") not in constraints["protected_cards"]
         and ("land" not in features[e["id"]] or counts["land"] > targets["land"])
     ]
+    combination_lines = analyze_combinations(document)["combinations"]
+    catalog_lines = _eligible_catalog_lines(path, document)
     outgoing.sort(
         key=lambda e: (
+            sum(
+                any(
+                    (
+                        piece.get("oracle_id")
+                        and piece.get("oracle_id") == e.get("oracle_id")
+                    )
+                    or (
+                        not piece.get("oracle_id")
+                        and piece.get("name") == e.get("name")
+                    )
+                    for piece in line["evidence"]
+                )
+                for line in combination_lines
+            )
+            + _catalog_preservation_penalty(e, catalog_lines),
             sum(role in gaps for role in features[e["id"]]),
             -casting_cost_basis(e)[0],
             e["id"],
@@ -411,6 +483,20 @@ def recommend_replacements(
                         "replacements": replacements,
                     }
                 )
+                candidate_combinations = analyze_combinations(preview["document"])
+                candidate_line_keys = {
+                    (line["kind"], tuple(line["cards"]))
+                    for line in candidate_combinations["combinations"]
+                }
+                lost_lines = [
+                    {
+                        "kind": line["kind"],
+                        "cards": line["cards"],
+                        "status": "inferred_ingredient_line_lost",
+                    }
+                    for line in combination_lines
+                    if (line["kind"], tuple(line["cards"])) not in candidate_line_keys
+                ]
                 evidence.append(
                     {
                         "card_id": card["id"],
@@ -426,6 +512,21 @@ def recommend_replacements(
                         "source": "Imported Oracle text and generator-derived supported predicates",
                         "price_total_usd": preview["price_total_usd"],
                         "semantic_verification": "unverified",
+                        "combination_lines_lost": lost_lines,
+                        "sourced_combination_lines_lost": [
+                            {
+                                "variant_id": line["variant_id"],
+                                "cards": [c["name"] for c in line["cards"]],
+                                "citation": line["citation"],
+                                "execution_verified": False,
+                                "status": "sourced_ingredient_line_lost",
+                            }
+                            for line in catalog_lines
+                            if not _catalog_line_present(line, preview["document"])
+                        ],
+                        "sourced_preservation_scope": "At most four constraint-compatible source claims with all named cards and no unresolved templates; ranking preference, not verified execution or power.",
+                        "combination_loss_scope": "Bounded discovered lines only; truncated searches are not comprehensive.",
+                        "combination_preservation": "Ranking preference; loss of an inferred line is disclosed, not a prohibition or proof of lost win probability.",
                     }
                 )
                 used_oracles.add(card["oracle_id"])

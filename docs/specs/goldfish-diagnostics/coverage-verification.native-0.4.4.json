@@ -1,0 +1,101 @@
+{
+  "native_binary_sha256": "c2fb703ef9d9463db3e2b0c20a15843f8a74b607a3647a4a3a3472a3199195bf",
+  "frozen_reports": [
+    {
+      "reference": "affordable-vivi",
+      "report_sha256": "b89ff959492f8234777eb981f09f75cf8a21984c7e4e7c1abd7961b38ea312f2",
+      "counts": {
+        "inactive": 2,
+        "partial": 43,
+        "supported": 0,
+        "unsupported": 55
+      },
+      "schema_valid": true,
+      "engine_change_blocks_metric_deltas": true,
+      "unknown_metrics": [
+        [
+          "commander_loss",
+          "commander_dependent_hand_cards"
+        ],
+        [
+          "finish",
+          "verified_finish_rate"
+        ]
+      ]
+    },
+    {
+      "reference": "high-power-vivi",
+      "report_sha256": "1fc6eeca331cca1c398075e22bf655dbf57c58f604bcd7ce297aeb9c3207bfe0",
+      "counts": {
+        "inactive": 13,
+        "partial": 42,
+        "supported": 0,
+        "unsupported": 45
+      },
+      "schema_valid": true,
+      "engine_change_blocks_metric_deltas": true,
+      "unknown_metrics": [
+        [
+          "commander_loss",
+          "commander_dependent_hand_cards"
+        ],
+        [
+          "commander_loss",
+          "independent_engine_recovery_rate"
+        ],
+        [
+          "creature_wipe",
+          "independent_engine_recovery_rate"
+        ],
+        [
+          "finish",
+          "verified_finish_rate"
+        ]
+      ]
+    },
+    {
+      "reference": "affordable-sauron",
+      "report_sha256": "60876a7c8bdcec589f5919df8eab19af3f12c442228b134dc2360ebbe6dd7fe3",
+      "counts": {
+        "inactive": 0,
+        "partial": 33,
+        "supported": 0,
+        "unsupported": 67
+      },
+      "schema_valid": true,
+      "engine_change_blocks_metric_deltas": true,
+      "unknown_metrics": [
+        [
+          "commander_loss",
+          "commander_dependent_hand_cards"
+        ],
+        [
+          "finish",
+          "verified_finish_rate"
+        ]
+      ]
+    },
+    {
+      "reference": "high-power-sauron",
+      "report_sha256": "3ef13109df511a260e061ca382b7a3b46e45a595598e9f9e5fda3d4a1ad6543b",
+      "counts": {
+        "inactive": 16,
+        "partial": 47,
+        "supported": 0,
+        "unsupported": 37
+      },
+      "schema_valid": true,
+      "engine_change_blocks_metric_deltas": true,
+      "unknown_metrics": [
+        [
+          "commander_loss",
+          "commander_dependent_hand_cards"
+        ],
+        [
+          "finish",
+          "verified_finish_rate"
+        ]
+      ]
+    }
+  ]
+}

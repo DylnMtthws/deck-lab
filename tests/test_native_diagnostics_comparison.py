@@ -280,3 +280,65 @@ def test_card_audit_is_quantity_aware_multiset():
         ]
     )
     assert not compare_reports(after, before)["comparable"]
+
+
+def opening_proof(fingerprint="a" * 64):
+    return {"version": 1, "scope": "native_opening_policy",
+            "algorithm": "opening-policy-dependencies.v2",
+            "dependency_accounting_complete": True,
+            "dependency_fingerprint": fingerprint}
+
+
+def test_irrelevant_coverage_change_preserves_only_proven_opening_metrics():
+    before, after = report(), report(0.7)
+    for item in (before, after):
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"]["opening"]["metrics"].pop("kept")
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"]["unit"] = "cards"
+        item["tests"]["opening"]["comparison_coverage"] = opening_proof()
+        item["tests"]["development"] = copy.deepcopy(item["tests"]["opening"])
+        del item["tests"]["development"]["comparison_coverage"]
+    before["coverage"] = {"unsupported": ["same unknown"], "damage": 1}
+    after["coverage"] = {"unsupported": ["same unknown"], "damage": 2}
+    result = compare_reports(after, before)
+    assert result["comparable"]
+    assert result["metric_deltas"]["opening"]["mean_kept_cards"]["comparable"]
+    assert result["metric_deltas"]["development"]["mean_kept_cards"]["delta"] is None
+    assert "partial-policy" in result["reason"]
+
+
+@pytest.mark.parametrize("change", ["fingerprint", "complete", "version", "scope", "algorithm", "extra", "missing"])
+def test_uncertain_swaps_and_corrupt_scoped_evidence_fail_closed(change):
+    before, after = report(), report(0.9)
+    for item in (before, after):
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"]["opening"]["metrics"].pop("kept")
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"]["unit"] = "cards"
+        item["tests"]["opening"]["comparison_coverage"] = opening_proof()
+    proof = after["tests"]["opening"]["comparison_coverage"]
+    if change == "fingerprint":
+        proof["dependency_fingerprint"] = "b" * 64
+    elif change == "complete":
+        proof["dependency_accounting_complete"] = False
+    elif change == "version":
+        proof["version"] = True
+    elif change == "scope":
+        proof["scope"] = "all_gameplay"
+    elif change == "algorithm":
+        proof["algorithm"] = "future"
+    elif change == "extra":
+        proof["trusted"] = True
+    else:
+        del proof["dependency_fingerprint"]
+    result = compare_reports(after, before)
+    assert result["metric_deltas"]["opening"]["mean_kept_cards"]["delta"] is None
+    assert not result["metric_deltas"]["opening"]["mean_kept_cards"]["comparable"]
+
+
+def test_known_scope_cannot_unlock_new_or_other_scenario_metrics():
+    before, after = report(), report(0.9)
+    for item in (before, after):
+        item["tests"]["opening"]["comparison_coverage"] = opening_proof()
+        item["tests"]["development"] = copy.deepcopy(item["tests"]["opening"])
+    result = compare_reports(after, before)
+    assert not result["comparable"]
+    assert result["metric_deltas"]["opening"]["kept"]["delta"] is None
+    assert result["metric_deltas"]["development"]["kept"]["delta"] is None

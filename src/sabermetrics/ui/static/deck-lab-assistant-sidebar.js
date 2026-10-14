@@ -559,6 +559,7 @@
       var summary = element("summary", label);
       details.appendChild(summary);
       if (item.source_kind === "authored_guidance") details.appendChild(element("small", "Authored archetype guidance · not a retrieved primer"));
+      if (item.source_kind === "external_combo_claim") details.appendChild(element("small", "Sourced combination claim · execution and prerequisites not verified"));
       var url = null;
       try {
         var parsed = new URL(citation.source_url);
@@ -586,7 +587,7 @@
     if (presentation.strategy_evidence) appendStrategyEvidence(article, presentation.strategy_evidence);
   }
   function toolLabel(action) {
-    var names = { prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    var names = { research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
     return names[action && action.name] || "Assistant tool";
   }
   function renderToolStep(message) {

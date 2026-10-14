@@ -264,3 +264,210 @@ def test_history_matching_content_does_not_certify_current_engine(
     assert item["freshness_scope"] == "deck_content_only"
     assert item["measurement_freshness"] == "not_revalidated"
     assert "simulator version" in item["measurement_note"]
+
+
+def test_combination_tool_is_read_only_scoped_and_strips_internal_models(
+    prepared, monkeypatch
+):
+    from sabermetrics import combination_intelligence
+
+    service, path, owner, deck_id, original, _ = prepared
+    from tests.test_combination_intelligence import fixture
+
+    seen = []
+    real_analysis = combination_intelligence.analyze_combinations
+
+    def analyze(document):
+        seen.append(document)
+        return real_analysis(fixture()[0])
+
+    monkeypatch.setattr(combination_intelligence, "analyze_combinations", analyze)
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    result = tools.execute(call("analyze_deck_combinations"))
+    assert seen == [original]
+    assert result["state_origin"] == "deck_list_only"
+    assert result["execution_started"] is False
+    assert result["original_changed"] is False
+    assert "model_cards" not in result["combinations"][0]
+    assert result["evidence"]
+    assert all(
+        "relationships" not in row and len(row["oracle_excerpt"]) <= 240
+        for row in result["evidence"].values()
+    )
+    assert result["combinations"][0]["replay"]["status"] == "not_run"
+    assert DeckDocumentRepo(path).get(owner, deck_id) == original
+    assert not service.list_for_deck(owner, deck_id)
+    with pytest.raises(Exception):
+        tools.execute(call("analyze_deck_combinations", {"owner_id": "other"}))
+
+
+def test_hypothetical_replay_uses_current_deck_and_never_claims_game_observation(
+    prepared, monkeypatch
+):
+    from tests.test_combination_intelligence import fixture
+
+    service, path, owner, deck_id, original, _ = prepared
+    document, state = fixture()
+    tools = AssistantTools(
+        path, owner, deck_id, "suggest", {}, lambda: False, experiment_service=service
+    )
+    monkeypatch.setattr(tools, "check", lambda: document)
+    result = tools.execute(
+        call(
+            "replay_deck_combination",
+            {"combination_index": 0, "hypothetical_state": state},
+        )
+    )
+    assert result["state_origin"] == "hypothetical_tool_input_not_observed_game"
+    assert result["replay"]["status"] == "verified_within_bounded_model"
+    assert result["replay"]["win_verified"] is False
+    assert result["goldfish_executed"] is False
+    assert result["original_changed"] is False
+    state["mana"] = {"R": 3}
+    rejected = tools.execute(
+        call(
+            "replay_deck_combination",
+            {"combination_index": 0, "hypothetical_state": state},
+        )
+    )
+    assert rejected["replay"]["status"] == "rejected"
+    assert not rejected["replay"]["trace"]
+    with pytest.raises(ValueError, match="index unavailable"):
+        tools.execute(
+            call(
+                "replay_deck_combination",
+                {"combination_index": 11, "hypothetical_state": state},
+            )
+        )
+    state["mana"] = {"U": True}
+    with pytest.raises(ValueError):
+        tools.execute(
+            call(
+                "replay_deck_combination",
+                {"combination_index": 0, "hypothetical_state": state},
+            )
+        )
+    assert DeckDocumentRepo(path).get(owner, deck_id) == original
+    assert not service.list_for_deck(owner, deck_id)
+
+
+def test_sourced_combinations_keep_citations_and_do_not_run_experiments(
+    prepared, monkeypatch
+):
+    from sabermetrics import combo_catalog
+
+    service, path, owner, deck_id, original, _ = prepared
+    monkeypatch.setattr(
+        combo_catalog,
+        "known_combinations",
+        lambda *a, **kw: {
+            "status": "matched",
+            "execution_verified": False,
+            "matches": [
+                {
+                    "variant_id": "1369-6586",
+                    "ingredient_match": "all_named_cards_present",
+                    "step_excerpt": "The source describes an interaction under its stated prerequisites.",
+                    "citation": {
+                        "url": "https://commanderspellbook.com/combo/1369-6586/",
+                        "retrieved_at": "2026-10-14T16:00:00+00:00",
+                        "snapshot_sha256": "a" * 64,
+                    },
+                }
+            ],
+        },
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [{"role": "user", "content": "Find sourced combinations in this deck."}],
+        gateway=Gateway(
+            [
+                step(call("research_known_combinations")),
+                step(
+                    content="The source describes a conditional interaction; execution is unverified."
+                ),
+            ]
+        ),
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert "unverified" in result["content"]
+    assert "https://commanderspellbook.com/combo/1369-6586/" in json.dumps(
+        result["presentation"]
+    )
+    source = result["presentation"]["strategy_evidence"]["excerpts"][0]
+    assert source["excerpt"]
+    assert source["source_kind"] == "external_combo_claim"
+    assert DeckDocumentRepo(path).get(owner, deck_id) == original
+    assert not service.list_for_deck(owner, deck_id)
+
+
+def test_combination_claim_identity_survives_full_receipt_eviction():
+    from sabermetrics.assistant_runtime import _retain_combination_context
+
+    state = {"constraints": {}}
+    source = {
+        "matches": [
+            {
+                "variant_id": "1369-6586",
+                "cards": [{"name": "Quicksilver Elemental"}],
+                "ingredient_match": "all_named_cards_present",
+                "citation": {"url": "https://commanderspellbook.com/combo/1369-6586/"},
+                "prerequisite_excerpt": "Setup requirements remain necessary.",
+                "unresolved_template_count": 0,
+            }
+        ]
+    }
+    _retain_combination_context(state, "research_known_combinations", source)
+    _retain_combination_context(
+        state,
+        "analyze_deck_combinations",
+        {
+            "combinations": [
+                {
+                    "combination_index": 3,
+                    "cards": ["Vivi Ornitier", "Curiosity", "Opt"],
+                    "status": "inferred",
+                    "kind": "cast_damage_draw",
+                }
+            ]
+        },
+    )
+    _retain_combination_context(
+        state,
+        "replay_deck_combination",
+        {
+            "cards": ["Vivi Ornitier"],
+            "replay": {
+                "status": "verified_prefix_only",
+                "unresolved": "Spell remains on stack.",
+            },
+        },
+    )
+    transcript = [
+        {
+            "role": "tool",
+            "result": {
+                "name": name,
+                "data": {"details": {str(i): "x" * 1100 for i in range(10)}},
+            },
+        }
+        for name in ["research_known_combinations", "analyze_deck_combinations"]
+    ]
+    encoded = _encode_context(
+        state, "Explain the conditions and compare evidence.", transcript
+    )
+    assert len(encoded) <= 16000
+    parsed = json.loads(encoded)
+    assert parsed["history_truncated"] is True
+    retained = parsed["state"]
+    assert retained["combination_sources"][0]["variant_id"] == "1369-6586"
+    assert retained["combination_sources"][0]["execution_verified"] is False
+    assert retained["combination_models"][0]["combination_index"] == 3
+    assert retained["combination_replay"]["status"] == "verified_prefix_only"
+    assert retained["combination_replay"]["state_origin"].startswith("hypothetical")
+    assert retained["combination_replay"]["win_verified"] is False

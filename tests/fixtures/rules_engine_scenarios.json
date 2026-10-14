@@ -1,0 +1,3523 @@
+{
+ "schema_version": "rules-engine-scenarios.v1",
+ "created": "2026-10-14",
+ "purpose": "Deterministic Vivi Ornitier / Sauron, the Dark Lord rules scenarios and land-only commander probes. Expected outcomes are written from oracle text, official rulings, the Comprehensive Rules and XMage's own test, never from engine output.",
+ "action_vocabulary": {
+  "play_land": "player, card",
+  "activate_mana": "player, card, produce (colour letter for lands; {colour: n} for Vivi), count",
+  "cast": "player, card, from (hand|command), targets (player:<p>|perm:<name>|stack:<card>), choices",
+  "resolve": "both players pass until the stack is empty; choices",
+  "move_to_command_zone": "card (commander replacement)",
+  "advance_turn": "end the turn; next player becomes active, untaps, pools empty"
+ },
+ "trace_vocabulary": [
+  "play_land",
+  "mana",
+  "cast",
+  "trigger",
+  "resolve",
+  "damage",
+  "counters",
+  "token_created",
+  "draw",
+  "draw_empty",
+  "discard",
+  "put_back",
+  "ring_tempts",
+  "countered",
+  "fizzle",
+  "enters",
+  "declined",
+  "zone",
+  "turn",
+  "sba_dies",
+  "sba_loses",
+  "illegal"
+ ],
+ "sources": {
+  "scryfall_oracle": {
+   "kind": "oracle_text",
+   "url": "https://api.scryfall.com/cards/named",
+   "note": "Oracle text, oracle_id and rulings per card in card_provenance, retrieved 2026-10-14."
+  },
+  "scryfall_rulings": {
+   "kind": "official_rulings",
+   "url": "https://api.scryfall.com/cards/{id}/rulings",
+   "note": "Wizards rulings as served by Scryfall; quoted in card_provenance[*].rulings_cited."
+  },
+  "comprehensive_rules_20260925": {
+   "kind": "comprehensive_rules",
+   "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+   "sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca",
+   "note": "Sections cited per scenario were read from this file: 103.8a, 106.4, 117.1a, 121.2, 305.2, 307.1, 504.1, 601.2, 602.5b, 603.3b, 605.3b, 608.2b, 701.47a, 701.54a, 702.21a, 704.5b, 704.5f, 704.5g, 903.8."
+  },
+  "xmage_vivi_test": {
+   "kind": "upstream_engine_test",
+   "url": "https://github.com/magefree/mage/blob/0311c352bf5f8558566f72c9c93ae6121b6ff5cf/Mage.Tests/src/test/java/org/mage/test/cards/single/fin/ViviOrnitierTest.java",
+   "note": "XMage's own Vivi tests (test_NoPower, test_2Power), read at master 0311c352 on 2026-10-14. Used as an independent statement of the expected result; XMage was NOT run."
+  },
+  "native_resource_probe": {
+   "kind": "engine_contract",
+   "url": "file:///Users/dylan/Projects/mtg/commander-simulator/worktrees/native-diagnostics-20261012/src/core/resource_probe.cpp",
+   "note": "commander_simulator @3bc1319: declared probe semantics (opening seven, draw on turn one, one land per turn, commander tried before and after each land, lands score missing colours first) and the request validation in src/io/resource_probe_io.cpp."
+  }
+ },
+ "card_provenance": {
+  "Birthday Escape": {
+   "oracle_id": "4f958678-2a32-4a30-8fe7-47df9ada6b2f",
+   "mana_cost": "{U}",
+   "type_line": "Sorcery",
+   "oracle_text": "Draw a card. The Ring tempts you.",
+   "scryfall_uri": "https://scryfall.com/card/ltr/43/birthday-escape",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": [
+    {
+     "published_at": "2023-06-16",
+     "comment": "The Ring can tempt you even if you don't control a creature. In this case, abilities that trigger \"whenever the Ring tempts you\" will still trigger."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "Each time the Ring tempts you, you must choose a creature if you control one."
+    }
+   ]
+  },
+  "Brainstorm": {
+   "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd",
+   "mana_cost": "{U}",
+   "type_line": "Instant",
+   "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+   "scryfall_uri": "https://scryfall.com/card/frc/39/brainstorm",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": [
+    {
+     "published_at": "2018-03-16",
+     "comment": "You draw three cards and put two cards back all while Brainstorm is resolving. Nothing can happen between the two, and no player may choose to take actions."
+    }
+   ]
+  },
+  "Counterspell": {
+   "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5",
+   "mana_cost": "{U}{U}",
+   "type_line": "Instant",
+   "oracle_text": "Counter target spell.",
+   "scryfall_uri": "https://scryfall.com/card/dsc/114/counterspell",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Crumbling Necropolis": {
+   "oracle_id": "7190debf-708b-4f41-9714-0d0a5bd5a74e",
+   "mana_cost": "",
+   "type_line": "Land",
+   "oracle_text": "This land enters tapped.\n{T}: Add {U}, {B}, or {R}.",
+   "scryfall_uri": "https://scryfall.com/card/msc/237/crumbling-necropolis",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Dictate of Heliod": {
+   "oracle_id": "b989279c-665d-4f15-afc1-adf3872a4851",
+   "mana_cost": "{3}{W}{W}",
+   "type_line": "Enchantment",
+   "oracle_text": "Flash\nCreatures you control get +2/+2.",
+   "scryfall_uri": "https://scryfall.com/card/c15/68/dictate-of-heliod",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Incinerate": {
+   "oracle_id": "d8fd7a34-8418-4e98-b79b-119c4348c667",
+   "mana_cost": "{1}{R}",
+   "type_line": "Instant",
+   "oracle_text": "Incinerate deals 3 damage to any target. A creature dealt damage this way can't be regenerated this turn.",
+   "scryfall_uri": "https://scryfall.com/card/jvc/51/incinerate",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Island": {
+   "oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373",
+   "mana_cost": "",
+   "type_line": "Basic Land — Island",
+   "oracle_text": "({T}: Add {U}.)",
+   "scryfall_uri": "https://scryfall.com/card/mdd/294/island",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Lightning Bolt": {
+   "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+   "mana_cost": "{R}",
+   "type_line": "Instant",
+   "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+   "scryfall_uri": "https://scryfall.com/card/msc/806/lightning-bolt",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Mountain": {
+   "oracle_id": "a3fb7228-e76b-4e96-a40e-20b5fed75685",
+   "mana_cost": "",
+   "type_line": "Basic Land — Mountain",
+   "oracle_text": "({T}: Add {R}.)",
+   "scryfall_uri": "https://scryfall.com/card/mdd/298/mountain",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Orcish Bowmasters": {
+   "oracle_id": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
+   "mana_cost": "{1}{B}",
+   "type_line": "Creature — Orc Archer",
+   "oracle_text": "Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.",
+   "scryfall_uri": "https://scryfall.com/card/ltr/103/orcish-bowmasters",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": [
+    {
+     "published_at": "2023-06-16",
+     "comment": "Amass Zombies works the same way, except you create a 0/0 black Zombie Army creature token if you don't control an Army. If the Army creature you chose isn't already a Zombie, it becomes a Zombie in addition to its other types. By combining cards with amass Orcs and amass Zombies, you can end up with an Orc Zombie Army."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "If you don't control an Army, the Orc Army token you create enters the battlefield as a 0/0 creature before receiving counters. Any abilities that trigger when a creature with a certain power enters the battlefield, such as that of Mentor of the Meek, will see the token enter as a 0/0 creature before it gets +1/+1 counters."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "To amass Orcs N, if you don't control an Army creature, create a 0/0 black Orc Army creature token. Then you choose an Army creature you control and put N +1/+1 counters on it. If that Army isn't already an Orc, it becomes an Orc in addition to its other types."
+    }
+   ]
+  },
+  "Ornithopter": {
+   "oracle_id": "a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba",
+   "mana_cost": "{0}",
+   "type_line": "Artifact Creature — Thopter",
+   "oracle_text": "Flying",
+   "scryfall_uri": "https://scryfall.com/card/dmr/233/ornithopter",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Sauron, the Dark Lord": {
+   "oracle_id": "9f8f29ba-7e64-455d-be05-ec7973f2bd0a",
+   "mana_cost": "{3}{U}{B}{R}",
+   "type_line": "Legendary Creature — Avatar Horror",
+   "oracle_text": "Ward—Sacrifice a legendary artifact or legendary creature.\nWhenever an opponent casts a spell, amass Orcs 1.\nWhenever an Army you control deals combat damage to a player, the Ring tempts you.\nWhenever the Ring tempts you, you may discard your hand. If you do, draw four cards.",
+   "scryfall_uri": "https://scryfall.com/card/ltr/224/sauron-the-dark-lord",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": [
+    {
+     "published_at": "2026-06-29",
+     "comment": "If you don't control an Army, the Goblin Army token you create enters the battlefield as a 0/0 creature before receiving counters. Any abilities that trigger when a creature with a certain power enters the battlefield, such as that of Mentor of the Meek, will see the token enter as a 0/0 creature before it gets +1/+1 counters."
+    },
+    {
+     "published_at": "2026-06-29",
+     "comment": "To amass Goblins N, if you don't control an Army creature, create a 0/0 black Goblin Army creature token. Then you choose an Army creature you control and put N +1/+1 counters on it. If that Army isn't already a Goblin, it becomes a Goblin in addition to its other types."
+    },
+    {
+     "published_at": "2026-06-29",
+     "comment": "Amass Orcs works the same way, except you create a 0/0 black Orc Army creature token if you don't control an Army. And if the Army creature you chose isn't already an Orc, it becomes an Orc in addition to its other types. By combining cards with amass Orcs and amass Goblins, you can end up with a Goblin Orc Army."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "To amass Orcs N, if you don't control an Army creature, create a 0/0 black Orc Army creature token. Then you choose an Army creature you control and put N +1/+1 counters on it. If that Army isn't already an Orc, it becomes an Orc in addition to its other types."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "If you don't control an Army, the Orc Army token you create enters the battlefield as a 0/0 creature before receiving counters. Any abilities that trigger when a creature with a certain power enters the battlefield, such as that of Mentor of the Meek, will see the token enter as a 0/0 creature before it gets +1/+1 counters."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "Amass Zombies works the same way, except you create a 0/0 black Zombie Army creature token if you don't control an Army. If the Army creature you chose isn't already a Zombie, it becomes a Zombie in addition to its other types. By combining cards with amass Orcs and amass Zombies, you can end up with an Orc Zombie Army."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "The Ring can tempt you even if you don't control a creature. In this case, abilities that trigger \"whenever the Ring tempts you\" will still trigger."
+    },
+    {
+     "published_at": "2023-06-16",
+     "comment": "Each time the Ring tempts you, you must choose a creature if you control one."
+    }
+   ]
+  },
+  "Sol Ring": {
+   "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+   "mana_cost": "{1}",
+   "type_line": "Artifact",
+   "oracle_text": "{T}: Add {C}{C}.",
+   "scryfall_uri": "https://scryfall.com/card/frc/21/sol-ring",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  },
+  "Vivi Ornitier": {
+   "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+   "mana_cost": "{1}{U}{R}",
+   "type_line": "Legendary Creature — Wizard",
+   "oracle_text": "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.",
+   "scryfall_uri": "https://scryfall.com/card/fin/248/vivi-ornitier",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": [
+    {
+     "published_at": "2025-06-06",
+     "comment": "Vivi Ornitier's last ability resolves before the spell that caused it to trigger. It resolves even if that spell is countered or otherwise leaves the stack."
+    },
+    {
+     "published_at": "2025-06-06",
+     "comment": "Vivi Ornitier's first ability is a mana ability. It doesn't use the stack and it can't be responded to."
+    }
+   ]
+  },
+  "Volcanic Island": {
+   "oracle_id": "c718911c-c955-4eb9-9e16-be4bd49a4e4e",
+   "mana_cost": "",
+   "type_line": "Land — Island Mountain",
+   "oracle_text": "({T}: Add {U} or {R}.)",
+   "scryfall_uri": "https://scryfall.com/card/vma/324/volcanic-island",
+   "retrieved_at": "2026-10-14",
+   "rulings_cited": []
+  }
+ },
+ "scenarios": [
+  {
+   "id": "vivi_zero_power_cannot_pay",
+   "kind": "rules_state",
+   "title": "Vivi at 0 power makes no mana; Lightning Bolt cannot be paid",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell"
+   ],
+   "provenance": [
+    "xmage_vivi_test",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 20,
+      "hand": [
+       "Lightning Bolt"
+      ]
+     },
+     "opp": {
+      "life": 20
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {}
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 1,
+    "reason_code": "unpayable_cost",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Lightning Bolt"
+       ],
+       "mana_pool": {}
+      },
+      "opp": {
+       "life": 20
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 0,
+       "toughness": 3
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {}
+     },
+     {
+      "event": "illegal",
+      "action_index": 1,
+      "reason_code": "unpayable_cost"
+     }
+    ]
+   },
+   "expected_derivation": "Vivi's X is its power, 0 (printed 0/3, no counters). Activating adds no mana, so {R} cannot be paid (CR 601.2h). Matches XMage test_NoPower: 'bolt can not be cast'."
+  },
+  {
+   "id": "vivi_dictate_incinerate_trigger_order",
+   "kind": "rules_state",
+   "title": "Vivi with Dictate of Heliod pays Incinerate; the trigger resolves before Incinerate",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage",
+    "static_pt"
+   ],
+   "provenance": [
+    "xmage_vivi_test",
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 20,
+      "hand": [
+       "Lightning Bolt",
+       "Incinerate"
+      ]
+     },
+     "opp": {
+      "life": 20
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Dictate of Heliod",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "R": 2
+     }
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Incinerate",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Lightning Bolt"
+       ],
+       "graveyard": [
+        "Incinerate"
+       ],
+       "mana_pool": {}
+      },
+      "opp": {
+       "life": 16
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Dictate of Heliod",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 3,
+       "toughness": 6
+      }
+     ],
+     "stack": []
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {
+       "R": 2
+      }
+     },
+     {
+      "event": "cast",
+      "card": "Incinerate",
+      "paid": {
+       "R": 2
+      }
+     },
+     {
+      "event": "trigger",
+      "source": "Vivi Ornitier"
+     },
+     {
+      "event": "resolve",
+      "item": "trigger",
+      "source": "Vivi Ornitier"
+     },
+     {
+      "event": "counters",
+      "target": "Vivi Ornitier",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Vivi Ornitier",
+      "target": "player:opp",
+      "amount": 1
+     },
+     {
+      "event": "resolve",
+      "item": "spell",
+      "card": "Incinerate"
+     },
+     {
+      "event": "damage",
+      "source": "Incinerate",
+      "target": "player:opp",
+      "amount": 3
+     }
+    ]
+   },
+   "expected_derivation": "Dictate gives +2/+2 -> Vivi 2/5, X=2 (all R). Incinerate {1}{R} paid with RR. Casting a noncreature spell triggers Vivi; the trigger goes on the stack above Incinerate and resolves first (Scryfall ruling 2025-06-06): +1/+1 counter (3/6) and 1 damage, then Incinerate deals 3. Life 20-1-3=16. Same numbers as XMage test_2Power (assertLife 20-3-1, assertPowerToughness 3/6)."
+  },
+  {
+   "id": "vivi_once_per_turn",
+   "kind": "rules_state",
+   "title": "Vivi's mana ability cannot be activated twice in one turn",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "activation_limits",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage",
+    "static_pt"
+   ],
+   "provenance": [
+    "xmage_vivi_test",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 20,
+      "hand": [
+       "Lightning Bolt",
+       "Incinerate"
+      ]
+     },
+     "opp": {
+      "life": 20
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Dictate of Heliod",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "R": 2
+     }
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Incinerate",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "R": 3
+     }
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 3,
+    "reason_code": "activation_limit",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Lightning Bolt"
+       ],
+       "mana_pool": {}
+      },
+      "opp": {
+       "life": 16
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Dictate of Heliod",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 3,
+       "toughness": 6
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {
+       "R": 2
+      }
+     },
+     {
+      "event": "illegal",
+      "action_index": 3,
+      "reason_code": "activation_limit"
+     }
+    ]
+   },
+   "expected_derivation": "'Activate only ... once each turn' (oracle; CR 602.5b). Vivi is 3/6 but the second activation is illegal and adds nothing. XMage test_2Power checks the same: 'bolt can not be cast' after Incinerate."
+  },
+  {
+   "id": "vivi_activation_resets_next_turn",
+   "kind": "rules_state",
+   "title": "Vivi's once-per-turn limit resets on your next turn; unspent mana empties",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "activation_limits"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "library": [
+       "Island"
+      ]
+     },
+     "opp": {
+      "life": 40,
+      "library": [
+       "Mountain"
+      ]
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you",
+      "counters": {
+       "+1/+1": 1
+      }
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "U": 1
+     }
+    },
+    {
+     "op": "advance_turn"
+    },
+    {
+     "op": "advance_turn"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "R": 1
+     }
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "active_player": "you",
+     "turn": 3,
+     "players": {
+      "you": {
+       "mana_pool": {
+        "R": 1
+       },
+       "hand": [
+        "Island"
+       ],
+       "library": [],
+       "lost": false
+      },
+      "opp": {
+       "hand": [
+        "Mountain"
+       ],
+       "library": [],
+       "lost": false
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {
+       "U": 1
+      }
+     },
+     {
+      "event": "turn",
+      "active": "opp",
+      "turn": 2
+     },
+     {
+      "event": "draw",
+      "player": "opp",
+      "card": "Mountain"
+     },
+     {
+      "event": "turn",
+      "active": "you",
+      "turn": 3
+     },
+     {
+      "event": "draw",
+      "player": "you",
+      "card": "Island"
+     },
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {
+       "R": 1
+      }
+     }
+    ]
+   },
+   "expected_derivation": "Vivi 1/4 makes X=1 on turn 1. Mana pools empty at the end of each step (CR 106.4), so the unspent U is gone. Each new active player draws in the draw step (CR 504.1), so each library holds one card: an empty library would lose the game (CR 704.5b) and turn 3 would never happen. On turn 3 (yours again) the once-each-turn limit has reset, so X=1 R is legal."
+  },
+  {
+   "id": "draw_step_from_empty_library_loses",
+   "kind": "rules_state",
+   "title": "The next player's mandatory draw-step draw from an empty library loses the game",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "draw_discard",
+    "state_based_actions"
+   ],
+   "provenance": [
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "library": [
+       "Island"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": []
+   },
+   "actions": [
+    {
+     "op": "advance_turn"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "active_player": "opp",
+     "turn": 2,
+     "players": {
+      "opp": {
+       "lost": true,
+       "hand": []
+      },
+      "you": {
+       "lost": false
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "turn",
+      "active": "opp",
+      "turn": 2
+     },
+     {
+      "event": "draw_empty",
+      "player": "opp"
+     },
+     {
+      "event": "sba_loses",
+      "player": "opp"
+     }
+    ],
+    "trace_absent": [
+     {
+      "event": "draw",
+      "player": "opp"
+     }
+    ]
+   },
+   "expected_derivation": "CR 504.1: the draw is mandatory. CR 704.5b: a player who attempted to draw from an empty library loses at the next state-based action check."
+  },
+  {
+   "id": "vivi_only_during_your_turn",
+   "kind": "rules_state",
+   "title": "Vivi's mana ability is illegal on an opponent's turn",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "timing_restrictions"
+   ],
+   "provenance": [
+    "scryfall_oracle"
+   ],
+   "initial_state": {
+    "active_player": "opp",
+    "turn": 2,
+    "players": {
+     "you": {
+      "life": 40
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you",
+      "counters": {
+       "+1/+1": 2
+      }
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "R": 2
+     }
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 0,
+    "reason_code": "not_your_turn",
+    "final_state": {
+     "players": {
+      "you": {
+       "mana_pool": {}
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "illegal",
+      "action_index": 0,
+      "reason_code": "not_your_turn"
+     }
+    ]
+   },
+   "expected_derivation": "Oracle: 'Activate only during your turn'. The opponent is the active player."
+  },
+  {
+   "id": "vivi_creature_spell_no_trigger",
+   "kind": "rules_state",
+   "title": "A creature spell does not grow Vivi; a noncreature spell does",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Ornithopter",
+       "Lightning Bolt"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Volcanic Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Ornithopter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Volcanic Island",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 36
+      },
+      "you": {
+       "graveyard": [
+        "Lightning Bolt"
+       ],
+       "hand": []
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Ornithopter",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 0,
+       "toughness": 2
+      },
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 1,
+       "toughness": 4
+      },
+      {
+       "name": "Volcanic Island",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "cast",
+      "card": "Ornithopter"
+     },
+     {
+      "event": "resolve",
+      "item": "spell",
+      "card": "Ornithopter"
+     },
+     {
+      "event": "cast",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "trigger",
+      "source": "Vivi Ornitier"
+     },
+     {
+      "event": "resolve",
+      "item": "trigger",
+      "source": "Vivi Ornitier"
+     },
+     {
+      "event": "damage",
+      "source": "Vivi Ornitier",
+      "target": "player:opp",
+      "amount": 1
+     },
+     {
+      "event": "resolve",
+      "item": "spell",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "damage",
+      "source": "Lightning Bolt",
+      "target": "player:opp",
+      "amount": 3
+     }
+    ]
+   },
+   "expected_derivation": "Ornithopter is an artifact creature, so it is a creature spell and Vivi does not trigger (exactly one trigger event in the trace). Lightning Bolt is noncreature: +1/+1 counter and 1 damage, then Bolt's 3. Life 40-4=36."
+  },
+  {
+   "id": "vivi_grow_then_activate_brainstorm",
+   "kind": "rules_state",
+   "title": "Grow Vivi first, then its mana pays Brainstorm; library order is exact",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage",
+    "draw_discard",
+    "library_order"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt",
+       "Brainstorm"
+      ],
+      "library": [
+       "Island",
+       "Mountain",
+       "Sol Ring",
+       "Counterspell",
+       "Incinerate"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Volcanic Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Volcanic Island",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "U": 1
+     }
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Brainstorm",
+     "choices": {
+      "put_back_top_first": [
+       "Mountain",
+       "Island"
+      ]
+     }
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 35
+      },
+      "you": {
+       "hand": [
+        "Sol Ring"
+       ],
+       "library": [
+        "Mountain",
+        "Island",
+        "Counterspell",
+        "Incinerate"
+       ],
+       "graveyard": [
+        "Brainstorm",
+        "Lightning Bolt"
+       ],
+       "mana_pool": {}
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 2
+       },
+       "power": 2,
+       "toughness": 5
+      },
+      {
+       "name": "Volcanic Island",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Volcanic Island",
+      "produced": {
+       "R": 1
+      }
+     },
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {
+       "U": 1
+      }
+     },
+     {
+      "event": "draw",
+      "card": "Island"
+     },
+     {
+      "event": "draw",
+      "card": "Mountain"
+     },
+     {
+      "event": "draw",
+      "card": "Sol Ring"
+     },
+     {
+      "event": "put_back",
+      "cards": [
+       "Mountain",
+       "Island"
+      ]
+     }
+    ]
+   },
+   "expected_derivation": "Bolt grows Vivi to 1/4 (opp 36). X is fixed when the mana ability resolves, immediately (CR 605.3b): 1 U. Brainstorm grows Vivi to 2/5 (opp 35), draws Island, Mountain, Sol Ring one at a time (CR 121.2) and puts Mountain then Island on top."
+  },
+  {
+   "id": "vivi_early_activation_wastes_growth",
+   "kind": "rules_state",
+   "title": "Activating Vivi at 0 power uses the turn's only activation",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "activation_limits",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt",
+       "Brainstorm"
+      ],
+      "library": [
+       "Island",
+       "Mountain",
+       "Sol Ring",
+       "Counterspell",
+       "Incinerate"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Volcanic Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {}
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Volcanic Island",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Vivi Ornitier",
+     "produce": {
+      "U": 1
+     }
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 4,
+    "reason_code": "activation_limit",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 36
+      },
+      "you": {
+       "hand": [
+        "Brainstorm"
+       ],
+       "mana_pool": {}
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 1,
+       "toughness": 4
+      },
+      {
+       "name": "Volcanic Island",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Vivi Ornitier",
+      "produced": {}
+     },
+     {
+      "event": "mana",
+      "source": "Volcanic Island",
+      "produced": {
+       "R": 1
+      }
+     },
+     {
+      "event": "illegal",
+      "action_index": 4,
+      "reason_code": "activation_limit"
+     }
+    ]
+   },
+   "expected_derivation": "The X=0 activation counts toward 'once each turn', so after Bolt grows Vivi to 1/4 it cannot make the U Brainstorm needs. This is the sequencing error a pilot model must avoid."
+  },
+  {
+   "id": "vivi_trigger_resolves_when_spell_countered",
+   "kind": "rules_state",
+   "title": "Vivi's trigger still resolves when the spell is countered",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "counters",
+    "damage",
+    "counterspell"
+   ],
+   "provenance": [
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt"
+      ]
+     },
+     "opp": {
+      "life": 40,
+      "hand": [
+       "Counterspell"
+      ]
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Vivi Ornitier",
+      "controller": "you"
+     },
+     {
+      "name": "Volcanic Island",
+      "controller": "you"
+     },
+     {
+      "name": "Island",
+      "controller": "opp"
+     },
+     {
+      "name": "Island",
+      "controller": "opp"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Volcanic Island",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "activate_mana",
+     "player": "opp",
+     "card": "Island",
+     "produce": "U",
+     "count": 2
+    },
+    {
+     "op": "cast",
+     "player": "opp",
+     "card": "Counterspell",
+     "targets": [
+      "stack:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 39,
+       "graveyard": [
+        "Counterspell"
+       ]
+      },
+      "you": {
+       "graveyard": [
+        "Lightning Bolt"
+       ]
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Island",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Island",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Vivi Ornitier",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 1,
+       "toughness": 4
+      },
+      {
+       "name": "Volcanic Island",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ],
+     "stack": []
+    },
+    "trace": [
+     {
+      "event": "resolve",
+      "item": "spell",
+      "card": "Counterspell"
+     },
+     {
+      "event": "countered",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "resolve",
+      "item": "trigger",
+      "source": "Vivi Ornitier"
+     },
+     {
+      "event": "counters",
+      "target": "Vivi Ornitier",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Vivi Ornitier",
+      "target": "player:opp",
+      "amount": 1
+     }
+    ]
+   },
+   "expected_derivation": "Ruling 2025-06-06: Vivi's trigger 'resolves even if that spell is countered'. Stack bottom->top: Bolt, Vivi trigger, Counterspell. Counterspell counters Bolt; the trigger still adds a counter and deals 1. Opp 40-1=39; no Bolt damage."
+  },
+  {
+   "id": "sauron_commander_tax",
+   "kind": "rules_state",
+   "title": "Sauron from the command zone costs 6, then 8; 2 mana cannot pay the third (10)",
+   "deck_context": "sauron",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "commander_tax",
+    "stack_and_triggers"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "command": [
+       "Sauron, the Dark Lord"
+      ],
+      "commanders": [
+       "Sauron, the Dark Lord"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     },
+     {
+      "name": "Crumbling Necropolis",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "U",
+     "count": 1
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "B",
+     "count": 1
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "R",
+     "count": 4
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Sauron, the Dark Lord",
+     "from": "command"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move_to_command_zone",
+     "card": "Sauron, the Dark Lord"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "U",
+     "count": 1
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "R",
+     "count": 1
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "B",
+     "count": 6
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Sauron, the Dark Lord",
+     "from": "command"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move_to_command_zone",
+     "card": "Sauron, the Dark Lord"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "U",
+     "count": 1
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "R",
+     "count": 1
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Sauron, the Dark Lord",
+     "from": "command"
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 14,
+    "reason_code": "unpayable_cost",
+    "final_state": {
+     "players": {
+      "you": {
+       "command": [
+        "Sauron, the Dark Lord"
+       ],
+       "commander_casts": {
+        "Sauron, the Dark Lord": 2
+       },
+       "mana_pool": {
+        "R": 1,
+        "U": 1
+       }
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "cast",
+      "card": "Sauron, the Dark Lord",
+      "zone": "command",
+      "tax": 0
+     },
+     {
+      "event": "cast",
+      "card": "Sauron, the Dark Lord",
+      "zone": "command",
+      "tax": 2
+     },
+     {
+      "event": "illegal",
+      "action_index": 14,
+      "reason_code": "unpayable_cost"
+     }
+    ]
+   },
+   "expected_derivation": "CR 903.8: +{2} per previous cast from the command zone. 6 mana casts it, 8 recasts it ({5}{U}{B}{R}), and the third cast needs 10 with only U and R floating."
+  },
+  {
+   "id": "sauron_opponent_spells_amass_one_army",
+   "kind": "rules_state",
+   "title": "Each opponent spell amasses Orcs 1 onto the same Army",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "amass",
+    "counters",
+    "damage",
+    "state_based_actions"
+   ],
+   "provenance": [
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "opp",
+    "turn": 2,
+    "players": {
+     "you": {
+      "life": 40
+     },
+     "opp": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt",
+       "Lightning Bolt"
+      ]
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Mountain",
+      "controller": "opp"
+     },
+     {
+      "name": "Mountain",
+      "controller": "opp"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "opp",
+     "card": "Mountain",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "opp",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:you"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate_mana",
+     "player": "opp",
+     "card": "Mountain",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "opp",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:you"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "you": {
+       "life": 34
+      },
+      "opp": {
+       "graveyard": [
+        "Lightning Bolt",
+        "Lightning Bolt"
+       ]
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Mountain",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Mountain",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Orc Army",
+       "controller": "you",
+       "tapped": false,
+       "token": true,
+       "counters": {
+        "+1/+1": 2
+       },
+       "power": 2,
+       "toughness": 2
+      },
+      {
+       "name": "Sauron, the Dark Lord",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 7,
+       "toughness": 6
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "token_created",
+      "name": "Orc Army"
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Lightning Bolt",
+      "target": "player:you",
+      "amount": 3
+     },
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Lightning Bolt",
+      "target": "player:you",
+      "amount": 3
+     }
+    ]
+   },
+   "expected_derivation": "CR 701.47a / ruling: with no Army, create a 0/0 Orc Army and put 1 counter on it (it survives SBA as 1/1). The second amass puts its counter on the existing Army. No second token. Each trigger resolves before the Bolt that caused it. Life 40-6=34."
+  },
+  {
+   "id": "sauron_own_spell_does_not_amass",
+   "kind": "rules_state",
+   "title": "Your own spell does not trigger Sauron's amass",
+   "deck_context": "sauron",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "damage"
+   ],
+   "provenance": [
+    "scryfall_oracle"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Mountain",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Mountain",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Lightning Bolt",
+     "targets": [
+      "player:opp"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 37
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Mountain",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Sauron, the Dark Lord",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 7,
+       "toughness": 6
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "cast",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "resolve",
+      "item": "spell",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "damage",
+      "source": "Lightning Bolt",
+      "target": "player:opp",
+      "amount": 3
+     }
+    ],
+    "trace_absent": [
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "token_created"
+     }
+    ]
+   },
+   "expected_derivation": "Oracle: 'Whenever an OPPONENT casts a spell'. Casting your own spell creates no trigger and no Army."
+  },
+  {
+   "id": "sauron_birthday_escape_wheel",
+   "kind": "rules_state",
+   "title": "The Ring tempts you -> Sauron discards the hand and draws four",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "ring_tempts",
+    "draw_discard",
+    "library_order"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Birthday Escape",
+       "Lightning Bolt",
+       "Mountain"
+      ],
+      "library": [
+       "Brainstorm",
+       "Counterspell",
+       "Incinerate",
+       "Sol Ring",
+       "Ornithopter",
+       "Island"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Island",
+     "produce": "U"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Birthday Escape",
+     "choices": {
+      "ring_bearer": "Sauron, the Dark Lord",
+      "sauron_discard": true
+     }
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Counterspell",
+        "Incinerate",
+        "Ornithopter",
+        "Sol Ring"
+       ],
+       "library": [
+        "Island"
+       ],
+       "graveyard": [
+        "Birthday Escape",
+        "Brainstorm",
+        "Lightning Bolt",
+        "Mountain"
+       ],
+       "ring_level": 1,
+       "ring_bearer": "Sauron, the Dark Lord"
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "draw",
+      "card": "Brainstorm"
+     },
+     {
+      "event": "ring_tempts",
+      "level": 1,
+      "bearer": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "draw",
+      "card": "Counterspell"
+     },
+     {
+      "event": "draw",
+      "card": "Incinerate"
+     },
+     {
+      "event": "draw",
+      "card": "Sol Ring"
+     },
+     {
+      "event": "draw",
+      "card": "Ornithopter"
+     }
+    ]
+   },
+   "expected_derivation": "Birthday Escape draws Brainstorm, then the Ring tempts you (CR 701.54a; Sauron must be chosen Ring-bearer as the only creature). Sauron's trigger goes on the stack after Escape finishes: discard Bolt, Mountain, Brainstorm; draw the next four in library order."
+  },
+  {
+   "id": "sauron_birthday_escape_decline",
+   "kind": "rules_state",
+   "title": "Declining Sauron's optional discard keeps the hand",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "ring_tempts",
+    "draw_discard",
+    "library_order"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Birthday Escape",
+       "Lightning Bolt",
+       "Mountain"
+      ],
+      "library": [
+       "Brainstorm",
+       "Counterspell",
+       "Incinerate",
+       "Sol Ring",
+       "Ornithopter",
+       "Island"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Island",
+     "produce": "U"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Birthday Escape",
+     "choices": {
+      "ring_bearer": "Sauron, the Dark Lord",
+      "sauron_discard": false
+     }
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Brainstorm",
+        "Lightning Bolt",
+        "Mountain"
+       ],
+       "library": [
+        "Counterspell",
+        "Incinerate",
+        "Sol Ring",
+        "Ornithopter",
+        "Island"
+       ],
+       "graveyard": [
+        "Birthday Escape"
+       ],
+       "ring_level": 1,
+       "ring_bearer": "Sauron, the Dark Lord"
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "draw",
+      "card": "Brainstorm"
+     },
+     {
+      "event": "ring_tempts",
+      "level": 1,
+      "bearer": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     }
+    ],
+    "trace_absent": [
+     {
+      "event": "discard"
+     }
+    ]
+   },
+   "expected_derivation": "'You may discard your hand. If you do, draw four.' Declining means no discard and no draw."
+  },
+  {
+   "id": "sauron_bowmasters_punish_brainstorm",
+   "kind": "rules_state",
+   "title": "Opponent's Brainstorm: Sauron amasses once, Bowmasters pings three times onto one Army",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "amass",
+    "counters",
+    "damage",
+    "draw_discard",
+    "library_order",
+    "state_based_actions"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "scryfall_rulings",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "opp",
+    "turn": 2,
+    "players": {
+     "you": {
+      "life": 40
+     },
+     "opp": {
+      "life": 40,
+      "hand": [
+       "Brainstorm"
+      ],
+      "library": [
+       "Island",
+       "Mountain",
+       "Lightning Bolt",
+       "Counterspell"
+      ]
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Orcish Bowmasters",
+      "controller": "you"
+     },
+     {
+      "name": "Island",
+      "controller": "opp"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "opp",
+     "card": "Island",
+     "produce": "U"
+    },
+    {
+     "op": "cast",
+     "player": "opp",
+     "card": "Brainstorm",
+     "choices": {
+      "put_back_top_first": [
+       "Lightning Bolt",
+       "Island"
+      ]
+     }
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "life": 37,
+       "hand": [
+        "Mountain"
+       ],
+       "library": [
+        "Lightning Bolt",
+        "Island",
+        "Counterspell"
+       ],
+       "graveyard": [
+        "Brainstorm"
+       ]
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Island",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Orc Army",
+       "controller": "you",
+       "tapped": false,
+       "token": true,
+       "counters": {
+        "+1/+1": 4
+       },
+       "power": 4,
+       "toughness": 4
+      },
+      {
+       "name": "Orcish Bowmasters",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 1,
+       "toughness": 1
+      },
+      {
+       "name": "Sauron, the Dark Lord",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 7,
+       "toughness": 6
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "token_created",
+      "name": "Orc Army"
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     },
+     {
+      "event": "draw",
+      "card": "Island"
+     },
+     {
+      "event": "draw",
+      "card": "Mountain"
+     },
+     {
+      "event": "draw",
+      "card": "Lightning Bolt"
+     },
+     {
+      "event": "damage",
+      "source": "Orcish Bowmasters",
+      "target": "player:opp",
+      "amount": 1
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Orcish Bowmasters",
+      "target": "player:opp",
+      "amount": 1
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     },
+     {
+      "event": "damage",
+      "source": "Orcish Bowmasters",
+      "target": "player:opp",
+      "amount": 1
+     },
+     {
+      "event": "counters",
+      "target": "Orc Army",
+      "n": 1
+     }
+    ]
+   },
+   "expected_derivation": "Sauron's amass resolves before Brainstorm: 0/0 Army + 1 counter. Brainstorm draws three individual cards (CR 121.2) outside a draw step; each draw triggers Bowmasters, so three triggers, each dealing 1 and amassing onto the same Army: 4/4. Opp 40-3=37."
+  },
+  {
+   "id": "sauron_ward_counters_unpaid_bolt",
+   "kind": "rules_state",
+   "title": "Ward on Sauron counters an opponent's Bolt when no legendary can be sacrificed",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "mana_abilities",
+    "cast_spell",
+    "stack_and_triggers",
+    "amass",
+    "ward_sacrifice_cost"
+   ],
+   "provenance": [
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "opp",
+    "turn": 2,
+    "players": {
+     "you": {
+      "life": 40
+     },
+     "opp": {
+      "life": 40,
+      "hand": [
+       "Lightning Bolt"
+      ]
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Sauron, the Dark Lord",
+      "controller": "you"
+     },
+     {
+      "name": "Mountain",
+      "controller": "opp"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "opp",
+     "card": "Mountain",
+     "produce": "R"
+    },
+    {
+     "op": "cast",
+     "player": "opp",
+     "card": "Lightning Bolt",
+     "targets": [
+      "perm:Sauron, the Dark Lord"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "players": {
+      "opp": {
+       "graveyard": [
+        "Lightning Bolt"
+       ]
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Mountain",
+       "controller": "opp",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      },
+      {
+       "name": "Orc Army",
+       "controller": "you",
+       "tapped": false,
+       "token": true,
+       "counters": {
+        "+1/+1": 1
+       },
+       "power": 1,
+       "toughness": 1
+      },
+      {
+       "name": "Sauron, the Dark Lord",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {},
+       "power": 7,
+       "toughness": 6
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "trigger",
+      "source": "Sauron, the Dark Lord"
+     },
+     {
+      "event": "countered",
+      "card": "Lightning Bolt"
+     }
+    ],
+    "trace_absent": [
+     {
+      "event": "damage",
+      "target": "perm:Sauron, the Dark Lord"
+     }
+    ]
+   },
+   "expected_derivation": "CR 702.21a: ward counters the spell unless its controller pays; the opponent controls no legendary artifact or creature to sacrifice. Sauron also amasses (opponent cast a spell). Expected outcome is stated for engines that implement ward; the reference kernel does not."
+  },
+  {
+   "id": "land_drop_limit",
+   "kind": "rules_state",
+   "title": "A second land in one turn is illegal",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "land_drop"
+   ],
+   "provenance": [
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Volcanic Island",
+       "Mountain"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": []
+   },
+   "actions": [
+    {
+     "op": "play_land",
+     "player": "you",
+     "card": "Volcanic Island"
+    },
+    {
+     "op": "play_land",
+     "player": "you",
+     "card": "Mountain"
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 1,
+    "reason_code": "land_drop_used",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Mountain"
+       ]
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Volcanic Island",
+       "controller": "you",
+       "tapped": false,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "play_land",
+      "card": "Volcanic Island"
+     },
+     {
+      "event": "illegal",
+      "action_index": 1,
+      "reason_code": "land_drop_used"
+     }
+    ]
+   },
+   "expected_derivation": "CR 305.2: normally one land per turn."
+  },
+  {
+   "id": "sorcery_timing_on_opponent_turn",
+   "kind": "rules_state",
+   "title": "Birthday Escape (sorcery) cannot be cast on an opponent's turn",
+   "deck_context": "sauron",
+   "polarity": "negative",
+   "required_capabilities": [
+    "mana_abilities",
+    "timing_restrictions"
+   ],
+   "provenance": [
+    "comprehensive_rules_20260925"
+   ],
+   "initial_state": {
+    "active_player": "opp",
+    "turn": 2,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Birthday Escape"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": [
+     {
+      "name": "Island",
+      "controller": "you"
+     }
+    ]
+   },
+   "actions": [
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Island",
+     "produce": "U"
+    },
+    {
+     "op": "cast",
+     "player": "you",
+     "card": "Birthday Escape"
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 1,
+    "reason_code": "timing",
+    "final_state": {
+     "players": {
+      "you": {
+       "hand": [
+        "Birthday Escape"
+       ],
+       "mana_pool": {
+        "U": 1
+       }
+      }
+     }
+    },
+    "trace": [
+     {
+      "event": "mana",
+      "source": "Island",
+      "produced": {
+       "U": 1
+      }
+     },
+     {
+      "event": "illegal",
+      "action_index": 1,
+      "reason_code": "timing"
+     }
+    ]
+   },
+   "expected_derivation": "CR 307.1 / 117.1a: a sorcery needs your main phase and an empty stack. Mana abilities may still be activated (CR 605.3b), so the U stays floating."
+  },
+  {
+   "id": "crumbling_necropolis_enters_tapped",
+   "kind": "rules_state",
+   "title": "Crumbling Necropolis enters tapped and cannot make mana that turn",
+   "deck_context": "sauron",
+   "polarity": "negative",
+   "required_capabilities": [
+    "land_drop",
+    "mana_abilities"
+   ],
+   "provenance": [
+    "scryfall_oracle"
+   ],
+   "initial_state": {
+    "active_player": "you",
+    "turn": 1,
+    "players": {
+     "you": {
+      "life": 40,
+      "hand": [
+       "Crumbling Necropolis"
+      ]
+     },
+     "opp": {
+      "life": 40
+     }
+    },
+    "battlefield": []
+   },
+   "actions": [
+    {
+     "op": "play_land",
+     "player": "you",
+     "card": "Crumbling Necropolis"
+    },
+    {
+     "op": "activate_mana",
+     "player": "you",
+     "card": "Crumbling Necropolis",
+     "produce": "B"
+    }
+   ],
+   "expected": {
+    "outcome": "illegal",
+    "illegal_at": 1,
+    "reason_code": "no_untapped_source",
+    "final_state": {
+     "players": {
+      "you": {
+       "mana_pool": {}
+      }
+     },
+     "battlefield": [
+      {
+       "name": "Crumbling Necropolis",
+       "controller": "you",
+       "tapped": true,
+       "token": false,
+       "counters": {}
+      }
+     ]
+    },
+    "trace": [
+     {
+      "event": "play_land",
+      "card": "Crumbling Necropolis",
+      "tapped": true
+     },
+     {
+      "event": "illegal",
+      "action_index": 1,
+      "reason_code": "no_untapped_source"
+     }
+    ]
+   },
+   "expected_derivation": "Oracle: 'This land enters tapped.'"
+  },
+  {
+   "id": "probe_vivi_volcanic_turn2_never",
+   "kind": "resource_probe",
+   "title": "99 Volcanic Island: Vivi (3 mana) is never cast by turn 2",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Volcanic Island",
+      "count": 99,
+      "land": true,
+      "colors": 10,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 2,
+    "games": 500,
+    "seed": 7
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 500,
+     "commander_cast_count": 0,
+     "lands_mean": 2.0
+    }
+   },
+   "expected_derivation": "Two land drops make 2 mana; Vivi costs 3. Shuffle-independent."
+  },
+  {
+   "id": "probe_vivi_volcanic_turn3_always",
+   "kind": "resource_probe",
+   "title": "99 Volcanic Island: Vivi is cast on turn 3 in every game",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Volcanic Island",
+      "count": 99,
+      "land": true,
+      "colors": 10,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 3,
+    "games": 500,
+    "seed": 7
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 500,
+     "commander_cast_count": 500,
+     "lands_mean": 3.0
+    }
+   },
+   "expected_derivation": "Three untapped U/R duals pay {1}{U}{R} on turn 3. Shuffle-independent."
+  },
+  {
+   "id": "probe_vivi_islands_only_never",
+   "kind": "resource_probe",
+   "title": "99 Island: Vivi's {R} pip is never paid",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Island",
+      "count": 99,
+      "land": true,
+      "colors": 2,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 12,
+    "games": 500,
+    "seed": 7
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 500,
+     "commander_cast_count": 0,
+     "lands_mean": 12.0
+    }
+   },
+   "expected_derivation": "No source makes R. Twelve land drops in twelve turns."
+  },
+  {
+   "id": "probe_sauron_necropolis_turn6_never",
+   "kind": "resource_probe",
+   "title": "99 tapped tri-lands: Sauron (6) is not castable by turn 6",
+   "deck_context": "sauron",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Crumbling Necropolis",
+      "count": 99,
+      "land": true,
+      "colors": 14,
+      "tapped": true
+     }
+    ],
+    "commander_cost": {
+     "generic": 3,
+     "pips": [
+      0,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    "turns": 6,
+    "games": 500,
+    "seed": 7
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 500,
+     "commander_cast_count": 0,
+     "lands_mean": 6.0
+    }
+   },
+   "expected_derivation": "Each land enters tapped, so on turn 6 only five are untapped."
+  },
+  {
+   "id": "probe_sauron_necropolis_turn7_always",
+   "kind": "resource_probe",
+   "title": "99 tapped tri-lands: Sauron is cast on turn 7 in every game",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Crumbling Necropolis",
+      "count": 99,
+      "land": true,
+      "colors": 14,
+      "tapped": true
+     }
+    ],
+    "commander_cost": {
+     "generic": 3,
+     "pips": [
+      0,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    "turns": 7,
+    "games": 500,
+    "seed": 7
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 500,
+     "commander_cast_count": 500,
+     "lands_mean": 7.0
+    }
+   },
+   "expected_derivation": "Six untapped U/B/R lands on turn 7 pay {3}{U}{B}{R}."
+  },
+  {
+   "id": "probe_vivi_95_island_4_mountain_turn3",
+   "kind": "resource_probe",
+   "title": "95 Island + 4 Mountain: P(Vivi by turn 3) is exact",
+   "deck_context": "vivi",
+   "polarity": "positive",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Island",
+      "count": 95,
+      "land": true,
+      "colors": 2,
+      "tapped": false
+     },
+     {
+      "id": "Mountain",
+      "count": 4,
+      "land": true,
+      "colors": 8,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 3,
+    "games": 4000,
+    "seed": 11
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 4000,
+     "lands_mean": 3.0
+    },
+    "statistic": {
+     "metric": "commander_cast_count",
+     "probability": 0.35138625897094233,
+     "z_max": 4.5,
+     "exact_model": {
+      "name": "two_color_untapped",
+      "color_a": 95,
+      "color_b": 4,
+      "deck": 99,
+      "turns": 3,
+      "cmc": 3
+     }
+    }
+   },
+   "expected_derivation": "All cards are untapped lands, so 3 drops by turn 3. Vivi is cast iff a Mountain is among the first 10 cards: 1 - C(95,10)/C(99,10) = 0.351386."
+  },
+  {
+   "id": "probe_sauron_60_necropolis_turn8",
+   "kind": "resource_probe",
+   "title": "60 tapped tri-lands + 39 spells: P(Sauron by turn 8) is exact",
+   "deck_context": "sauron",
+   "polarity": "positive",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Crumbling Necropolis",
+      "count": 60,
+      "land": true,
+      "colors": 14,
+      "tapped": true
+     },
+     {
+      "id": "Spell",
+      "count": 39,
+      "land": false,
+      "colors": 0,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 3,
+     "pips": [
+      0,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    "turns": 8,
+    "games": 4000,
+    "seed": 13
+   },
+   "expected": {
+    "outcome": "legal",
+    "final_state": {
+     "games": 4000
+    },
+    "statistic": {
+     "metric": "commander_cast_count",
+     "probability": 0.9596806092725969,
+     "z_max": 4.5,
+     "exact_model": {
+      "name": "tapped_lands_count",
+      "lands": 60,
+      "deck": 99,
+      "turns": 8,
+      "cmc": 6
+     }
+    }
+   },
+   "expected_derivation": "Lands enter tapped, so a cast by turn 8 needs 6 land drops in turns 1-7. Exact dynamic program over the draw order (hypergeometric opening seven, one draw per turn): 0.959681."
+  },
+  {
+   "id": "probe_rejects_98_slots",
+   "kind": "resource_probe",
+   "title": "A 98-slot request is rejected",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Volcanic Island",
+      "count": 98,
+      "land": true,
+      "colors": 10,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 3,
+    "games": 10,
+    "seed": 1
+   },
+   "expected": {
+    "outcome": "rejected",
+    "detail_contains": "99 card slots required"
+   },
+   "expected_derivation": "resource-probe-request.v1 requires exactly 99 slots."
+  },
+  {
+   "id": "probe_rejects_nonland_source",
+   "kind": "resource_probe",
+   "title": "A nonland mana source is rejected in the land-only scenario",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Island",
+      "count": 98,
+      "land": true,
+      "colors": 2,
+      "tapped": false
+     },
+     {
+      "id": "Sol Ring",
+      "count": 1,
+      "land": false,
+      "colors": 2,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 3,
+    "games": 10,
+    "seed": 1
+   },
+   "expected": {
+    "outcome": "rejected",
+    "detail_contains": "nonland source in land-only scenario"
+   },
+   "expected_derivation": "The probe admits only unconditional one-mana lands; a colored nonland slot is invalid."
+  },
+  {
+   "id": "probe_rejects_identity_mismatch",
+   "kind": "resource_probe",
+   "title": "A request whose deck_identity does not hash its slots is rejected",
+   "deck_context": "vivi",
+   "polarity": "negative",
+   "required_capabilities": [
+    "resource_probe.commander_land_only.v1"
+   ],
+   "provenance": [
+    "native_resource_probe",
+    "scryfall_oracle",
+    "comprehensive_rules_20260925"
+   ],
+   "probe": {
+    "slots": [
+     {
+      "id": "Volcanic Island",
+      "count": 99,
+      "land": true,
+      "colors": 10,
+      "tapped": false
+     }
+    ],
+    "commander_cost": {
+     "generic": 1,
+     "pips": [
+      0,
+      1,
+      0,
+      1,
+      0
+     ]
+    },
+    "turns": 3,
+    "games": 10,
+    "seed": 1,
+    "corrupt_identity": true
+   },
+   "expected": {
+    "outcome": "rejected",
+    "detail_contains": "deck identity mismatch"
+   },
+   "expected_derivation": "deck_identity must be sha256 of the ordered slot-id array."
+  }
+ ]
+}

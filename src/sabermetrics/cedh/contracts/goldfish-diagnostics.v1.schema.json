@@ -84,6 +84,33 @@
         },
         "draw_on_turn_one": {
           "type": "boolean"
+        },
+        "table_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "opponents",
+            "opponent_colors",
+            "on_the_play",
+            "life_floor"
+          ],
+          "properties": {
+            "opponents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "opponent_colors": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 31
+            },
+            "on_the_play": {
+              "type": "boolean"
+            },
+            "life_floor": {
+              "type": "integer"
+            }
+          }
         }
       }
     },
@@ -365,6 +392,36 @@
           "items": {
             "type": "object"
           }
+        },
+        "comparison_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "scope",
+            "algorithm",
+            "dependency_accounting_complete",
+            "dependency_fingerprint"
+          ],
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "scope": {
+              "const": "native_opening_policy"
+            },
+            "algorithm": {
+              "const": "opening-policy-dependencies.v2"
+            },
+            "dependency_accounting_complete": {
+              "type": "boolean"
+            },
+            "dependency_fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "description": "Accounting for fixed partial native visible-hand policy dependencies only; never real opening success or whole-card completeness. Only opening may use this scope. Unknown identity and quantity remain in the fingerprint."
         }
       }
     }

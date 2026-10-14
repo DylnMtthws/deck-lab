@@ -32,7 +32,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v4"
+PROMPT_VERSION = "build-conversation.v5"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -60,6 +60,21 @@ card_details for printed facts; research_evidence for tournament-list use;
 latest_goldfish or run_goldfish for measured native observations;
 goldfish_card_coverage for bounded per-card supported effects and limitations;
 generator_intelligence for stored candidate explanations and heuristic roles.
+Use research_known_combinations for sourced Commander Spellbook ingredient
+matches and near-matches. These are external claims: all named cards present
+does not satisfy zones, mana, templates, timing or other prerequisites. Claimed
+infinite outcomes are not verified by this application. Cite the returned URL
+and distinguish sourced claims from tested execution. Missing templates remain
+unresolved, and no match does not establish that no combination exists.
+Use analyze_deck_combinations for conditional interactions in the actual deck.
+Deck-list presence proves only ingredients: prerequisites are not observed board
+states, and a bounded model replay is not a complete rules proof or a win.
+Use replay_deck_combination to test a discovered index under an explicitly
+hypothetical starting state. State assumptions are supplied inputs, never observed
+Goldfish state. Explain prerequisites and any unresolved spell or unsupported
+effect; a model replay does not measure how often the setup occurs in the deck.
+An abstention means no supported line was found, not that the deck has no combos.
+Never present an unfinished spell-resolution prefix as a complete legal sequence.
 Use research_memory to retrieve saved preferences and previous experiment
 receipts when the user asks about earlier attempts. This is scoped to this deck
 and owner; accepted changes are preferences, never proof of improvement. Historical
@@ -290,6 +305,53 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _retain_combination_context(
+    state: dict[str, Any], name: str, data: dict[str, Any]
+) -> None:
+    """Retain small typed facts when full receipts exceed the turn context budget."""
+    if name == "research_known_combinations":
+        state["combination_sources"] = [
+            {
+                "variant_id": item.get("variant_id"),
+                "cards": [
+                    str(card.get("name", ""))[:100]
+                    for card in item.get("cards", [])[:5]
+                ],
+                "ingredient_match": item.get("ingredient_match"),
+                "source_url": (item.get("citation") or {}).get("url"),
+                "prerequisite_excerpt": str(item.get("prerequisite_excerpt") or "")[
+                    :180
+                ],
+                "unresolved_templates": item.get("unresolved_template_count"),
+                "execution_verified": False,
+                "note": "Sourced claim only; zones, costs, full prerequisites and steps omitted. No execution or win proof.",
+            }
+            for item in data.get("matches", [])[:3]
+        ]
+    elif name == "analyze_deck_combinations":
+        state["combination_models"] = [
+            {
+                "combination_index": item.get("combination_index"),
+                "kind": item.get("kind"),
+                "cards": [str(card)[:100] for card in item.get("cards", [])[:4]],
+                "status": item.get("status"),
+                "setup_status": item.get("setup_status"),
+                "note": "Deck ingredients only. Detailed prerequisites omitted; do not infer a ready board or complete rules support.",
+            }
+            for item in data.get("combinations", [])[:3]
+        ]
+    elif name == "replay_deck_combination":
+        replay = data.get("replay") or {}
+        state["combination_replay"] = {
+            "cards": data.get("cards", [])[:4],
+            "status": replay.get("status"),
+            "reason": str(replay.get("reason") or replay.get("unresolved") or "")[:300],
+            "state_origin": "hypothetical_tool_input_not_observed_game",
+            "win_verified": False,
+            "note": "Full trace and starting assumptions omitted; a bounded hypothetical model result is not measured deck performance.",
+        }
+
+
 def _merge_strategy_evidence(
     previous: dict[str, Any] | None, current: dict[str, Any]
 ) -> dict[str, Any]:
@@ -397,8 +459,8 @@ def run_turn(
         raise ValueError("Assistant mode must be suggest or automate.")
     started = time.monotonic()
     externally_stopped = should_stop or (lambda: False)
-    stopped = (
-        lambda: externally_stopped() or time.monotonic() - started >= MAX_TURN_SECONDS
+    stopped = lambda: (
+        externally_stopped() or time.monotonic() - started >= MAX_TURN_SECONDS
     )
     actions: list[dict[str, Any]] = []
     tools = None
@@ -601,6 +663,7 @@ def run_turn(
                 try:
                     data = tools.execute(call)
                     state["workflow"]["completed_tools"].append(call.name)
+                    _retain_combination_context(state, call.name, data)
                     if call.name in {"find_replacements", "prepare_improvement"}:
                         state["workflow"]["recommendation"] = {
                             "recommendation_id": data.get("recommendation_id"),
@@ -621,9 +684,42 @@ def run_turn(
                         "test_recommended_alternatives",
                     }:
                         state["workflow"]["experiment_status"] = data.get("status")
-                        state["workflow"][
-                            "next_step"
-                        ] = "Report the actual experiment receipt; do not start another experiment."
+                        state["workflow"]["next_step"] = (
+                            "Report the actual experiment receipt; do not start another experiment."
+                        )
+                    if call.name == "research_known_combinations":
+                        combo_sources = {
+                            "status": data.get("status"),
+                            "excerpts": [
+                                {
+                                    "excerpt": match.get("step_excerpt", ""),
+                                    "source_kind": "external_combo_claim",
+                                    "excerpt_truncated": match.get(
+                                        "steps_truncated", False
+                                    ),
+                                    "citation": {
+                                        "document": "Commander Spellbook",
+                                        "section": "Combination "
+                                        + str(match.get("variant_id", "")),
+                                        "chunk_id": "combo:"
+                                        + str(match.get("variant_id", "")),
+                                        "source_url": (match.get("citation") or {}).get(
+                                            "url"
+                                        ),
+                                        "retrieved_at": (
+                                            match.get("citation") or {}
+                                        ).get("retrieved_at"),
+                                        "content_hash": (
+                                            match.get("citation") or {}
+                                        ).get("snapshot_sha256"),
+                                    },
+                                }
+                                for match in data.get("matches", [])[:4]
+                            ],
+                        }
+                        strategy_presentation = _merge_strategy_evidence(
+                            strategy_presentation, combo_sources
+                        )
                     if call.name == "retrieve_strategy_evidence":
                         strategy_presentation = _merge_strategy_evidence(
                             strategy_presentation, data

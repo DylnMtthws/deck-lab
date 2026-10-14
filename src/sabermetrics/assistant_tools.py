@@ -67,6 +67,40 @@ class RecommendArgs(StrictModel):
     focus: str = Field(default="", max_length=300)
 
 
+CardName = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class HypotheticalCombinationState(StrictModel):
+    battlefield: list[CardName] = Field(max_length=100)
+    hand: list[CardName] = Field(max_length=100)
+    graveyard: list[CardName] = Field(default_factory=list, max_length=100)
+    attachments: dict[CardName, CardName] = Field(default_factory=dict, max_length=20)
+    paired_with: dict[CardName, CardName] = Field(default_factory=dict, max_length=20)
+    mana: dict[
+        Literal["W", "U", "B", "R", "G", "C"], Annotated[int, Field(ge=0, le=100)]
+    ] = Field(max_length=6)
+    library_count: int = Field(ge=0, le=100)
+    hand_count: int = Field(ge=0, le=100)
+    opponent_count: int = Field(ge=1, le=6)
+    priority: bool
+    stack_empty: bool
+    no_interference: bool
+    no_other_effects: bool
+    own_turn: bool = False
+    main_phase: bool = False
+    beginning_of_upkeep: bool = False
+    choose_optional_draw: bool = False
+    choose_discard: bool = False
+    decline_ring_bearer_draw: bool = False
+    engine_counters: int = Field(default=0, ge=0, le=100)
+    damage_each_opponent: int = Field(default=0, ge=0, le=100)
+
+
+class CombinationReplayArgs(StrictModel):
+    combination_index: int = Field(ge=0, le=11)
+    hypothetical_state: HypotheticalCombinationState
+
+
 class SemanticReview(StrictModel):
     alternative_index: int = Field(ge=0, le=2)
     theme_fit: Literal["fit", "unknown", "conflict"]
@@ -149,6 +183,21 @@ class RequirementsCall(StrictModel):
     arguments: EmptyArgs
 
 
+class CombinationsCall(StrictModel):
+    name: Literal["analyze_deck_combinations"]
+    arguments: EmptyArgs
+
+
+class KnownCombinationsCall(StrictModel):
+    name: Literal["research_known_combinations"]
+    arguments: EmptyArgs
+
+
+class ReplayCombinationCall(StrictModel):
+    name: Literal["replay_deck_combination"]
+    arguments: CombinationReplayArgs
+
+
 class MemoryCall(StrictModel):
     name: Literal["research_memory"]
     arguments: EmptyArgs
@@ -191,6 +240,9 @@ ToolCall = Annotated[
     | StrategyCall
     | RequirementsCall
     | MemoryCall
+    | CombinationsCall
+    | KnownCombinationsCall
+    | ReplayCombinationCall
     | RecommendCall
     | PrepareCall
     | RecommendedExperimentCall
@@ -251,6 +303,51 @@ class AssistantTools:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
         args = call.arguments
+        if call.name == "research_known_combinations":
+            from sabermetrics.combo_catalog import known_combinations
+
+            return {
+                **known_combinations(self.path, document),
+                "revision": self.revision,
+                "original_changed": False,
+            }
+        if call.name == "replay_deck_combination":
+            from sabermetrics.combination_intelligence import (
+                analyze_combinations,
+                replay_combination,
+            )
+
+            lines = analyze_combinations(document).get("combinations", [])
+            if args.combination_index >= len(lines):
+                raise ValueError("Combination index unavailable for the current deck.")
+            line = lines[args.combination_index]
+            return {
+                "revision": self.revision,
+                "cards": line["cards"],
+                "kind": line["kind"],
+                "state_origin": "hypothetical_tool_input_not_observed_game",
+                "starting_state": args.hypothetical_state.model_dump(),
+                "replay": replay_combination(
+                    line, args.hypothetical_state.model_dump()
+                ),
+                "original_changed": False,
+                "goldfish_executed": False,
+                "limitation": "Tests only the authored interaction model under the supplied hypothetical assumptions. It does not establish deck consistency, complete rules legality or a win.",
+            }
+        if call.name == "analyze_deck_combinations":
+            from sabermetrics.combination_intelligence import (
+                analyze_combinations,
+                summarize_combinations,
+            )
+
+            analysis = summarize_combinations(analyze_combinations(document))
+            return {
+                **analysis,
+                "revision": self.revision,
+                "state_origin": "deck_list_only",
+                "execution_started": False,
+                "original_changed": False,
+            }
         if call.name == "research_memory":
             from sabermetrics.assistant_memory import research_memory
 
