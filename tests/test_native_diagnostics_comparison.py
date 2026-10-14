@@ -283,16 +283,21 @@ def test_card_audit_is_quantity_aware_multiset():
 
 
 def opening_proof(fingerprint="a" * 64):
-    return {"version": 1, "scope": "native_opening_policy",
-            "algorithm": "opening-policy-dependencies.v2",
-            "dependency_accounting_complete": True,
-            "dependency_fingerprint": fingerprint}
+    return {
+        "version": 1,
+        "scope": "native_opening_policy",
+        "algorithm": "opening-policy-dependencies.v2",
+        "dependency_accounting_complete": True,
+        "dependency_fingerprint": fingerprint,
+    }
 
 
 def test_irrelevant_coverage_change_preserves_only_proven_opening_metrics():
     before, after = report(), report(0.7)
     for item in (before, after):
-        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"]["opening"]["metrics"].pop("kept")
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"][
+            "opening"
+        ]["metrics"].pop("kept")
         item["tests"]["opening"]["metrics"]["mean_kept_cards"]["unit"] = "cards"
         item["tests"]["opening"]["comparison_coverage"] = opening_proof()
         item["tests"]["development"] = copy.deepcopy(item["tests"]["opening"])
@@ -306,11 +311,16 @@ def test_irrelevant_coverage_change_preserves_only_proven_opening_metrics():
     assert "partial-policy" in result["reason"]
 
 
-@pytest.mark.parametrize("change", ["fingerprint", "complete", "version", "scope", "algorithm", "extra", "missing"])
+@pytest.mark.parametrize(
+    "change",
+    ["fingerprint", "complete", "version", "scope", "algorithm", "extra", "missing"],
+)
 def test_uncertain_swaps_and_corrupt_scoped_evidence_fail_closed(change):
     before, after = report(), report(0.9)
     for item in (before, after):
-        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"]["opening"]["metrics"].pop("kept")
+        item["tests"]["opening"]["metrics"]["mean_kept_cards"] = item["tests"][
+            "opening"
+        ]["metrics"].pop("kept")
         item["tests"]["opening"]["metrics"]["mean_kept_cards"]["unit"] = "cards"
         item["tests"]["opening"]["comparison_coverage"] = opening_proof()
     proof = after["tests"]["opening"]["comparison_coverage"]

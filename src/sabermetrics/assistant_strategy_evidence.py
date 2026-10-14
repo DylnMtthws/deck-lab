@@ -163,9 +163,7 @@ def retrieve_strategy_evidence(
     result["status"] = (
         "empty_corpus"
         if not result["corpus_chunks"]
-        else "available"
-        if result["excerpts"]
-        else "no_matches"
+        else "available" if result["excerpts"] else "no_matches"
     )
     if result["status"] == "empty_corpus":
         result["limitations"].append("No strategy reference text has been indexed.")

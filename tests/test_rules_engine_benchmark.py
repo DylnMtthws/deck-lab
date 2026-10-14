@@ -459,8 +459,7 @@ def test_report_validation_rejects_fabricated_claims(fixtures, xmage_report, tam
 
 # -- external adapter contract (test-double bridges) -------------------------------
 
-_BRIDGE = textwrap.dedent(
-    """
+_BRIDGE = textwrap.dedent("""
     import importlib.util, json, sys
     spec = importlib.util.spec_from_file_location("b", {script!r})
     b = importlib.util.module_from_spec(spec); sys.modules["b"] = b; spec.loader.exec_module(b)
@@ -480,8 +479,7 @@ _BRIDGE = textwrap.dedent(
     if MODE == "garbage":
         print("not json"); sys.exit(3)
     print(json.dumps(receipt))
-    """
-)
+    """)
 
 
 def _bridge(tmp_path, mode):

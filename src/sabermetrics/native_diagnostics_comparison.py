@@ -26,16 +26,26 @@ def _opening_coverage(test: Any, key: str) -> dict[str, Any] | None:
     if key != "opening" or not isinstance(test, dict):
         return None
     proof = test.get("comparison_coverage")
-    fields = {"version", "scope", "algorithm", "dependency_accounting_complete", "dependency_fingerprint"}
+    fields = {
+        "version",
+        "scope",
+        "algorithm",
+        "dependency_accounting_complete",
+        "dependency_fingerprint",
+    }
     if not isinstance(proof, dict) or set(proof) != fields:
         return None
     fingerprint = proof.get("dependency_fingerprint")
-    if (type(proof.get("version")) is not int or proof["version"] != 1
+    if (
+        type(proof.get("version")) is not int
+        or proof["version"] != 1
         or proof.get("scope") != "native_opening_policy"
         or proof.get("algorithm") != OPENING_COVERAGE_ALGORITHM
         or proof.get("dependency_accounting_complete") is not True
-        or not isinstance(fingerprint, str) or len(fingerprint) != 64
-        or any(char not in "0123456789abcdef" for char in fingerprint)):
+        or not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or any(char not in "0123456789abcdef" for char in fingerprint)
+    ):
         return None
     return proof
 
@@ -103,9 +113,12 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
     )
     old_tests = before.get("tests", {})
     new_tests = after.get("tests", {})
-    scoped = (isinstance(old_tests, dict) and isinstance(new_tests, dict)
-              and _opening_coverage(new_tests.get("opening"), "opening") is not None
-              and _opening_coverage(old_tests.get("opening"), "opening") is not None)
+    scoped = (
+        isinstance(old_tests, dict)
+        and isinstance(new_tests, dict)
+        and _opening_coverage(new_tests.get("opening"), "opening") is not None
+        and _opening_coverage(old_tests.get("opening"), "opening") is not None
+    )
     if not same_coverage and not scoped:
         result["reason"] = (
             "No comparable diagnostics baseline: modeled coverage changed; card and modeling differences cannot be isolated."
@@ -127,7 +140,8 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
         has_scope = "comparison_coverage" in test or "comparison_coverage" in old
         coverage_compatible = (
             new_scope is not None and new_scope == old_scope
-            if has_scope else same_coverage
+            if has_scope
+            else same_coverage
         )
         metrics = test.get("metrics", {})
         old_metrics = old.get("metrics", {})
@@ -152,21 +166,30 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
                 "unit"
             )
             scoped_metric = not has_scope or (
-                name in OPENING_POLICY_METRICS and metric.get("unit") == OPENING_POLICY_METRICS[name]
+                name in OPENING_POLICY_METRICS
+                and metric.get("unit") == OPENING_POLICY_METRICS[name]
             )
-            compatible = measured and same_status and same_unit and coverage_compatible and scoped_metric
+            compatible = (
+                measured
+                and same_status
+                and same_unit
+                and coverage_compatible
+                and scoped_metric
+            )
             reason = (
                 ""
                 if compatible
                 else (
                     "Metric dependency coverage changed or is unavailable."
                     if not coverage_compatible or not scoped_metric
-                    else "Test status changed or is unmeasured."
-                    if not same_status
                     else (
-                        "Metric units changed or are unavailable."
-                        if not same_unit
-                        else "Metric is unmeasured in one or both runs."
+                        "Test status changed or is unmeasured."
+                        if not same_status
+                        else (
+                            "Metric units changed or are unavailable."
+                            if not same_unit
+                            else "Metric is unmeasured in one or both runs."
+                        )
                     )
                 )
             )
@@ -178,18 +201,36 @@ def compare_reports(after: dict[str, Any], before: object) -> dict[str, Any]:
                 "status": test.get("status"),
                 "comparable": compatible,
                 "reason": reason,
-                "comparison_scope": "native_opening_policy" if new_scope and old_scope else "report_coverage",
+                "comparison_scope": (
+                    "native_opening_policy"
+                    if new_scope and old_scope
+                    else "report_coverage"
+                ),
             }
         result["metric_deltas"][key] = deltas
     if not same_coverage:
-        result["comparable"] = any(metric["comparable"] for metrics in result["metric_deltas"].values() for metric in metrics.values())
+        result["comparable"] = any(
+            metric["comparable"]
+            for metrics in result["metric_deltas"].values()
+            for metric in metrics.values()
+        )
         result["reason"] = (
             "Only metrics with unchanged native opening policy dependencies are comparable; other modeled coverage changed. These are descriptive partial-policy comparisons, not real opening success."
-            if result["comparable"] else
-            "No comparable diagnostics baseline: metric dependency coverage changed or is unavailable."
+            if result["comparable"]
+            else "No comparable diagnostics baseline: metric dependency coverage changed or is unavailable."
         )
-    elif any(isinstance(test, dict) and "comparison_coverage" in test for tests in (old_tests, new_tests) for test in tests.values()):
-        result["comparable"] = any(metric["comparable"] for metrics in result["metric_deltas"].values() for metric in metrics.values())
+    elif any(
+        isinstance(test, dict) and "comparison_coverage" in test
+        for tests in (old_tests, new_tests)
+        for test in tests.values()
+    ):
+        result["comparable"] = any(
+            metric["comparable"]
+            for metrics in result["metric_deltas"].values()
+            for metric in metrics.values()
+        )
         if not result["comparable"]:
-            result["reason"] = "No comparable diagnostics baseline: no measured metric has compatible dependency evidence, status and units."
+            result["reason"] = (
+                "No comparable diagnostics baseline: no measured metric has compatible dependency evidence, status and units."
+            )
     return result
