@@ -185,3 +185,43 @@ def test_multiple_exact_printing_rows_allowed(evidence):
         )
     snapshot.write_text(json.dumps([card, dict(card, id="printing2")]))
     assert import_snapshot(db, snapshot)["cards"] == 2
+
+
+def test_canonical_text_difference_is_reported_not_rejected(evidence):
+    db, snapshot, card = evidence
+    card["oracle_text"] = "New authoritative snapshot text."
+    snapshot.write_text(json.dumps([card]))
+    import_snapshot(db, snapshot)
+    facts = card_facts(db, "printing")
+    assert facts["status"] == "canonical_snapshot"
+    assert facts["card"]["oracle_text"] == card["oracle_text"]
+    assert facts["provenance"]["catalog_differences"] == ["oracle_text"]
+    assert any(
+        "recommendations" in note and "stale" in note for note in facts["limitations"]
+    )
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT oracle_text FROM cards").fetchone()[0] == "old"
+        conn.execute("UPDATE cards SET name='Changed identity'")
+    assert card_facts(db, "printing")["status"] == "identity_mismatch"
+
+
+def test_normalized_representations_do_not_report_false_difference(evidence):
+    db, snapshot, card = evidence
+    with sqlite3.connect(db) as conn:
+        conn.execute("ALTER TABLE cards ADD COLUMN color_identity TEXT")
+        conn.execute("ALTER TABLE cards ADD COLUMN cmc TEXT")
+        conn.execute("ALTER TABLE cards ADD COLUMN mana_cost TEXT")
+        conn.execute("ALTER TABLE cards ADD COLUMN type_line TEXT")
+        conn.execute(
+            "UPDATE cards SET oracle_text='same  text',color_identity='[\"R\",\"U\"]',cmc='3',mana_cost='{1}{U}{R}',type_line='Legendary  Creature'"
+        )
+    card.update(
+        oracle_text="same\ntext",
+        color_identity=["U", "R"],
+        cmc=3.0,
+        mana_cost="{1}{U}{R}",
+        type_line="Legendary Creature",
+    )
+    snapshot.write_text(json.dumps([card]))
+    import_snapshot(db, snapshot)
+    assert card_facts(db, "printing")["provenance"]["catalog_differences"] == []

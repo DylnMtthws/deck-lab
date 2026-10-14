@@ -282,6 +282,30 @@ def card_facts(db_path: str | Path, card_id: str) -> dict[str, Any]:
                 "imported_at",
             )
         }
+        differences = [
+            field
+            for field in (
+                "oracle_text",
+                "type_line",
+                "mana_cost",
+                "cmc",
+                "color_identity",
+            )
+            if field in facts
+            and field in row.keys()  # noqa: SIM118
+            and _normalized_catalog_value(field, facts[field])
+            != _normalized_catalog_value(field, catalog[field])
+        ]
+        limitations = [
+            "Snapshot evidence may be stale; no live freshness verification.",
+            "Prices are printing-specific snapshot quotes, not purchase offers.",
+        ]
+        if differences:
+            limitations.append(
+                "Supplied canonical snapshot differs from local catalog; card facts use snapshot evidence, "
+                "while recommendations and candidate legality filters use the local catalog and may be stale."
+            )
+        provenance["catalog_differences"] = differences
         printing_id = facts["id"]
         facts["id"] = card_id
         provenance.update(
@@ -315,10 +339,7 @@ def card_facts(db_path: str | Path, card_id: str) -> dict[str, Any]:
                 ),
                 "rulings": rulings,
                 "rulings_total": rulings_total,
-                "limitations": [
-                    "Snapshot evidence may be stale; no live freshness verification.",
-                    "Prices are printing-specific snapshot quotes, not purchase offers.",
-                ],
+                "limitations": limitations,
                 "catalog_fields": ["image_uri", "is_legal_in_99", "roles"],
             }
         )
@@ -377,3 +398,22 @@ def _bounded_response(result: dict[str, Any]) -> dict[str, Any]:
             "notice"
         ] = "Evidence truncated for tool budget, including possible Oracle text; consult stored source for complete text."
     return output
+
+
+def _normalized_catalog_value(field: str, value: Any) -> Any:
+    if field == "color_identity":
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        if isinstance(value, list) and all(isinstance(color, str) for color in value):
+            return sorted(value)
+    if field == "cmc" and value is not None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return value
+    if isinstance(value, str):
+        return " ".join(value.split())
+    return value

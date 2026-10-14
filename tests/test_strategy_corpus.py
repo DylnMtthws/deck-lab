@@ -264,3 +264,43 @@ def test_renamed_title_matching_url_requires_explicit_lineage(tmp_path):
     result = retrieve_strategy_evidence(db, "draw")
     assert result["corpus_chunks"] == 1
     assert result["excerpts"][0]["citation"]["document"] == "Renamed title"
+
+
+def test_concurrent_requests_share_one_model_and_serialized_cached_inference(
+    tmp_path, monkeypatch
+):
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    created = []
+
+    class LocalService:
+        def __init__(self, *args):
+            created.append(self)
+            time.sleep(0.01)  # Release GIL during simulated model initialization.
+
+    monkeypatch.setenv("DECK_LAB_STRATEGY_ONNX_PATH", str(tmp_path))
+    monkeypatch.setattr(module, "_fast_service", None)
+    original = module.FastEmbedService
+    monkeypatch.setattr(module, "FastEmbedService", LocalService)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        providers = list(pool.map(lambda _: module.local_embedding_service(), range(4)))
+    assert len(created) == 1
+    assert all(provider is created[0] for provider in providers)
+    calls = []
+
+    class Model:
+        def embed(self, texts, **kwargs):
+            calls.append(texts)
+            time.sleep(0.01)
+            yield Vector([1.0, 0.0])
+
+    service = original.__new__(original)
+    service._model = Model()
+    service._cache = {}
+    service._inference_lock = threading.Lock()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        vectors = list(pool.map(lambda _: service.embed("same query"), range(4)))
+    assert len(calls) == 1
+    assert all(vector == [1.0, 0.0] for vector in vectors)

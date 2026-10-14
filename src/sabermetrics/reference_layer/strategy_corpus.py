@@ -11,8 +11,10 @@ import json
 import math
 import os
 import sqlite3
+import threading
 from collections import Counter
 from datetime import UTC, datetime
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -36,7 +38,7 @@ class FastEmbedService:
                 with file.open("rb") as handle:
                     for part in iter(lambda: handle.read(1024 * 1024), b""):
                         digest.update(part)
-        self._model_name = f"fastembed:{model_name}:{digest.hexdigest()}"
+        self._model_name = f"fastembed@{package_version('fastembed')}:{model_name}:{digest.hexdigest()}"
         self._model = TextEmbedding(
             model_name=model_name,
             specific_model_path=model_path,
@@ -44,17 +46,20 @@ class FastEmbedService:
             threads=1,
         )
         self._cache: dict[str, Any] = {}
+        self._inference_lock = threading.Lock()
 
     def embed(self, text: str) -> Any:
         key = content_hash(text)
-        if key not in self._cache:
-            if len(self._cache) >= 128:
-                self._cache.pop(next(iter(self._cache)))
-            self._cache[key] = next(iter(self._model.embed([text], batch_size=1)))
-        return self._cache[key]
+        with self._inference_lock:
+            if key not in self._cache:
+                if len(self._cache) >= 128:
+                    self._cache.pop(next(iter(self._cache)))
+                self._cache[key] = next(iter(self._model.embed([text], batch_size=1)))
+            return self._cache[key]
 
 
 _fast_service: FastEmbedService | None = None
+_fast_initialization_lock = threading.Lock()
 
 
 def local_embedding_service() -> Any:
@@ -65,9 +70,10 @@ def local_embedding_service() -> Any:
         model_name = os.environ.get(
             "DECK_LAB_STRATEGY_ONNX_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
         )
-        if _fast_service is None:
-            _fast_service = FastEmbedService(fast_path, model_name)
-        return _fast_service
+        with _fast_initialization_lock:
+            if _fast_service is None:
+                _fast_service = FastEmbedService(fast_path, model_name)
+            return _fast_service
     model_path = os.environ.get("DECK_LAB_STRATEGY_EMBEDDING_MODEL")
     if not model_path or not Path(model_path).is_dir():
         return None
