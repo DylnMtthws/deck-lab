@@ -116,6 +116,10 @@ def _features(card: dict[str, Any]) -> set[str]:
     result.discard("protection")
     if protection:
         result.add("protection")
+    if "treasure" in text and re.search(
+        r"whenever[^.\n]*(?:cast|copy|dies|sacrifice|discard)", text
+    ):
+        result.add("triggered_mana_engine")
     if "add " in text or "ramp" in result:
         result.add("mana_resource")
         if "land" not in types:
@@ -525,6 +529,10 @@ def recommend_replacements(
             )
             for old in pair_outgoing[:8]:
                 net_gains = gains - features[old["id"]]
+                # Changing one mana source into another does not fill a missing
+                # ramp slot merely because one has costs our baseline excludes.
+                if "mana_resource" in features[old["id"]]:
+                    net_gains.discard("ramp")
                 if (
                     not net_gains
                     or (requested and not net_gains & requested)
@@ -542,6 +550,7 @@ def recommend_replacements(
                         "mana_resource",
                         "nonland_mana_resource",
                         "free_cast_access",
+                        "triggered_mana_engine",
                         "card_selection",
                     }
                 )

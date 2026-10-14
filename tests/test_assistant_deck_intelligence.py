@@ -569,3 +569,23 @@ def test_conditional_treasure_discovery_tag_is_not_baseline_ramp(prepared):
     assert all(
         e["card_id"] != "conditional-treasure" for e in report["candidate_evidence"]
     )
+
+
+def test_triggered_mana_engine_is_preserved_and_source_swap_does_not_fill_gap(prepared):
+    from sabermetrics.assistant_deck_intelligence import _features
+
+    assert "triggered_mana_engine" in _features(
+        {
+            "type_line": "Creature",
+            "oracle_text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, create a Treasure token.",
+        }
+    )
+    path, document = prepared
+    library = next(e for e in document["entries"] if not e["is_commander"])
+    library.update(
+        type_line="Artifact",
+        oracle_text="{1}, {T}: Add {U}{R}.",
+        mana_cost="{2}",
+        cmc=2,
+    )
+    assert recommend_replacements(path, document, focus="ramp")["alternatives"] == []
