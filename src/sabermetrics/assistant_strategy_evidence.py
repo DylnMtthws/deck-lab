@@ -177,13 +177,6 @@ def _rank_rows(
         evidence = {
             "source_kind": source_kind,
             "citation": {
-                "title": (
-                    "Deck Lab · "
-                    + section.removeprefix("archetypes.").replace("_", " ").title()
-                    + " guidance"
-                    if source_kind == "authored_guidance"
-                    else document[:500]
-                ),
                 "chunk_id": chunk_id[:160],
                 "document": document[:500],
                 "section": section[:200] or None,
@@ -197,6 +190,12 @@ def _rank_rows(
             "lexical_score": round(matches / len(terms), 4),
             "tier": row["tier"],
         }
+        if source_kind == "authored_guidance":
+            evidence["citation"]["title"] = (
+                "Deck Lab · "
+                + section.removeprefix("archetypes.").replace("_", " ").title()[:100]
+                + " guidance"
+            )
         # Keep memory bounded while scanning all rows; no first-N corpus bias.
         key = (matches, len(commander_terms & words), chunk_id)
         heapq.heappush(candidates, (key, evidence))
