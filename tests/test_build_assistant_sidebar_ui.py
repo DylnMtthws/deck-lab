@@ -359,3 +359,16 @@ for (const profile of [
         [node, "-e", harness], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_collapsed_assistant_rail_can_be_reopened():
+    css = STYLE.read_text()
+    js = SCRIPT.read_text()
+    # The heading is an <h2>; hiding it keeps the expand toggle inside the 44px strip.
+    assert ".left-collapsed .dl-assistant-head > h2 { display:none; }" in css
+    assert ".left-collapsed .dl-assistant-head > div:first-child" not in css
+    # The header button is visible at every width and toggles the desktop rail.
+    assert ".dl-assistant-mobile-open { display:inline-flex;" in css
+    assert ".dl-assistant-mobile-open { display:none; }" not in css
+    assert "railToggle.click()" in js
+    assert 'mobile(!sidebar.classList.contains("is-open"))' in js

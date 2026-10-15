@@ -229,24 +229,39 @@
   sidebar.querySelectorAll("[data-assistant-open-tab]").forEach(function (button) {
     button.addEventListener("click", function () { showTab(button.dataset.assistantOpenTab, false); });
   });
+  // The header button toggles the drawer on mobile and the collapsible rail on desktop,
+  // so a collapsed sidebar can always be reopened from the header.
   var mobileOpen = document.querySelector("[data-assistant-open]");
   var close = sidebar.querySelector("[data-assistant-close]");
+  var railToggle = sidebar.querySelector('[data-toggle-rail="left"]');
+  var builder = document.querySelector(".dl-builder");
+  var drawerQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
+  function isDrawer() { return !!(drawerQuery && drawerQuery.matches); }
+  function syncOpenButton() {
+    if (!mobileOpen) return;
+    var open = isDrawer() ? sidebar.classList.contains("is-open") : !(builder && builder.classList.contains("left-collapsed"));
+    mobileOpen.setAttribute("aria-expanded", open ? "true" : "false");
+    mobileOpen.setAttribute("aria-label", (open ? "Close" : "Open") + " Research Assistant");
+  }
   function mobile(value) {
     sidebar.classList.toggle("is-open", value);
-    if (mobileOpen) mobileOpen.setAttribute("aria-expanded", value ? "true" : "false");
     document.body.classList.toggle("dl-assistant-drawer-open", value);
+    syncOpenButton();
     if (value && tabs[0]) tabs[0].focus();
     if (!value && mobileOpen) mobileOpen.focus();
   }
-  if (mobileOpen) mobileOpen.addEventListener("click", function () { mobile(true); });
-  if (close) close.addEventListener("click", function () {
-    if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) mobile(false);
+  if (mobileOpen) mobileOpen.addEventListener("click", function () {
+    if (isDrawer()) mobile(!sidebar.classList.contains("is-open"));
+    else if (railToggle) railToggle.click();
   });
+  if (close) close.addEventListener("click", function () { if (isDrawer()) mobile(false); });
+  if (builder && window.MutationObserver) new MutationObserver(syncOpenButton).observe(builder, { attributes: true, attributeFilter: ["class"] });
+  if (drawerQuery && drawerQuery.addEventListener) drawerQuery.addEventListener("change", syncOpenButton);
+  syncOpenButton();
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && sidebar.classList.contains("is-open")) mobile(false); });
 
   // Pointer and keyboard resizing share a persisted width; the grip remains reachable.
   var grip = sidebar.querySelector("[data-assistant-resize]");
-  var builder = document.querySelector(".dl-builder");
   var widthKey = "deck-lab-assistant-width:" + state.id;
   var width = 360;
   try { width = Math.max(280, Math.min(520, Number(localStorage.getItem(widthKey)) || width)); } catch (_) {}
