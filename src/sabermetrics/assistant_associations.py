@@ -165,6 +165,11 @@ def research_card_associations(
                 )
                 if oid == oracle_id or pair < MIN_SUPPORT:
                     continue
+                # Shrinkage preserves the sign of the raw association. Compare
+                # integer cross-products before floating division: an anchor in
+                # every list must not produce lift 1.0000000000000002 leads.
+                if pair * n <= anchor_n * count:
+                    continue
                 baseline = count / n
                 adjusted = (pair + PRIOR_LISTS * baseline) / (anchor_n + PRIOR_LISTS)
                 lift = adjusted / baseline

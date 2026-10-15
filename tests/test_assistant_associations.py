@@ -206,3 +206,20 @@ def test_missing_event_floor_is_explicit(corpus):
     assert any("none was applied" in note for note in result["limitations"])
     assert len(result["aggregate_sha256"]) == 64
     assert result["source_freshness"] == "unknown"
+
+
+def test_ubiquitous_anchor_never_creates_rounding_associations(corpus):
+    path, document = corpus
+    document["entries"].append({"oracle_id": "os", "is_commander": False})
+    with sqlite3.connect(path) as conn:
+        for i in range(20, 158):
+            conn.execute(
+                "INSERT INTO research_results VALUES(?,?,?,?)",
+                (str(i), str(i), "cmd", date.today().isoformat()),
+            )
+            conn.execute("INSERT INTO tournament_results VALUES(?,100)", (str(i),))
+            conn.execute("INSERT INTO deck_cards VALUES(?,'s',1,0)", (str(i),))
+    result = research_card_associations(path, document, "os")
+    assert result["cohort_lists"] == result["anchor_lists"] == 158
+    assert result["status"] == "no_supported_associations"
+    assert result["associations"] == []
