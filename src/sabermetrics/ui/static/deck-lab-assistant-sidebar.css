@@ -96,7 +96,9 @@
 .dl-assistant-resize { position:absolute; z-index:2; top:48px; right:-4px; width:8px; height:calc(100% - 48px); padding:0; border:0; background:transparent; cursor:col-resize; touch-action:none; }
 .dl-assistant-resize::before { position:absolute; top:0; bottom:0; left:3px; width:2px; background:var(--line-soft); content:""; }
 .dl-assistant-resize:hover,.dl-assistant-resize:focus-visible { background:color-mix(in srgb,var(--brand) 38%,transparent); }
-.dl-assistant-mobile-open { display:none; }
+/* Header toggle: collapses/expands the rail on desktop, opens the drawer on mobile. */
+.dl-assistant-mobile-open { display:inline-flex; flex:none; white-space:nowrap; }
+.dl-assistant-mobile-open[aria-expanded="true"] { border-color:var(--muted); color:var(--body); }
 .dl-assistant-drawer-open { overflow:hidden; }
 .dl-assistant-goldfish { gap:var(--s-2); }
 .dl-assistant-goldfish .dl-sim { min-width:0; }
@@ -107,7 +109,7 @@
 .dl-workspace-body .dl-builder.left-collapsed { grid-template-columns:44px minmax(0,1fr) 320px; }
 .dl-workspace-body .dl-builder.left-collapsed .dl-assistant-sidebar > :not(.dl-assistant-head) { display:none; }
 .dl-workspace-body .dl-builder.left-collapsed .dl-assistant-head { justify-content:center; padding:var(--s-1); }
-.dl-workspace-body .dl-builder.left-collapsed .dl-assistant-head > div:first-child { display:none; }
+.dl-workspace-body .dl-builder.left-collapsed .dl-assistant-head > h2 { display:none; }
 .dl-workspace-body .dl-builder.left-collapsed .dl-assistant-head [data-toggle-rail="left"] { transform:rotate(180deg); }
 .dl-workspace-body .dl-builder.right-collapsed { grid-template-columns:minmax(280px,var(--assistant-sidebar-width)) minmax(0,1fr) 44px; }
 .dl-workspace-body .dl-builder.left-collapsed.right-collapsed { grid-template-columns:44px minmax(0,1fr) 44px; }
@@ -119,7 +121,6 @@
   .dl-workspace-body .dl-builder.right-collapsed { grid-template-columns:minmax(280px,var(--assistant-sidebar-width)) minmax(0,1fr) 44px; }
 }
 @media (max-width: 767px) {
-  .dl-assistant-mobile-open { display:inline-flex; flex:none; white-space:nowrap; }
   .dl-workspace-body .dl-builder,
   .dl-workspace-body .dl-builder.left-collapsed,
   .dl-workspace-body .dl-builder.right-collapsed,
