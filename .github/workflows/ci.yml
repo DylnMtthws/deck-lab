@@ -61,6 +61,18 @@ jobs:
           ANTHROPIC_API_KEY: dummy-key-not-used-by-tests
         run: pytest -q
 
+      - name: Measure deterministic assistant regressions (not broad expertise)
+        run: python scripts/evaluate_assistant_intelligence.py --report evaluation/assistant-regression.json
+
+      - name: Retain assistant regression measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: assistant-regression-${{ github.sha }}-${{ github.run_attempt }}
+          path: evaluation/assistant-regression.json
+          if-no-files-found: warn
+          retention-days: 14
+
   container:
     runs-on: ubuntu-latest
     needs: [test, review]
