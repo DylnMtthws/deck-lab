@@ -60,6 +60,35 @@ def tools_for(prepared, mode="suggest"):
     )
 
 
+def test_associations_use_owner_scoped_current_document_and_preserve_revision(prepared):
+    tools = tools_for(prepared)
+    document = tools.check()
+    anchor = next(
+        e["oracle_id"]
+        for e in document["entries"]
+        if not e.get("is_commander") and e.get("oracle_id")
+    )
+    result = tools.execute(
+        {"name": "research_card_associations", "arguments": {"oracle_id": anchor}}
+    )
+    assert result["revision"] == document["revision"]
+    assert result["original_changed"] is False
+    assert result["associations"] == []
+    assert tools.check() == document
+
+
+def test_association_card_previews_only_register_returned_ids():
+    from sabermetrics.assistant_runtime import _collect_resolved_card_ids
+
+    known = set()
+    _collect_resolved_card_ids(
+        "research_card_associations",
+        {"associations": [{"card_id": "catalog-result"}]},
+        known,
+    )
+    assert known == {"catalog-result"}
+
+
 def test_strategy_evidence_reaches_final_presentation_with_sources(prepared):
     service, path, owner, deck_id, _, _ = prepared
     with db.connect(path) as conn:

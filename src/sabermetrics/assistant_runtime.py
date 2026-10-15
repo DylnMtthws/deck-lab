@@ -61,6 +61,13 @@ card_details for printed facts; research_evidence for tournament-list use;
 latest_goldfish or run_goldfish for measured native observations;
 goldfish_card_coverage for bounded per-card supported effects and limitations;
 generator_intelligence for stored candidate explanations and heuristic roles.
+Use research_card_associations for cards co-included
+with one actual library card in recorded lists for this exact commander cohort.
+Report pair/anchor and baseline/cohort counts with the returned window and event
+floor. Adjusted lift corrects for baseline popularity and shrinks small samples;
+it is not synergy, confidence, a causal benefit or a win prediction. Treat these
+as discovery leads: check Oracle interactions, current legality and constraints
+before proposing a swap. Thin samples and unavailable data require abstention.
 Use research_known_combinations for sourced Commander Spellbook ingredient
 matches and near-matches. These are external claims: all named cards present
 does not satisfy zones, mana, templates, timing or other prerequisites. Claimed
@@ -884,9 +891,9 @@ def run_turn(
                         "test_recommended_alternatives",
                     }:
                         state["workflow"]["experiment_status"] = data.get("status")
-                        state["workflow"][
-                            "next_step"
-                        ] = "Report the actual experiment receipt; do not start another experiment."
+                        state["workflow"]["next_step"] = (
+                            "Report the actual experiment receipt; do not start another experiment."
+                        )
                     if call.name == "research_known_combinations":
                         combo_sources = {
                             "status": data.get("status"),
@@ -1066,6 +1073,10 @@ def _collect_resolved_card_ids(
         card = data.get("card") or {}
         if card.get("id"):
             known.add(str(card["id"]))
+    if name == "research_card_associations":
+        for association in data.get("associations", []):
+            if isinstance(association, dict) and association.get("card_id"):
+                known.add(str(association["card_id"]))
     if name in {"search_cards", "generator_intelligence"}:
         for card in data.get(
             "cards" if name == "search_cards" else "candidate_pool", []

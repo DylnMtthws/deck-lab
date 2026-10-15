@@ -325,11 +325,11 @@ def _explanations(
     return out
 
 
-def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -> str:
+def _cohort_cte(*, partner: bool, event_column: str | None) -> str:
     event_join = _EVENT_JOIN if event_column else ""
     event_sql = _EVENT_PREDICATE[event_column] if event_column else ""
     commander_sql = _PARTNER_COMMANDER if partner else _SINGLE_COMMANDER
-    cohort = f"""
+    return f"""
         WITH cohort AS (
             SELECT DISTINCT tr.deck_id AS deck_id
             FROM research_results tr
@@ -343,13 +343,23 @@ def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -
                 SELECT 1 FROM deck_cards present WHERE present.deck_id = tr.deck_id
               )
         )
+    """
+
+
+def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -> str:
+    cohort = (
+        _cohort_cte(partner=partner, event_column=event_column)
+        + """
         SELECT 'denominator' AS kind, NULL AS oracle_id, COUNT(*) AS lists
         FROM cohort
     """
+    )
     if oracle_count <= 0:
         return cohort
     marks = ",".join("?" for _ in range(oracle_count))
-    return cohort + f"""
+    return (
+        cohort
+        + f"""
         UNION ALL
         SELECT 'card' AS kind, c.oracle_id AS oracle_id,
                COUNT(DISTINCT cohort.deck_id) AS lists
@@ -359,6 +369,7 @@ def _cohort_sql(*, partner: bool, event_column: str | None, oracle_count: int) -
         WHERE c.oracle_id IN ({marks})
         GROUP BY c.oracle_id
     """
+    )
 
 
 class DeckEvidenceService:

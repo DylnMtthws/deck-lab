@@ -67,6 +67,16 @@ class StrategyArgs(StrictModel):
     limit: int = Field(default=4, ge=1, le=4)
 
 
+class AssociationArgs(StrictModel):
+    oracle_id: str = Field(
+        min_length=1,
+        max_length=128,
+        description="Oracle ID of a noncommander card in the current library; obtain from inspect_deck or card_details.",
+    )
+    window_days: Literal[0, 7, 30, 90, 365] = 90
+    limit: int = Field(default=6, ge=1, le=8)
+
+
 class RecommendArgs(StrictModel):
     focus: str = Field(default="", max_length=300)
 
@@ -200,6 +210,11 @@ class StrategyCall(StrictModel):
     arguments: StrategyArgs
 
 
+class AssociationCall(StrictModel):
+    name: Literal["research_card_associations"]
+    arguments: AssociationArgs
+
+
 class RequirementsCall(StrictModel):
     name: Literal["assess_deck_requirements"]
     arguments: EmptyArgs
@@ -260,6 +275,7 @@ ToolCall = Annotated[
     | RunCall
     | IntelligenceCall
     | StrategyCall
+    | AssociationCall
     | RequirementsCall
     | MemoryCall
     | CombinationsCall
@@ -417,6 +433,20 @@ class AssistantTools:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
         args = call.arguments
+        if call.name == "research_card_associations":
+            from sabermetrics.assistant_associations import research_card_associations
+
+            return {
+                **research_card_associations(
+                    self.path,
+                    document,
+                    args.oracle_id,
+                    window_days=args.window_days,
+                    limit=args.limit,
+                ),
+                "revision": self.revision,
+                "original_changed": False,
+            }
         if call.name == "research_known_combinations":
             from sabermetrics.combo_catalog import known_combinations
 
