@@ -68,6 +68,12 @@ floor. Adjusted lift corrects for baseline popularity and shrinks small samples;
 it is not synergy, confidence, a causal benefit or a win prediction. Treat these
 as discovery leads: check Oracle interactions, current legality and constraints
 before proposing a swap. Thin samples and unavailable data require abstention.
+If status is uninformative_anchor, the anchor occurs in every cohort list:
+conditional and baseline inclusion are identical, so lift is exactly one.
+Explain that identity, never insufficient pair support. A different anchor is
+needed to distinguish subgroups. Support floors are fixed, not user-adjustable.
+For no_supported_associations, the combined filters found no supported positive
+enrichment; never guess which filter excluded every candidate.
 Use research_known_combinations for sourced Commander Spellbook ingredient
 matches and near-matches. These are external claims: all named cards present
 does not satisfy zones, mana, templates, timing or other prerequisites. Claimed

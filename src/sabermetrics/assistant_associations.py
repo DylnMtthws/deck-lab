@@ -156,6 +156,18 @@ def research_card_associations(
             if anchor_n < MIN_SUPPORT:
                 result["status"] = "insufficient_anchor_sample"
                 return result
+            if anchor_n == n:
+                result["status"] = "uninformative_anchor"
+                result["interpretation"] = (
+                    "The anchor occurs in every cohort list. For every candidate, "
+                    "pair count equals baseline count and conditional inclusion "
+                    "equals baseline inclusion; lift is exactly one. This is not "
+                    "insufficient pair support. The anchor cannot distinguish "
+                    "subgroups in this cohort. A different non-ubiquitous anchor "
+                    "is needed to study enrichment here; lowering support floors "
+                    "cannot change this identity. Support floors are fixed."
+                )
+                return result
             ranked = []
             for row in rows:
                 oid, count, pair = (
@@ -202,6 +214,14 @@ def research_card_associations(
                 item.update(card_id=card["id"], name=card["name"])
             result["associations"] = ranked[:limit]
             result["status"] = "available" if ranked else "no_supported_associations"
+            if not ranked:
+                result["interpretation"] = (
+                    "No candidate met BOTH the fixed joint-support floor and "
+                    "strictly positive association above baseline. This does not "
+                    "establish that every pair had insufficient support, that "
+                    "the cards lack mechanical synergy, or that more data will "
+                    "produce a positive association."
+                )
     except sqlite3.Error as exc:
         result["status"] = (
             "query_budget_exceeded" if "interrupted" in str(exc) else "unavailable"

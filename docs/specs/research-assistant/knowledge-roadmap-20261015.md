@@ -55,6 +55,9 @@ not evidence of reliability. Return only positive adjusted associations. Rank by
 adjusted lift, joint count, then Oracle ID. An ubiquitous staple has lift one;
 a rare two-list coincidence fails the support floor. Include counts, both
 conditional/baseline denominators, window endpoints, applied floor and omissions.
+An anchor in every list returns `uninformative_anchor`: all conditional rates
+equal their baselines. This is distinct from insufficient pair support. Exact
+integer cross-products reject neutral associations before floating arithmetic.
 
 At most 2,000 cohort lists and eight returned associations. Oversized cohorts
 abstain rather than silently sampling; ask for a narrower window. A SQLite

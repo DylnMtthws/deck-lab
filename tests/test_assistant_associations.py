@@ -221,5 +221,8 @@ def test_ubiquitous_anchor_never_creates_rounding_associations(corpus):
             conn.execute("INSERT INTO deck_cards VALUES(?,'s',1,0)", (str(i),))
     result = research_card_associations(path, document, "os")
     assert result["cohort_lists"] == result["anchor_lists"] == 158
-    assert result["status"] == "no_supported_associations"
+    assert result["status"] == "uninformative_anchor"
+    assert "not insufficient pair support" in result["interpretation"].replace(
+        "\n", " "
+    )
     assert result["associations"] == []
