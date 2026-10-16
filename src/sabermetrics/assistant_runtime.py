@@ -154,6 +154,10 @@ Unknown or excluded branches cannot be assigned a guessed net advantage.
 Reactive cantrips needing a legal target spell are not unconditional card flow
 for an unopposed opening; do not sell them as consistency upgrades on that basis.
 Use printed_cast_trigger_damage for the commander's printed base damage.
+Explain every supplied commander_resource_tradeoff in an endorsed cut/add. A
+lost pump can remove conditional mana opportunity even when cast triggers stay
+the same. Preserve the activation, targeting and timing assumptions; never call
+conditional opportunity available mana or net mana profit.
 Power growth can affect a separate power-based mana ability without increasing
 a fixed-damage trigger. Separate printed damage, number of triggers, and damage
 modifiers; do not infer a power-scaling damage trigger from a power boost.
@@ -507,6 +511,9 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
                 "incoming": card_summary(item),
                 "outgoing": card_summary(item.get("outgoing_card") or {}),
                 "conditions": item.get("conditions", [])[:8],
+                "commander_resource_tradeoffs": item.get(
+                    "commander_resource_tradeoffs", []
+                )[:2],
                 "incoming_card_economy": (item.get("incoming_oracle_facts") or {}).get(
                     "card_economy"
                 ),

@@ -14,6 +14,13 @@ and private credentials are maintained in the separate infrastructure workspace.
 The original generator uses its own service/database at `generate.decklab.studio`.
 It must never mount Deck Lab's writable data or reuse its session signing key.
 
+QA code-only updates may use `Dockerfile.qa-layer` on an immutable previously
+verified QA image. The QA executor checks identical dependency declarations and
+runtime Dockerfile, verifies the base image/archive identity, replaces the complete
+application package, and repeats native smoke checks. It preserves the exact
+encoder and provider SDK versions for before/after comparisons. Dependency changes
+require the full build. This recipe does not authorize production promotion.
+
 The sections below are historical Fly deployment documentation. Do not use them
 to deploy or restore today's production service.
 

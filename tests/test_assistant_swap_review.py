@@ -86,6 +86,53 @@ def run(gateway, case):
     return review_candidates(gateway, document, {}, "mana", alternatives, evidence)
 
 
+@pytest.mark.parametrize("acknowledged", [False, True])
+def test_review_cannot_hide_known_conditional_commander_mana_loss(case, acknowledged):
+    import json
+
+    document, _, evidence, decision = case
+    document["entries"][1].update(
+        name="Vivi Ornitier",
+        oracle_text="{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.",
+    )
+    evidence[0]["outgoing_oracle_facts"].update(
+        name="Blazing Crescendo",
+        oracle_text="Target creature gets +3/+1 until end of turn.",
+    )
+    evidence[0]["incoming_oracle_facts"].update(
+        oracle_text="You and permanents you control gain hexproof until end of turn."
+    )
+    decision["citations"] = [
+        {"side": "outgoing", "quote": "Target creature gets +3/+1 until end of turn."},
+        {
+            "side": "incoming",
+            "quote": "You and permanents you control gain hexproof until end of turn.",
+        },
+    ]
+    decision["resource_tradeoffs_acknowledged"] = acknowledged
+    decision["tradeoffs"] = [
+        "Loses +3 temporary power and its conditional 3-mana opportunity from Vivi"
+    ]
+    gateway = Gateway([decision])
+    result = run(gateway, case)
+    assert bool(result["alternatives"]) is acknowledged
+    fact = json.loads(gateway.requests[0].user)["candidates"][0]["context"][
+        "commander_resource_tradeoffs"
+    ][0]
+    assert fact["conditional_mana_opportunity_lost"] == 3
+    if acknowledged:
+        from sabermetrics.assistant_runtime import _retain_swap_context
+
+        state = {}
+        _retain_swap_context(state, result)
+        assert (
+            state["swap_review"]["candidates"][0]["commander_resource_tradeoffs"][0][
+                "conditional_mana_opportunity_lost"
+            ]
+            == 3
+        )
+
+
 def test_acceptance_is_bounded_and_has_verified_receipt(case):
     gateway = Gateway([case[3]])
     result = run(gateway, case)

@@ -32,6 +32,13 @@ judge the whole package, distinguish ingredient support from execution, and neve
 treat semantic similarity or association as mechanical proof. Existing provider,
 cost, output-token, and 24 KiB evidence bounds remain authoritative.
 
+Review v4 distinguishes support-density tradeoffs from loss of all detected
+support. A negative recognized power-to-mana opportunity requires
+`resource_tradeoffs_acknowledged=true` and a mana tradeoff in the response. State,
+timing, target legality, mana already spent, and activation availability remain
+unverified. The conversational answer retains these resource facts when the
+broad discovery receipt is compacted.
+
 ```yaml
 prompts:
   - id: PROMPT-001

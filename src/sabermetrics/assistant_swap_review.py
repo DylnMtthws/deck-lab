@@ -25,6 +25,7 @@ class SwapDecision(BaseModel):
     decision: Literal["accept", "reject", "uncertain"]
     theme_fit: Literal["fit", "conflict", "unknown"] = "unknown"
     power_fit: Literal["fit", "conflict", "unknown"] = "unknown"
+    resource_tradeoffs_acknowledged: bool = False
     reason: str = Field(min_length=1, max_length=1200)
     benefit: str = Field(min_length=1, max_length=1000)
     tradeoffs: list[str] = Field(min_length=1, max_length=6)
@@ -74,6 +75,13 @@ The shared strategy context and recall signals are incomplete evidence. Associat
 and embedding similarity do not prove synergy. Draw-route conditions do not prove
 battlefield availability. Acceptance means suitable for an isolated experiment,
 never a verified improvement.
+Support-density reductions are tradeoffs, not proof an engine is broken; code
+separately vetoes loss of the last detected ingredient or target. Explicitly
+evaluate supplied commander_resource_tradeoffs. A pump can increase a commander's
+power-based mana even when both spells trigger the same cast ability. If a known
+opportunity is lost, acknowledge that conditional mana loss in tradeoffs and set
+resource_tradeoffs_acknowledged=true. Never treat it as available mana, net mana
+profit, a proven activation, or complete equivalence of unparsed power effects.
 """
 
 
@@ -170,6 +178,11 @@ def review_candidates(
             verified_pairs[0]["incoming"],
             verified_pairs[0]["outgoing"],
         )
+        from sabermetrics.assistant_strategy import commander_resource_tradeoffs
+
+        resource_tradeoffs = commander_resource_tradeoffs(
+            document, [(pair["outgoing"], pair["incoming"]) for pair in verified_pairs]
+        )
         if len(verified_pairs) > 1 and (
             not isinstance(evidence.get("strategy_transition"), dict)
             or evidence["strategy_transition"].get("allowed") is not True
@@ -187,24 +200,27 @@ def review_candidates(
                 **({"replacements": verified_pairs} if len(verified_pairs) > 1 else {}),
                 "rationale_note": "Proposer rationale omitted to reduce anchoring; judge card facts and deck context.",
                 "context": {
-                    key: evidence.get(key)
-                    for key in (
-                        "recommendation_type",
-                        "functional_improvement",
-                        "strategic_tradeoff",
-                        "outgoing_card",
-                        "requirements",
-                        "conditions",
-                        "commander_cast_interactions",
-                        "relationships",
-                        "combination_lines_lost",
-                        "sourced_combination_lines_lost",
-                        "strategy_transition",
-                        "commander_support_gained",
-                        "joint_requirement_changes",
-                        "draw_routes",
-                        "recall",
-                    )
+                    "commander_resource_tradeoffs": resource_tradeoffs,
+                    **{
+                        key: evidence.get(key)
+                        for key in (
+                            "recommendation_type",
+                            "functional_improvement",
+                            "strategic_tradeoff",
+                            "outgoing_card",
+                            "requirements",
+                            "conditions",
+                            "commander_cast_interactions",
+                            "relationships",
+                            "combination_lines_lost",
+                            "sourced_combination_lines_lost",
+                            "strategy_transition",
+                            "commander_support_gained",
+                            "joint_requirement_changes",
+                            "draw_routes",
+                            "recall",
+                        )
+                    },
                 },
             }
         )
@@ -342,7 +358,7 @@ def review_candidates(
     )
     evidence_hash = hashlib.sha256(encoded.encode()).hexdigest()
     request = StructuredRequest(
-        prompt_version="assistant-swap-review.v3",
+        prompt_version="assistant-swap-review.v4",
         system=SYSTEM,
         user=encoded,
         schema=SwapReviewResponse,
@@ -401,6 +417,9 @@ def review_candidates(
         )
         valid_citations = valid_citations and ability_quotes
         receipt = decision.model_dump() | {
+            "commander_resource_tradeoffs": pair["context"][
+                "commander_resource_tradeoffs"
+            ],
             "evidence_hash": evidence_hash,
             "incoming_name": pair["incoming"]["name"],
             "outgoing_name": pair["outgoing"]["name"],
@@ -434,6 +453,20 @@ def review_candidates(
             receipt["validation_reason"] = (
                 "Supplied theme or power preference lacks an explicit fit judgment"
             )
+        if (
+            receipt["decision"] == "accept"
+            and receipt["commander_resource_tradeoffs"]
+            and (
+                not decision.resource_tradeoffs_acknowledged
+                or not any(
+                    "mana" in tradeoff.lower() for tradeoff in decision.tradeoffs
+                )
+            )
+        ):
+            receipt["decision"] = "uncertain"
+            receipt["validation_reason"] = (
+                "Known conditional commander mana opportunity was not explicitly acknowledged."
+            )
         receipts.append(receipt)
         if receipt["decision"] == "accept":
             index = decision.candidate_index
@@ -443,6 +476,9 @@ def review_candidates(
                 | {
                     "strategic_review": receipt,
                     "semantic_verification": "reviewed_fit_only",
+                    "commander_resource_tradeoffs": receipt[
+                        "commander_resource_tradeoffs"
+                    ],
                 }
             )
     return {

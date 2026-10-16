@@ -36,10 +36,17 @@ evidence remain visible. No provider calls or model downloads occur here.
 
 `assistant_strategy.assess_strategy_transition(before, after)` compares detected
 commander support over the complete proposed change, including jointly removed
-cards. A passing receipt establishes only preservation of modeled support.
+cards. A passing receipt rules out modeled critical losses; density changes
+remain tradeoffs for strategic review.
 Recommendations may contain one to three replacements, validated jointly by
 `ExperimentService` and reviewed together. Review citations identify both the
 replacement index and side; every changed card requires an exact source citation.
+
+Support-count reductions are disclosed tradeoffs, not proof an engine is broken.
+Loss of the last detected support/target and named-card dependencies remain
+vetoes. Exact Vivi-style power-based mana lines expose recognized temporary pump
+routes as conditional opportunities, never available mana or net mana profit.
+Strategic review explicitly acknowledges a lost recognized mana opportunity.
 
 <context name="internal_contracts">
 

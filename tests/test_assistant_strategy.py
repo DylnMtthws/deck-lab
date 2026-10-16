@@ -122,8 +122,11 @@ def test_joint_cuts_preserve_total_support_rather_than_individual_pair_tags():
     assert assess_strategy_transition(context(before), context(after))["allowed"]
     after["entries"][2]["quantity"] = 1
     transition = assess_strategy_transition(context(before), context(after))
-    assert not transition["allowed"]
+    assert transition["allowed"]
+    assert transition["review_required"]
     assert transition["losses"][0]["before"] == 2
+    after["entries"][2]["type_line"] = "Artifact"
+    assert not assess_strategy_transition(context(before), context(after))["allowed"]
 
 
 def test_joint_cut_cannot_remove_both_tutor_targets_or_named_support():
@@ -202,6 +205,55 @@ def test_unknown_strategy_is_visible_and_does_not_invent_win_conditions():
     assert report.contracts == []
     assert "No supported contract was detected." in report.limitations
     assert "win_conditions" not in report.model_dump()
+
+
+def test_land_addition_discloses_cast_density_without_calling_engine_broken():
+    commander = card(
+        "Leader",
+        "Creature",
+        "Whenever you cast a noncreature spell, draw a card.",
+        is_commander=True,
+    )
+    spells = [card(str(i), "Instant", "Draw a card.") for i in range(3)]
+    before = context({"entries": [commander, *spells]})
+    after = context({"entries": [commander, *spells[:2], card("Land", "Land")]})
+    transition = assess_strategy_transition(before, after)
+    assert transition["allowed"] and transition["review_required"]
+    assert transition["losses"][0]["before"] == 3
+    assert transition["losses"][0]["after"] == 2
+
+
+def test_power_mana_opportunity_has_exact_sources_and_explicit_state_conditions():
+    from sabermetrics.assistant_strategy import commander_resource_tradeoffs
+
+    line = "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn."
+    document = {
+        "entries": [card("Vivi Ornitier", "Creature — Wizard", line, is_commander=True)]
+    }
+    old = card(
+        "Blazing Crescendo",
+        "Instant",
+        "Target creature gets +3/+1 until end of turn.\nExile the top card of your library.",
+    )
+    new = card(
+        "Protection",
+        "Instant",
+        "You and permanents you control gain hexproof until end of turn.",
+    )
+    resource = commander_resource_tradeoffs(document, [(old, new)])[0]
+    assert resource["conditional_mana_opportunity_lost"] == 3
+    assert resource["commander_source_quote"] == line
+    assert resource["card_source_quotes"][0]["quote"] in old["oracle_text"]
+    assert any("unused activation" in c for c in resource["conditions"])
+    new["oracle_text"] = (
+        "Target creature has base power and toughness 4/3 until end of turn."
+    )
+    assert not commander_resource_tradeoffs(document, [(old, new)])
+    new["oracle_text"] = "Draw a card."
+    document["entries"][0][
+        "oracle_text"
+    ] += " Spend this mana only to cast creature spells."
+    assert not commander_resource_tradeoffs(document, [(old, new)])
 
 
 def test_nonland_mana_contract_preserves_commander_resource_support():

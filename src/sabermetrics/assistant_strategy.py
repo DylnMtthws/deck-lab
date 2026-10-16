@@ -474,8 +474,16 @@ def assess_strategy_transition(
         if d.key.split(":", 1)[0] in remaining_providers
         and dependency_counts.get(d.key, 0) < d.support_count
     ]
+    critical_losses = [row for row in losses if row["after"] == 0]
+    critical_dependencies = [
+        row
+        for row in dependency_losses
+        if row["after"] == 0 or ":named:" in str(row["dependency"])
+    ]
     return {
-        "allowed": not losses and not dependency_losses,
+        "allowed": not critical_losses and not critical_dependencies,
+        "review_required": bool(losses or dependency_losses),
+        "critical_losses": critical_losses + critical_dependencies,
         "before_fingerprint": before.fingerprint,
         "after_fingerprint": after.fingerprint,
         "losses": losses,
@@ -491,6 +499,87 @@ def assess_strategy_transition(
         ],
         "scope": "Detected static commander, named-card and fixed mana-value access support only; full effect equivalence, unparsed access routes, gameplay and quality remain unverified.",
     }
+
+
+def commander_resource_tradeoffs(
+    document: dict[str, Any], pairs: list[tuple[dict[str, Any], dict[str, Any]]]
+) -> list[dict[str, Any]]:
+    """Expose lost flat-pump opportunities for an exact power-based mana line.
+
+    This mirrors the generator's exact-line commander mana contract. It does not
+    assume the commander is present, targeted, unmodified, or able to activate.
+    Unknown/variable power effects are not treated as known zero contributions.
+    """
+    results = []
+    pump = re.compile(
+        r"\ATarget creature(?: you control)? gets \+([1-9][0-9]?)/[+-][0-9]+ until end of turn\."
+    )
+
+    def bonus(card: dict[str, Any]) -> tuple[int, str] | None:
+        text = str(card.get("oracle_text") or "")
+        if "//" in str(card.get("type_line") or "") or card.get("card_faces"):
+            return None
+        match = pump.match(text)
+        if match:
+            return int(match[1]), match[0]
+        # Unparsed power effects cannot establish that the old opportunity was
+        # removed, or that the new card supplies an equivalent opportunity.
+        if re.search(
+            r"\bpower\b|target creature[^.\n]*(?:gets|counters?)|base power",
+            text,
+            re.IGNORECASE,
+        ):
+            return None
+        return 0, ""
+
+    for commander in document.get("entries", []):
+        if (
+            not commander.get("is_commander")
+            or "creature" not in str(commander.get("type_line") or "").lower()
+            or "//" in str(commander.get("type_line") or "")
+            or commander.get("card_faces")
+        ):
+            continue
+        name = str(commander.get("name") or "")
+        line = (
+            "{0}: Add X mana in any combination of {U} and/or {R}, where X is "
+            + name
+            + "'s power. Activate only during your turn and only once each turn."
+        )
+        if not name or line not in str(commander.get("oracle_text") or "").splitlines():
+            continue
+        outgoing, incoming, quotes = 0, 0, []
+        complete = True
+        for old, new in pairs:
+            a, b = bonus(old), bonus(new)
+            if a is None or b is None:
+                complete = False
+                continue
+            outgoing += a[0]
+            incoming += b[0]
+            if a[1]:
+                quotes.append({"card": str(old.get("name") or ""), "quote": a[1]})
+            if b[1]:
+                quotes.append({"card": str(new.get("name") or ""), "quote": b[1]})
+        if outgoing > incoming:
+            results.append(
+                {
+                    "commander": name,
+                    "commander_source_quote": line,
+                    "outgoing_recognized_power_bonus": outgoing,
+                    "incoming_recognized_power_bonus": incoming,
+                    "conditional_mana_opportunity_lost": outgoing - incoming,
+                    "card_source_quotes": quotes,
+                    "all_changed_power_effects_parsed": complete,
+                    "conditions": [
+                        "Commander on the battlefield and a legal target",
+                        "Pump resolves before an unused activation during your turn",
+                        "No unmodeled replacement effects or other power changes",
+                    ],
+                    "scope": "Recognized temporary flat-power route only; not current power, available mana, net mana profit, or complete resource equivalence. Unknown effects can offset this opportunity.",
+                }
+            )
+    return results
 
 
 def commander_support(
