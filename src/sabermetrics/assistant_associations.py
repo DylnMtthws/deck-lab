@@ -118,8 +118,7 @@ def research_card_associations(
                 return result
             # No all-pairs matrix: one anchor and at most 2,000 distinct lists.
             rows = conn.execute(
-                cte
-                + """,
+                cte + """,
                 membership AS (
                     SELECT DISTINCT cohort.deck_id, c.oracle_id
                     FROM cohort JOIN deck_cards dc ON dc.deck_id=cohort.deck_id

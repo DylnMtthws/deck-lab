@@ -57,6 +57,11 @@ class FastEmbedService:
                 self._cache[key] = next(iter(self._model.embed([text], batch_size=1)))
             return self._cache[key]
 
+    def embed_many(self, texts: list[str]) -> list[Any]:
+        """Prepare offline card artifacts in bounded batches without query-cache churn."""
+        with self._inference_lock:
+            return list(self._model.embed(texts, batch_size=16))
+
 
 _fast_service: FastEmbedService | None = None
 _fast_initialization_lock = threading.Lock()

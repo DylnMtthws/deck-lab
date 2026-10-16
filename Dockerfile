@@ -34,6 +34,7 @@ COPY --chown=1001:1001 fixtures ./fixtures
 COPY scripts/setup_db.py ./scripts/setup_db.py
 COPY scripts/ingest_strategy_corpus.py ./scripts/ingest_strategy_corpus.py
 COPY scripts/seed_strategy_corpus.py ./scripts/seed_strategy_corpus.py
+COPY scripts/prepare_assistant_card_vectors.py ./scripts/prepare_assistant_card_vectors.py
 COPY scripts/import_combo_catalog.py ./scripts/import_combo_catalog.py
 
 RUN mkdir -p /data && chown 1001:1001 /data

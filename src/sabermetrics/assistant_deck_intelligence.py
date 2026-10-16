@@ -12,8 +12,14 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from sabermetrics import db
 from sabermetrics.assistant_experiments import ExperimentService
+from sabermetrics.assistant_strategy import (
+    StrategyContext,
+    assess_strategy_transition,
+    build_strategy_context,
+    commander_support,
+    draw_routes,
+)
 from sabermetrics.card_capabilities import (
     casting_cost_basis,
     engine_features,
@@ -266,7 +272,7 @@ def assess_deck_requirements(
         for role, target in targets.items()
     ]
     combinations = analyze_combinations(document)
-    return {
+    report: dict[str, Any] = {
         "combination_analysis": summarize_combinations(combinations),
         "version": "assistant-requirements.v1",
         "archetype": archetype,
@@ -290,6 +296,10 @@ def assess_deck_requirements(
             "Generic targets are not tuned for every power level or commander.",
         ],
     }
+    report["strategy_context"] = build_strategy_context(
+        document, constraints, report
+    ).model_dump()
+    return report
 
 
 def _identity(raw: Any) -> set[str]:
@@ -350,8 +360,10 @@ def recommend_replacements(
     constraints: dict[str, Any] | None = None,
     focus: str = "",
     candidate_limit: int = 3,
+    *,
+    include_packages: bool = False,
 ) -> dict[str, Any]:
-    """Return a bounded pool of distinct one-swap proposals; never mutate or queue.
+    """Return bounded isolated proposals; optionally include coordinated packages.
 
     Final experiment validation remains authoritative. Search is bounded and
     deterministic; insufficient valid candidates are reported, never padded.
@@ -395,11 +407,6 @@ def recommend_replacements(
         term in focus for term in ("card advantage", "card selection", "consistency")
     ):
         requested.update({"draw", "card_selection"})
-    colors: set[str] = set()
-    for entry in document.get("entries", []):
-        if entry.get("is_commander"):
-            colors.update(_identity(entry.get("color_identity")))
-    present = {e.get("oracle_id") for e in document.get("entries", [])}
     entries = _library_entries(document)
     features = {e["id"]: _features(e) for e in entries}
     cast_interactions = {
@@ -410,12 +417,7 @@ def recommend_replacements(
     outgoing = [
         e
         for e in entries
-        if features[e["id"]]
-        & (
-            set(targets)
-            | {"mana_resource", "broad_damage_payoff", "recursion", "card_selection"}
-        )
-        and "//" not in str(e.get("type_line") or "")
+        if "//" not in str(e.get("type_line") or "")
         and (
             str(e.get("oracle_text") or "").strip()
             or "basic land" in str(e.get("type_line") or "").lower()
@@ -448,46 +450,21 @@ def recommend_replacements(
             e["id"],
         )
     )
-    # Fetch per functional family, keeping discovery bounded and diverse.
-    patterns = [
-        "%scry%",
-        "%surveil%",
-        "%look at the top%",
-        "%draw%",
-        "%add %",
-        "%counter target%",
-        "%destroy target%",
-        "%hexproof%",
-        "%indestructible%",
-        "%phases out%",
-        "%whenever a land%",
-        "%land%graveyard%",
-        "%additional land%",
-        "%search your library%",
-        "%from your graveyard%",
-        "%amass%",
-        "%the Ring tempts you%",
-        "%counter%",
-    ]
-    pool: dict[str, dict[str, Any]] = {}
-    with db.connect(path) as conn:
-        families = [("oracle_text", pattern) for pattern in patterns] + [
-            ("type_line", "%Land%"),
-            ("type_line", "%Basic Land%"),
-        ]
-        color_slots = ",".join("?" for _ in colors) or "''"
-        for column, pattern in families:
-            rows = conn.execute(
-                f"SELECT * FROM cards WHERE is_legal_in_99=1 AND oracle_id IS NOT NULL AND type_line NOT LIKE '%Attraction%' AND type_line NOT LIKE '%Contraption%' AND type_line NOT LIKE '%Sticker%' AND type_line NOT LIKE '%Dungeon%' AND type_line NOT LIKE '%Conspiracy%' AND type_line NOT LIKE '%Scheme%' AND type_line NOT LIKE '%Phenomenon%' AND type_line NOT LIKE '%Plane %' AND type_line NOT LIKE 'Plane —%' AND type_line NOT LIKE '%Vanguard%' AND type_line NOT LIKE '%Token%' AND type_line NOT LIKE '%Emblem%' AND {column} LIKE ? AND NOT EXISTS (SELECT 1 FROM json_each(COALESCE(NULLIF(color_identity,''),'[]')) WHERE value NOT IN ({color_slots})) GROUP BY oracle_id HAVING id=MIN(id) ORDER BY cmc IS NULL, cmc, name, id LIMIT 100",
-                (pattern, *sorted(colors)),
-            ).fetchall()
-            for row in rows:
-                card = dict(row)
-                if (
-                    card["oracle_id"] not in present
-                    or "basic land" in str(card.get("type_line") or "").lower()
-                ) and _identity(card.get("color_identity")).issubset(colors):
-                    pool.setdefault(card["oracle_id"], card)
+    from sabermetrics.assistant_candidate_recall import card_content, recall_candidates
+
+    strategy = StrategyContext.model_validate(assessment["strategy_context"])
+    recall = recall_candidates(path, document, strategy, focus)
+    pool = {item.card["oracle_id"]: item.card for item in recall.candidates}
+    recall_evidence = {
+        item.card["oracle_id"]: item.model_dump(exclude={"card"})
+        for item in recall.candidates
+    }
+    support = {
+        oid: commander_support(document, card, strategy) for oid, card in pool.items()
+    }
+    old_support = {
+        old["id"]: commander_support(document, old, strategy) for old in outgoing
+    }
     improvements = {}
     tradeoffs = {}
     ranked = []
@@ -515,8 +492,20 @@ def recommend_replacements(
                     )
                 ):
                     tradeoffs[(old["id"], card["oracle_id"])] = tradeoff
-        if not gains and not any(
-            key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
+        engine_candidate = any(
+            support[card["oracle_id"]] - old_support[old["id"]] for old in outgoing
+        )
+        sourced_candidate = bool(
+            set(recall_evidence[card["oracle_id"]]["channels"])
+            & {"combination", "association"}
+        )
+        if (
+            not gains
+            and not engine_candidate
+            and not sourced_candidate
+            and not any(
+                key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
+            )
         ):
             continue
         ranked.append((card, caps, gains))
@@ -534,6 +523,12 @@ def recommend_replacements(
             - int(bool(item[2] & requested)),
             -len(item[1] & requested),
             -len(item[2] & requested),
+            -int(bool(support[item[0]["oracle_id"]])) if not requested else 0,
+            (
+                -int("combination" in recall_evidence[item[0]["oracle_id"]]["channels"])
+                if not requested
+                else 0
+            ),
             -len(item[2]),
             int(
                 "land" in item[2]
@@ -570,6 +565,7 @@ def recommend_replacements(
             if card["oracle_id"] in used_oracles or (
                 diverse
                 and not gains - used_roles
+                and not support[card["oracle_id"]]
                 and not any(
                     key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
                 )
@@ -600,6 +596,20 @@ def recommend_replacements(
                 improvement = improvements.get((old["id"], card["oracle_id"]))
                 tradeoff = tradeoffs.get((old["id"], card["oracle_id"]))
                 contextual = improvement or tradeoff
+                engine_gains = support[card["oracle_id"]] - old_support[old["id"]]
+                if not contextual and engine_gains:
+                    contextual = {
+                        "kind": "commander_support",
+                        "benefit": "Adds a detected commander engine ingredient; full strategic fit requires review",
+                    }
+                if (
+                    not contextual
+                    and "combination" in recall_evidence[card["oracle_id"]]["channels"]
+                ):
+                    contextual = {
+                        "kind": "sourced_combo_completion",
+                        "benefit": "Adds a missing named ingredient from an attributed combination; prerequisites and execution remain unverified",
+                    }
                 net_gains = gains - features[old["id"]]
                 # Changing one mana source into another does not fill a missing
                 # ramp slot merely because one has costs our baseline excludes.
@@ -655,6 +665,26 @@ def recommend_replacements(
                     if attempts >= 60:
                         break
                     continue
+                after_assessment = assess_deck_requirements(
+                    preview["document"], constraints
+                )
+                actual_incoming = next(
+                    c
+                    for c in preview["document"]["entries"]
+                    if c.get("card_id") == card["id"]
+                )
+                if card_content(actual_incoming) != card_content(card):
+                    rejected["Canonical card facts changed during discovery"] += 1
+                    continue
+                transition = assess_strategy_transition(
+                    strategy,
+                    StrategyContext.model_validate(
+                        after_assessment["strategy_context"]
+                    ),
+                )
+                if not transition["allowed"]:
+                    rejected["Detected commander support would decrease"] += 1
+                    continue
                 roles = sorted(net_gains)
                 reason = f"Replace {old['name']} with {card['name']} to address {', '.join(r.replace('_', ' ') for r in roles)}. Text-based ingredient fit; measure the isolated alternative before adoption."
                 if contextual:
@@ -688,10 +718,25 @@ def recommend_replacements(
                             else (
                                 "strategic_tradeoff"
                                 if tradeoff
-                                else "exploratory_infrastructure"
+                                else (
+                                    "commander_engine_ingredient"
+                                    if engine_gains
+                                    else (
+                                        "sourced_combo_completion"
+                                        if contextual
+                                        else "exploratory_infrastructure"
+                                    )
+                                )
                             )
                         ),
                         "review_required": True,
+                        "recall": recall_evidence[card["oracle_id"]],
+                        "strategy_transition": transition,
+                        "commander_support_gained": sorted(engine_gains),
+                        "draw_routes": {
+                            "incoming": [r.model_dump() for r in draw_routes(card)],
+                            "outgoing": [r.model_dump() for r in draw_routes(old)],
+                        },
                         "functional_improvement": improvement,
                         "strategic_tradeoff": tradeoff,
                         "incoming_oracle_facts": oracle_facts(card),
@@ -743,6 +788,28 @@ def recommend_replacements(
                 used_oracles.add(card["oracle_id"])
                 used_roles.update(net_gains)
                 break
+    if include_packages and candidate_limit >= 3:
+        from sabermetrics.assistant_packages import recommend_packages
+
+        packages, package_evidence = recommend_packages(
+            service, document, constraints, assessment, recall, focus
+        )
+        if packages:
+            retained_singles = max(0, candidate_limit - len(packages))
+            singles = list(
+                zip(alternatives[:retained_singles], evidence[:retained_singles])
+            )
+            coordinated = list(zip(packages, package_evidence))
+            # Interleave before the bounded review and final three-result cut;
+            # appending packages last would silently starve their reserved slots.
+            combined = []
+            for index in range(max(len(singles), len(coordinated))):
+                if index < len(singles):
+                    combined.append(singles[index])
+                if index < len(coordinated):
+                    combined.append(coordinated[index])
+            alternatives = [item[0] for item in combined]
+            evidence = [item[1] for item in combined]
     return {
         "status": (
             "ready"
@@ -752,6 +819,8 @@ def recommend_replacements(
         "alternatives": alternatives,
         "candidate_evidence": evidence,
         "assessment": assessment,
+        "strategy_context": strategy.model_dump(),
+        "recall": recall.model_dump(exclude={"candidates"}),
         "requires_semantic_review": bool(alternatives),
         "rejections": dict(rejected.most_common(3)),
         "constraints": {k: constraints[k] for k in ("budget", "power_level", "theme")},
@@ -759,6 +828,6 @@ def recommend_replacements(
             NOTE,
             "Power and theme are recorded preferences, not certified filters; review before adoption.",
             "Conditional alternate-cost cards are not penalized by printed mana value; effective costs and card-specific strategic value remain unknown.",
-            "Search and preview are bounded to 100 records per family and 60 validation attempts; no source deck was changed.",
+            "Independent recall channels retain bounded quotas before 60 single-swap validation attempts; no source deck was changed.",
         ],
     }

@@ -195,13 +195,18 @@ research tools remain available for focused questions. Embedding similarity and
 heuristic reranking are relevance signals, not proof of synergy or correctness.
 Complete all requested card lookups before answering; batch independent reads
 where possible rather than asking the user to repeat an already clear request.
-Use propose_replacements to validate one reviewed replacement per preview.
-Joint multi-card packages are not supported by the current strategic review.
+Use propose_replacements to validate reviewed previews. A coordinated package
+contains up to three replacements evaluated together. Explain every cut and add,
+and evaluate the full package rather than claiming each member improves alone.
+The state's strategy_context describes detected engines, support and draw routes;
+it is incomplete printed evidence, never a verified win line. Discovery combines
+independent mechanical, lexical, optional semantic, association and combination
+channels. Missing channels remain explicit. Do not equate recall with synergy.
 Only validated tool previews may be offered as actionable proposals. Respect
 budget, protected cards, power and theme preferences. Explain uncertainty when
 power/theme are not mechanically verified. In suggest mode never start an
 experiment. In automate mode start_experiment may test one to three distinct
-alternatives, each changing one card. That tool uses isolated copies,
+alternatives, each changing one to three cards. That tool uses isolated copies,
 retains before/after results and held-out validation. No tool can adopt an
 alternative or modify the original deck: adoption always belongs to the user.
 Do not repeat a write tool: at most one Goldfish run and one experiment per turn.
@@ -439,6 +444,29 @@ def _ground_blanket_cast_claims(text: str, state: dict[str, Any]) -> str:
     return pattern.sub(replace, text)
 
 
+def _strategy_summary(context: dict[str, Any]) -> dict[str, Any]:
+    contracts = context.get("contracts", [])
+    return {
+        "fingerprint": context.get("fingerprint"),
+        "revision": context.get("revision"),
+        "archetype": context.get("archetype"),
+        "contracts": [
+            {
+                "commander": c.get("commander"),
+                "capability": c.get("capability"),
+                "source_quote": str(c.get("source_quote") or "")[:240],
+                "support_count": c.get("support_count"),
+            }
+            for c in contracts[:6]
+        ],
+        "contracts_omitted": max(0, len(contracts) - 6),
+        "draw_portfolio_counts": (context.get("draw_portfolio") or {}).get(
+            "counts", {}
+        ),
+        "scope": "Current detected printed ingredients only; not battlefield availability, complete coverage or measured quality.",
+    }
+
+
 def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
     """Pin bounded card facts so evicting a broad receipt cannot erase the tradeoff."""
 
@@ -464,9 +492,18 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
             ],
         }
 
+    if isinstance(data.get("strategy_context"), dict):
+        state["strategy_context"] = _strategy_summary(data["strategy_context"])
     state["swap_review"] = {
         "candidates": [
             {
+                "package_cards": [
+                    {
+                        "incoming": pair.get("incoming_oracle_facts", {}).get("name"),
+                        "outgoing": pair.get("outgoing_oracle_facts", {}).get("name"),
+                    }
+                    for pair in item.get("replacement_pairs", [])[:3]
+                ],
                 "incoming": card_summary(item),
                 "outgoing": card_summary(item.get("outgoing_card") or {}),
                 "conditions": item.get("conditions", [])[:8],
@@ -712,6 +749,11 @@ def run_turn(
             gateway = build_gateway(
                 settings, db_path=str(db_path), user_id=owner_id, deck_id=deck_id
             )
+        from sabermetrics.assistant_deck_intelligence import assess_deck_requirements
+
+        current_strategy = assess_deck_requirements(document, constraints or {})[
+            "strategy_context"
+        ]
         tools.review_gateway = gateway
         result.update(provider=gateway.provider, model_id=gateway.model_id)
         from sabermetrics.card_economy import printed_cast_trigger_damage
@@ -719,6 +761,7 @@ def run_turn(
         transcript: list[dict[str, Any]] = _conversation(messages)
         state: dict[str, Any] = {
             "mode": mode,
+            "strategy_context": _strategy_summary(current_strategy),
             "constraints": constraints or {},
             "deck_id": deck_id,
             "revision": result["revision"],
@@ -897,9 +940,9 @@ def run_turn(
                         "test_recommended_alternatives",
                     }:
                         state["workflow"]["experiment_status"] = data.get("status")
-                        state["workflow"]["next_step"] = (
-                            "Report the actual experiment receipt; do not start another experiment."
-                        )
+                        state["workflow"][
+                            "next_step"
+                        ] = "Report the actual experiment receipt; do not start another experiment."
                     if call.name == "research_known_combinations":
                         combo_sources = {
                             "status": data.get("status"),

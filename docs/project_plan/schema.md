@@ -19,6 +19,17 @@ All schemas use additive evolution — new fields with defaults, new tables inde
 
 ## 1. SQLite Database Schema
 
+Research Assistant `assistant-strategy.v1` and `assistant-recall.v1` are additive
+Pydantic receipt contracts. Strategy context contains a content fingerprint,
+commander identities, preferences, detected engine contracts with source quotes
+and support quantities, requirement gaps, and draw-route prerequisites. Recall
+records per-card channel provenance and missing-channel limitations. They do not
+create or train a card corpus. Optional `assistant_card_vectors` artifacts contain
+`oracle_id`, `content_hash`, `embedding_model`, and `embedding_json`; vectors are
+usable only with exact current canonical content and a configured local encoder.
+Artifact absence never triggers a network fetch. No schema migration is required
+for the deterministic path.
+
 <context name="sqlite_schema">
 
 ### 1.1 Cards and Pricing

@@ -13,6 +13,7 @@ from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
 
 class OracleCitation(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    replacement_index: int = Field(default=0, ge=0, le=2)
     side: Literal["incoming", "outgoing"]
     source_field: Literal["oracle_text", "type_line", "mana_cost"] = "oracle_text"
     quote: str = Field(min_length=1, max_length=1000)
@@ -27,7 +28,7 @@ class SwapDecision(BaseModel):
     reason: str = Field(min_length=1, max_length=1200)
     benefit: str = Field(min_length=1, max_length=1000)
     tradeoffs: list[str] = Field(min_length=1, max_length=6)
-    citations: list[OracleCitation] = Field(min_length=1, max_length=8)
+    citations: list[OracleCitation] = Field(min_length=1, max_length=24)
 
 
 class SwapReviewResponse(BaseModel):
@@ -64,7 +65,15 @@ intrinsic mana is established by printed basic land type, so cite that type.
 Set theme_fit and power_fit to fit/conflict/unknown independently. When a theme
 or power preference is supplied, accept only if its fit field is fit; unknown
 is insufficient. Numeric power preferences cannot be certified from card text.
-Acceptance means suitable for an isolated experiment, never a verified improvement.
+A candidate may be a coordinated package. Judge its complete joint transition,
+including each removed function and added ingredient. An individual package member
+need not improve alone. Never infer a missing prerequisite is supplied by its
+partner unless the supplied facts establish that relationship. Cite BOTH sides
+of EVERY replacement, setting replacement_index to its zero-based index.
+The shared strategy context and recall signals are incomplete evidence. Association
+and embedding similarity do not prove synergy. Draw-route conditions do not prove
+battlefield availability. Acceptance means suitable for an isolated experiment,
+never a verified improvement.
 """
 
 
@@ -125,30 +134,57 @@ def review_candidates(
     for index, (alternative, evidence) in enumerate(
         zip(alternatives, candidate_evidence)
     ):
-        incoming, outgoing = (
-            evidence.get("incoming_oracle_facts"),
-            evidence.get("outgoing_oracle_facts"),
-        )
-        if not _facts_valid(incoming) or not _facts_valid(outgoing):
-            return _failed(
-                f"Candidate {index} has incomplete, truncated, or invalid Oracle source evidence"
-            )
-        assert isinstance(incoming, dict) and isinstance(outgoing, dict)
+        replacement_evidence = evidence.get("replacement_pairs") or [evidence]
         replacements = alternative.get("replacements") or []
-        if (
-            len(replacements) != 1
-            or replacements[0].get("incoming_card_id")
-            != (incoming.get("card_id") or incoming.get("id"))
-            or replacements[0].get("outgoing_entry_id") != outgoing.get("id")
+        if not 1 <= len(replacements) <= 3 or len(replacement_evidence) != len(
+            replacements
         ):
             return _failed(
-                f"Candidate {index} evidence does not identify its proposed replacement"
+                f"Candidate {index} has mismatched joint replacement evidence"
+            )
+        verified_pairs = []
+        for replacement, facts in zip(replacements, replacement_evidence):
+            incoming, outgoing = facts.get("incoming_oracle_facts"), facts.get(
+                "outgoing_oracle_facts"
+            )
+            if not _facts_valid(incoming) or not _facts_valid(outgoing):
+                return _failed(
+                    f"Candidate {index} has incomplete, truncated, or invalid Oracle source evidence"
+                )
+            assert isinstance(incoming, dict) and isinstance(outgoing, dict)
+            if replacement.get("incoming_card_id") != (
+                incoming.get("card_id") or incoming.get("id")
+            ) or replacement.get("outgoing_entry_id") != outgoing.get("id"):
+                return _failed(
+                    f"Candidate {index} evidence does not identify its proposed replacement"
+                )
+            verified_pairs.append(
+                {
+                    "incoming": incoming,
+                    "outgoing": outgoing,
+                    "draw_routes": facts.get("draw_routes"),
+                    "recall": facts.get("recall"),
+                }
+            )
+        incoming, outgoing = (
+            verified_pairs[0]["incoming"],
+            verified_pairs[0]["outgoing"],
+        )
+        if len(verified_pairs) > 1 and (
+            not isinstance(evidence.get("strategy_transition"), dict)
+            or evidence["strategy_transition"].get("allowed") is not True
+            or evidence["strategy_transition"].get("before_fingerprint")
+            != (document.get("strategy_context") or {}).get("fingerprint")
+        ):
+            return _failed(
+                f"Candidate {index} lacks joint strategy preservation evidence"
             )
         pairs.append(
             {
                 "candidate_index": index,
                 "incoming": incoming,
                 "outgoing": outgoing,
+                **({"replacements": verified_pairs} if len(verified_pairs) > 1 else {}),
                 "rationale_note": "Proposer rationale omitted to reduce anchoring; judge card facts and deck context.",
                 "context": {
                     key: evidence.get(key)
@@ -163,6 +199,11 @@ def review_candidates(
                         "relationships",
                         "combination_lines_lost",
                         "sourced_combination_lines_lost",
+                        "strategy_transition",
+                        "commander_support_gained",
+                        "joint_requirement_changes",
+                        "draw_routes",
+                        "recall",
                     )
                 },
             }
@@ -170,7 +211,7 @@ def review_candidates(
     entries = document.get("entries")
     if not isinstance(entries, list) or not entries or len(entries) > 200:
         return _failed("Deck context is missing or exceeds the bounded review scope")
-    package = {
+    package: dict[str, Any] = {
         "focus": str(focus)[:160],
         "constraints": {
             key: constraints.get(key)
@@ -204,6 +245,44 @@ def review_candidates(
             for excerpt in strategy.get("excerpts", [])[:3]
             if isinstance(excerpt, dict)
         ]
+    strategy_context = document.get("strategy_context")
+    if isinstance(strategy_context, dict):
+        # Pin engine identities and support counts; long card lists remain in the
+        # tool receipt rather than crowding exact changed-card facts out of review.
+        package["strategy_context"] = {
+            key: strategy_context.get(key)
+            for key in (
+                "version",
+                "fingerprint",
+                "revision",
+                "archetype",
+                "requirements",
+                "limitations",
+            )
+        }
+        package["strategy_context"]["contracts"] = [
+            {
+                key: contract.get(key)
+                for key in (
+                    "key",
+                    "commander",
+                    "capability",
+                    "source_quote",
+                    "support_count",
+                    "status",
+                )
+            }
+            for contract in strategy_context.get("contracts", [])[:24]
+        ]
+        package["strategy_context"]["draw_portfolio_counts"] = (
+            strategy_context.get("draw_portfolio") or {}
+        ).get("counts")
+        package["strategy_context"]["dependencies"] = strategy_context.get(
+            "dependencies", []
+        )[:12]
+        package["strategy_context"]["dependencies_omitted"] = max(
+            0, len(strategy_context.get("dependencies", [])) - 12
+        )
     encoded = ""
     # Reserve space for exact pair facts. Compact the surrounding deck separately;
     # full commander and full incoming/outgoing facts are never truncated.
@@ -263,7 +342,7 @@ def review_candidates(
     )
     evidence_hash = hashlib.sha256(encoded.encode()).hexdigest()
     request = StructuredRequest(
-        prompt_version="assistant-swap-review.v2",
+        prompt_version="assistant-swap-review.v3",
         system=SYSTEM,
         user=encoded,
         schema=SwapReviewResponse,
@@ -289,22 +368,35 @@ def review_candidates(
     receipts, accepted_alternatives, accepted_evidence = [], [], []
     for decision in sorted(response.decisions, key=lambda item: item.candidate_index):
         pair = pairs[decision.candidate_index]
+        changed_pairs = pair.get("replacements") or [
+            {"incoming": pair["incoming"], "outgoing": pair["outgoing"]}
+        ]
         valid_citations = all(
-            len(citation.quote.strip()) >= 12
+            citation.replacement_index < len(changed_pairs)
+            and len(citation.quote.strip()) >= 12
             and citation.quote
-            in str(pair[citation.side].get(citation.source_field) or "")
+            in str(
+                changed_pairs[citation.replacement_index][citation.side].get(
+                    citation.source_field
+                )
+                or ""
+            )
             for citation in decision.citations
         )
-        both_sides = {citation.side for citation in decision.citations} == {
-            "incoming",
-            "outgoing",
-        }
+        both_sides = all(
+            {c.side for c in decision.citations if c.replacement_index == index}
+            == {"incoming", "outgoing"}
+            for index in range(len(changed_pairs))
+        )
         ability_quotes = all(
             any(
-                c.side == side and c.source_field == "oracle_text"
+                c.replacement_index == index
+                and c.side == side
+                and c.source_field == "oracle_text"
                 for c in decision.citations
             )
-            or "basic land" in str(pair[side].get("type_line") or "").lower()
+            or "basic land" in str(changed[side].get("type_line") or "").lower()
+            for index, changed in enumerate(changed_pairs)
             for side in ("incoming", "outgoing")
         )
         valid_citations = valid_citations and ability_quotes
@@ -312,6 +404,13 @@ def review_candidates(
             "evidence_hash": evidence_hash,
             "incoming_name": pair["incoming"]["name"],
             "outgoing_name": pair["outgoing"]["name"],
+            "changed_cards": [
+                {
+                    "incoming": changed["incoming"]["name"],
+                    "outgoing": changed["outgoing"]["name"],
+                }
+                for changed in changed_pairs
+            ],
             "citations_verified": bool(valid_citations and both_sides),
             "scope": "Semantic suitability for an isolated experiment; no improvement or rules execution verified",
         }

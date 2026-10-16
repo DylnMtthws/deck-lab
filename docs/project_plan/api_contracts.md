@@ -18,6 +18,29 @@ When changing a contract, update this document FIRST, then implement. Breaking c
 
 ## 1. Internal Module Contracts
 
+### Research Assistant strategy and recall (2026-10-16)
+
+`assistant_strategy.build_strategy_context(document, constraints, assessment)`
+returns the Pydantic `StrategyContext` (`assistant-strategy.v1`). Its content
+fingerprint covers the current public library, commanders, Oracle facts, revision,
+and preferences. It is derived again after edits; it is not a learned player
+profile. Detected contracts and draw routes are explicitly incomplete ingredient
+evidence, never simulated availability or a certified win condition.
+
+`assistant_candidate_recall.recall_candidates(path, document, strategy, focus)`
+returns a typed, bounded union of independent mechanical, lexical, optional local
+semantic, association, and sourced combination channels. Every returned card is
+resolved from the local legal canonical corpus. Association is a discovery prior,
+never permission to recommend a swap. Missing semantic artifacts and empirical
+evidence remain visible. No provider calls or model downloads occur here.
+
+`assistant_strategy.assess_strategy_transition(before, after)` compares detected
+commander support over the complete proposed change, including jointly removed
+cards. A passing receipt establishes only preservation of modeled support.
+Recommendations may contain one to three replacements, validated jointly by
+`ExperimentService` and reviewed together. Review citations identify both the
+replacement index and side; every changed card requires an exact source citation.
+
 <context name="internal_contracts">
 
 ### 1.1 Ingestion Layer Interface

@@ -347,14 +347,18 @@ class AssistantTools:
         ]
         if not pending:
             return
+        from sabermetrics.assistant_deck_intelligence import assess_deck_requirements
+        from sabermetrics.assistant_strategy import (
+            StrategyContext,
+            assess_strategy_transition,
+            draw_routes,
+        )
+
+        baseline = assess_deck_requirements(document, self.constraints)
+        strategy = StrategyContext.model_validate(baseline["strategy_context"])
         evidence = []
         for proposal in pending:
             replacements = proposal.get("replacements", [])
-            if len(replacements) != 1:
-                raise ValueError(
-                    "Review and test one replacement per alternative; combined swaps need joint strategic evidence."
-                )
-            replacement = replacements[0]
             preview = self.experiments.validate_replacements(
                 self.owner,
                 self.deck_id,
@@ -362,26 +366,62 @@ class AssistantTools:
                 replacements,
                 self.constraints,
             )
-            old = next(
-                e
-                for e in document["entries"]
-                if e["id"] == replacement["outgoing_entry_id"]
+            after = assess_deck_requirements(preview["document"], self.constraints)
+            transition = assess_strategy_transition(
+                strategy, StrategyContext.model_validate(after["strategy_context"])
             )
-            new = next(
-                e
-                for e in preview["document"]["entries"]
-                if e.get("card_id") == replacement["incoming_card_id"]
-            )
+            if not transition["allowed"]:
+                raise ValueError(
+                    "Proposed changes reduce detected commander engine support."
+                )
+            if len(replacements) > 1:
+                after_counts = {
+                    r["requirement"]: r["actual"] for r in after["requirements"]
+                }
+                if any(
+                    after_counts[r["requirement"]] < min(r["actual"], r["target"])
+                    for r in baseline["requirements"]
+                ):
+                    raise ValueError(
+                        "Joint changes reduce a modeled requirement already at or below its starter target."
+                    )
+            pairs = []
+            for replacement in replacements:
+                old = next(
+                    e
+                    for e in document["entries"]
+                    if e["id"] == replacement["outgoing_entry_id"]
+                )
+                new = next(
+                    e
+                    for e in preview["document"]["entries"]
+                    if e.get("card_id") == replacement["incoming_card_id"]
+                )
+                pairs.append(
+                    {
+                        "incoming_oracle_facts": oracle_facts(new),
+                        "outgoing_oracle_facts": oracle_facts(old),
+                        "draw_routes": {
+                            "incoming": [r.model_dump() for r in draw_routes(new)],
+                            "outgoing": [r.model_dump() for r in draw_routes(old)],
+                        },
+                    }
+                )
             evidence.append(
                 {
-                    "incoming_oracle_facts": oracle_facts(new),
-                    "outgoing_oracle_facts": oracle_facts(old),
+                    **pairs[0],
+                    "replacement_pairs": pairs,
+                    "strategy_transition": transition,
                 }
             )
         self.check()
         reviewed = review_candidates(
             self.review_gateway,
-            {**document, "strategy_evidence": self.strategy_evidence},
+            {
+                **document,
+                "strategy_evidence": self.strategy_evidence,
+                "strategy_context": strategy.model_dump(),
+            },
             self.constraints,
             str(
                 self.constraints.get("objective")
@@ -607,13 +647,18 @@ class AssistantTools:
                 self.constraints,
                 focus=args.focus,
                 candidate_limit=8,
+                include_packages=True,
             )
             self.check()
             from sabermetrics.assistant_swap_review import review_candidates
 
             reviewed = review_candidates(
                 self.review_gateway,
-                {**document, "strategy_evidence": self.strategy_evidence},
+                {
+                    **document,
+                    "strategy_evidence": self.strategy_evidence,
+                    "strategy_context": result.get("strategy_context"),
+                },
                 self.constraints,
                 args.focus,
                 result.get("alternatives", []),

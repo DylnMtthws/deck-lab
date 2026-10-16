@@ -23,6 +23,15 @@ When adding a new prompt: follow SKILLS.md SKILL-003.
 
 ## Prompt Index
 
+Research Assistant swap review v3 adds a revision-specific strategy context,
+candidate recall provenance, draw-route prerequisites, and a joint transition
+receipt. A coordinated proposal contains up to three replacement pairs. Citations
+carry `replacement_index` (default zero for existing single swaps); acceptance
+requires meaningful exact citations for both sides of every pair. The model must
+judge the whole package, distinguish ingredient support from execution, and never
+treat semantic similarity or association as mechanical proof. Existing provider,
+cost, output-token, and 24 KiB evidence bounds remain authoritative.
+
 ```yaml
 prompts:
   - id: PROMPT-001
