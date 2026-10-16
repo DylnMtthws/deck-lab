@@ -183,6 +183,16 @@ def test_draw_routes_keep_activation_and_combat_prerequisites():
     assert not draw_routes(
         card("Opponent", "Sorcery", "Target opponent draws two cards.")
     )
+    opponent_event = draw_routes(
+        card(
+            "Opponent Event",
+            "Enchantment",
+            "Whenever an opponent draws their second card each turn, you may draw a card.",
+        )
+    )[0]
+    assert opponent_event.kind == "trigger"
+    assert not opponent_event.independent
+    assert "opponent_action_or_choice" in opponent_event.prerequisites
 
 
 def test_unknown_strategy_is_visible_and_does_not_invent_win_conditions():

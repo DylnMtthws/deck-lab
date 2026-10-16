@@ -268,16 +268,18 @@ def draw_routes(card: dict[str, Any]) -> list[DrawRoute]:
     raw = re.sub(r"\([^)]*\)", "", str(card.get("oracle_text") or ""))
     routes = []
     for clause in re.split(r"[.\n]", raw):
-        if not re.search(
+        draw = re.search(
             r"\b(?:you )?draw (?:a|one|two|three|four|five|[0-9]+|x|that many) cards?\b",
             clause,
             re.IGNORECASE,
-        ):
+        )
+        if draw is None:
             continue
         text = clause.lower().strip()
+        draw_subject = clause[: draw.start()].rsplit(",", 1)[-1].lower()
         if re.search(
-            r"\b(?:target (?:player|opponent)|each (?:player|opponent)|opponents?)\b[^,]*\bdraw",
-            text,
+            r"\b(?:target (?:player|opponent)|each (?:player|opponent)|opponents?)\b",
+            draw_subject,
         ):
             continue
         prerequisites = []
