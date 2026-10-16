@@ -1,6 +1,6 @@
 # QA-only code update on an immutable, previously smoke-tested QA image.
 # The release executor verifies identical pyproject.toml and base Dockerfile.
-ARG QA_BASE_IMAGE
+ARG QA_BASE_IMAGE=decklab-qa:verified-base-required
 FROM ${QA_BASE_IMAGE}
 ARG SABER_BUILD_SHA
 ENV SABER_BUILD_SHA=$SABER_BUILD_SHA
