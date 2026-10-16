@@ -497,7 +497,7 @@ def recommend_replacements(
         )
         sourced_candidate = bool(
             set(recall_evidence[card["oracle_id"]]["channels"])
-            & {"combination", "association"}
+            & {"combination", "association", "semantic", "lexical"}
         )
         if (
             not gains
@@ -566,6 +566,8 @@ def recommend_replacements(
                 diverse
                 and not gains - used_roles
                 and not support[card["oracle_id"]]
+                and not set(recall_evidence[card["oracle_id"]]["channels"])
+                & {"semantic", "lexical", "association", "combination"}
                 and not any(
                     key[1] == card["oracle_id"] for key in (*improvements, *tradeoffs)
                 )
@@ -611,6 +613,16 @@ def recommend_replacements(
                         "benefit": "Adds a missing named ingredient from an attributed combination; prerequisites and execution remain unverified",
                     }
                 net_gains = gains - features[old["id"]]
+                if (
+                    not contextual
+                    and set(recall_evidence[card["oracle_id"]]["channels"])
+                    & {"semantic", "lexical", "association"}
+                    and features[old["id"]] & caps & requested
+                ):
+                    contextual = {
+                        "kind": "exploratory_strategy",
+                        "benefit": "Compare a retrieved alternative in the requested function; strategic review must establish a concrete benefit and account for every lost ability",
+                    }
                 # Changing one mana source into another does not fill a missing
                 # ramp slot merely because one has costs our baseline excludes.
                 if "nonland_mana_resource" in features[old["id"]]:
@@ -722,7 +734,7 @@ def recommend_replacements(
                                     "commander_engine_ingredient"
                                     if engine_gains
                                     else (
-                                        "sourced_combo_completion"
+                                        contextual["kind"]
                                         if contextual
                                         else "exploratory_infrastructure"
                                     )

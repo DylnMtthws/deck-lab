@@ -129,6 +129,70 @@ def test_focus_prioritizes_function(prepared):
     assert result["alternatives"][0]["replacements"][0]["incoming_card_id"] == "draw"
 
 
+def test_filled_draw_target_still_allows_retrieved_same_role_comparisons(prepared):
+    from sabermetrics.assistant_experiments import ExperimentService
+
+    path, document = prepared
+    service = ExperimentService(path)
+    island = next(c for c in document["entries"] if not c.get("is_commander"))
+    with db.connect(path) as conn:
+        for index in range(12):
+            cid = f"old-draw-{index}"
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    cid,
+                    cid,
+                    cid,
+                    "Artifact",
+                    "At the beginning of your upkeep, draw a card.",
+                    "[]",
+                    3,
+                    1,
+                ),
+            )
+        conn.execute(
+            "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                "new-draw",
+                "new-draw",
+                "New Draw",
+                "Artifact",
+                "At the beginning of your upkeep, draw two cards.",
+                "[]",
+                3,
+                1,
+            ),
+        )
+        conn.commit()
+    for index in range(12):
+        document = service._candidate(
+            document,
+            [
+                {
+                    "outgoing_entry_id": island["id"],
+                    "incoming_card_id": f"old-draw-{index}",
+                }
+            ],
+            service._constraints({}),
+        )["document"]
+    result = recommend_replacements(path, document, focus="draw", candidate_limit=8)
+    assert (
+        next(
+            r
+            for r in result["assessment"]["requirements"]
+            if r["requirement"] == "draw"
+        )["gap"]
+        == 0
+    )
+    proposed = next(
+        e for e in result["candidate_evidence"] if e["card_id"] == "new-draw"
+    )
+    assert proposed["requirements"] == []
+    assert proposed["recommendation_type"] == "exploratory_strategy"
+    assert proposed["review_required"] is True
+
+
 def test_budget_full_deck_ceiling(prepared):
     path, document = prepared
     with db.connect(path) as conn:
