@@ -27,7 +27,7 @@ def content_hash(text: str) -> str:
 class FastEmbedService:
     """Small CPU ONNX model; pinned artifact identity guards index compatibility."""
 
-    def __init__(self, model_path: str, model_name: str) -> None:
+    def __init__(self, model_path: str, model_name: str, *, threads: int = 1) -> None:
         from fastembed import TextEmbedding
 
         files = sorted(Path(model_path).rglob("*"))
@@ -43,7 +43,7 @@ class FastEmbedService:
             model_name=model_name,
             specific_model_path=model_path,
             local_files_only=True,
-            threads=1,
+            threads=threads,
         )
         self._cache: dict[str, Any] = {}
         self._inference_lock = threading.Lock()
@@ -67,7 +67,7 @@ _fast_service: FastEmbedService | None = None
 _fast_initialization_lock = threading.Lock()
 
 
-def local_embedding_service() -> Any:
+def local_embedding_service(*, threads: int = 1) -> Any:
     """Reuse application cache with an explicitly configured, local-only model."""
     global _fast_service
     fast_path = os.environ.get("DECK_LAB_STRATEGY_ONNX_PATH")
@@ -77,7 +77,7 @@ def local_embedding_service() -> Any:
         )
         with _fast_initialization_lock:
             if _fast_service is None:
-                _fast_service = FastEmbedService(fast_path, model_name)
+                _fast_service = FastEmbedService(fast_path, model_name, threads=threads)
             return _fast_service
     model_path = os.environ.get("DECK_LAB_STRATEGY_EMBEDDING_MODEL")
     if not model_path or not Path(model_path).is_dir():

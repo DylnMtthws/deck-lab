@@ -276,7 +276,8 @@ def test_concurrent_requests_share_one_model_and_serialized_cached_inference(
     created = []
 
     class LocalService:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
+            self.threads = kwargs.get("threads", 1)
             created.append(self)
             time.sleep(0.01)  # Release GIL during simulated model initialization.
 
@@ -287,6 +288,7 @@ def test_concurrent_requests_share_one_model_and_serialized_cached_inference(
     with ThreadPoolExecutor(max_workers=4) as pool:
         providers = list(pool.map(lambda _: module.local_embedding_service(), range(4)))
     assert len(created) == 1
+    assert created[0].threads == 1
     assert all(provider is created[0] for provider in providers)
     calls = []
 

@@ -47,6 +47,9 @@ def prepare_vectors(path: Path, service: Any) -> dict[str, Any]:
                 reused += 1
                 continue
             pending.append((card["oracle_id"], digest, content))
+        # Group similar lengths to avoid padding every short card to the longest
+        # random card in its batch. Existing valid checkpoints remain reusable.
+        pending.sort(key=lambda row: (len(row[2]), row[0]))
         for start in range(0, len(pending), 16):
             batch = pending[start : start + 16]
             texts = [row[2] for row in batch]
@@ -91,8 +94,9 @@ def prepare_vectors(path: Path, service: Any) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True, type=Path)
+    parser.add_argument("--threads", type=int, choices=(1, 2), default=2)
     args = parser.parse_args()
-    service = local_embedding_service()
+    service = local_embedding_service(threads=args.threads)
     if service is None:
         parser.error("Configure a local strategy encoder before preparing card vectors")
     print(json.dumps(prepare_vectors(args.db, service), sort_keys=True))
