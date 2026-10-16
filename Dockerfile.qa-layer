@@ -13,4 +13,5 @@ COPY src/sabermetrics /usr/local/lib/python3.11/site-packages/sabermetrics
 COPY config ./config
 COPY --chown=1001:1001 fixtures ./fixtures
 COPY scripts/setup_db.py scripts/ingest_strategy_corpus.py scripts/seed_strategy_corpus.py scripts/prepare_assistant_card_vectors.py scripts/import_combo_catalog.py ./scripts/
+RUN python -c "from pathlib import Path; roots=[Path(p) for p in ('/app/src/sabermetrics','/usr/local/lib/python3.11/site-packages/sabermetrics','/app/config','/app/fixtures')]; [p.chmod(0o755) for root in roots for p in (root, *root.rglob('*')) if p.is_dir()]"
 USER 1001:1001
