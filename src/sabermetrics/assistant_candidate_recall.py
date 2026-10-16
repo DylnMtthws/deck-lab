@@ -202,7 +202,10 @@ def _semantic(
                     sum(float(a) * b for a, b in zip(query_vector, vector))
                     / denominator
                 )
-                if cosine >= 0.65:
+                # Candidate recall has a separate acceptance review. An absolute
+                # citation-retrieval threshold erased this entire channel on a
+                # real commander corpus; retain the best positive neighbors.
+                if cosine > 0:
                     scores.append((oid, round(cosine, 6)))
             except (ValueError, TypeError):
                 rejected += 1

@@ -178,7 +178,7 @@ def test_draw_channel_preserves_permanents_and_late_curve(prepared):
 
 
 @pytest.mark.parametrize(
-    "mutation", [None, "model", "facts", "dimensions", "nonfinite"]
+    "mutation", [None, "low_similarity", "model", "facts", "dimensions", "nonfinite"]
 )
 def test_semantic_vectors_require_current_facts_and_exact_encoder(
     prepared, monkeypatch, mutation
@@ -199,7 +199,11 @@ def test_semantic_vectors_require_current_facts_and_exact_encoder(
                 json.dumps(
                     [1.0]
                     if mutation == "dimensions"
-                    else [float("nan"), 0] if mutation == "nonfinite" else [1.0, 0]
+                    else (
+                        [float("nan"), 0]
+                        if mutation == "nonfinite"
+                        else [0.4, 0.9165] if mutation == "low_similarity" else [1.0, 0]
+                    )
                 ),
             ),
         )
@@ -210,6 +214,6 @@ def test_semantic_vectors_require_current_facts_and_exact_encoder(
     )
     result = recall(prepared, "draw")
     candidate = next(c for c in result.candidates if c.card["id"] == "draw")
-    assert ("semantic" in candidate.channels) is (mutation is None)
-    if mutation:
+    assert ("semantic" in candidate.channels) is (mutation in (None, "low_similarity"))
+    if mutation not in (None, "low_similarity"):
         assert any("Rejected 1" in note for note in result.limitations)
