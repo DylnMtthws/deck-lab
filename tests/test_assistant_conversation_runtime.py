@@ -452,3 +452,131 @@ def test_empty_functional_result_does_not_count_as_a_completed_list(
     assert result["status"] == "done"
     assert any(a["name"] == "inspect_deck" for a in result["actions"])
     assert gateway.requests[2].schema.__name__ == "AssistantStep"
+
+
+def test_answer_only_schema_requires_nonblank_answer_lead():
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_runtime import AssistantAnswerStep
+
+    assert "content" in AssistantAnswerStep.model_json_schema()["required"]
+    for value in ({}, {"content": ""}, {"content": " \n\t"}):
+        with pytest.raises(ValidationError):
+            AssistantAnswerStep.model_validate(value)
+    assert AssistantAnswerStep(content="A concise direct answer.").tool_calls == []
+
+
+def test_empty_ordinary_answer_reserves_next_call_before_checker(prepared):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(
+            value={"patches": [], "unresolved": ["A remaining source caveat."]}
+        )
+    )
+    gateway = Gateway(
+        [
+            AssistantStep(next_action="Some mechanical details remain unverified."),
+            step(content="The current commander uses the printed counter conditions."),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Explain my commander."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 2
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
+    assert len(checks) == 1
+    assert "current commander" in result["content"]
+    assert result["status"] == "done"
+
+
+def test_persistent_empty_answers_exhaust_existing_five_call_budget(prepared):
+    from types import SimpleNamespace
+
+    from sabermetrics.assistant_runtime import MAX_MODEL_CALLS
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    checker = SimpleNamespace(generate=lambda request: checks.append(request))
+    gateway = Gateway([AssistantStep() for _ in range(MAX_MODEL_CALLS)])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Give me draw options."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == MAX_MODEL_CALLS == 5
+    assert not checks
+    assert result["status"] == "budget_exhausted"
+    assert result["reason"] == "empty_model_answer"
+    assert "analysis is incomplete" in result["content"]
+    assert "presentation" not in result
+
+
+def test_schema_failure_retains_sources_without_inventing_answer(prepared):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    gateway = Gateway(
+        [
+            step(call("card_details", {"card_id": "Elegy Acolyte"})),
+            ModelValidationError("private provider payload must not escape"),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Assess Elegy Acolyte."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "provider_error"
+    assert result["reason"] == "answer_schema_invalid"
+    assert "Retrieved source excerpt" in result["content"]
+    assert "combat damage" in result["content"]
+    assert "private provider payload" not in result["content"]
+    assert "presentation" not in result
+
+
+def test_checker_cannot_turn_empty_correction_into_caveat_only_success(
+    prepared, monkeypatch
+):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr(
+        "sabermetrics.assistant_runtime.review_answer",
+        lambda *args, **kwargs: (["", ""], {"status": "corrected"}),
+    )
+    gateway = Gateway(
+        [step(content="The printed creature provides combat-dependent draw.")]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Explain the source."}],
+        gateway=gateway,
+        answer_review_gateway=SimpleNamespace(),
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert "combat-dependent draw" in result["content"]
+    assert result["answer_review"] == {
+        "status": "unverified",
+        "reason": "empty_correction",
+    }

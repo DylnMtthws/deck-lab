@@ -44,7 +44,11 @@ from sabermetrics.assistant_tools import (
     ToolStopped,
     resolve_presentation_cards,
 )
-from sabermetrics.cedh.errors import ModelConfigurationError, ModelProviderError
+from sabermetrics.cedh.errors import (
+    ModelConfigurationError,
+    ModelProviderError,
+    ModelValidationError,
+)
 from sabermetrics.cedh.model_gateway import (
     ModelGateway,
     ReasoningMode,
@@ -57,7 +61,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v17"
+PROMPT_VERSION = "build-conversation.v18"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -346,6 +350,10 @@ For final replies, populate content as a short direct lead, findings as concise
 user-facing bullet statements covering the requested facts/options, and
 next_action as one concrete step. Leave tool_calls empty. Put implementation
 IDs, hashes and metadata in receipts, not the conversational answer.
+Use one candidate or one focused comparison per finding. Do not stuff a numbered
+multi-card list into one finding. Each finding must be a complete sentence within
+its 700-character limit; shorten the explanation before the limit rather than
+cutting off a sentence or a card's required conditions.
 Explain findings plainly, with coverage and staleness limits when relevant; keep detailed provenance in receipts. Emit complete JSON, including its closing braces; budget for
 reasoning separately from the concise user-facing answer.
 """
@@ -387,6 +395,12 @@ class AssistantPlanningStep(AssistantStep):
 
 
 class AssistantAnswerStep(AssistantStep):
+    content: str = Field(
+        min_length=1,
+        max_length=6000,
+        pattern=r"\S",
+        description="Required nonempty answer lead addressing the user's question from confirmed evidence. A progress announcement or checker warning is not an answer.",
+    )
     tool_calls: list[ToolCall] = Field(default_factory=list, max_length=0)
 
 
@@ -904,11 +918,14 @@ def _reviewed_plans(
     }
 
 
-def _evidence_fallback(state: dict[str, Any], experiments_started: int = 0) -> str:
+def _evidence_fallback(
+    state: dict[str, Any], experiments_started: int = 0, *, headline: str | None = None
+) -> str:
     """Expose confirmed partial findings if the final model call ignores its budget."""
     names = [str(c.get("name")) for c in state.get("commanders", []) if c.get("name")]
     lines = [
-        "The assistant reached its research budget. These confirmed findings are available; the requested analysis is incomplete."
+        headline
+        or "The assistant reached its research budget. These confirmed findings are available; the requested analysis is incomplete."
     ]
     lines.append(
         "The source deck was not changed. "
@@ -1462,7 +1479,7 @@ def run_turn(
                 tool_count == MAX_TOOL_CALLS or final_call or synthesis_required
             )
             if answer_only:
-                system += "\nNo tool calls remain. Return a final answer from the confirmed receipts, identifying any missing facts. Do not request more tools.\n"
+                system += "\nThis call is reserved for a final answer. Return a final answer with the required content lead and substantive findings from confirmed receipts, identifying any missing facts. Do not request more tools or return an empty object.\n"
             if task is not None:
                 state["research_task"] = research_progress(task, observed_plans())
                 encoded = _encode_context(state, latest_request, transcript)
@@ -1508,7 +1525,22 @@ def run_turn(
                 raise ToolStopped(
                     "The assistant was stopped before its next model call."
                 )
-            generated = gateway.generate(request)
+            try:
+                generated = gateway.generate(request)
+            except ModelValidationError:
+                # Reject malformed responses rather than accepting partial model
+                # fields. Recheck cancellation/revision before exposing sources.
+                tools.check()
+                result.update(
+                    status="provider_error",
+                    reason="answer_schema_invalid",
+                    content=_evidence_fallback(
+                        state,
+                        tools.experiments_started,
+                        headline="The model did not return a valid answer. These confirmed sources remain available; the requested analysis is incomplete.",
+                    ),
+                )
+                return result
             value = generated.value
             step = AssistantStep.model_validate(
                 value.model_dump() if hasattr(value, "model_dump") else value
@@ -1727,6 +1759,24 @@ def run_turn(
                     step = step.model_copy(
                         update={"findings": [*step.findings, *extra_findings]}
                     )
+                if not any(part.strip() for part in [step.content, *step.findings]):
+                    # A next-action/checker caveat is not the requested answer.
+                    # Spend only an already-budgeted outer call on synthesis.
+                    if not final_call:
+                        synthesis_required = True
+                        transcript.append(
+                            {
+                                "role": "system",
+                                "content": "The previous response contained no answer or findings. Return a nonempty direct answer from the confirmed evidence on the next call; do not perform further research or return only a next action.",
+                            }
+                        )
+                        continue
+                    result.update(
+                        status="budget_exhausted",
+                        reason="empty_model_answer",
+                        content=_evidence_fallback(state, tools.experiments_started),
+                    )
+                    return result
                 if task is not None:
                     task_progress = research_progress(task, observed_plans())
                     state["research_task"] = task_progress
@@ -1898,6 +1948,11 @@ def run_turn(
                             raise RevisionConflict(int(current["revision"]))
                     else:
                         tools.check()
+                    if not any(part.strip() for part in corrected[:-1]):
+                        # An invalid checker patch must not replace an answer
+                        # with whitespace and then pass via its warning text.
+                        corrected = parts
+                        receipt = {"status": "unverified", "reason": "empty_correction"}
                     result["answer_review"] = receipt
                     emit(
                         {
