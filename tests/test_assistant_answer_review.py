@@ -318,3 +318,49 @@ def test_quantity_words_and_explicit_protected_parts_are_guarded():
             ),
             protected_parts={0},
         )
+
+
+def test_checker_requires_explicit_fulfillment_on_provider_schema():
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_answer_review import AnswerReviewDecision
+
+    assert "fulfillment" in AnswerReviewDecision.model_json_schema()["required"]
+    with pytest.raises(ValidationError):
+        AnswerReviewDecision.model_validate({"patches": [], "unresolved": []})
+    assert AnswerReview.model_validate({"patches": []}).fulfillment == "unknown"
+
+
+def test_nonanswer_decision_survives_rejected_mechanical_patch():
+    gateway = SimpleNamespace(
+        generate=lambda request: SimpleNamespace(
+            value={
+                "fulfillment": "nonanswer",
+                "patches": [
+                    {
+                        "part_index": 0,
+                        "claim": "Let me research",
+                        "replacement": "A fabricated correction",
+                        "citations": [
+                            {
+                                "source_index": 0,
+                                "quote": "This quote is not in the supplied source",
+                            }
+                        ],
+                    }
+                ],
+                "unresolved": ["The requested two lists are missing."],
+            }
+        )
+    )
+    parts = ["Let me research the candidates.", ""]
+    corrected, receipt = review_answer(
+        gateway,
+        parts,
+        ["An actual canonical card source."],
+        "Provide two useful lists.",
+    )
+    assert corrected == parts
+    assert receipt["status"] == "unverified"
+    assert receipt["fulfillment"] == "nonanswer"
+    assert receipt["unresolved"] == ["The requested two lists are missing."]

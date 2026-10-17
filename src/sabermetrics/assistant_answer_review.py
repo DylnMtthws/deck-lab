@@ -10,7 +10,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, ValidationError
 
@@ -38,8 +38,15 @@ class AnswerPatch(StrictModel):
 
 
 class AnswerReview(StrictModel):
+    fulfillment: Literal["complete", "partial", "nonanswer", "unknown"] = "unknown"
     patches: list[AnswerPatch] = Field(default_factory=list, max_length=6)
     unresolved: list[str] = Field(default_factory=list, max_length=3)
+
+
+class AnswerReviewDecision(AnswerReview):
+    fulfillment: Literal["complete", "partial", "nonanswer", "unknown"] = Field(
+        description="Whether the draft actually answers the current request: complete, partial, nonanswer (only plans/progress/deferral/caveats), or unknown if supplied evidence cannot establish fulfillment. This is separate from mechanical correctness."
+    )
 
 
 class SourceEvidence(list[str]):
@@ -342,17 +349,18 @@ def review_answer(
     if len(payload.encode()) > 32768 or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v2",
+        prompt_version="assistant-answer-review.v3",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),
         user=payload,
-        schema=AnswerReview,
+        schema=AnswerReviewDecision,
         mode=ReasoningMode.EXPLAIN,
         call_type="build:answer-review",
         max_output_tokens=3072,
         evidence_hash=hashlib.sha256(payload.encode()).hexdigest(),
     )
+    review: AnswerReview | None = None
     try:
         generated = gateway.generate(request).value
         review = AnswerReview.model_validate(
@@ -367,11 +375,15 @@ def review_answer(
         ValidationError,
         ValueError,
     ) as exc:
-        receipt = {"status": "unverified", "reason": type(exc).__name__}
+        receipt: dict[str, Any] = {"status": "unverified", "reason": type(exc).__name__}
+        if review is not None:
+            receipt["fulfillment"] = review.fulfillment
+            receipt["unresolved"] = review.unresolved
         if isinstance(exc, AnswerPatchRejected):
             receipt["reason_detail"] = str(exc)
         return parts, receipt
     return corrected, {
+        "fulfillment": review.fulfillment,
         "status": (
             "partially_checked"
             if initially_omitted or omitted_sources

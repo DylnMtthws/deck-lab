@@ -38,6 +38,14 @@ nonblank regex. Code checks meaningful nonblank text and current-request quote
 provenance, including short user messages. Live provider behavior must be
 checked separately from Pydantic's schema validation.
 
+The existing answer checker also returns a typed fulfillment decision. An
+explicit nonanswer can use one remaining primary call for a tool-free repair;
+it does not receive a second checker call or a larger budget. Repaired prose is
+incomplete and explicitly unchecked. Invalid repairs and exhausted capacity
+preserve confirmed source excerpts instead of reporting a successful answer.
+Partial fulfillment remains incomplete. These bounded model judgments and
+field-presence constraints do not replace independent semantic assessment.
+
 Named-card comparisons prioritize their card facts before further discovery.
 Excess tool batches reserve the next call for an answer-only schema. Duplicate
 reads reuse checked receipts and trigger synthesis. The five conversation-call,

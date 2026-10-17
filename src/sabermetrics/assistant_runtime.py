@@ -58,11 +58,12 @@ from sabermetrics.cedh.model_gateway import (
 from sabermetrics.cedh.provider_deepseek import build_gateway
 from sabermetrics.cedh.settings import load_cedh_settings
 from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
+from sabermetrics.errors import LLMCostCeilingExceeded
 
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v20"
+PROMPT_VERSION = "build-conversation.v21"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -405,6 +406,11 @@ class AssistantPlanningStep(AssistantReplyFields):
 
 
 class AssistantAnswerStep(AssistantReplyFields):
+    findings: list[Annotated[str, Field(min_length=1, max_length=700)]] = Field(
+        min_length=1,
+        max_length=6,
+        description="Required concrete findings answering the current request; a promise to retrieve evidence is not a finding.",
+    )
     content: str = Field(
         min_length=12,
         max_length=6000,
@@ -1171,6 +1177,7 @@ def _encode_context(
         "deck_entry_handles",
         "conversation_context",
         "answer_obligations",
+        "answer_repair_feedback",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1503,6 +1510,8 @@ def run_turn(
         }
         tool_count = 0
         synthesis_required = False
+        checker_review_attempted = False
+        answer_repair_pending = False
         read_cache: dict[str, dict[str, Any]] = {}
         successful_functional_queries: set[str] = set()
         cacheable = {
@@ -1600,13 +1609,26 @@ def run_turn(
                 )
             try:
                 generated = gateway.generate(request)
-            except ModelValidationError:
+            except (
+                ModelValidationError,
+                ModelProviderError,
+                LLMCostCeilingExceeded,
+            ) as exc:
                 # Reject malformed responses rather than accepting partial model
                 # fields. Recheck cancellation/revision before exposing sources.
+                if (
+                    not isinstance(exc, ModelValidationError)
+                    and not answer_repair_pending
+                ):
+                    raise
                 tools.check()
                 result.update(
-                    status="provider_error",
-                    reason="answer_schema_invalid",
+                    status="incomplete" if answer_repair_pending else "provider_error",
+                    reason=(
+                        "answer_repair_invalid"
+                        if answer_repair_pending
+                        else "answer_schema_invalid"
+                    ),
                     content=_evidence_fallback(
                         state,
                         tools.experiments_started,
@@ -1616,6 +1638,35 @@ def run_turn(
                 return result
             value = generated.value
             raw_step = value.model_dump() if hasattr(value, "model_dump") else value
+            if answer_repair_pending:
+                try:
+                    if not isinstance(raw_step, dict) or raw_step.get("tool_calls"):
+                        raise ValueError("Answer repair cannot execute tools")
+                    repaired = AssistantAnswerStep.model_validate(
+                        {
+                            key: raw_step[key]
+                            for key in AssistantAnswerStep.model_fields
+                            if key in raw_step
+                        }
+                    )
+                    raw_step = repaired.model_dump()
+                except (ValueError, ValidationError):
+                    tools.check()
+                    result.update(
+                        status="incomplete",
+                        reason="answer_repair_invalid",
+                        content=_evidence_fallback(
+                            state,
+                            tools.experiments_started,
+                            headline="The answer repair did not return usable findings. Confirmed sources remain available; the requested analysis is incomplete.",
+                        ),
+                    )
+                    result["answer_review"] = {
+                        "status": "not_checked",
+                        "reason": "not_checked_repaired_answer",
+                        "fulfillment": "unknown",
+                    }
+                    return result
             if isinstance(raw_step, dict):
                 raw_task = raw_step.get("research_task")
                 if isinstance(raw_task, dict) and "preference_assessment" in raw_task:
@@ -1879,7 +1930,7 @@ def run_turn(
                 ):
                     # A next-action/checker caveat is not the requested answer.
                     # Spend only an already-budgeted outer call on synthesis.
-                    if not final_call:
+                    if not final_call and not answer_repair_pending:
                         synthesis_required = True
                         transcript.append(
                             {
@@ -1889,9 +1940,21 @@ def run_turn(
                         )
                         continue
                     result.update(
-                        status="budget_exhausted",
+                        status=(
+                            "incomplete"
+                            if answer_repair_pending
+                            else "budget_exhausted"
+                        ),
                         reason="empty_model_answer",
-                        content=_evidence_fallback(state, tools.experiments_started),
+                        content=_evidence_fallback(
+                            state,
+                            tools.experiments_started,
+                            headline=(
+                                "The answer repair did not return usable findings. Confirmed sources remain available; the requested analysis is incomplete."
+                                if answer_repair_pending
+                                else None
+                            ),
+                        ),
                     )
                     return result
                 if task is not None:
@@ -1907,6 +1970,7 @@ def run_turn(
                     if (
                         not task_progress["counts_complete"]
                         and not continuation_used
+                        and not answer_repair_pending
                         and package_research_blocker is None
                         and step_index <= MAX_MODEL_CALLS - 3
                         and tool_count < MAX_TOOL_CALLS
@@ -1998,9 +2062,11 @@ def run_turn(
                 checker = answer_review_gateway or (gateway if owns_gateway else None)
                 if (
                     checker is not None
+                    and not checker_review_attempted
                     and MAX_TURN_SECONDS - (time.monotonic() - started) >= 190
                 ):
                     tools.check()
+                    checker_review_attempted = True
                     emit(
                         {
                             "type": "tool_started",
@@ -2072,7 +2138,11 @@ def run_turn(
                         # An invalid checker patch must not replace an answer
                         # with whitespace and then pass via its warning text.
                         corrected = parts
-                        receipt = {"status": "unverified", "reason": "empty_correction"}
+                        receipt = {
+                            **receipt,
+                            "status": "unverified",
+                            "reason": "empty_correction",
+                        }
                     result["answer_review"] = receipt
                     emit(
                         {
@@ -2088,6 +2158,37 @@ def run_turn(
                             "revision": result["revision"],
                         }
                     )
+                    if receipt.get("fulfillment") == "nonanswer":
+                        state["answer_repair_feedback"] = {
+                            "fulfillment": "nonanswer",
+                            "unresolved": [
+                                str(note)[:400]
+                                for note in receipt.get("unresolved", [])[:3]
+                            ],
+                            "instruction": "Answer the current request directly using confirmed sources. Include concrete findings, not a promise of further research. No tools or another checker call are available.",
+                        }
+                        if not final_call and not answer_repair_pending:
+                            answer_repair_pending = True
+                            synthesis_required = True
+                            result["answer_review"] = {
+                                "status": "not_checked",
+                                "reason": "not_checked_repaired_answer",
+                                "original_fulfillment": "nonanswer",
+                                "fulfillment": "unknown",
+                            }
+                            continue
+                        result.update(
+                            status="incomplete",
+                            reason="request_unanswered",
+                            content=_evidence_fallback(
+                                state,
+                                tools.experiments_started,
+                                headline="The source check found that the draft did not answer this request. Confirmed sources remain available; the requested analysis is incomplete.",
+                            ),
+                        )
+                        return result
+                    if receipt.get("fulfillment") == "partial":
+                        result["reason"] = "answer_partially_fulfilled"
                     corrected = [
                         _ground_blanket_cast_claims(part, state) for part in corrected
                     ]
@@ -2113,11 +2214,19 @@ def run_turn(
                     result["answer_review"] = {
                         "status": "not_checked",
                         "reason": (
-                            "turn_time_budget"
-                            if checker is not None
-                            else "injected_gateway_without_reviewer"
+                            "not_checked_repaired_answer"
+                            if answer_repair_pending
+                            else (
+                                "turn_time_budget"
+                                if checker is not None
+                                else "injected_gateway_without_reviewer"
+                            )
                         ),
                     }
+                    if answer_repair_pending:
+                        result["answer_review"]["fulfillment"] = "unknown"
+                        result["answer_review"]["original_fulfillment"] = "nonanswer"
+                        result["reason"] = "answer_repair_unverified"
                 if hypotheses:
                     known_card_ids.update(
                         pair["incoming_card_id"]
@@ -2155,7 +2264,13 @@ def run_turn(
                 )
                 result["status"] = (
                     "done"
-                    if answer and result["reason"] != "research_incomplete"
+                    if answer
+                    and result["reason"]
+                    not in {
+                        "research_incomplete",
+                        "answer_partially_fulfilled",
+                        "answer_repair_unverified",
+                    }
                     else "incomplete"
                 )
                 presentation: dict[str, Any] = {

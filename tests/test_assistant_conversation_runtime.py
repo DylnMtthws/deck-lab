@@ -477,7 +477,9 @@ def test_answer_only_schema_requires_nonblank_answer_lead():
     ):
         with pytest.raises(ValidationError):
             AssistantAnswerStep.model_validate(value)
-    final = AssistantAnswerStep(content="A concise direct answer.")
+    final = AssistantAnswerStep(
+        content="A concise direct answer.", findings=["A concrete supported finding."]
+    )
     assert AssistantStep.model_validate(final.model_dump()).tool_calls == []
     schema = json.dumps(AssistantAnswerStep.model_json_schema())
     assert "tool_calls" not in schema
@@ -898,3 +900,205 @@ def test_two_successful_functional_queries_bound_reads_inside_a_batch(
         for row in result["actions"]
     )
     assert json.loads(gateway.requests[-1].user)["state"]["tool_calls_remaining"] == 5
+
+
+def test_nonanswer_checker_allows_one_bounded_unverified_answer_repair(prepared):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(
+            value={
+                "fulfillment": "nonanswer",
+                "patches": [],
+                "unresolved": ["Missing the requested comparison."],
+            }
+        )
+    )
+    gateway = Gateway(
+        [
+            step(
+                content="Let me retrieve the requested comparison in a bounded batch."
+            ),
+            AssistantStep(
+                content="The supplied candidates differ in costs and enabling conditions.",
+                findings=[
+                    "The printed abilities require their stated costs and conditions."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Compare the available printed conditions."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert len(checks) == 1 and len(gateway.requests) == 2
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
+    assert (
+        json.loads(gateway.requests[-1].user)["state"]["answer_repair_feedback"][
+            "fulfillment"
+        ]
+        == "nonanswer"
+    )
+    assert result["status"] == "incomplete"
+    assert result["reason"] == "answer_repair_unverified"
+    assert result["answer_review"]["reason"] == "not_checked_repaired_answer"
+    assert result["answer_review"]["fulfillment"] == "unknown"
+    assert "supplied candidates differ" in result["content"]
+    assert not [
+        row
+        for row in result["actions"]
+        if row["type"] == "tool_started" and row["name"] != "check_answer"
+    ]
+
+
+def test_last_call_nonanswer_returns_confirmed_sources_not_done(prepared, monkeypatch):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_MODEL_CALLS", 2)
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(
+            value={
+                "fulfillment": "nonanswer",
+                "patches": [],
+                "unresolved": ["No actual named-card assessment."],
+            }
+        )
+    )
+    gateway = Gateway(
+        [
+            step(call("card_details", {"card_id": "Elegy Acolyte"})),
+            step(content="Let me retrieve the requested card details."),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Assess Elegy Acolyte."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 2 and len(checks) == 1
+    assert result["status"] == "incomplete" and result["reason"] == "request_unanswered"
+    assert "combat damage" in result["content"]
+    assert "presentation" not in result
+
+
+@pytest.mark.parametrize(
+    "bad_repair",
+    [
+        AssistantStep(content="I will retrieve the useful card findings shortly."),
+        AssistantStep(tool_calls=[call("inspect_deck")]),
+    ],
+)
+def test_invalid_or_progress_only_repair_cannot_execute_tools_or_be_done(
+    prepared, bad_repair
+):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(
+            value={
+                "fulfillment": "nonanswer",
+                "patches": [],
+                "unresolved": ["No answer supplied."],
+            }
+        )
+    )
+    gateway = Gateway(
+        [step(content="Let me research the requested answer."), bad_repair]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Compare the actual card conditions."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 2 and len(checks) == 1
+    assert (
+        result["status"] == "incomplete" and result["reason"] == "answer_repair_invalid"
+    )
+    assert not [
+        row
+        for row in result["actions"]
+        if row["type"] == "tool_started" and row["name"] != "check_answer"
+    ]
+    assert "confirmed" in result["content"].casefold()
+
+
+def test_partial_fulfillment_remains_incomplete_without_another_checker(prepared):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(
+            value={
+                "fulfillment": "partial",
+                "patches": [],
+                "unresolved": ["One requested list is missing."],
+            }
+        )
+    )
+    gateway = Gateway([step(content="Here is the supported first part of the answer.")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Provide two useful lists."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert (
+        result["status"] == "incomplete"
+        and result["reason"] == "answer_partially_fulfilled"
+    )
+    assert len(checks) == 1 and len(gateway.requests) == 1
+
+
+def test_cancellation_during_nonanswer_check_prevents_answer_repair(prepared):
+    from types import SimpleNamespace
+
+    service, path, owner, deck, _, _ = prepared
+    stopped = []
+
+    def check(request):
+        stopped.append(True)
+        return SimpleNamespace(
+            value={"fulfillment": "nonanswer", "patches": [], "unresolved": []}
+        )
+
+    gateway = Gateway([step(content="Let me retrieve the requested comparison.")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Compare card conditions."}],
+        gateway=gateway,
+        answer_review_gateway=SimpleNamespace(generate=check),
+        should_stop=lambda: bool(stopped),
+        experiment_service=service,
+    )
+    assert result["status"] == "stopped"
+    assert len(gateway.requests) == 1
