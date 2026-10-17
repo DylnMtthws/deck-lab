@@ -37,7 +37,11 @@ from sabermetrics.assistant_tools import (
     resolve_presentation_cards,
 )
 from sabermetrics.cedh.errors import ModelConfigurationError, ModelProviderError
-from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
+from sabermetrics.cedh.model_gateway import (
+    ModelGateway,
+    ReasoningMode,
+    StructuredRequest,
+)
 from sabermetrics.cedh.provider_deepseek import build_gateway
 from sabermetrics.cedh.settings import load_cedh_settings
 from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
@@ -1115,6 +1119,7 @@ def run_turn(
     strategy_presentation: dict[str, Any] | None = None
     partial_draft: dict[str, Any] | None = None
     owns_gateway = gateway is None
+    owned_package_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
         "status": "incomplete",
@@ -1352,6 +1357,24 @@ def run_turn(
             ):
                 package_research_attempted = True
                 tools.check()
+                if owns_gateway and package_research_gateway is None:
+                    # Conversation calls disable schema repair. Composition gets
+                    # one repair and no transport retry: at most two 60s calls,
+                    # within its 240s gate including bounded catalog lookup.
+                    package_settings = settings.model_copy(
+                        update={
+                            "model": settings.model.model_copy(
+                                update={"max_retries": 0, "max_validation_retries": 1}
+                            )
+                        }
+                    )
+                    owned_package_gateway = build_gateway(
+                        package_settings,
+                        db_path=str(db_path),
+                        user_id=owner_id,
+                        deck_id=deck_id,
+                    )
+                    tools.package_gateway = owned_package_gateway
                 tool_count += 1
                 arguments = {"focus": current_request[:300], "count": task.additions}
                 emit(
@@ -2015,6 +2038,10 @@ def run_turn(
                     result["presentation"]["goldfish"] = measured_presentation
         if tools is not None:
             result["proposals"] = tools.proposals
+        if owned_package_gateway is not None and owned_package_gateway is not gateway:
+            close = getattr(owned_package_gateway, "close", None)
+            if close:
+                close()
         if owns_gateway and gateway is not None:
             close = getattr(gateway, "close", None)
             if close:

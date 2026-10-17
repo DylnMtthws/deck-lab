@@ -207,15 +207,22 @@ def test_protected_cut_cannot_be_selected_and_no_provider_call_occurs(compositio
     assert not composer.calls
 
 
+@pytest.mark.parametrize("owned", [False, True])
 def test_runtime_routes_coordinated_brief_to_structured_package_without_extra_chat(
     composition_case,
+    monkeypatch,
+    owned,
 ):
     service, path, owner, deck, document = composition_case
     calls = []
+    closed = []
 
     class Chat:
         provider = "test"
         model_id = "test"
+
+        def close(self):
+            closed.append("conversation")
 
         def generate(self, request):
             calls.append(request)
@@ -238,6 +245,20 @@ def test_runtime_routes_coordinated_brief_to_structured_package_without_extra_ch
             )
 
     composer = Composer()
+    composer.close = lambda: closed.append("package")
+    built = []
+
+    def build(settings, **kwargs):
+        built.append(settings.model)
+        if len(built) == 1:
+            assert settings.model.max_validation_retries == 0
+            return Chat()
+        assert settings.model.max_retries == 0
+        assert settings.model.max_validation_retries == 1
+        assert settings.model.timeout_seconds == 60
+        return composer
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
     result = run_turn(
         path,
         owner,
@@ -248,11 +269,18 @@ def test_runtime_routes_coordinated_brief_to_structured_package_without_extra_ch
                 "content": "Two additions and two distinct cuts as a package. Suggestions only.",
             }
         ],
-        gateway=Chat(),
-        package_research_gateway=composer,
+        gateway=None if owned else Chat(),
+        package_research_gateway=None if owned else composer,
+        answer_review_gateway=SimpleNamespace(
+            generate=lambda request: SimpleNamespace(
+                value={"patches": [], "unresolved": []}
+            )
+        ),
         experiment_service=service,
     )
     assert len(calls) == 1 and len(composer.calls) == 1
+    assert closed == (["package", "conversation"] if owned else [])
+    assert len(built) == (2 if owned else 0)
     assert result["status"] == "done"
     assert result["research"]["task"]["counts_complete"]
     assert "Incoming 0" in result["content"] and "Incoming 1" in result["content"]

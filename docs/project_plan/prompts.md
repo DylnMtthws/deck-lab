@@ -745,3 +745,8 @@ prose with its actual evidence blocker. Extra provider calls are separately
 metered (one composition, one answer check) alongside the five-call conversation
 budget and existing tool-bound strategic review. A 240-second remaining-time
 gate covers composition lookup and the configured provider retries.
+Composition uses a separate costed instance of the same provider with one schema
+repair and no transport retries (at most two 60-second requests). Conversation
+and answer-check calls keep their existing retry policy. A schema-valid package
+must contain the requested pair count, interaction and conditions; abstention
+must supply an evidence blocker. All response fields are required.

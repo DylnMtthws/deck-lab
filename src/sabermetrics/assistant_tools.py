@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from sabermetrics import db
 from sabermetrics.card_search import search_cards
+from sabermetrics.cedh.model_gateway import ModelGateway
 from sabermetrics.deck_documents import DeckDocumentRepo, RevisionConflict
 from sabermetrics.deck_evidence import (
     DeckEvidenceService,
@@ -337,7 +338,7 @@ class AssistantTools:
         review_gateway=None,
     ):
         self.review_gateway = review_gateway
-        self.package_gateway = None
+        self.package_gateway: ModelGateway | None = None
         self.package_results: dict[str, dict[str, Any]] = {}
         self.reviewed_proposals: set[str] = set()
         self.path = Path(db_path)
