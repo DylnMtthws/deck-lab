@@ -810,6 +810,7 @@ def test_transient_provider_overload_has_three_bounded_attempts(
                                 "content": json.dumps(
                                     {
                                         "content": "The typed provider response succeeded.",
+                                        "research_task": {"additions": 0, "cuts": 0},
                                         "tool_calls": [],
                                     }
                                 )

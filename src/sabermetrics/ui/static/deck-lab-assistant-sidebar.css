@@ -67,6 +67,12 @@
 .dl-assistant-card-link { display:inline-flex; align-items:center; gap:var(--s-2); padding:0; border:0; background:transparent; color:var(--brand-text); text-align:left; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
 .dl-assistant-card-link:hover,.dl-assistant-card-link:focus-visible { color:var(--body); }
 .dl-assistant-card-link img { width:64px; height:88px; flex:none; object-fit:cover; border-radius:4px; }
+/* Card galleries stay folded so the reply text is what the reader lands on. */
+.dl-assistant-card-tray,.dl-assistant-card-more { margin-top:var(--s-2); font-size:var(--t-12); }
+.dl-assistant-card-tray > summary,.dl-assistant-card-more > summary { cursor:pointer; color:var(--muted); }
+.dl-assistant-card-tray > summary:hover,.dl-assistant-card-more > summary:hover { color:var(--body); }
+.dl-assistant-card-tray > small { display:block; margin-top:4px; color:var(--muted); }
+.dl-assistant-card-tray .dl-assistant-card-link img { width:40px; height:56px; }
 .dl-assistant-card-preview { position:fixed; z-index:2100; display:grid; gap:var(--s-2); max-width:calc(100vw - 16px); max-height:72dvh; overflow:auto; padding:var(--s-3); border:1px solid var(--line); border-radius:var(--r-md); background:var(--panel); box-shadow:0 18px 55px rgba(0,0,0,.5); }
 .dl-assistant-card-preview[hidden] { display:none !important; }
 .dl-assistant-card-preview img { width:min(180px,100%); max-height:260px; justify-self:center; object-fit:contain; border-radius:var(--r-sm); }

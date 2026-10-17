@@ -764,7 +764,7 @@ class AssistantTools:
             result["next_step"] = (
                 "Review the supported alternatives, then call test_recommended_alternatives with this recommendation_id in Automate mode. Do not rediscover the same candidates."
                 if self.mode == "automate" and alternatives
-                else "Use propose_replacements for a selected reviewed preview. If no alternatives survived review, report why rather than inventing a recommendation."
+                else "Use propose_replacements for a selected reviewed preview. If the requested package is incomplete, continue focused catalog/card research for its missing ingredients and distinct cuts. Unreviewed research hypotheses are not actionable previews; report specific blockers rather than inventing a recommendation."
             )
             self.discovery_results[focus_key] = result
             return result

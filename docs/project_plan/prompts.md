@@ -689,3 +689,36 @@ Review-state metadata: raw discovery marks candidates as needing review. When
 `review_candidates` completes with status `reviewed`, find_replacements clears
 that inherited pending flag before caching accepted alternatives. prepare_improvement
 labels retained plans ready for preview. Failed review never promotes alternatives.
+
+## Research task completion and answer checks (2026-10-17)
+
+Conversation v13 adds a typed per-turn research brief (requested additions/cuts,
+coordinated package, deliverables) and source-resolved research hypotheses. A
+partial discovery receipt does not finish that brief. One bounded continuation
+may repair a premature final answer using focused catalog/card/rules reads.
+Unchanged discovery remains cached; actionable proposals still require joint
+constraint and strategic review. Research hypotheses never create action handles.
+
+`assistant-answer-review.v1` checks a drafted answer against bounded current-deck,
+consulted Oracle and retrieved rules evidence. It returns exact claim spans,
+replacement text and exact source quotes. Code accepts only non-overlapping
+patches whose spans and citations exist. One review call (3072 output tokens,
+existing pinned gateway and cost ledger) is allowed per factual turn; missing
+evidence/review failure remains visible and does not certify correctness. This
+is a bounded model cross-check, not a rules engine or expert guarantee. Expected
+additional model cost is below $0.01 per turn, to be measured in live evaluation.
+Prompt file: src/sabermetrics/prompts/assistant_answer_review.txt.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.

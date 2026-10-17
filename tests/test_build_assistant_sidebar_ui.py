@@ -372,3 +372,199 @@ def test_collapsed_assistant_rail_can_be_reopened():
     assert ".dl-assistant-mobile-open { display:none; }" not in css
     assert "railToggle.click()" in js
     assert 'mobile(!sidebar.classList.contains("is-open"))' in js
+
+
+def _run_node(script):
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is required for renderer harness")
+    result = subprocess.run(
+        [node, "-e", script], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def _between(source, start, end):
+    return (
+        "function "
+        + start
+        + source.split("  function " + start, 1)[1].split("  function " + end, 1)[0]
+    )
+
+
+def test_progress_counts_finished_calls_for_the_current_turn_in_plain_words():
+    source = SCRIPT.read_text()
+    helpers = _between(source, "toolLabel(", "appendSwapReviews(")
+    harness = r"""
+const assert = require('node:assert/strict');
+HELPERS
+const start = (name) => ({role: 'tool', action: {type: 'tool_started', name}});
+const done = (name, ok = true) => ({role: 'tool', action: {type: 'tool_result', name, ok}});
+const earlier = [{role: 'user'}, start('inspect_deck'), done('inspect_deck'), {role: 'assistant'}];
+// One start plus its result is one finished call, never two steps.
+assert.deepEqual(toolActivity([start('find_replacements'), done('find_replacements')]), {finished: 1, pending: []});
+assert.deepEqual(toolActivity([start('search_cards'), done('search_cards', false), start('card_details')]), {finished: 1, pending: ['card_details']});
+const now = 10000;
+const live = earlier.concat([{role: 'user'}, start('search_cards'), done('search_cards'), start('find_replacements')]);
+assert.equal(progressText(live, {chatBusy: true, startedAt: now - 30, now}), 'Working · Replacement research · 1 step finished');
+const reviewing = earlier.concat([{role: 'user'}, start('search_cards'), done('search_cards'), start('card_details'), done('card_details')]);
+assert.equal(progressText(reviewing, {chatBusy: true, startedAt: now - 125, now}), 'Working · 2 steps finished · 2 min so far');
+assert.equal(progressText(earlier.concat([{role: 'user'}]), {chatBusy: true, now}), 'Working on your request…');
+assert.equal(progressText(live, {chatBusy: true, stopping: true, now}), 'Stopping after the current step…');
+assert.equal(progressText(live, {chatBusy: false, now}), '');
+assert.equal(progressText([], {chatBusy: false, experimentsRunning: true}), 'Automated research is running…');
+// Elapsed time changes at minute granularity, so a polite live region is not re-announced every poll.
+assert.equal(progressText(live, {chatBusy: true, startedAt: now - 61, now}), progressText(live, {chatBusy: true, startedAt: now - 119, now}));
+const unknown = progressText([{role: 'user'}, start('internal_lookup_v2')], {chatBusy: true, now});
+assert.equal(unknown, 'Working · Research step');
+for (const text of [progressText(live, {chatBusy: true, now}), unknown]) assert.doesNotMatch(text, /tool|_|poll|model|Message sent/i);
+""".replace("HELPERS", helpers)
+    _run_node(harness)
+    assert '"Message sent."' not in source
+
+
+def test_transcript_scroll_reveals_reply_lead_and_keeps_reader_place():
+    helpers = _between(SCRIPT.read_text(), "toolLabel(", "appendSwapReviews(")
+    harness = r"""
+const assert = require('node:assert/strict');
+HELPERS
+const view = {scrollHeight: 2000, clientHeight: 400};
+assert.equal(transcriptScrollTop({...view, following: true}), 1600);
+// A long new reply lands on its first line, not its last card.
+assert.equal(transcriptScrollTop({...view, following: true, replyTop: 500}), 492);
+// A short reply that fits still shows the latest content.
+assert.equal(transcriptScrollTop({...view, following: true, replyTop: 1750}), 1600);
+// Reading older messages: the same message stays at the same offset.
+assert.equal(transcriptScrollTop({...view, following: false, anchorTop: 900, anchorOffset: -20}), 920);
+assert.equal(transcriptScrollTop({...view, following: false}), null);
+assert.equal(transcriptScrollTop({scrollHeight: 300, clientHeight: 400, following: true, replyTop: 100}), 0);
+""".replace("HELPERS", helpers)
+    _run_node(harness)
+
+
+def test_transcript_renderer_pairs_steps_preserves_disclosures_and_scroll():
+    """Run the real renderMessages against a small fake DOM with block layout."""
+    source = SCRIPT.read_text()
+    helpers = _between(source, "toolLabel(", "appendSwapReviews(")
+    renderer = _between(source, "renderMessages(", "appendMetricSummary(")
+    harness = r"""
+const assert = require('node:assert/strict');
+const HEIGHT = {user: 100, tool: 100, assistant: 900};
+class El {
+  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.attrs = {}; this.parentNode = null; this._text = ''; this.className = ''; this.open = false; }
+  get classList() { return {contains: (name) => this.className.split(/\s+/).includes(name)}; }
+  appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  replaceChild(next, old) { this.children[this.children.indexOf(old)] = next; next.parentNode = this; return old; }
+  replaceChildren() { this.children = []; }
+  get lastElementChild() { return this.children[this.children.length - 1] || null; }
+  get firstChild() { return this.children[0] || null; }
+  get textContent() { return this._text + this.children.map((child) => child.textContent).join(''); }
+  set textContent(value) { this._text = String(value); this.children = []; }
+  setAttribute(key, value) { this.attrs[key] = value; }
+  all() { return this.children.flatMap((child) => [child, ...child.all()]); }
+  querySelectorAll(selector) { return this.all().filter((node) => matches(node, selector)); }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  getBoundingClientRect() {
+    const siblings = transcript.children; const index = siblings.indexOf(this);
+    const top = siblings.slice(0, index).reduce((sum, node) => sum + HEIGHT[node.dataset.role], 0) - surface.scrollTop;
+    return {top, bottom: top + HEIGHT[this.dataset.role]};
+  }
+}
+function matches(node, selector) {
+  if (selector === '[data-pending-tool]') return 'pendingTool' in node.dataset;
+  if (selector === 'details[data-disclosure-key]') return node.tagName === 'DETAILS' && 'disclosureKey' in node.dataset;
+  if (selector === '.dl-assistant-activity > details') return node.tagName === 'DETAILS' && node.parentNode.classList.contains('dl-assistant-activity');
+  if (selector === 'details') return node.tagName === 'DETAILS';
+  if (selector === 'summary') return node.tagName === 'SUMMARY';
+  throw new Error('unsupported selector ' + selector);
+}
+const document = {createElement: (tag) => new El(tag)};
+function element(tag, text, cls) { const node = new El(tag); if (cls) node.className = cls; if (text !== undefined && text !== null) node.textContent = text; return node; }
+const transcript = new El('div');
+let writes = 0; let top = 0;
+const surface = {
+  clientHeight: 400,
+  get scrollHeight() { return transcript.children.reduce((sum, node) => sum + HEIGHT[node.dataset.role], 0); },
+  get scrollTop() { return top; },
+  set scrollTop(value) { writes += 1; top = Math.max(0, Math.min(this.scrollHeight - this.clientHeight, value)); },
+  getBoundingClientRect() { return {top: 0, bottom: 400}; }
+};
+const scrollSurface = surface;
+var data = {busy: false, messages: []};
+var renderedMessageSignature = null, renderedMessageCount = 0, renderedMessageIds = [];
+var followingLatest = true, deferredScroll = false, deferredReply = null;
+function renderToolStep(message) {
+  const action = message.action || {}; const step = element('div');
+  step.appendChild(element('span', toolLabel(action) + (action.type === 'tool_started' ? ' · working' : ' · complete')));
+  return step;
+}
+function appendReply(article, message) { article.appendChild(element('p', message.content)); }
+function appendStructuredPresentation() {}
+function refreshChartStaleness() {}
+HELPERS
+RENDERER
+const start = (id, name) => ({id, role: 'tool', action: {type: 'tool_started', name}});
+const done = (id, name) => ({id, role: 'tool', action: {type: 'tool_result', name, ok: true}});
+const say = (id, role, content) => ({id, role, content: content || id});
+const activities = () => transcript.querySelectorAll('.dl-assistant-activity > details');
+const steps = (activity) => activity.children.filter((node) => node.tagName === 'DIV');
+
+// Initial history: one call renders as one step, and the latest long answer opens at its lead.
+data.messages = [say('u1', 'user'), start('t1', 'find_replacements'), done('t2', 'find_replacements'), say('a1', 'assistant')];
+renderMessages();
+assert.equal(steps(activities()[0]).length, 1);
+assert.equal(activities()[0].querySelector('summary').textContent, 'Research activity · 1 step finished');
+assert.equal(surface.scrollTop, 192);
+
+// An identical poll writes nothing and does not move the reader.
+let before = writes; data = {...data, messages: data.messages.slice()}; renderMessages();
+assert.equal(writes, before);
+
+// Live turn: the working line is replaced by its own result.
+followingLatest = true;
+data = {busy: true, messages: data.messages.concat([say('u2', 'user'), start('t3', 'search_cards')])};
+renderMessages();
+assert.equal(activities()[1].querySelector('summary').textContent, 'Research activity · now: Card catalog search');
+assert.equal(surface.scrollTop, surface.scrollHeight - surface.clientHeight);
+data = {busy: true, messages: data.messages.concat([done('t4', 'search_cards'), start('t5', 'card_details')])};
+renderMessages();
+assert.equal(steps(activities()[1]).length, 2);
+assert.equal(activities()[1].querySelector('summary').textContent, 'Research activity · 1 step finished · now: Card details');
+// The turn ended without that result: say so instead of "working" forever.
+data = {busy: false, messages: data.messages.slice()};
+syncActivities();
+assert.equal(activities()[1].querySelector('summary').textContent, 'Research activity · 1 step finished · 1 did not finish');
+assert.match(activities()[1].textContent, /Card details · did not finish/);
+
+// Reading older messages while the window shifts: rebuild keeps the reader's message in place
+// and keeps opened research details open.
+activities()[1].open = true;
+followingLatest = false; top = 250; // a1 is the first visible message, 50px above the viewport top
+const anchorOffset = transcript.children.find((node) => node.dataset.messageIds === 'a1').getBoundingClientRect().top;
+data = {busy: false, messages: data.messages.slice(1).concat([say('a2', 'assistant')])};
+renderMessages();
+const a1 = transcript.children.find((node) => node.dataset.messageIds === 'a1');
+assert.equal(a1.getBoundingClientRect().top, anchorOffset);
+assert.equal(activities()[1].open, true);
+assert.equal(activities()[0].open, false);
+""".replace("HELPERS", helpers).replace("RENDERER", renderer)
+    _run_node(harness)
+
+
+def test_reply_card_gallery_is_folded_and_long_search_results_are_limited():
+    css = STYLE.read_text()
+    js = SCRIPT.read_text()
+    assert 'tray.className = "dl-assistant-card-tray"' in js
+    assert '"Cards in this answer · " + cards.length' in js
+    assert "appendCardTray(article, message);" in js
+    assert "appendCardResults(article, presentation.cards)" not in js
+    assert '"Show " + (valid.length - limit) + " more"' in js
+    assert (
+        ".dl-assistant-card-tray .dl-assistant-card-link img { width:40px; height:56px; }"
+        in css
+    )

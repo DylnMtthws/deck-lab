@@ -215,6 +215,9 @@ def _work(path, owner, deck_id, turn):
                 "actions": result.get("actions", []),
                 "status": result.get("status"),
                 "model": result.get("model_id"),
+                "research": result.get("research"),
+                "answer_review": result.get("answer_review"),
+                "reason": result.get("reason"),
             },
         )
     except Exception:

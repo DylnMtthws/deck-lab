@@ -27,12 +27,22 @@
   var renderedProposalSignature = null;
   var renderedMessageCount = 0;
   var renderedMessageIds = [];
+  // True while the reader is at the latest message; only their own scrolling changes it.
+  var followingLatest = true;
+  var progressShown = "";
+  var stopRequested = false;
+  var deferredScroll = false;
+  var deferredReply = null;
   var preview = document.createElement("div");
   preview.className = "dl-assistant-card-preview";
   preview.setAttribute("role", "dialog");
   preview.setAttribute("aria-label", "Card preview");
   preview.hidden = true;
   document.body.appendChild(preview);
+  if (scrollSurface || transcript) (scrollSurface || transcript).addEventListener("scroll", function () {
+    var surface = scrollSurface || transcript;
+    followingLatest = surface.scrollHeight - surface.scrollTop - surface.clientHeight < 72;
+  }, { passive: true });
   proposalsNode.addEventListener("change", function () {
     var checked = proposalsNode.querySelectorAll("[data-replacement]:checked");
     var button = proposalsNode.querySelector("[data-assistant-apply]");
@@ -199,7 +209,15 @@
       if (pane) pane.hidden = !on;
       if (on && focus) tab.focus();
     });
+    settleDeferredScroll();
     try { localStorage.setItem("deck-lab-assistant-tab:" + state.id, name); } catch (_) {}
+  }
+  function settleDeferredScroll() {
+    var surface = scrollSurface || transcript;
+    if (!deferredScroll || !surface || !surface.clientHeight) return;
+    deferredScroll = false;
+    scrollTranscript(surface, deferredReply === transcript.lastElementChild ? deferredReply : null, null);
+    deferredReply = null;
   }
   var tabs = Array.prototype.slice.call(sidebar.querySelectorAll("[data-assistant-tab]"));
   tabs.forEach(function (tab, index) {
@@ -247,6 +265,7 @@
     sidebar.classList.toggle("is-open", value);
     document.body.classList.toggle("dl-assistant-drawer-open", value);
     syncOpenButton();
+    if (value) settleDeferredScroll();
     if (value && tabs[0]) tabs[0].focus();
     if (!value && mobileOpen) mobileOpen.focus();
   }
@@ -255,7 +274,7 @@
     else if (railToggle) railToggle.click();
   });
   if (close) close.addEventListener("click", function () { if (isDrawer()) mobile(false); });
-  if (builder && window.MutationObserver) new MutationObserver(syncOpenButton).observe(builder, { attributes: true, attributeFilter: ["class"] });
+  if (builder && window.MutationObserver) new MutationObserver(function () { syncOpenButton(); settleDeferredScroll(); }).observe(builder, { attributes: true, attributeFilter: ["class"] });
   if (drawerQuery && drawerQuery.addEventListener) drawerQuery.addEventListener("change", syncOpenButton);
   syncOpenButton();
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && sidebar.classList.contains("is-open")) mobile(false); });
@@ -429,12 +448,27 @@
   function cardsFrom(message) {
     return knownCards(message && message.presentation && message.presentation.cards || []);
   }
-  function appendCardResults(article, cards) {
-    if (!Array.isArray(cards)) return;
+  function validCards(cards) {
+    return Array.isArray(cards) ? cards.filter(function (card) { return card && typeof card.name === "string" && cardId(card); }) : [];
+  }
+  function appendCardResults(article, cards, visible) {
+    // Show a few rows; the rest stay one click away instead of burying the reply.
+    var valid = validCards(cards).slice(0, 12);
+    if (!valid.length) return;
+    var limit = visible || 4;
+    var list = cardResultList(valid.slice(0, limit), "Card search results");
+    article.appendChild(list);
+    if (valid.length > limit) {
+      var more = document.createElement("details"); more.className = "dl-assistant-card-more";
+      more.appendChild(element("summary", "Show " + (valid.length - limit) + " more"));
+      more.appendChild(cardResultList(valid.slice(limit), "More card search results"));
+      article.appendChild(more);
+    }
+  }
+  function cardResultList(cards, label) {
     var list = element("ul", null, "dl-assistant-card-results");
-    list.setAttribute("aria-label", "Card search results");
-    cards.slice(0, 12).forEach(function (card) {
-      if (!card || typeof card.name !== "string" || !cardId(card)) return;
+    list.setAttribute("aria-label", label);
+    cards.forEach(function (card) {
       var row = element("li", null, "dl-assistant-card-result");
       var link = element("button", null, "dl-assistant-card-link"); link.type = "button";
       link.dataset.knownCardId = String(cardId(card)); link.setAttribute("aria-label", "Preview " + card.name); link.setAttribute("aria-expanded", "false");
@@ -450,7 +484,19 @@
       if (details) row.appendChild(element("small", details));
       list.appendChild(row);
     });
-    if (list.children.length) article.appendChild(list);
+    return list;
+  }
+  function appendCardTray(article, message) {
+    // Card names in the reply already open previews, so the gallery starts closed.
+    var cards = validCards(message.presentation.cards);
+    if (!cards.length) return;
+    var tray = document.createElement("details"); tray.className = "dl-assistant-card-tray";
+    tray.dataset.disclosureKey = "cards:" + (message.id || "");
+    var shown = Math.min(cards.length, 12);
+    tray.appendChild(element("summary", "Cards in this answer · " + cards.length));
+    appendCardResults(tray, cards, 12);
+    if (cards.length > shown) tray.appendChild(element("small", "Showing " + shown + " of " + cards.length + ". Card names in the answer also open previews."));
+    article.appendChild(tray);
   }
   function observationChart(host, goldfish) {
     if (!goldfish || typeof goldfish !== "object") return;
@@ -599,13 +645,60 @@
   function appendStructuredPresentation(article, message) {
     var presentation = message && message.presentation;
     if (!presentation || typeof presentation !== "object") return;
-    appendCardResults(article, presentation.cards);
+    appendCardTray(article, message);
     if (presentation.goldfish) observationChart(article, presentation.goldfish);
     if (presentation.strategy_evidence) appendStrategyEvidence(article, presentation.strategy_evidence);
   }
   function toolLabel(action) {
-    var names = { research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
-    return names[action && action.name] || "Assistant tool";
+    var names = { check_answer: "Checking card text and conditions", research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    return names[action && action.name] || "Research step";
+  }
+  // Pure helpers for progress and scrolling; the renderer supplies DOM measurements.
+  function currentTurn(messages) {
+    var list = Array.isArray(messages) ? messages : [];
+    for (var index = list.length - 1; index >= 0; index -= 1) {
+      if (list[index] && list[index].role === "user") return list.slice(index + 1);
+    }
+    return list.slice();
+  }
+  function toolActivity(messages) {
+    // A start and its result are one call. Only finished calls count as steps.
+    var finished = 0;
+    var pending = [];
+    (messages || []).forEach(function (message) {
+      if (!message || message.role !== "tool") return;
+      var action = message.action || {};
+      var name = String(action.name || "");
+      if (action.type === "tool_started") { pending.push(name); return; }
+      var at = pending.lastIndexOf(name);
+      if (at >= 0) pending.splice(at, 1);
+      finished += 1;
+    });
+    return { finished: finished, pending: pending };
+  }
+  function stepCount(count) { return count + (count === 1 ? " step" : " steps") + " finished"; }
+  function progressText(messages, options) {
+    options = options || {};
+    if (!options.chatBusy) return options.experimentsRunning ? "Automated research is running…" : "";
+    if (options.stopping) return "Stopping after the current step…";
+    var activity = toolActivity(currentTurn(messages));
+    var parts = ["Working"];
+    if (activity.pending.length) parts.push(toolLabel({ name: activity.pending[activity.pending.length - 1] }));
+    else if (!activity.finished) parts = ["Working on your request…"];
+    if (activity.finished) parts.push(stepCount(activity.finished));
+    var minutes = Math.floor((Number(options.now) - Number(options.startedAt)) / 60);
+    // Minute granularity keeps the polite live region from announcing every poll.
+    if (Number.isFinite(minutes) && minutes >= 1) parts.push(minutes + " min so far");
+    return parts.join(" · ");
+  }
+  function transcriptScrollTop(view) {
+    // Following: go to the latest content, but never past the top of a new reply.
+    // Reading older messages: keep the same message at the same viewport offset.
+    var max = Math.max(0, view.scrollHeight - view.clientHeight);
+    var target = null;
+    if (view.following) target = typeof view.replyTop === "number" ? Math.min(max, view.replyTop - 8) : max;
+    else if (typeof view.anchorTop === "number") target = view.anchorTop - (view.anchorOffset || 0);
+    return target === null ? null : Math.max(0, Math.min(max, target));
   }
   function appendSwapReviews(host, receipts) {
     if (!receipts.length) return;
@@ -693,8 +786,14 @@
       if ((messages[index] && messages[index].id) !== (renderedMessageIds[index] || null)) canAppend = false;
     }
     var surface = scrollSurface || transcript;
-    var nearBottom = surface.scrollHeight - surface.scrollTop - surface.clientHeight < 72;
-    if (!canAppend) { transcript.replaceChildren(); renderedMessageCount = 0; renderedMessageIds = []; }
+    var previousIds = new Set(renderedMessageIds);
+    var anchor = followingLatest ? null : transcriptAnchor(surface);
+    var openKeys = new Set();
+    if (!canAppend) {
+      transcript.querySelectorAll("details[data-disclosure-key]").forEach(function (details) { if (details.open) openKeys.add(details.dataset.disclosureKey); });
+      transcript.replaceChildren(); renderedMessageCount = 0; renderedMessageIds = [];
+    }
+    var newReply = null;
     var cursor = renderedMessageCount;
     while (cursor < messages.length) {
       var message = messages[cursor];
@@ -704,38 +803,103 @@
         var activity = group && group.classList.contains("dl-assistant-activity") ? group.querySelector("details") : null;
         if (!activity) {
           group = element("article", null, "dl-assistant-message dl-assistant-activity"); group.dataset.role = "tool";
+          group.dataset.messageIds = "";
           activity = document.createElement("details");
-          activity.appendChild(element("summary", "Research activity · 0 steps"));
+          var before = messages[cursor - 1];
+          activity.dataset.disclosureKey = "activity:" + (before && before.id || "start");
+          activity.appendChild(element("summary", "Research activity"));
           group.appendChild(activity); transcript.appendChild(group);
         }
         var toolMessages = [];
         var end = cursor;
         while (end < messages.length && messages[end] && messages[end].role === "tool") { toolMessages.push(messages[end]); end += 1; }
-        var count = Number(activity.dataset.stepCount || 0);
-        var pending = Number(activity.dataset.pendingCount || 0);
+        var finished = Number(activity.dataset.finishedCount || 0);
         toolMessages.forEach(function (item) {
-          activity.appendChild(renderToolStep(item)); count += 1;
-          if (item.action && item.action.type === "tool_started") pending += 1;
-          else if (item.action && item.action.type === "tool_result") pending = Math.max(0, pending - 1);
+          var action = item.action || {};
+          var step = renderToolStep(item);
+          if (action.type === "tool_started") { step.dataset.pendingTool = String(action.name || ""); activity.appendChild(step); return; }
+          // The result replaces its own "working" line; it is one step, not two.
+          var waiting = Array.prototype.filter.call(activity.querySelectorAll("[data-pending-tool]"), function (node) { return node.dataset.pendingTool === String(action.name || ""); }).pop();
+          if (waiting) activity.replaceChild(step, waiting); else activity.appendChild(step);
+          finished += 1;
         });
-        activity.dataset.stepCount = String(count); activity.dataset.pendingCount = String(pending);
-        activity.querySelector("summary").textContent = "Research activity · " + count + (count === 1 ? " step" : " steps") + (pending ? " · working" : "");
-        for (; cursor < end; cursor += 1) { renderedMessageIds.push(messages[cursor] && messages[cursor].id || null); renderedMessageCount += 1; }
+        activity.dataset.finishedCount = String(finished);
+        for (; cursor < end; cursor += 1) {
+          var id = messages[cursor] && messages[cursor].id || null;
+          renderedMessageIds.push(id); renderedMessageCount += 1;
+          if (id) group.dataset.messageIds += (group.dataset.messageIds ? " " : "") + id;
+        }
         continue;
       }
       var article = element("article", null, "dl-assistant-message");
       article.dataset.role = role;
+      article.dataset.messageIds = message && message.id || "";
       article.setAttribute("aria-label", role === "assistant" ? "Research Assistant reply" : "Your message");
       appendReply(article, message);
       appendStructuredPresentation(article, message);
       transcript.appendChild(article);
+      if (role === "assistant" && !previousIds.has(message && message.id || null)) newReply = article;
       renderedMessageIds.push(message && message.id || null);
       renderedMessageCount += 1;
       cursor += 1;
     }
+    if (newReply !== transcript.lastElementChild) newReply = null;
+    if (openKeys.size) transcript.querySelectorAll("details[data-disclosure-key]").forEach(function (details) { details.open = openKeys.has(details.dataset.disclosureKey); });
     renderedMessageSignature = signature;
+    syncActivities();
     refreshChartStaleness();
-    if (nearBottom) surface.scrollTop = surface.scrollHeight;
+    if (!surface.clientHeight) {
+      // Hidden tab: nothing can be measured. Settle the position when chat is shown.
+      if (followingLatest) { deferredScroll = true; deferredReply = newReply || (deferredReply === transcript.lastElementChild ? deferredReply : null); }
+      return;
+    }
+    scrollTranscript(surface, newReply, anchor);
+  }
+  function scrollTranscript(surface, newReply, anchor) {
+    var anchorNode = anchor && Array.prototype.find.call(transcript.children, function (node) {
+      return (node.dataset.messageIds || "").split(" ").some(function (id) { return anchor.ids.indexOf(id) >= 0; });
+    });
+    var target = transcriptScrollTop({
+      following: followingLatest,
+      scrollHeight: surface.scrollHeight,
+      clientHeight: surface.clientHeight,
+      replyTop: newReply ? contentTop(surface, newReply) : null,
+      anchorTop: anchorNode ? contentTop(surface, anchorNode) : null,
+      anchorOffset: anchor ? anchor.offset : 0
+    });
+    if (target !== null && Math.abs(target - surface.scrollTop) > 1) surface.scrollTop = target;
+  }
+  function contentTop(surface, node) {
+    return node.getBoundingClientRect().top - surface.getBoundingClientRect().top + surface.scrollTop;
+  }
+  function transcriptAnchor(surface) {
+    // The first message still visible at the top is the reader's place.
+    var top = surface.getBoundingClientRect().top;
+    var node = Array.prototype.find.call(transcript.children, function (child) { return child.getBoundingClientRect().bottom > top; });
+    var ids = node ? (node.dataset.messageIds || "").split(" ").filter(Boolean) : [];
+    return ids.length ? { ids: ids, offset: node.getBoundingClientRect().top - top } : null;
+  }
+  function syncActivities() {
+    if (!transcript) return;
+    var groups = transcript.querySelectorAll(".dl-assistant-activity > details");
+    Array.prototype.forEach.call(groups, function (activity) {
+      var live = !!data.busy && activity.parentNode === transcript.lastElementChild;
+      var waiting = Array.prototype.slice.call(activity.querySelectorAll("[data-pending-tool]"));
+      var finished = Number(activity.dataset.finishedCount || 0);
+      var parts = ["Research activity"];
+      if (finished) parts.push(stepCount(finished));
+      if (waiting.length && live) parts.push("now: " + toolLabel({ name: waiting[waiting.length - 1].dataset.pendingTool }));
+      else if (waiting.length) {
+        parts.push(waiting.length + " did not finish");
+        waiting.forEach(function (step) {
+          var line = step.firstChild; var text = toolLabel({ name: step.dataset.pendingTool }) + " · did not finish";
+          if (line && line.textContent !== text) line.textContent = text;
+        });
+      }
+      var summary = activity.querySelector("summary");
+      // Unchanged text is not rewritten, so the live log does not repeat itself every poll.
+      if (summary.textContent !== parts.join(" · ")) summary.textContent = parts.join(" · ");
+    });
   }
   function appendMetricSummary(host, rows) {
     if (!Array.isArray(rows) || !rows.length) return;
@@ -950,13 +1114,25 @@
     renderSettings(); renderMessages(); renderProposals(); renderExperiments();
     var welcome = sidebar.querySelector("[data-assistant-welcome]");
     if (welcome) welcome.hidden = (data.messages || []).length > 0;
-    busy = !!data.busy || (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; });
+    var experimentsRunning = (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; });
+    busy = !!data.busy || experimentsRunning;
     var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = busy;
     var stop = sidebar.querySelector("[data-assistant-stop]"); if (stop) stop.hidden = !busy;
+    syncActivities();
+    if (!data.busy) stopRequested = false;
+    showProgress(progressText(data.messages, { chatBusy: !!data.busy, experimentsRunning: experimentsRunning, stopping: stopRequested, startedAt: data.started_at, now: Date.now() / 1000 }));
     if (busy) schedulePoll();
   }
+  function showProgress(text) {
+    // Progress owns the status line only while it is the latest thing shown there;
+    // errors and action results written by other handlers are left alone.
+    var owned = !status.textContent || status.textContent === progressShown;
+    if (text) { if (owned) { if (status.textContent !== text) status.textContent = text; progressShown = text; } }
+    else if (progressShown) { if (status.textContent === progressShown) status.textContent = ""; progressShown = ""; }
+  }
   function refresh() {
-    return request(base).then(function (next) { data = Object.assign({}, data, next || {}); render(); }).catch(function (error) { status.textContent = error.message; });
+    // A failed refresh is transient: the next successful one may replace its message.
+    return request(base).then(function (next) { data = Object.assign({}, data, next || {}); render(); }).catch(function (error) { status.textContent = error.message; progressShown = error.message; });
   }
   function schedulePoll() { if (pollTimer) return; pollTimer = window.setTimeout(function () { pollTimer = 0; refresh(); }, 1800); }
 
@@ -997,15 +1173,16 @@
     event.preventDefault();
     var input = sidebar.querySelector("[data-assistant-message]");
     var message = input.value.trim(); if (!message || busy) return;
-    status.textContent = "Sending message…";
+    status.textContent = "Sending message…"; progressShown = status.textContent;
+    followingLatest = true;
     request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, expected_revision: Number(state.revision || 0) }) })
-      .then(function () { input.value = ""; status.textContent = "Message sent."; return refresh(); })
+      .then(function () { input.value = ""; status.textContent = "Working on your request…"; progressShown = status.textContent; return refresh(); })
       .catch(function (error) { status.textContent = error.message; });
   });
   var stop = sidebar.querySelector("[data-assistant-stop]");
   if (stop) stop.addEventListener("click", function () {
     stop.disabled = true;
-    request(base + "/stop", { method: "POST", body: JSON.stringify({}) }).then(function () { status.textContent = "Stop requested."; return refresh(); })
+    request(base + "/stop", { method: "POST", body: JSON.stringify({}) }).then(function () { stopRequested = true; status.textContent = "Stop requested."; progressShown = status.textContent; return refresh(); })
       .catch(function (error) { status.textContent = error.message; }).finally(function () { stop.disabled = false; });
   });
   var latestSim = document.querySelector("[data-simulate-rerun]");

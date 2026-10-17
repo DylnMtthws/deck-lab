@@ -17,7 +17,17 @@ from typing import Annotated, Any
 
 from pydantic import Field, ValidationError
 
+from sabermetrics.assistant_answer_review import evidence_sources, review_answer
 from sabermetrics.assistant_deck_facts import library_composition
+from sabermetrics.assistant_research_task import (
+    ResearchHypothesis,
+    ResearchTask,
+    reconcile_task,
+    validate_hypotheses,
+)
+from sabermetrics.assistant_research_task import (
+    progress as research_progress,
+)
 from sabermetrics.assistant_tools import (
     AssistantTools,
     Proposal,
@@ -35,7 +45,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v12"
+PROMPT_VERSION = "build-conversation.v13"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -135,8 +145,10 @@ and internal status names in the source disclosures and receipts.
 Use assess_deck_requirements for supported archetype ingredients and explicit
 gaps; unsupported/general plans and heuristic targets are not verified win lines.
 Recommendations pass a separate bounded strategic review before becoming
-available to preview or test. A rejected or missing review is not permission to
-invent alternative swaps. Report that no supported recommendation was found.
+available to preview or test. A rejected or missing review blocks actionable previews, not further research.
+You may research a different catalog-backed hypothesis using search_cards and
+card_details, then submit the complete package for joint review. Do not invent
+IDs, fill quotas with poor fits, or present an unreviewed hypothesis as actionable.
 A strategic fit judgment is not a measured upgrade. Only an experiment outcome
 with verdict improved supports a claim of improvement, strictly for its returned
 objective and evidence scope. Never extend it to overall deck power or win rate.
@@ -205,8 +217,10 @@ when workflow.recommendation is ready, do not call find_replacements again just
 because the user's request starts with finding candidates. Its recommendation_id
 is already available. If the user asked to test in Automate mode, proceed to
 test_recommended_alternatives after any required review. If they asked only for
-suggestions, preview or report. Never repeat unchanged discovery or rephrase its
-focus to restart it. A repeated read cannot substitute for the requested test.
+suggestions, preview or report only when the requested research is complete.
+Never repeat unchanged discovery or rephrase its focus to restart it. A partial
+result does not finish research_task: use focused catalog/card/rules reads for
+missing ingredients and a coherent hypothesis, without inventing IDs. A repeated read cannot substitute for the requested test.
 For an improvement request, prefer prepare_improvement: it retrieves relevant
 strategy evidence, assesses the deck and finds validated alternatives in one
 bounded read plan. It never runs simulations or changes cards. Then preview or
@@ -262,6 +276,22 @@ performance. If needed card facts are missing, retrieve them through the availab
 search/card_details tools instead of ending with an avoidable missing-evidence
 disclaimer. Answer the requested comparison or recommendation directly with
 supported findings and a useful next step, rather than announcing catalog lookups.
+On the first step, populate research_task from the user's actual request: requested
+additions and cuts (0..99), whether they must form a coordinated package, and the
+requested deliverables. Zero means no replacement request; do not invent a quota.
+One coordinated package supports at most three swaps. Preserve larger requested
+counts and explicitly report any remainder instead of silently reducing them.
+A request for two additions and two cuts is one two-pair package, not two alternatives
+cutting the same card. Preserve the brief throughout the turn. If discovery gives
+only one candidate, use focused search_cards/card_details for the missing ingredient
+rather than asking for an already clear focus or a measurement objective.
+An objective is required to promise measured improvement, not to research a hypothesis.
+For a non-actionable research package you may populate research_hypotheses with
+exact resolved IDs, the shared interaction, conditions and what every cut loses.
+These undergo isolated constraint checks but are explicitly unreviewed hypotheses,
+never actionable proposals or tested upgrades. Explain the actual cards in the reply.
+Prefer propose_replacements for a jointly reviewed actionable package when possible.
+When returning a research hypothesis rather than a preview, do not claim joint review.
 Answer EVERY requested part. For a deck inspection asking commander, land count
 and two ways to help: name the commander, give the actual front_land_count
 (separate land_back_face_count), and give two distinct helpful options. A deck
@@ -295,8 +325,19 @@ class AssistantStep(StrictModel):
         max_length=700,
         description="One useful next action or choice grounded in the requested task; do not claim an action ran without its actual receipt.",
     )
+    research_task: ResearchTask | None = None
+    research_hypotheses: list[ResearchHypothesis] = Field(
+        default_factory=list, max_length=3
+    )
     card_ids: list[str] = Field(default_factory=list, max_length=12)
     tool_calls: list[ToolCall] = Field(default_factory=list, max_length=3)
+
+
+class AssistantPlanningStep(AssistantStep):
+    # The first production response cannot silently omit the research brief.
+    research_task: ResearchTask = Field(
+        description="Extract the user's requested additions, cuts, coordination and deliverables. Use zero counts for factual questions."
+    )
 
 
 def _compact(value: Any, depth: int = 0) -> Any:
@@ -903,6 +944,7 @@ def _encode_context(
         "consulted_cards_omitted",
         "commanders",
         "deck_composition",
+        "research_task",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1041,6 +1083,7 @@ def run_turn(
     *,
     gateway=None,
     experiment_service=None,
+    answer_review_gateway=None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1048,6 +1091,8 @@ def run_turn(
     It is checked before every provider call and tool action and passed into the
     experiment service. ``on_event`` receives actual start/result/error receipts.
     Injectable gateways/services are test seams, not production fallback models.
+    Production performs one separately metered source check after drafting; tests
+    injecting a conversational gateway can inject answer_review_gateway separately.
     """
     if mode not in {"suggest", "automate"}:
         raise ValueError("Assistant mode must be suggest or automate.")
@@ -1061,6 +1106,7 @@ def run_turn(
     known_card_ids: set[str] = set()
     measured_presentation: dict[str, Any] | None = None
     strategy_presentation: dict[str, Any] | None = None
+    partial_draft: dict[str, Any] | None = None
     owns_gateway = gateway is None
     result: dict[str, Any] = {
         "content": "",
@@ -1195,6 +1241,19 @@ def run_turn(
             },
         }
         tool_count = 0
+        task = None
+        continuation_used = False
+        hypotheses: list[dict[str, Any]] = []
+        executed_plans: list[dict[str, Any]] = []
+
+        def observed_plans():
+            return [
+                *tools.proposals,
+                *hypotheses,
+                *executed_plans,
+                *[plan for plans in tools.recommendations.values() for plan in plans],
+            ]
+
         for step_index in range(MAX_MODEL_CALLS):
             tools.check()
             state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
@@ -1212,6 +1271,9 @@ def run_turn(
             final_call = step_index == MAX_MODEL_CALLS - 1
             if tool_count == MAX_TOOL_CALLS or final_call:
                 system += "\nNo tool calls remain. Return a final answer from the confirmed receipts, identifying any missing facts. Do not request more tools.\n"
+            if task is not None:
+                state["research_task"] = research_progress(task, observed_plans())
+                encoded = _encode_context(state, latest_request, transcript)
             recommendation = state["workflow"].get("recommendation")
             if (
                 recommendation
@@ -1225,14 +1287,16 @@ def run_turn(
                     "candidate evidence and recommendation_id in state.workflow. "
                     "If the user requested testing and mode is automate, the next "
                     "action is test_recommended_alternatives after required semantic "
-                    "review; otherwise preview/report. If ready is false, explain "
-                    "the insufficient candidates instead of trying to run.\n"
+                    "review; otherwise preview/report only when research_task is complete. "
+                    "For missing additions or cuts, continue focused catalog/card "
+                    "research for a coherent hypothesis. Do not restart discovery "
+                    "or require a new focus or measurement objective.\n"
                 )
             request = StructuredRequest(
                 prompt_version=PROMPT_VERSION,
                 system=system,
                 user=encoded,
-                schema=AssistantStep,
+                schema=AssistantPlanningStep if step_index == 0 else AssistantStep,
                 mode=ReasoningMode.EXPLAIN,
                 call_type="build:assistant",
                 max_output_tokens=4096,
@@ -1254,7 +1318,133 @@ def run_turn(
                 value.model_dump() if hasattr(value, "model_dump") else value
             )
             tools.check()
+            if task is None and step.research_task is not None:
+                task, disagreements = reconcile_task(
+                    step.research_task, current_request
+                )
+                state["research_brief_disagreements"] = disagreements
+            hypotheses = []
+            if step.research_hypotheses:
+                hypotheses, hypothesis_errors = validate_hypotheses(
+                    tools, step.research_hypotheses
+                )
+                state["research_hypothesis_errors"] = hypothesis_errors
             if not step.tool_calls:
+                # A counted hypothesis must also reach the reader, with actual
+                # resolved card names and explicit inference/prerequisite labels.
+                extra_findings = []
+                draft = " ".join(
+                    [step.content, *step.findings, step.next_action]
+                ).casefold()
+                for hypothesis in hypotheses:
+                    for pair in hypothesis["replacement_names"]:
+                        if not all(name.casefold() in draft for name in pair.values()):
+                            extra_findings.append(
+                                "Research hypothesis: Cut "
+                                + pair["outgoing"]
+                                + "; add "
+                                + pair["incoming"]
+                                + "."
+                            )
+                    for label, details in (
+                        (
+                            "Shared interaction (inferred): ",
+                            [hypothesis["shared_interaction"]],
+                        ),
+                        ("Conditions (inferred): ", hypothesis["conditions"]),
+                        (
+                            "Possible losses (inferred): ",
+                            [loss["explanation"] for loss in hypothesis["losses"]],
+                        ),
+                    ):
+                        if any(detail.casefold() not in draft for detail in details):
+                            extra_findings.append(label + " ".join(details))
+                if extra_findings:
+                    step = step.model_copy(
+                        update={"findings": [*step.findings, *extra_findings]}
+                    )
+                if task is not None:
+                    task_progress = research_progress(task, observed_plans())
+                    state["research_task"] = task_progress
+                    result["research"] = {
+                        "task": task_progress,
+                        "brief_disagreements": state.get(
+                            "research_brief_disagreements", {}
+                        ),
+                        "hypotheses": hypotheses,
+                    }
+                    if (
+                        not task_progress["counts_complete"]
+                        and not continuation_used
+                        and step_index <= MAX_MODEL_CALLS - 3
+                        and tool_count < MAX_TOOL_CALLS
+                    ):
+                        continuation_used = True
+                        step = step.model_copy(
+                            update={
+                                "content": _ground_blanket_cast_claims(
+                                    step.content, state
+                                ),
+                                "findings": [
+                                    _ground_blanket_cast_claims(p, state)
+                                    for p in step.findings
+                                ],
+                                "next_action": _ground_blanket_cast_claims(
+                                    step.next_action, state
+                                ),
+                            }
+                        )
+                        partial_note = "This is a partial answer. Review the confirmed activity receipts for any subsequent research."
+                        if hypotheses:
+                            partial_note += " Research hypotheses have not passed joint strategic review or been simulated."
+                        partial_draft = {
+                            "content": "\n\n".join(
+                                [
+                                    step.content,
+                                    *step.findings,
+                                    step.next_action,
+                                    partial_note,
+                                ]
+                            ),
+                            "presentation": {
+                                "reply": {
+                                    "lead": step.content,
+                                    "findings": step.findings,
+                                    "next_action": partial_note,
+                                },
+                                "cards": resolve_presentation_cards(
+                                    db_path,
+                                    known_card_ids
+                                    | {
+                                        p["incoming_card_id"]
+                                        for h in hypotheses
+                                        for p in h["replacements"]
+                                    },
+                                    step.content + " ".join(step.findings),
+                                    step.card_ids,
+                                ),
+                                "research": result["research"],
+                            },
+                            "research": result["research"],
+                            "answer_review": {
+                                "status": "not_checked",
+                                "reason": "retained_partial_draft",
+                            },
+                            "status": "incomplete",
+                            "reason": "research_incomplete",
+                            "stopped": False,
+                        }
+                        transcript.append(
+                            {
+                                "role": "system",
+                                "content": "The draft ends before the requested research package is complete. "
+                                "Continue focused catalog/card research for the missing additions and distinct cuts. "
+                                "Do not repeat discovery, invent IDs or require another user focus. "
+                                "Return a sourced research_hypotheses package if joint review is unavailable. "
+                                "If budgets/evidence prevent completion, explain the specific remaining blocker.",
+                            }
+                        )
+                        continue
                 grounded = [
                     _ground_blanket_cast_claims(part, state)
                     for part in [step.content, *step.findings, step.next_action]
@@ -1269,6 +1459,128 @@ def run_turn(
                             "content": grounded[0],
                             "findings": grounded[1:-1],
                             "next_action": grounded[-1],
+                        }
+                    )
+                # The injected conversational gateway is isolated from the review
+                # seam in offline tests; production reuses the pinned costed gateway.
+                checker = answer_review_gateway or (gateway if owns_gateway else None)
+                if (
+                    checker is not None
+                    and MAX_TURN_SECONDS - (time.monotonic() - started) >= 190
+                ):
+                    tools.check()
+                    emit(
+                        {
+                            "type": "tool_started",
+                            "name": "check_answer",
+                            "revision": result["revision"],
+                        }
+                    )
+                    parts = [step.content, *step.findings, step.next_action]
+                    corrected, receipt = review_answer(
+                        checker,
+                        parts,
+                        evidence_sources(
+                            document,
+                            actions,
+                            parts,
+                            state.get("rules_evidence"),
+                            [
+                                c
+                                for h in hypotheses
+                                for c in h.get("printed_sources", [])
+                            ],
+                        ),
+                        current_request,
+                        protected_parts=(
+                            {
+                                i
+                                for i, part in enumerate(parts)
+                                if re.search(r"\d", part)
+                            }
+                            if measured_presentation is not None
+                            or state["workflow"].get("experiment_status")
+                            else set()
+                        ),
+                    )
+                    if externally_stopped():
+                        raise ToolStopped(
+                            "The assistant was stopped during the answer check."
+                        )
+                    if time.monotonic() - started >= MAX_TURN_SECONDS:
+                        corrected = parts
+                        receipt = {
+                            "status": "not_checked",
+                            "reason": "turn_time_budget",
+                        }
+                        current = tools.repo.get(owner_id, deck_id)
+                        if int(current["revision"]) != tools.revision:
+                            raise RevisionConflict(int(current["revision"]))
+                    else:
+                        tools.check()
+                    result["answer_review"] = receipt
+                    emit(
+                        {
+                            "type": "tool_result",
+                            "name": "check_answer",
+                            "ok": receipt["status"]
+                            in {
+                                "no_supported_correction",
+                                "corrected",
+                                "partially_checked",
+                            },
+                            "data": receipt,
+                            "revision": result["revision"],
+                        }
+                    )
+                    corrected = [
+                        _ground_blanket_cast_claims(part, state) for part in corrected
+                    ]
+                    step = step.model_copy(
+                        update={
+                            "content": corrected[0],
+                            "findings": corrected[1:-1],
+                            "next_action": corrected[-1],
+                        }
+                    )
+                    if (
+                        receipt["status"] in {"unverified", "partially_checked"}
+                        or receipt.get("unresolved")
+                        or receipt.get("reason") in {"cost_ceiling", "turn_time_budget"}
+                    ):
+                        step = step.model_copy(
+                            update={
+                                "next_action": step.next_action
+                                + " Some mechanical details remain unverified; check the cited card text and conditions before relying on them."
+                            }
+                        )
+                else:
+                    result["answer_review"] = {
+                        "status": "not_checked",
+                        "reason": (
+                            "turn_time_budget"
+                            if checker is not None
+                            else "injected_gateway_without_reviewer"
+                        ),
+                    }
+                if hypotheses:
+                    known_card_ids.update(
+                        pair["incoming_card_id"]
+                        for h in hypotheses
+                        for pair in h["replacements"]
+                    )
+                    step = step.model_copy(
+                        update={
+                            "next_action": step.next_action
+                            + " This package is a research hypothesis; it has not passed joint strategic review or been simulated."
+                        }
+                    )
+                if task is not None and not state["research_task"]["counts_complete"]:
+                    result["reason"] = "research_incomplete"
+                    step = step.model_copy(
+                        update={
+                            "next_action": step.next_action
+                            + " The requested additions and distinct cuts are not all supported by the collected evidence."
                         }
                     )
                 sections = [step.content.strip()] if step.content.strip() else []
@@ -1286,8 +1598,14 @@ def run_turn(
                 result["content"] = (
                     answer or "The model returned no answer for this turn."
                 )
-                result["status"] = "done" if answer else "incomplete"
+                result["status"] = (
+                    "done"
+                    if answer and result["reason"] != "research_incomplete"
+                    else "incomplete"
+                )
                 presentation: dict[str, Any] = {
+                    "answer_review": result.get("answer_review"),
+                    "research": result.get("research"),
                     "reply": {
                         "lead": step.content.strip(),
                         "findings": [
@@ -1425,6 +1743,10 @@ def run_turn(
                         strategy_presentation = _merge_strategy_evidence(
                             strategy_presentation, data.get("strategy_evidence") or {}
                         )
+                    if call.name == "start_experiment":
+                        executed_plans.extend(
+                            p.model_dump() for p in call.arguments.alternatives
+                        )
                     _collect_resolved_card_ids(call.name, data, known_card_ids)
                     if (
                         call.name in {"latest_goldfish", "run_goldfish"}
@@ -1543,6 +1865,36 @@ def run_turn(
             content="The assistant could not complete this turn. Consult the confirmed tool receipts for any actions that occurred; no preview was applied to the original deck.",
         )
     finally:
+        if (
+            partial_draft is not None
+            and not externally_stopped()
+            and (
+                result["status"]
+                in {"budget_exhausted", "provider_error", "provider_unavailable"}
+                or (
+                    result["status"] == "stopped"
+                    and time.monotonic() - started >= MAX_TURN_SECONDS
+                )
+            )
+        ):
+            result.update(partial_draft)
+            if task is not None:
+                result["research"]["task"] = research_progress(task, observed_plans())
+                if result["research"]["task"]["counts_complete"]:
+                    result["reason"] = "answer_incomplete"
+            if tools is not None and (tools.experiments_started or tools.proposals):
+                subsequent = _evidence_fallback(state, tools.experiments_started)
+                result["content"] = (
+                    "Earlier partial findings:\n\n"
+                    + result["content"]
+                    + "\n\nSubsequent confirmed actions:\n"
+                    + subsequent
+                )
+                result["presentation"]["reply"]["next_action"] += (
+                    " Subsequent confirmed actions: " + subsequent
+                )
+                if measured_presentation is not None:
+                    result["presentation"]["goldfish"] = measured_presentation
         if tools is not None:
             result["proposals"] = tools.proposals
         if owns_gateway and gateway is not None:

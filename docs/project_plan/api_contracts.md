@@ -828,3 +828,36 @@ An optional saved bulk descriptor also binds URL, size and timestamp. The
 explicit CLI is `scripts/prepare_assistant_rulings.py`. No runtime network call
 is added. Rows are bounded and validated before namespace replacement; original
 source/date/Oracle identity and snapshot provenance remain visible in retrieval.
+
+### Research completion and answer review (2026-10-17)
+
+ResearchTask is an additive conversation-step field, frozen on its first supplied
+value within the turn. ResearchHypothesis contains one to three distinct
+replacement pairs, a shared interaction, conditions and losses. Every pair must
+resolve and pass existing isolated constraint validation. Hypotheses do not
+enter proposals or recommendations and carry explicit joint-review/measurement
+limits. Package completion counts pairs in one package, never unrelated alternatives.
+The runtime retains requested counts, observed counts and unresolved work under
+state.research_task; a prematurely final reply receives at most one continuation
+within the existing five conversation/eight tool-call budget.
+
+Answer review is one separately metered gateway call, after drafting, with no
+tools or mutation access. Its exact-span/citation patches apply atomically only
+when all patches validate. Failure returns an explicit unverified review receipt;
+cost ceilings and cancellation remain authoritative. Initial current deck text
+and tool evidence are data, not instructions. No new provider credentials,
+external services or database migration are introduced.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.

@@ -950,3 +950,27 @@ withholds namespace rows when the recorded row count is inconsistent.
 example omissions. The focused tool presents <=7500 characters while retaining
 all feature counts; per-feature examples and query matches carry exact clipped
 quotes and truncation flags.
+
+### Research Assistant additive reply contracts (2026-10-17)
+
+AssistantStep adds optional research_task and research_hypotheses (bounded typed
+objects). Final results add research and answer_review receipts. Requested
+counts are 0..99 per side with a supported package limit of three; coordinated hypotheses contain 1..3 distinct pairs.
+Answer review patches identify a reply-part index, exact old text, replacement,
+and bounded source-index/exact-quote citations. Claims and quotes are checked
+against the actual supplied strings, not model confidence. Existing proposal
+authorization and storage schemas are unchanged.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.
