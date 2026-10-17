@@ -12,11 +12,14 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
-from sabermetrics.assistant_research_task import PlanningResearchTask
+from sabermetrics.assistant_research_task import EvidenceScope, PlanningResearchTask
 from sabermetrics.assistant_tools import StrictModel
 
 
 class PlannerResearchTask(PlanningResearchTask):
+    evidence_scope: EvidenceScope = Field(
+        description="Evidence needed by the current request, independently of kind; supported by current_request_quote. named_cards_only means ONLY assessing the explicitly named cards; candidate_discovery means finding additional cards or new lists, even when comparing named benchmarks; existing_candidates means comparing an already retrieved set; unknown when unclear. Resolving named benchmarks does not complete candidate discovery."
+    )
     requires_empirical_evidence: bool = Field(
         description="True when this request needs actual Goldfish/simulation/experiment measurements or recorded results. Printed card facts alone cannot answer such requests. False for printed-card research or strategic hypotheses without requested measurement."
     )

@@ -30,6 +30,8 @@ def test_named_followup_research_precedes_discovery_and_forces_synthesis(prepare
                 {
                     "research_task": {
                         "kind": "compare",
+                        "evidence_scope": "named_cards_only",
+                        "current_request_quote": "What about Elegy Acolyte?",
                         "named_cards": ["Elegy Acolyte"],
                     },
                     "tool_calls": [call("search_cards", {"oracle_text": "draw"})],
@@ -224,6 +226,37 @@ def test_retained_cards_refresh_text_and_discard_old_deck_annotations(prepared):
     state = json.loads(gateway.requests[0].user)["state"]
     assert state["consulted_cards"][0]["card"]["oracle_text"] == ELEGY
     assert "Old Commander" not in json.dumps(state["consulted_cards"])
+
+
+def test_local_source_identity_survives_without_a_tool_event(prepared):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "teval", "Teval's Judgment", "Current printed draw source.")
+    gateway = Gateway([step(content="The previous source remains available.")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "assistant",
+                "content": "Earlier local card assessment.",
+                "research": {"source_card_ids": ["missing-card", "teval"]},
+            },
+            {"role": "user", "content": "Compare the earlier options."},
+        ],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    state = json.loads(gateway.requests[0].user)["state"]
+    assert state["card_source_reuse"] == {
+        "locally_refreshed": 1,
+        "unavailable": 1,
+    }
+    assert (
+        state["consulted_cards"][0]["card"]["oracle_text"]
+        == "Current printed draw source."
+    )
+    assert result["research"]["source_card_ids"] == ["teval"]
 
 
 @pytest.mark.parametrize(
@@ -803,6 +836,8 @@ def test_named_in_deck_source_is_exposed_before_lookup_is_skipped(prepared):
                 {
                     "research_task": {
                         "kind": "compare",
+                        "evidence_scope": "named_cards_only",
+                        "current_request_quote": "Explain Teval’s Judgement in my deck.",
                         "named_cards": ["Teval's Judgment"],
                     },
                     "tool_calls": [call("inspect_deck")],

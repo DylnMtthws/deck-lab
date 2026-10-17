@@ -23,6 +23,7 @@ def plan(
     *,
     named=(),
     empirical=False,
+    scope="unknown",
     route="use_tools",
     answer=None,
     assessment=None,
@@ -38,6 +39,7 @@ def plan(
                     "Answer the current comparison using the requested evidence"
                 ],
                 "requires_empirical_evidence": empirical,
+                "evidence_scope": scope,
                 "named_cards": list(named),
                 "preference_assessment": assessment
                 or {
@@ -149,7 +151,7 @@ def test_narrow_named_lookup_uses_two_calls_and_small_final_schema(prepared):
     request = "Assess Elegy Acolyte using its printed text."
     gateway = Gateway(
         [
-            plan(request, named=["Elegy Acolyte"]),
+            plan(request, named=["Elegy Acolyte"], scope="named_cards_only"),
             AssistantStep(
                 content="Elegy Acolyte offers combat-dependent drawing and conditional tokens.",
                 findings=["Its draw requires combat damage to a player."],
@@ -462,3 +464,48 @@ def test_successful_operational_lookup_can_support_terminal_answer(
     assert result["status"] == "done"
     assert result["reason"] != "empirical_evidence_missing"
     assert len(gateway.requests) == 3
+
+
+@pytest.mark.parametrize(
+    "scope", ["candidate_discovery", "existing_candidates", "unknown"]
+)
+def test_comparison_named_sources_do_not_suppress_candidate_retrieval(
+    prepared, monkeypatch, scope
+):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    request = "Compare Elegy Acolyte against a new list of draw candidates."
+    searched = []
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.functional_search",
+        lambda path, document, args: searched.append(args)
+        or {"status": "available", "cards": []},
+    )
+    gateway = Gateway(
+        [
+            plan(request, named=["Elegy Acolyte"], scope=scope),
+            step(call("search_card_functions", {})),
+            AssistantStep(
+                content="The named card was resolved and a separate candidate search was performed.",
+                findings=[
+                    "The candidate search returned no additional cards in this controlled test."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 3
+    assert gateway.requests[1].schema.__name__ == "AssistantStep"
+    assert len(searched) == 1
+    assert [
+        event["name"] for event in result["actions"] if event["type"] == "tool_started"
+    ] == ["card_details", "search_card_functions"]
+    assert result["research"]["task"]["evidence_scope"] == scope

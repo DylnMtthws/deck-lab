@@ -69,7 +69,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v22"
+PROMPT_VERSION = "build-conversation.v23"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -836,6 +836,14 @@ def _restore_card_sources(
 
     identities: dict[str, None] = {}
     for message in messages:
+        if message.get("role") == "assistant":
+            # Pinned in-deck facts are local reads, so they have no tool event.
+            # Persist identities only; refresh text against the current catalog.
+            research = message.get("research") or {}
+            for cid in research.get("source_card_ids", [])[-8:]:
+                if isinstance(cid, str):
+                    identities.pop(cid, None)
+                    identities[cid] = None
         action = message.get("action") or {}
         if action.get("type") != "tool_result" or not action.get("ok"):
             continue
@@ -1823,6 +1831,7 @@ def run_turn(
                 ]
                 state["answer_obligations"] = {
                     "kind": task.kind,
+                    "evidence_scope": task.evidence_scope,
                     "deliverables": task.deliverables,
                     "requires_empirical_evidence": (
                         task.requires_empirical_evidence
@@ -1866,7 +1875,7 @@ def run_turn(
                             ]
                         }
                     )
-                    if task.kind == "discover":
+                    if task.evidence_scope != "named_cards_only":
                         step = step.model_copy(
                             update={
                                 "tool_calls": [
@@ -1886,9 +1895,14 @@ def run_turn(
                             }
                         )
                 elif (
-                    task.kind in {"compare", "explain"}
+                    task.evidence_scope == "named_cards_only"
+                    and task.current_request_quote
+                    and task.current_request_quote in current_request
                     and not task.requires_empirical_evidence
                     and not missing_names
+                    and not any(
+                        call.name == "search_card_functions" for call in step.tool_calls
+                    )
                 ):
                     synthesis_required = True
                     # If this response still requests discovery, reserve the next
@@ -2514,7 +2528,9 @@ def run_turn(
                         _retain_card_context(state, data)
                         if (
                             task is not None
-                            and task.kind in {"compare", "explain"}
+                            and task.evidence_scope == "named_cards_only"
+                            and task.current_request_quote
+                            and task.current_request_quote in current_request
                             and not task.requires_empirical_evidence
                             and task.named_cards
                         ):
@@ -2833,6 +2849,11 @@ def run_turn(
         if "state" in locals():
             preferences = state["conversation_context"]["preferences"]
             result.setdefault("research", {})["conversation_preferences"] = preferences
+            result["research"]["source_card_ids"] = [
+                row["card"]["id"]
+                for row in state.get("consulted_cards", [])[-8:]
+                if (row.get("card") or {}).get("id")
+            ]
             if isinstance(result.get("presentation"), dict):
                 result["presentation"]["research"] = (
                     result["presentation"].get("research") or {}

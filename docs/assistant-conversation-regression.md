@@ -56,6 +56,9 @@ five primary-call allowance. General research may spend one call planning before
 tool selection; named facts can still resolve during that first pass. Requests
 requiring actual measurements retain operational tool routing rather than
 terminating on printed card facts. Planner decisions confer no action authority.
+Evidence scope is independent of task kind: a comparison may still request new
+candidates. Only an explicitly quoted named-cards-only scope enables the fast
+named-facts synthesis path; broader scopes preserve candidate retrieval.
 An empirical request without a successful current-turn operational receipt stays
 incomplete, even if the model or checker declares it finished. A completed lookup
 that finds no saved results can support an honest no-results answer. Receipt
@@ -72,6 +75,8 @@ Previously retrieved card identities are refreshed from the current local fact
 store, with current commander annotations recomputed. Old experiments and action
 handles are never restored as current results. Full sources reach the checker
 independently of shortened model context; excerpts remain explicitly marked.
+Bounded source identities also persist for local in-deck reads that have no tool
+event, so those facts remain available on subsequent turns.
 
 `search_card_functions` separates capability queries from literal name lookup.
 It reuses the shared legal catalog and generator-derived lexical/vector recall,

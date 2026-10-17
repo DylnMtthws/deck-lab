@@ -13,10 +13,15 @@ from sabermetrics.assistant_conversation_context import (
 )
 from sabermetrics.assistant_tools import Proposal, StrictModel
 
+EvidenceScope = Literal[
+    "named_cards_only", "candidate_discovery", "existing_candidates", "unknown"
+]
+
 
 class ResearchTask(StrictModel):
     kind: Literal["auto", "discover", "compare", "explain", "fill", "swap"] = "auto"
     requires_empirical_evidence: bool = False
+    evidence_scope: EvidenceScope = "unknown"
     available_slots: int | None = Field(default=None, ge=0, le=99)
     named_cards: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
         default_factory=list,
@@ -64,6 +69,7 @@ class PlanningResearchTask(StrictModel):
     cuts: int = Field(default=0, ge=0, le=99)
     coordinated: bool = False
     requires_empirical_evidence: bool = False
+    evidence_scope: EvidenceScope = "unknown"
 
     @field_validator("current_request_quote")
     @classmethod

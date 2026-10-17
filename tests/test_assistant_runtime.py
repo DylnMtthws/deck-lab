@@ -916,6 +916,7 @@ def test_transient_provider_overload_has_three_bounded_attempts(
                                         },
                                         "research_task": {
                                             "kind": "explain",
+                                            "evidence_scope": "unknown",
                                             "current_request_quote": "commander abilities",
                                             "deliverables": [
                                                 "Explain the commander abilities"
