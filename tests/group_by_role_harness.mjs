@@ -173,6 +173,35 @@ function makeDeck(overrides = {}) {
 
 async function runScenario() {
   const deckFixture = (function() {
+    if (scenario === "normalized_types") {
+      const deck = makeDeck();
+      const types = [
+        ["walker", "Legendary Planeswalker — Test"],
+        ["legend", "Legendary Creature — Test"],
+        ["artifact-creature", "Artifact Creature — Golem"],
+        ["enchantment-creature", "Legendary Enchantment Creature — God"],
+        ["land-creature", "Land Creature — Forest Dryad"],
+        ["walker-creature", "Planeswalker Creature — Test"],
+        ["adventure", "Creature — Giant // Sorcery — Adventure"],
+        ["instant", "Kindred Instant — Test"],
+        ["sorcery", "Sorcery"],
+        ["modal", "Sorcery // Land"],
+        ["artifact", "Legendary Artifact — Equipment"],
+        ["artifact-enchantment", "Artifact Enchantment"],
+        ["enchantment", "Enchantment — Class"],
+        ["basic", "Basic Land — Island"],
+        ["legendary-land", "Legendary Land"],
+        ["snow-land", "Basic Snow Land — Forest"],
+        ["battle", "Battle — Siege"],
+        ["missing", null],
+      ];
+      // Reverse input order so heading order cannot accidentally follow insertion order.
+      deck.entries = [deck.entries[0]].concat(types.map(([id, type_line], index) => ({
+        ...deck.entries[1], id, name: id, type_line, sort_order: index,
+      })).reverse());
+      deck.preferences.group_mode = "type";
+      return deck;
+    }
     if (scenario === "sort_mana_value") {
       return makeDeck({ preferences: { view_mode: "table", display_mode: "text", group_mode: "role", sort_mode: "mana_value", density: "compact", collapsed_json: "[]" } });
     }
