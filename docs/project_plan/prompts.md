@@ -658,7 +658,7 @@ revision_triggers:
 
 ## Grounded retrieval revision
 
-Conversation prompt `build-conversation.v10` receives fresh compact full-library
+Conversation prompt `build-conversation.v11` receives fresh compact full-library
 facts, commander engine links and locally retrieved rules. Detector zeros cannot
 establish absence. The assistant must retain activation limits and distinguish
 tap-symbol costs from tapping other creatures. It may retrieve detailed matches
@@ -671,3 +671,9 @@ when available. All additions share the existing 24 KiB input bound; exact facts
 for changed cards remain mandatory. Link weights are cut-order preferences and
 source snippets are evidence, never complete rules execution or measured quality.
 No extra model call or new provider is introduced by these retrieval changes.
+
+Live QA context-delivery correction: retain four distinct consulted card identities,
+including costs, type, Oracle text and source/truncation metadata, across tool-history
+eviction. Compact card-detail receipts before generic budgeting. Supplemental state
+may be omitted explicitly when necessary; consulted printed facts and user requests
+remain pinned. Detector zeros cannot justify deficiency claims.

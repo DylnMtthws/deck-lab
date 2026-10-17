@@ -64,13 +64,37 @@
     "Global package search and broader roadmap options remain deferred"
   ],
   "validation": {
-    "full_tests_passed": 2933,
+    "full_tests_passed": 2944,
     "optional_tests_skipped": 34,
-    "final_targeted_tests_passed": 170,
+    "final_targeted_tests_passed": 75,
     "real_snapshot_probes_passed": 2,
     "deterministic_checks_passed": 99,
     "format_files_checked": 393,
     "typed_source_files_checked": 181,
-    "lint": "passed"
+    "lint": "passed",
+    "context_delivery_tests_passed": 11
+  },
+  "live_qa_context_correction": {
+    "observed": "Successful card_details receipts were evicted before the first live comparison answer; answer contradicted cast eligibility and claimed verified text/costs were missing. Initial run paused after two complete cases and one interrupted case; all disposable decks removed.",
+    "partner_session_id": "097df734-7211-47c6-9ede-95325739c010",
+    "partner_regressions": 8,
+    "additional_regressions": 3,
+    "corrections": [
+      "Pin four distinct consulted card identities with source provenance, unknown costs and truncation metadata",
+      "Compact printed card receipts before generic history eviction",
+      "Shorten supplemental retrieval before whole-section omission, retaining all feature counts and explicit disclosure",
+      "Protect consulted cards from generic state field-count cap"
+    ],
+    "remaining_limits": [
+      "Four-card retention and 900-character Oracle excerpts are bounded; omissions are explicit",
+      "A missing or ambiguous lookup still has transport ok=true, with source status preserved; it adds no consulted fact",
+      "Development conversational assessment remains separate from independent expert evaluation"
+    ],
+    "skeptical_followup": {
+      "reviewer_reported": "Feature lists longer than twelve can be truncated by generic compaction before supplemental shortening.",
+      "coordinator_verification": "Current source has nine categories, not the twenty-five claimed by the reviewer. The future-growth case is valid: added an explicit feature-list exemption and 25-category regression with and without pressure.",
+      "status": "Reported compaction flaw corrected and targeted regressions passed; review is engineering feedback, not MTG expert certification."
+    },
+    "test_stability_fix": "Existing research HTML equality check now ignores only timestamped CSRF token values; full suite rerun passed."
   }
 }

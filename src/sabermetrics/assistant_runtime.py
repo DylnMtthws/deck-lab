@@ -33,7 +33,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v10"
+PROMPT_VERSION = "build-conversation.v11"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -60,7 +60,8 @@ Use search_cards for real catalog IDs; inspect_deck for outgoing entry IDs;
 retrieve_deck_facts to search the complete current library and verify detected
 gaps without paging through the list; retrieve_rules for sourced local rules and
 card rulings. The state's grounded_deck_facts scans all current library cards.
-Detected zero is not proof of absence: compare named examples and card text.
+Detected zero is not proof of absence or a deck deficiency: compare named examples
+and card text. The detector covers selected patterns only, including for protection.
 The engine_graph identifies important relationships to preserve or explicitly
 trade away. Its weights rank cuts, not quality or legality. Retrieved rules are
 versioned evidence; missing or truncated passages do not establish an exception.
@@ -247,6 +248,10 @@ Commander, commanders start in the command zone, outside the library; ordinary
 draw and selection do not find the commander there. Describe triggered synergies
 with their required battlefield/zone conditions. Do not claim one selection spell
 is always best or more reliable without stated assumptions or measured evidence.
+The state.consulted_cards retains verified card_details facts for this turn.
+Use these before requesting the same card again. For swaps compare the two printed
+type lines: replacing one qualifying noncreature spell with another does not itself
+change the number of commander cast triggers. Separate that from the effects lost.
 Use printed facts directly; distinguish printed rules, inferred synergy and measured native
 performance. If needed card facts are missing, retrieve them through the available
 search/card_details tools instead of ending with an avoidable missing-evidence
@@ -327,6 +332,20 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
     data = dict(data)
     result["data"] = data
     omitted = []
+    if result.get("name") == "card_details":
+        # Keep the printed source, not empty printing metadata and duplicated
+        # broad retrieval. Full rulings remain in the persistent tool receipt.
+        printed = _card_context(data)
+        for key in (
+            "card_economy",
+            "printed_cast_trigger_damage",
+            "capability_relationships",
+            "capability_note",
+        ):
+            if key in data:
+                printed[key] = data[key]
+        data = printed
+        omitted.append("printing metadata and full rulings")
     # These tools already provide shallow measured observations, settings and
     # coverage. The complete view duplicates them and includes large raw traces.
     if result.get("name") in {"latest_goldfish", "run_goldfish"} and "view" in data:
@@ -491,6 +510,81 @@ def _strategy_summary(context: dict[str, Any]) -> dict[str, Any]:
         ),
         "scope": "Current detected printed ingredients only; not battlefield availability, complete coverage or measured quality.",
     }
+
+
+def _card_context(data: dict[str, Any]) -> dict[str, Any]:
+    """A bounded source receipt, preserving unknowns and upstream truncation."""
+    card = data.get("card")
+    if not isinstance(card, dict):
+        return {"status": data.get("status"), "card_id": data.get("card_id")}
+    fields = ("id", "oracle_id", "name", "mana_cost", "cmc", "type_line", "oracle_text")
+    bounded = {key: card.get(key) for key in fields}
+    clipped = []
+    for key in fields:
+        value = bounded[key]
+        limit = 900 if key == "oracle_text" else 180
+        if isinstance(value, str) and len(value) > limit:
+            bounded[key] = value[:limit]
+            clipped.append(key)
+    provenance = data.get("provenance") or {}
+    return {
+        "card": bounded,
+        "status": data.get("status"),
+        "provenance": {
+            key: provenance.get(key)
+            for key in (
+                "source",
+                "version",
+                "content_hash",
+                "observed_at",
+                "retrieved_at",
+                "date_status",
+                "freshness",
+                "catalog_differences",
+            )
+            if key in provenance
+        },
+        "source_truncation": data.get("truncation"),
+        "oracle_text_truncated": card.get("oracle_text_truncated"),
+        "faces_omitted": bool(card.get("card_faces")),
+        "context_truncated_fields": clipped,
+        "commander_cast_interactions": [
+            {
+                key: row.get(key)
+                for key in (
+                    "commander",
+                    "matches_trigger",
+                    "trigger_category",
+                    "reason",
+                )
+            }
+            for row in data.get("commander_cast_interactions", [])[:2]
+        ],
+        "scope": "Printed source facts; source freshness and legality are not independently verified. Omitted or truncated text cannot establish absence of an ability.",
+    }
+
+
+def _retain_card_context(state: dict[str, Any], data: dict[str, Any]) -> None:
+    """Pin four distinct consulted identities even if tool history is evicted."""
+    compact = _card_context(data)
+    card = compact.get("card") or {}
+    identity = card.get("oracle_id") or card.get("id")
+    if not identity or not card.get("name"):
+        return
+    previous = state.get("consulted_cards", [])
+    retained = [
+        row
+        for row in previous
+        if (
+            (row.get("card") or {}).get("oracle_id")
+            or (row.get("card") or {}).get("id")
+        )
+        != identity
+    ]
+    state["consulted_cards"] = (retained + [compact])[-4:]
+    state["consulted_cards_omitted"] = state.get("consulted_cards_omitted", 0) + max(
+        0, len(retained) + 1 - 4
+    )
 
 
 def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
@@ -703,6 +797,31 @@ def _merge_strategy_evidence(
     return combined
 
 
+def _shorten_supplemental(value: Any, *, keep_list: bool = False) -> Any:
+    """Reduce supporting excerpts; feature counts keep every detected category."""
+    if isinstance(value, str):
+        return (
+            value if len(value) <= 240 else value[:240] + " [context excerpt truncated]"
+        )
+    if isinstance(value, list):
+        return [
+            _shorten_supplemental(item) for item in (value if keep_list else value[:3])
+        ]
+    if isinstance(value, dict):
+        result = {
+            key: _shorten_supplemental(item, keep_list=key == "features")
+            for key, item in value.items()
+        }
+        for key, flag in (
+            ("text", "text_truncated"),
+            ("source_quote", "quote_truncated"),
+        ):
+            if isinstance(value.get(key), str) and len(value[key]) > 240:
+                result[flag] = True
+        return result
+    return value
+
+
 def _encode_context(
     state: dict[str, Any], latest_request: str, transcript: list
 ) -> str:
@@ -718,6 +837,17 @@ def _encode_context(
             entry = _compact(item)
         conversation.append(entry)
     payload = {"state": _compact(state), "conversation": conversation}
+    # These facts must not depend on the generic dictionary's first-32-key cap.
+    for key in ("consulted_cards", "consulted_cards_omitted", "commanders"):
+        if key in state:
+            payload["state"][key] = _compact(state[key])
+    facts = state.get("grounded_deck_facts")
+    if isinstance(facts, dict) and isinstance(facts.get("features"), list):
+        payload["state"]["grounded_deck_facts"] = _compact(facts)
+        payload["state"]["grounded_deck_facts"]["features"] = [
+            _compact(row) for row in facts["features"]
+        ]
+    shortened: set[str] = set()
     # Do not truncate the actual instruction to the generic 1,200-character
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
@@ -745,9 +875,63 @@ def _encode_context(
                 )
                 payload["state"]["constraints"] = constraints
             else:
-                raise AssistantBudgetExceeded(
-                    "The request exceeds the assistant context limit. Please shorten it."
+                # Supplementary retrieval can grow independently. Evict it with
+                # explicit disclosure before sacrificing consulted printed facts,
+                # commander text, the request or preferences.
+                secondary = next(
+                    (
+                        key
+                        for key in (
+                            "engine_graph",
+                            "rules_evidence",
+                            "focused_deck_facts",
+                            "strategy_context",
+                            "grounded_deck_facts",
+                            "swap_review",
+                            "combination_sources",
+                            "combination_analysis",
+                        )
+                        if key in payload["state"] and key not in shortened
+                    ),
+                    next(
+                        (
+                            key
+                            for key in (
+                                "engine_graph",
+                                "rules_evidence",
+                                "focused_deck_facts",
+                                "strategy_context",
+                                "grounded_deck_facts",
+                                "swap_review",
+                                "combination_sources",
+                                "combination_analysis",
+                            )
+                            if key in payload["state"]
+                        ),
+                        None,
+                    ),
                 )
+                if secondary and secondary not in shortened:
+                    shortened.add(secondary)
+                    payload["state"][secondary] = _shorten_supplemental(
+                        payload["state"][secondary]
+                    )
+                    payload.setdefault("state_evidence_shortened", []).append(secondary)
+                    payload["state_evidence_note"] = (
+                        "Supplemental lists/text shortened for size; omitted details are not evidence of absence. "
+                        "All feature categories/counts are retained. Consulted printed card facts remain available."
+                    )
+                elif secondary:
+                    del payload["state"][secondary]
+                    payload.setdefault("state_evidence_omitted", []).append(secondary)
+                    payload["state_evidence_note"] = (
+                        "Supplemental retrieval omitted for size; not evidence of absence. "
+                        "Consulted card facts remain available. Narrow follow-up retrieval if needed."
+                    )
+                else:
+                    raise AssistantBudgetExceeded(
+                        "The request exceeds the assistant context limit. Please shorten it."
+                    )
 
 
 def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -1070,6 +1254,8 @@ def run_turn(
                 try:
                     data = tools.execute(call)
                     state["workflow"]["completed_tools"].append(call.name)
+                    if call.name == "card_details":
+                        _retain_card_context(state, data)
                     if call.name == "retrieve_rules":
                         state["rules_evidence"] = _rules_context(data)
                     elif isinstance(data.get("rules_evidence"), dict):

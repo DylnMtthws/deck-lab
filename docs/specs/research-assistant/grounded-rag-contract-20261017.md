@@ -31,7 +31,7 @@ visible. A zero detected count never proves absence.
 provider identity, commander identity, relationship and conditions. Edges are
 static inferred relationships, never battlefield availability or proof of a win.
 `engine_loss_score(graph, outgoing, incoming=None) -> int` is a ranking preference,
-not a veto. Core relationships must survive model-context compaction.
+not a veto. Relationship conditions must survive whenever their links are included; omitted links must be disclosed.
 
 `rank_card_context(document, card, focus, graph=None) -> ContextRank` returns
 separate requested-function matches, engine relationships and known prerequisites.
@@ -71,3 +71,11 @@ constraints, revision checks and exact citations remain authoritative.
 Reserve the last existing model call for a final answer without executing new
 tools. If a model ignores that instruction, produce an evidence-based bounded
 fallback rather than claiming an experiment was requested or prepared.
+
+Live QA context-delivery contract: pin the most recent four distinct consulted
+Oracle identities (catalog ID fallback) independently of tool history. Preserve
+cost unknowns, source provenance, upstream truncation and explicit local text
+clipping. A repeated lookup refreshes that identity without displacing another
+card. At the 16,000-character conversation bound, omit supplementary retrieval
+with a disclosure before discarding consulted printed facts. These facts do not
+certify live source freshness or legality. Full receipts stay in persisted history.
