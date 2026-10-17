@@ -35,7 +35,6 @@ def test_named_followup_research_precedes_discovery_and_forces_synthesis(prepare
                     "tool_calls": [call("search_cards", {"oracle_text": "draw"})],
                 }
             ),
-            step(call("search_cards", {"oracle_text": "dies"})),
             step(
                 content="Elegy Acolyte draws on combat damage; it is not a death-draw engine."
             ),
@@ -51,6 +50,7 @@ def test_named_followup_research_precedes_discovery_and_forces_synthesis(prepare
     )
     tools = [a["name"] for a in result["actions"] if a["type"] == "tool_started"]
     assert tools == ["card_details"]
+    assert len(gateway.requests) == 2
     assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
     assert any(
         c["card"]["oracle_text"] == ELEGY
@@ -463,7 +463,12 @@ def test_answer_only_schema_requires_nonblank_answer_lead():
     for value in ({}, {"content": ""}, {"content": " \n\t"}):
         with pytest.raises(ValidationError):
             AssistantAnswerStep.model_validate(value)
-    assert AssistantAnswerStep(content="A concise direct answer.").tool_calls == []
+    final = AssistantAnswerStep(content="A concise direct answer.")
+    assert AssistantStep.model_validate(final.model_dump()).tool_calls == []
+    schema = json.dumps(AssistantAnswerStep.model_json_schema())
+    assert "tool_calls" not in schema
+    assert "SearchCall" not in schema
+    assert "research_task" not in schema
 
 
 def test_empty_ordinary_answer_reserves_next_call_before_checker(prepared):
@@ -580,3 +585,162 @@ def test_checker_cannot_turn_empty_correction_into_caveat_only_success(
         "status": "unverified",
         "reason": "empty_correction",
     }
+
+
+def test_provider_planning_assessment_becomes_operational_preferences(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_runtime import AssistantPlanningStep
+
+    service, path, owner, deck, _, _ = prepared
+    request = "Prioritize late-game draw density and cards with several useful roles. I prefer draw I can choose to use. Compare the candidates; no cuts."
+    received = []
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.functional_search",
+        lambda path, document, args: received.append(args)
+        or {"status": "available", "cards": []},
+    )
+    plan = AssistantPlanningStep.model_validate(
+        {
+            "research_task": {
+                "kind": "compare",
+                "current_request_quote": "Compare the candidates; no cuts",
+                "deliverables": [
+                    "Compare candidates under current priorities without cuts"
+                ],
+                "preference_assessment": {
+                    "goal": {
+                        "value": "late-game draw density",
+                        "strength": "preferred",
+                        "quote": "Prioritize late-game draw density",
+                    },
+                    "multifunctionality": {
+                        "value": "several useful roles",
+                        "strength": "preferred",
+                        "quote": "cards with several useful roles",
+                    },
+                    "draw_control": {
+                        "value": "optional",
+                        "strength": "preferred",
+                        "quote": "I prefer draw I can choose to use",
+                    },
+                    "card_type": None,
+                    "mana": None,
+                    "excluded_cards": None,
+                },
+            },
+            "tool_calls": [call("search_card_functions", {})],
+        }
+    )
+    gateway = Gateway(
+        [
+            plan,
+            step(
+                content="The candidates differ in drawing conditions, costs, and secondary roles."
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"id": "current-user", "role": "user", "content": request}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 2
+    task = result["research"]["task"]
+    assert task["kind"] == "compare"
+    assert task["current_request_quote"] in request
+    assert task["additions"] == task["cuts"] == 0
+    preferences = result["research"]["conversation_preferences"]
+    assert {row["dimension"] for row in preferences} == {
+        "goal",
+        "multifunctionality",
+        "draw_control",
+    }
+    assert all(row["source_turn"] == "current-user" for row in preferences)
+    assert received[0].optionality == "preferred"
+    assert received[0].prefer_recurring and received[0].prefer_multifunctional
+    assert received[0].mana_max is None
+
+
+def test_current_planning_quote_mismatch_executes_no_tools(prepared):
+    from sabermetrics.assistant_conversation_context import PreferenceAssessment
+    from sabermetrics.assistant_runtime import AssistantPlanningStep
+
+    service, path, owner, deck, _, _ = prepared
+    plan = AssistantPlanningStep.model_validate(
+        {
+            "research_task": {
+                "kind": "discover",
+                "current_request_quote": "The earlier discovery question",
+                "deliverables": ["Recreate the previous lists"],
+                "preference_assessment": {
+                    key: None for key in PreferenceAssessment.model_fields
+                },
+            },
+            "tool_calls": [call("inspect_deck")],
+        }
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "user",
+                "content": "Compare existing candidates with changed priorities.",
+            }
+        ],
+        gateway=Gateway([plan]),
+        experiment_service=service,
+    )
+    assert result["status"] == "provider_error"
+    assert result["reason"] == "planning_evidence_invalid"
+    assert not result["actions"]
+
+
+def test_named_card_sources_stay_pinned_through_shortlist_growth_and_compaction():
+    from sabermetrics.assistant_runtime import _encode_context, _retain_card_context
+
+    state = {"focused_card_names": ["Elegy Acolyte"]}
+    _retain_card_context(
+        state,
+        {
+            "card": {
+                "id": "elegy",
+                "oracle_id": "elegy",
+                "name": "Elegy Acolyte",
+                "oracle_text": ELEGY,
+            }
+        },
+    )
+    for index in range(15):
+        _retain_card_context(
+            state,
+            {
+                "card": {
+                    "id": f"candidate-{index}",
+                    "oracle_id": f"candidate-{index}",
+                    "name": f"Candidate {index}",
+                    "oracle_text": "Printed source text. " * 50,
+                }
+            },
+        )
+    assert len(state["consulted_cards"]) == 8
+    assert state["consulted_cards"][-1]["card"]["name"] == "Elegy Acolyte"
+    assert state["consulted_cards"][-1]["card"]["oracle_text"] == ELEGY
+    # Deliberately put the pinned row first: trimming must select an unpinned row.
+    state["consulted_cards"] = [
+        state["consulted_cards"][-1],
+        *state["consulted_cards"][:-1],
+    ]
+    payload = json.loads(_encode_context(state, "A current request. " * 450, []))
+    cards = payload["state"]["consulted_cards"]
+    assert len(cards) < 8
+    assert any(
+        row["card"]["name"] == "Elegy Acolyte" and row["card"]["oracle_text"] == ELEGY
+        for row in cards
+    )

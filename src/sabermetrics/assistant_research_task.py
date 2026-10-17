@@ -7,7 +7,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
-from sabermetrics.assistant_conversation_context import PreferenceUpdate
+from sabermetrics.assistant_conversation_context import (
+    PreferenceAssessment,
+    PreferenceUpdate,
+)
 from sabermetrics.assistant_tools import Proposal, StrictModel
 
 
@@ -28,6 +31,48 @@ class ResearchTask(StrictModel):
     deliverables: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
         default_factory=list, max_length=6
     )
+    current_request_quote: str | None = Field(
+        default=None, min_length=1, max_length=600
+    )
+
+
+class PlanningResearchTask(StrictModel):
+    """Provider planning contract; legacy injected ResearchTask remains supported."""
+
+    kind: Literal["discover", "compare", "explain", "fill", "swap"] = Field(
+        description="Intent of current_user_request ONLY. Comparing prior candidates or changing priorities is compare; earlier discovery questions do not automatically continue."
+    )
+    current_request_quote: str = Field(
+        min_length=1,
+        max_length=600,
+        pattern=r"\S",
+        description="Exact meaningful excerpt from current_user_request supporting this turn's kind and deliverables. Never quote a historical request here.",
+    )
+    deliverables: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
+        min_length=1,
+        max_length=6,
+        description="What this current request asks the answer to deliver. Earlier lists are context unless explicitly continued; do not copy their obligations automatically.",
+    )
+    preference_assessment: PreferenceAssessment = Field(
+        description="Assess EVERY dimension independently against the current user request. Use explicit null for unexpressed dimensions. Existing conversation preferences remain separate and need not be restated."
+    )
+    available_slots: int | None = Field(default=None, ge=0, le=99)
+    named_cards: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
+        default_factory=list, max_length=5
+    )
+    additions: int = Field(default=0, ge=0, le=99)
+    cuts: int = Field(default=0, ge=0, le=99)
+    coordinated: bool = False
+
+    def to_task(self, current_request: str) -> ResearchTask:
+        if self.current_request_quote not in current_request:
+            raise ValueError(
+                "Planning brief is not grounded in the current user request"
+            )
+        return ResearchTask(
+            **self.model_dump(exclude={"preference_assessment"}),
+            preference_updates=self.preference_assessment.updates(current_request),
+        )
 
 
 class CutLoss(StrictModel):

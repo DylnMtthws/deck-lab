@@ -14,6 +14,20 @@ addition count. Preference updates require exact quotes from supplied user turns
 later statements supersede earlier ones. These interpretations are scoped to the
 conversation and grant no authority to alter a deck.
 
+The provider planning schema requires a quote from the current user request,
+its intent and deliverables, and separate preference assessment slots. An
+unexpressed dimension is explicit null; it does not erase inherited memory.
+Operational card-type and draw-control values are enums. Only preferences
+quoting the current request are flattened into persisted updates. Quoted
+provenance does not establish that the interpretation is semantically correct.
+
+Reserved synthesis uses a small answer schema without tool definitions. Once
+named-card comparisons resolve their focused sources, the next call uses that
+schema directly. Empty replies cannot become successful answers through a
+checker caveat. Malformed replies preserve confirmed source excerpts with an
+incomplete label. Focused card names take priority over discovery candidates
+when retaining and compacting sources.
+
 Named-card comparisons prioritize their card facts before further discovery.
 Excess tool batches reserve the next call for an answer-only schema. Duplicate
 reads reuse checked receipts and trigger synthesis. The five conversation-call,

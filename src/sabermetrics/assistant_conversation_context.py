@@ -30,6 +30,77 @@ class PreferenceUpdate(BaseModel):
     quote: str = Field(min_length=8, max_length=300)
 
 
+class QuotedPreference(BaseModel):
+    """One current-turn interpretation; exact quote provenance is checked later."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    value: str = Field(min_length=1, max_length=100)
+    strength: Literal["required", "preferred", "rejected"]
+    quote: str = Field(min_length=8, max_length=300)
+
+
+class CardTypePreference(QuotedPreference):
+    value: Literal["creature", "any"]
+
+
+class DrawControlPreference(QuotedPreference):
+    value: Literal["optional", "any"] = Field(
+        description="optional means the user wants control over whether to start drawing, including voluntary activations; any means this preference was explicitly relaxed."
+    )
+
+
+class PreferenceAssessment(BaseModel):
+    """Fixed required slots prevent duplicated dimensions hiding omissions.
+
+    Null means no newly expressed preference, not a negative judgment and not
+    permission to clear inherited memory. No extra model call is involved.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    goal: QuotedPreference | None = Field(
+        description="Newly expressed strategic goal, such as late-game draw density; null when not expressed in the current request."
+    )
+    multifunctionality: QuotedPreference | None = Field(
+        description="Newly expressed preference about multiple useful roles; null when absent."
+    )
+    card_type: CardTypePreference | None = Field(
+        description="New card type requirement or explicit relaxation; null when absent."
+    )
+    draw_control: DrawControlPreference | None = Field(
+        description="New optionality preference or explicit relaxation; null when absent. Assess separately from the goal and multifunctionality."
+    )
+    mana: QuotedPreference | None = Field(
+        description="New mana preference with its actual scope; rejecting one expensive card does not establish a numeric ceiling. Null when absent."
+    )
+    excluded_cards: list[QuotedPreference] | None = Field(
+        min_length=1,
+        max_length=3,
+        description="New explicit individual-card exclusions, with printed names; null when absent.",
+    )
+
+    def updates(self, current_request: str) -> list[PreferenceUpdate]:
+        """Flatten only evidence actually quoted from this latest user turn."""
+        updates = []
+        for dimension in (
+            "goal",
+            "multifunctionality",
+            "card_type",
+            "draw_control",
+            "mana",
+        ):
+            evidence = getattr(self, dimension)
+            if evidence is not None and evidence.quote in current_request:
+                updates.append(
+                    PreferenceUpdate(dimension=dimension, **evidence.model_dump())
+                )
+        for evidence in self.excluded_cards or []:
+            if evidence.quote in current_request:
+                updates.append(
+                    PreferenceUpdate(dimension="excluded_card", **evidence.model_dump())
+                )
+        return updates
+
+
 def user_turns(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Filter BEFORE limiting: tool messages must not erase the conversation.
     return [m for m in messages if m.get("role") == "user"][-8:]

@@ -25,6 +25,7 @@ from sabermetrics.assistant_conversation_context import (
 )
 from sabermetrics.assistant_deck_facts import library_composition
 from sabermetrics.assistant_research_task import (
+    PlanningResearchTask,
     ResearchHypothesis,
     ResearchTask,
     reconcile_task,
@@ -61,7 +62,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v18"
+PROMPT_VERSION = "build-conversation.v19"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -87,6 +88,11 @@ report; do not reuse an old current flag as evidence of present freshness. Role 
 For a known exact card name, prefer card_details to verify its actual text.
 Answer a named-card follow-up before expanding discovery. Reuse consulted card
 facts and the quote-backed conversation_context, including earlier user requests.
+Classify kind and deliverables from current_user_request only. Earlier requests
+provide context, not automatically renewed obligations. Comparing prior options,
+changing priorities, or asking what you think of a named card is compare. Assess
+each preference dimension independently for THIS user turn; use null when absent.
+Retain inherited preferences separately; do not restate them as new updates.
 Later successful identity resolution supersedes an earlier missing lookup. Never
 claim printed text is unavailable when a confirmed receipt contains it.
 For FUNCTIONAL discovery use search_card_functions, not search_cards.query.
@@ -363,7 +369,7 @@ class AssistantBudgetExceeded(Exception):
     pass
 
 
-class AssistantStep(StrictModel):
+class AssistantReplyFields(StrictModel):
     content: str = Field(
         default="",
         max_length=6000,
@@ -379,29 +385,32 @@ class AssistantStep(StrictModel):
         max_length=700,
         description="One useful next action or choice grounded in the requested task; do not claim an action ran without its actual receipt.",
     )
-    research_task: ResearchTask | None = None
     research_hypotheses: list[ResearchHypothesis] = Field(
         default_factory=list, max_length=3
     )
     card_ids: list[str] = Field(default_factory=list, max_length=12)
+
+
+class AssistantStep(AssistantReplyFields):
+    research_task: ResearchTask | None = None
     tool_calls: list[ToolCall] = Field(default_factory=list, max_length=3)
 
 
-class AssistantPlanningStep(AssistantStep):
+class AssistantPlanningStep(AssistantReplyFields):
     # The first production response cannot silently omit the research brief.
-    research_task: ResearchTask = Field(
-        description="Classify discover/compare/explain/fill/swap. Open slots are capacity, NOT requested additions. Discovery/options and named-card questions have zero additions/cuts unless explicitly requested. Record quote-backed preference_updates from user statements, preserving hard requirements vs preferences and later corrections. Identify named_cards in the current request for focused lookup before discovery."
+    research_task: PlanningResearchTask = Field(
+        description="Ground this turn's kind and deliverables in current_user_request. Open slots are capacity, not requested additions. Assess every preference dimension separately with exact current-user quotes; null means unexpressed. Named-card assessments are comparisons and should precede discovery. Rejecting one expensive card establishes no hard numeric mana ceiling."
     )
+    tool_calls: list[ToolCall] = Field(default_factory=list, max_length=3)
 
 
-class AssistantAnswerStep(AssistantStep):
+class AssistantAnswerStep(AssistantReplyFields):
     content: str = Field(
         min_length=1,
         max_length=6000,
         pattern=r"\S",
         description="Required nonempty answer lead addressing the user's question from confirmed evidence. A progress announcement or checker warning is not an answer.",
     )
-    tool_calls: list[ToolCall] = Field(default_factory=list, max_length=0)
 
 
 def _compact(value: Any, depth: int = 0) -> Any:
@@ -739,7 +748,13 @@ def _retain_card_context(state: dict[str, Any], data: dict[str, Any]) -> None:
         )
         != identity
     ]
-    state["consulted_cards"] = (retained + [compact])[-8:]
+    focused = {reference_key(name) for name in state.get("focused_card_names", [])}
+    rows = retained + [compact]
+    rows.sort(
+        key=lambda row: reference_key(str((row.get("card") or {}).get("name") or ""))
+        in focused
+    )
+    state["consulted_cards"] = rows[-8:]
     state["consulted_cards_omitted"] = state.get("consulted_cards_omitted", 0) + max(
         0, len(retained) + 1 - 8
     )
@@ -1226,7 +1241,28 @@ def _encode_context(
                         "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
                     }
                 elif len(payload["state"].get("consulted_cards", [])) > 2:
-                    payload["state"]["consulted_cards"].pop(0)
+                    focused = {
+                        reference_key(name)
+                        for name in state.get("focused_card_names", [])
+                    }
+                    unpinned = next(
+                        (
+                            index
+                            for index, row in enumerate(
+                                payload["state"]["consulted_cards"]
+                            )
+                            if reference_key(
+                                str((row.get("card") or {}).get("name") or "")
+                            )
+                            not in focused
+                        ),
+                        None,
+                    )
+                    if unpinned is None:
+                        raise AssistantBudgetExceeded(
+                            "The request and focused card evidence exceed the assistant context limit."
+                        )
+                    payload["state"]["consulted_cards"].pop(unpinned)
                     payload["state"]["consulted_cards_omitted"] = (
                         payload["state"].get("consulted_cards_omitted", 0) + 1
                     )
@@ -1542,15 +1578,49 @@ def run_turn(
                 )
                 return result
             value = generated.value
-            step = AssistantStep.model_validate(
-                value.model_dump() if hasattr(value, "model_dump") else value
-            )
+            raw_step = value.model_dump() if hasattr(value, "model_dump") else value
+            if isinstance(raw_step, dict):
+                raw_task = raw_step.get("research_task")
+                if isinstance(raw_task, dict) and "preference_assessment" in raw_task:
+                    try:
+                        brief = PlanningResearchTask.model_validate(raw_task)
+                        raw_step = {
+                            **raw_step,
+                            "research_task": brief.to_task(
+                                current_request
+                            ).model_dump(),
+                        }
+                    except (ValueError, ValidationError):
+                        tools.check()
+                        result.update(
+                            status="provider_error",
+                            reason="planning_evidence_invalid",
+                            content=_evidence_fallback(
+                                state,
+                                tools.experiments_started,
+                                headline="The model did not return a plan grounded in this request. Confirmed sources remain available; the requested analysis is incomplete.",
+                            ),
+                        )
+                        return result
+            step = AssistantStep.model_validate(raw_step)
             tools.check()
             if task is None and step.research_task is not None:
                 task, disagreements = reconcile_task(
                     step.research_task, current_request
                 )
                 state["research_brief_disagreements"] = disagreements
+                state["focused_card_names"] = [
+                    name
+                    for name in task.named_cards
+                    if reference_key(name) in reference_key(current_request)
+                ]
+                focused = {reference_key(name) for name in state["focused_card_names"]}
+                state.get("consulted_cards", []).sort(
+                    key=lambda row: reference_key(
+                        str((row.get("card") or {}).get("name") or "")
+                    )
+                    in focused
+                )
                 state["conversation_context"]["preferences"] = merge_preferences(
                     state["conversation_context"]["preferences"],
                     task.preference_updates,
@@ -2113,6 +2183,34 @@ def run_turn(
                     state["workflow"]["completed_tools"].append(call.name)
                     if call.name == "card_details":
                         _retain_card_context(state, data)
+                        if (
+                            task is not None
+                            and task.kind in {"compare", "explain"}
+                            and task.named_cards
+                        ):
+                            focused_names = [
+                                name
+                                for name in task.named_cards
+                                if reference_key(name) in reference_key(current_request)
+                            ]
+                            if focused_names and all(
+                                any(
+                                    reference_key(
+                                        str((row.get("card") or {}).get("name") or "")
+                                    )
+                                    == reference_key(name)
+                                    and (row.get("card") or {}).get("oracle_text")
+                                    for row in state.get("consulted_cards", [])
+                                )
+                                or any(
+                                    reference_key(str(card.get("name") or ""))
+                                    == reference_key(name)
+                                    and card.get("oracle_text")
+                                    for card in document.get("entries", [])
+                                )
+                                for name in focused_names
+                            ):
+                                synthesis_required = True
                     if call.name in {"search_cards", "search_card_functions"}:
                         for card in data.get("cards", [])[:4]:
                             _retain_card_context(

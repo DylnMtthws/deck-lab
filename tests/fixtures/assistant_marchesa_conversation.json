@@ -107,7 +107,7 @@
         }
       ],
       "semantic_criteria": {
-        "voluntary_activation": "Distinguish voluntarily activating Yawgmoth from mandatory drawing during resolution; do not reject solely because it lacks may.",
+        "voluntary_activation": "Distinguish voluntary draw activations from mandatory draw triggers. For an ability such as Yawgmoth's, activation is voluntary but drawing during resolution is required; do not reject solely because it lacks may. Do not equate an optional sacrifice activation with a separate mandatory death-draw trigger.",
         "conditions_costs": "Compare mana/life/sacrifice costs, recurring versus one-shot draw and realistic enabling conditions.",
         "retained_evidence": "Do not deny already retrieved Teval evidence; do not require seven additions or cuts."
       },

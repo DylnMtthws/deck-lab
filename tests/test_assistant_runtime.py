@@ -902,7 +902,23 @@ def test_transient_provider_overload_has_three_bounded_attempts(
                                 "content": json.dumps(
                                     {
                                         "content": "The typed provider response succeeded.",
-                                        "research_task": {"additions": 0, "cuts": 0},
+                                        "research_task": {
+                                            "kind": "explain",
+                                            "current_request_quote": "commander abilities",
+                                            "deliverables": [
+                                                "Explain the commander abilities"
+                                            ],
+                                            "preference_assessment": {
+                                                "goal": None,
+                                                "multifunctionality": None,
+                                                "card_type": None,
+                                                "draw_control": None,
+                                                "mana": None,
+                                                "excluded_cards": None,
+                                            },
+                                            "additions": 0,
+                                            "cuts": 0,
+                                        },
                                         "tool_calls": [],
                                     }
                                 )
