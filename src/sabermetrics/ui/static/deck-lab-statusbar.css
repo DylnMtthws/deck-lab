@@ -1,4 +1,9 @@
 /* D04 — Status bar, issues popover, playmat zoom offset */
+/* The status bar is a sibling of the builder inside the viewport-height main. */
+@media (min-width: 768px) {
+  .dl-workspace-body .dl-builder { height: calc(100% - 36px); }
+}
+
 .dl-status-bar {
   position: sticky;
   bottom: 0;
