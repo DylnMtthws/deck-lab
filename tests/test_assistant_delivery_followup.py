@@ -196,8 +196,9 @@ class Gateway:
         return SimpleNamespace(value=value)
 
 
+@pytest.mark.parametrize("discovery_tool", ["find_replacements", "prepare_improvement"])
 def test_run_turn_previews_from_retained_ids_after_broad_receipts(
-    prepared, monkeypatch
+    prepared, monkeypatch, discovery_tool
 ):
     service, path, owner, deck_id, document, alternatives = prepared
     alternative = alternatives[0]
@@ -207,12 +208,20 @@ def test_run_turn_previews_from_retained_ids_after_broad_receipts(
     monkeypatch.setattr(
         intelligence,
         "recommend_replacements",
-        lambda *a, **k: {"alternatives": [alternative], "candidate_evidence": []},
+        lambda *a, **k: {
+            "alternatives": [alternative],
+            "candidate_evidence": [],
+            "requires_semantic_review": True,
+        },
     )
     monkeypatch.setattr(
         swap_review,
         "review_candidates",
-        lambda *a, **k: {"alternatives": [alternative], "candidate_evidence": []},
+        lambda *a, **k: {
+            "status": "reviewed",
+            "alternatives": [alternative],
+            "candidate_evidence": [],
+        },
     )
 
     def preview_from_state(request):
@@ -249,7 +258,7 @@ def test_run_turn_previews_from_retained_ids_after_broad_receipts(
             AssistantStep.model_validate(
                 {
                     "tool_calls": [
-                        {"name": "find_replacements", "arguments": {"focus": "mana"}}
+                        {"name": discovery_tool, "arguments": {"focus": "mana"}}
                     ]
                 }
             ),
@@ -267,6 +276,15 @@ def test_run_turn_previews_from_retained_ids_after_broad_receipts(
         experiment_service=service,
     )
     assert result["status"] == "done"
+    discovery = next(
+        a["data"]
+        for a in result["actions"]
+        if a.get("type") == "tool_result" and a.get("name") == discovery_tool
+    )
+    assert discovery["experiment_ready"] is True
+    assert discovery["requires_semantic_review"] is False
+    if discovery_tool == "prepare_improvement":
+        assert discovery["plan_status"] == "ready_for_preview"
     assert len(result["proposals"]) == 1
     assert result["proposals"][0]["expected_revision"] == document["revision"]
     assert DeckDocumentRepo(path).get(owner, deck_id) == document

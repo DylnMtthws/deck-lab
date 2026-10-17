@@ -684,3 +684,8 @@ quantity-aware front-land and back-land-face counts with curve/role summaries.
 IDs from reviewed alternatives; display names are separate. Pending plans are
 excluded, extreme-size omission is explicit, and preview/execution tools keep
 all owner, revision, legality, constraint and semantic-review checks.
+
+Review-state metadata: raw discovery marks candidates as needing review. When
+`review_candidates` completes with status `reviewed`, find_replacements clears
+that inherited pending flag before caching accepted alternatives. prepare_improvement
+labels retained plans ready for preview. Failed review never promotes alternatives.

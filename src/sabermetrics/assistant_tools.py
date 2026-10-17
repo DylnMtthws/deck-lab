@@ -658,7 +658,7 @@ class AssistantTools:
                 "strategy_evidence": strategy_evidence,
                 "assessment": candidates.get("assessment") or assessment,
                 "plan_status": (
-                    "ready_for_review"
+                    "ready_for_preview"
                     if candidates.get("experiment_ready")
                     else "insufficient_alternatives"
                 ),
@@ -736,6 +736,10 @@ class AssistantTools:
             )
             self.check()
             result.update(reviewed)
+            if reviewed.get("status") == "reviewed":
+                # The discovery payload marks raw candidates pending. Completed
+                # review retains only accepted plans, so that flag is now stale.
+                result["requires_semantic_review"] = False
             result["alternatives"] = result.get("alternatives", [])[:3]
             result["candidate_evidence"] = result.get("candidate_evidence", [])[:3]
             # Store only schema-checked proposals. Execution revalidates all
