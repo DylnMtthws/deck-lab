@@ -43,10 +43,10 @@ jobs:
         run: pip install -e ".[dev,postgres,legacy]"
 
       - name: Lint (ruff)
-        run: ruff check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py
+        run: ruff check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py scripts/evaluate_assistant_conversation.py
 
       - name: Format (black)
-        run: black --check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py
+        run: black --check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py scripts/evaluate_assistant_conversation.py
 
       - name: Types (mypy)
         run: mypy src
@@ -64,12 +64,19 @@ jobs:
       - name: Measure deterministic assistant regressions (not broad expertise)
         run: python scripts/evaluate_assistant_intelligence.py --report evaluation/assistant-regression.json
 
+      # test_assistant_conversation_eval.py runs in pytest above. Its controlled
+      # good/bad captures validate the gate, never establish live answer quality.
+      - name: Export Marchesa conversation capture and review schemas
+        run: python scripts/evaluate_assistant_conversation.py --schema evaluation/assistant-conversation-input-schema.json
+
       - name: Retain assistant regression measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: assistant-regression-${{ github.sha }}-${{ github.run_attempt }}
-          path: evaluation/assistant-regression.json
+          path: |
+            evaluation/assistant-regression.json
+            evaluation/assistant-conversation-input-schema.json
           if-no-files-found: warn
           retention-days: 14
 

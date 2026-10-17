@@ -260,7 +260,7 @@ def test_four_long_cards_fit_or_supplemental_omission_is_explicit():
 
 def test_repeated_identity_replaces_and_does_not_crowd_out_other_cards():
     state = heavy_state()
-    for i in range(4):
+    for i in range(8):
         _retain_card_context(state, card_payload(i))
     # A different printing of the same Oracle card, with a corrected cost.
     reprint = card_payload(0, mana_cost="{U}", cmc=1.0)
@@ -270,17 +270,17 @@ def test_repeated_identity_replaces_and_does_not_crowd_out_other_cards():
 
     rows = state["consulted_cards"]
     identities = [row["card"]["oracle_id"] for row in rows]
-    assert sorted(identities) == [f"oracle-{i}" for i in range(4)]
+    assert sorted(identities) == [f"oracle-{i}" for i in range(8)]
     assert len(identities) == len(set(identities))
     latest = next(row for row in rows if row["card"]["oracle_id"] == "oracle-0")
     assert latest["card"]["mana_cost"] == "{U}"
     assert latest["card"]["id"] == "card-0-reprint"
 
-    # A fifth distinct identity evicts the least recently consulted (oracle-1),
+    # A ninth distinct identity evicts the least recently consulted (oracle-1),
     # not the refreshed oracle-0.
-    _retain_card_context(state, card_payload(4))
+    _retain_card_context(state, card_payload(8))
     identities = {row["card"]["oracle_id"] for row in state["consulted_cards"]}
-    assert identities == {"oracle-0", "oracle-2", "oracle-3", "oracle-4"}
+    assert identities == {"oracle-0", *[f"oracle-{i}" for i in range(2, 9)]}
     assert state.get("consulted_cards_omitted", 0) >= 1
 
 

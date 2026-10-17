@@ -18,6 +18,11 @@ from typing import Annotated, Any
 from pydantic import Field, ValidationError
 
 from sabermetrics.assistant_answer_review import evidence_sources, review_answer
+from sabermetrics.assistant_card_references import reference_key
+from sabermetrics.assistant_conversation_context import (
+    merge_preferences,
+    preference_context,
+)
 from sabermetrics.assistant_deck_facts import library_composition
 from sabermetrics.assistant_research_task import (
     ResearchHypothesis,
@@ -27,6 +32,9 @@ from sabermetrics.assistant_research_task import (
 )
 from sabermetrics.assistant_research_task import (
     progress as research_progress,
+)
+from sabermetrics.assistant_tools import (
+    TOOL_ADAPTER as ToolCallAdapter,
 )
 from sabermetrics.assistant_tools import (
     AssistantTools,
@@ -49,7 +57,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v15"
+PROMPT_VERSION = "build-conversation.v16"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -73,6 +81,27 @@ Freshness in saved conversation receipts only describes the state when the tool
 ran. Call latest_goldfish again before assessing the present deck from a saved
 report; do not reuse an old current flag as evidence of present freshness. Role tags and model claims are not verified card mechanics.
 For a known exact card name, prefer card_details to verify its actual text.
+Answer a named-card follow-up before expanding discovery. Reuse consulted card
+facts and the quote-backed conversation_context, including earlier user requests.
+Later successful identity resolution supersedes an earlier missing lookup. Never
+claim printed text is unavailable when a confirmed receipt contains it.
+For FUNCTIONAL discovery use search_card_functions, not search_cards.query.
+That query field is a name filter: never place a mechanical sentence there.
+Do not set mana_max to zero unless the user explicitly wants zero-mana cards;
+use null for unspecified. Avoid repeating identical unsuccessful searches.
+Distinguish discovery, comparison and explanation from filling slots or swaps.
+Seven open slots is available capacity, not a demand for seven additions or cuts.
+For draw recommendations compare recurring engines versus one-shot draw,
+voluntary activations versus mandatory triggers, costs, conditions and secondary
+roles, with actual deck support. Drawing within a voluntary activation is required
+once it resolves but the user controls whether to activate it. Missing 'may' alone
+does not reject it when optionality is a preference. Proliferate has costs; counters,
+combat, tokens and conditional card types require their relevant sourced conditions.
+Return the separate requested lists with ranked relevant candidates, not non-draw
+support cards filling a draw list. Do not repeat only the user's examples. Treat
+retrieval scores as discovery relevance, never proof of strategic quality.
+For discovery/comparison, answer the question directly; no objective selection,
+replacement preview, missing-cut warning or simulation disclaimer is needed.
 search_cards.query is a printed-name filter and oracle_text is a LITERAL substring.
 Do not invent an Oracle clause and pass it alongside an exact name: modern text
 may use 'this creature' or optional wording. An empty filtered search is not
@@ -290,6 +319,8 @@ additions and cuts (0..99), whether they must form a coordinated package, and th
 requested deliverables. Zero means no replacement request; do not invent a quota.
 One coordinated package supports at most three swaps. Preserve larger requested
 counts and explicitly report any remainder instead of silently reducing them.
+After the planning call, reuse state.research_task and conversation_context;
+set research_task to null rather than repeating the brief and preference quotes.
 A request for two additions and two cuts is one two-pair package, not two alternatives
 cutting the same card. Preserve the brief throughout the turn. If discovery gives
 only one candidate, use focused search_cards/card_details for the missing ingredient
@@ -345,8 +376,12 @@ class AssistantStep(StrictModel):
 class AssistantPlanningStep(AssistantStep):
     # The first production response cannot silently omit the research brief.
     research_task: ResearchTask = Field(
-        description="Extract the user's requested additions, cuts, coordination and deliverables. Use zero counts for factual questions."
+        description="Classify discover/compare/explain/fill/swap. Open slots are capacity, NOT requested additions. Discovery/options and named-card questions have zero additions/cuts unless explicitly requested. Record quote-backed preference_updates from user statements, preserving hard requirements vs preferences and later corrections. Identify named_cards in the current request for focused lookup before discovery."
     )
+
+
+class AssistantAnswerStep(AssistantStep):
+    tool_calls: list[ToolCall] = Field(default_factory=list, max_length=0)
 
 
 def _compact(value: Any, depth: int = 0) -> Any:
@@ -581,6 +616,9 @@ def _card_context(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, str) and len(value) > limit:
             bounded[key] = value[:limit]
             clipped.append(key)
+    bounded["oracle_text_truncated"] = bool(
+        card.get("oracle_text_truncated") or "oracle_text" in clipped
+    )
     provenance = data.get("provenance") or {}
     return {
         "card": bounded,
@@ -636,10 +674,55 @@ def _retain_card_context(state: dict[str, Any], data: dict[str, Any]) -> None:
         )
         != identity
     ]
-    state["consulted_cards"] = (retained + [compact])[-4:]
+    state["consulted_cards"] = (retained + [compact])[-8:]
     state["consulted_cards_omitted"] = state.get("consulted_cards_omitted", 0) + max(
-        0, len(retained) + 1 - 4
+        0, len(retained) + 1 - 8
     )
+
+
+def _restore_card_sources(
+    path, state, document, messages, request
+) -> dict[str, dict[str, Any]]:
+    """Reuse at most eight identities, refreshing text and deck-specific facts locally."""
+    from sabermetrics.assistant_card_facts import card_facts
+    from sabermetrics.cast_trigger_evidence import document_cast_trigger_evidence
+
+    identities: dict[str, None] = {}
+    for message in messages:
+        action = message.get("action") or {}
+        if action.get("type") != "tool_result" or not action.get("ok"):
+            continue
+        data = action.get("data") or {}
+        cards = (
+            [data["card"]]
+            if action.get("name") == "card_details" and data.get("card")
+            else []
+        )
+        if action.get("name") in {"search_cards", "search_card_functions"}:
+            cards = [
+                c
+                for c in data.get("cards", [])
+                if reference_key(str(c.get("name") or ""))
+                and reference_key(str(c.get("name") or "")) in reference_key(request)
+            ]
+        for card in cards:
+            if card.get("id"):
+                identities.pop(card["id"], None)
+                identities[card["id"]] = None
+    restored = {}
+    for cid in list(identities)[-8:]:
+        data = card_facts(path, cid)
+        if data.get("card"):
+            data["commander_cast_interactions"] = document_cast_trigger_evidence(
+                document, data["card"]
+            )
+            _retain_card_context(state, data)
+            restored[cid] = data["card"]
+    state["card_source_reuse"] = {
+        "locally_refreshed": len(restored),
+        "unavailable": min(8, len(identities)) - len(restored),
+    }
+    return restored
 
 
 def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
@@ -786,6 +869,17 @@ def _evidence_fallback(state: dict[str, Any], experiments_started: int = 0) -> s
     )
     if names:
         lines.append("Commander: " + ", ".join(names) + ".")
+    for row in state.get("consulted_cards", [])[-5:]:
+        card = row.get("card") or {}
+        if card.get("oracle_text"):
+            lines.append(
+                "Retrieved source excerpt — "
+                + str(card.get("name"))
+                + " ("
+                + str(card.get("mana_cost") or "mana cost unknown")
+                + "):\n"
+                + card["oracle_text"]
+            )
     for feature in (state.get("grounded_deck_facts") or {}).get("features", []):
         if feature.get("feature") in {
             "graveyard_stock",
@@ -955,6 +1049,8 @@ def _encode_context(
         "deck_composition",
         "research_task",
         "deck_entry_handles",
+        "conversation_context",
+        "answer_obligations",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1061,6 +1157,11 @@ def _encode_context(
                         "plan_count": len(plans.get("plans", [])),
                         "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
                     }
+                elif len(payload["state"].get("consulted_cards", [])) > 2:
+                    payload["state"]["consulted_cards"].pop(0)
+                    payload["state"]["consulted_cards_omitted"] = (
+                        payload["state"].get("consulted_cards_omitted", 0) + 1
+                    )
                 else:
                     raise AssistantBudgetExceeded(
                         "The request exceeds the assistant context limit. Please shorten it."
@@ -1069,7 +1170,7 @@ def _encode_context(
 
 def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
     turns = []
-    for message in messages[-10:]:
+    for message in messages:
         if not isinstance(message, dict) or message.get("role") not in {
             "user",
             "assistant",
@@ -1078,7 +1179,7 @@ def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
         content = message.get("content")
         if isinstance(content, str):
             turns.append({"role": str(message["role"]), "content": content[:4000]})
-    return turns
+    return turns[-10:]
 
 
 def run_turn(
@@ -1211,6 +1312,7 @@ def run_turn(
             "commander abilities",
         )
         current_request = current_request if isinstance(current_request, str) else ""
+        tools.research_request = current_request
         rule_cards = scoped_rule_cards(document, current_request)
         initial_rules = retrieve_rules(
             Path(db_path),
@@ -1220,6 +1322,7 @@ def run_turn(
         ).model_dump()
         initial_rules = _rules_context(initial_rules)
         state: dict[str, Any] = {
+            "conversation_context": preference_context(messages),
             "mode": mode,
             "grounded_deck_facts": summarize_deck_facts(build_deck_facts(document)),
             "engine_graph": summarize_engine_graph(build_engine_graph(document)),
@@ -1258,6 +1361,21 @@ def run_turn(
             },
         }
         tool_count = 0
+        synthesis_required = False
+        read_cache: dict[str, dict[str, Any]] = {}
+        cacheable = {
+            "card_details",
+            "search_cards",
+            "search_card_functions",
+            "inspect_deck",
+            "retrieve_deck_facts",
+            "retrieve_rules",
+        }
+        source_cards = _restore_card_sources(
+            db_path, state, document, messages, current_request
+        )
+        known_card_ids.update(source_cards)
+        tools.research_preferences = state["conversation_context"]["preferences"]
         task = None
         continuation_used = False
         package_research_attempted = False
@@ -1288,7 +1406,10 @@ def run_turn(
             encoded = _encode_context(state, latest_request, transcript)
             system = SYSTEM
             final_call = step_index == MAX_MODEL_CALLS - 1
-            if tool_count == MAX_TOOL_CALLS or final_call:
+            answer_only = (
+                tool_count == MAX_TOOL_CALLS or final_call or synthesis_required
+            )
+            if answer_only:
                 system += "\nNo tool calls remain. Return a final answer from the confirmed receipts, identifying any missing facts. Do not request more tools.\n"
             if task is not None:
                 state["research_task"] = research_progress(task, observed_plans())
@@ -1315,7 +1436,11 @@ def run_turn(
                 prompt_version=PROMPT_VERSION,
                 system=system,
                 user=encoded,
-                schema=AssistantPlanningStep if step_index == 0 else AssistantStep,
+                schema=(
+                    AssistantPlanningStep
+                    if step_index == 0
+                    else (AssistantAnswerStep if answer_only else AssistantStep)
+                ),
                 mode=ReasoningMode.EXPLAIN,
                 call_type="build:assistant",
                 max_output_tokens=4096,
@@ -1342,6 +1467,62 @@ def run_turn(
                     step.research_task, current_request
                 )
                 state["research_brief_disagreements"] = disagreements
+                state["conversation_context"]["preferences"] = merge_preferences(
+                    state["conversation_context"]["preferences"],
+                    task.preference_updates,
+                    messages,
+                )
+                tools.research_preferences = state["conversation_context"][
+                    "preferences"
+                ]
+                state["answer_obligations"] = {
+                    "kind": task.kind,
+                    "deliverables": task.deliverables,
+                }
+            if (
+                task is not None
+                and task.kind in {"compare", "explain"}
+                and task.named_cards
+            ):
+                sources = [
+                    *(
+                        row.get("card") or {}
+                        for row in state.get("consulted_cards", [])
+                    ),
+                    *document.get("entries", []),
+                ]
+                missing_names = [
+                    name
+                    for name in task.named_cards
+                    if reference_key(name) in reference_key(current_request)
+                    and not any(
+                        reference_key(str(c.get("name") or "")) == reference_key(name)
+                        and c.get("oracle_text")
+                        for c in sources
+                    )
+                ]
+                if missing_names and not answer_only:
+                    step = step.model_copy(
+                        update={
+                            "tool_calls": [
+                                ToolCallAdapter.validate_python(
+                                    {
+                                        "name": "card_details",
+                                        "arguments": {"card_id": name},
+                                    }
+                                )
+                                for name in missing_names[
+                                    : min(3, MAX_TOOL_CALLS - tool_count)
+                                ]
+                            ]
+                        }
+                    )
+                elif not missing_names:
+                    synthesis_required = True
+                    # If this response still requests discovery, reserve the next
+                    # call for an answer using the named card's confirmed text.
+                    if step.tool_calls and not answer_only:
+                        continue
             hypotheses = []
             if (
                 task is not None
@@ -1602,12 +1783,27 @@ def run_turn(
                             parts,
                             state.get("rules_evidence"),
                             [
-                                c
-                                for h in hypotheses
-                                for c in h.get("printed_sources", [])
+                                *[
+                                    card
+                                    for cid, card in source_cards.items()
+                                    if cid in step.card_ids
+                                    or reference_key(str(card.get("name") or ""))
+                                    in reference_key(
+                                        " ".join([*parts, current_request])
+                                    )
+                                ][-12:],
+                                *[
+                                    c
+                                    for h in hypotheses
+                                    for c in h.get("printed_sources", [])
+                                ],
                             ],
                         ),
                         current_request,
+                        research_context={
+                            "preferences": state["conversation_context"]["preferences"],
+                            "task": state.get("answer_obligations", {}),
+                        },
                         protected_parts=(
                             {
                                 i
@@ -1739,7 +1935,7 @@ def run_turn(
                     presentation["strategy_evidence"] = strategy_presentation
                 result["presentation"] = presentation
                 return result
-            if final_call:
+            if answer_only:
                 # Respect the original five-call budget without spending the
                 # final call on actions whose results cannot be explained.
                 result.update(
@@ -1749,9 +1945,17 @@ def run_turn(
                 )
                 return result
             if tool_count + len(step.tool_calls) > MAX_TOOL_CALLS:
-                raise AssistantBudgetExceeded(
-                    "Assistant tool-call budget exhausted; remaining calls were not executed."
+                synthesis_required = True
+                transcript.append(
+                    {
+                        "role": "tool",
+                        "result": {
+                            "status": "synthesis_required",
+                            "note": "Requested batch exceeds remaining tool budget. No calls in that batch ran. Answer from confirmed sources now.",
+                        },
+                    }
                 )
+                continue
             transcript.append(
                 {
                     "role": "assistant",
@@ -1759,6 +1963,7 @@ def run_turn(
                     "tool_calls": [{"name": call.name} for call in step.tool_calls],
                 }
             )
+            cached_before_batch = set(read_cache)
             for call in step.tool_calls:
                 tools.check()
                 tool_count += 1
@@ -1771,11 +1976,21 @@ def run_turn(
                     }
                 )
                 try:
-                    data = tools.execute(call)
+                    cache_key = json.dumps(call.model_dump(), sort_keys=True)
+                    if call.name in cacheable and cache_key in read_cache:
+                        data = read_cache[cache_key]
+                        if cache_key in cached_before_batch and not state[
+                            "workflow"
+                        ].get("reviewed_plans"):
+                            synthesis_required = True
+                    else:
+                        data = tools.execute(call)
+                        if call.name in cacheable:
+                            read_cache[cache_key] = data
                     state["workflow"]["completed_tools"].append(call.name)
                     if call.name == "card_details":
                         _retain_card_context(state, data)
-                    if call.name == "search_cards":
+                    if call.name in {"search_cards", "search_card_functions"}:
                         for card in data.get("cards", [])[:4]:
                             _retain_card_context(
                                 state,
@@ -1888,6 +2103,11 @@ def run_turn(
                         executed_plans.extend(
                             p.model_dump() for p in call.arguments.alternatives
                         )
+                    if call.name == "card_details" and data.get("card"):
+                        source_cards[data["card"]["id"]] = data["card"]
+                    elif call.name in {"search_cards", "search_card_functions"}:
+                        for card in data.get("cards", [])[:12]:
+                            source_cards[card["id"]] = card
                     _collect_resolved_card_ids(call.name, data, known_card_ids)
                     if (
                         call.name in {"latest_goldfish", "run_goldfish"}
@@ -1958,7 +2178,13 @@ def run_turn(
         result["content"] = _evidence_fallback(state, tools.experiments_started)
     except AssistantBudgetExceeded as exc:
         result.update(
-            status="budget_exhausted", reason="tool_or_context_budget", content=str(exc)
+            status="budget_exhausted",
+            reason="tool_or_context_budget",
+            content=(
+                _evidence_fallback(state, tools.experiments_started)
+                if tools is not None
+                else str(exc)
+            ),
         )
     except ToolStopped as exc:
         result.update(
@@ -2038,6 +2264,16 @@ def run_turn(
                     result["presentation"]["goldfish"] = measured_presentation
         if tools is not None:
             result["proposals"] = tools.proposals
+        if "state" in locals():
+            preferences = state["conversation_context"]["preferences"]
+            result.setdefault("research", {})["conversation_preferences"] = preferences
+            if isinstance(result.get("presentation"), dict):
+                result["presentation"]["research"] = (
+                    result["presentation"].get("research") or {}
+                )
+                result["presentation"]["research"][
+                    "conversation_preferences"
+                ] = preferences
         if owned_package_gateway is not None and owned_package_gateway is not gateway:
             close = getattr(owned_package_gateway, "close", None)
             if close:
@@ -2061,9 +2297,9 @@ def _collect_resolved_card_ids(
         for association in data.get("associations", []):
             if isinstance(association, dict) and association.get("card_id"):
                 known.add(str(association["card_id"]))
-    if name in {"search_cards", "generator_intelligence"}:
+    if name in {"search_cards", "search_card_functions", "generator_intelligence"}:
         for card in data.get(
-            "cards" if name == "search_cards" else "candidate_pool", []
+            "candidate_pool" if name == "generator_intelligence" else "cards", []
         ):
             if isinstance(card, dict) and card.get("id"):
                 known.add(str(card["id"]))

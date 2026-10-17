@@ -456,10 +456,13 @@ def test_late_partial_answer_does_not_start_a_continuation_without_research_room
         AssistantStep.model_validate(
             {
                 "research_task": {"additions": 2, "cuts": 2},
-                "tool_calls": [{"name": "inspect_deck", "arguments": {}}],
+                "tool_calls": [
+                    {"name": "inspect_deck", "arguments": {"query": f"topic {i}"}}
+                ],
             }
         )
-    ] * 3
+        for i in range(3)
+    ]
     gateway = Gateway(
         [
             *reads,

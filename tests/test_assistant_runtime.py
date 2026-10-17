@@ -202,7 +202,9 @@ def test_package_transport_matches_existing_experiment_and_joint_review_bounds()
 
 def test_last_model_call_is_reserved_for_answer_and_does_not_execute_tools(prepared):
     _service, path, owner, deck_id, _document, _alternatives = prepared
-    gateway = Gateway([step(call("inspect_deck")) for _ in range(5)])
+    gateway = Gateway(
+        [step(call("inspect_deck", {"query": f"topic {i}"})) for i in range(5)]
+    )
     result = run_turn(
         path,
         owner,
@@ -426,12 +428,16 @@ def test_missing_provider_is_explicit_without_fallback(prepared, monkeypatch):
 def test_tool_budget_prevents_remaining_calls(prepared):
     service, path, owner, deck_id, _document, _alternatives = prepared
     gateway = Gateway(
-        [step(*[call("latest_goldfish") for _ in range(3)]) for _ in range(3)]
+        [
+            *[step(*[call("latest_goldfish") for _ in range(3)]) for _ in range(3)],
+            step(content="The recorded findings remain available."),
+        ]
     )
     result = run_turn(
         path, owner, deck_id, [], gateway=gateway, experiment_service=service
     )
-    assert result["status"] == "budget_exhausted"
+    assert result["status"] == "done"
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
     assert (
         len([event for event in result["actions"] if event["type"] == "tool_result"])
         == 6
@@ -933,7 +939,18 @@ def test_transient_provider_overload_has_three_bounded_attempts(
 
     monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
     try:
-        result = run_turn(path, owner, deck_id, [], experiment_service=service)
+        result = run_turn(
+            path,
+            owner,
+            deck_id,
+            [],
+            experiment_service=service,
+            answer_review_gateway=SimpleNamespace(
+                generate=lambda request: SimpleNamespace(
+                    value={"patches": [], "unresolved": []}
+                )
+            ),
+        )
     finally:
         for client in clients:
             client.close()

@@ -1,0 +1,70 @@
+# Research conversation regression gate
+
+The frozen Marchesa scenario in
+`tests/fixtures/assistant_marchesa_conversation.json` covers three connected
+turns: draw discovery, preference refinement, and a focused Elegy Acolyte
+comparison. It contains paraphrased requests and relevant public card mechanics,
+not an account identifier or a private deck list.
+
+## Runtime behavior
+
+The existing planning call classifies discovery/comparison separately from
+filling slots or swapping cards. Available slots do not establish a requested
+addition count. Preference updates require exact quotes from supplied user turns;
+later statements supersede earlier ones. These interpretations are scoped to the
+conversation and grant no authority to alter a deck.
+
+Named-card comparisons prioritize their card facts before further discovery.
+Excess tool batches reserve the next call for an answer-only schema. Duplicate
+reads reuse checked receipts and trigger synthesis. The five conversation-call,
+eight tool-call, cost, cancellation and revision protections remain in force.
+If synthesis still fails its budget, a clearly labeled incomplete source extract
+preserves confirmed facts; this is not a successful strategic assessment.
+
+Previously retrieved card identities are refreshed from the current local fact
+store, with current commander annotations recomputed. Old experiments and action
+handles are never restored as current results. Full sources reach the checker
+independently of shortened model context; excerpts remain explicitly marked.
+
+`search_card_functions` separates capability queries from literal name lookup.
+It reuses the shared legal catalog and generator-derived lexical/vector recall,
+bounded associations, printed draw routes and current deck ingredients. Filters
+precede ranking; scores mean discovery relevance, not quality or simulation.
+Vector/cohort unavailability is explicit. Required optionality excludes detected
+mandatory or unclassified routes; preferred optionality ranks rather than
+excludes. Clause coverage remains partial. An unspecified mana ceiling is null;
+the runtime corrects an accidental zero unless the user requested zero/free
+cards. The correction is recorded with returned search results.
+
+## Capturing and scoring
+
+Use `assistant_conversation_eval.capture_turn` to adapt each actual `run_turn`
+result and externally measured elapsed time. Supply previous captured turns,
+relevant actual initial card facts and independently checked deck integrity.
+Never populate capture fields from expected answers. The adapter retains public
+source text for review and strips account/deck identifiers and preference quotes.
+
+Export the typed input contracts with:
+
+```sh
+python scripts/evaluate_assistant_conversation.py --schema evaluation/schema.json
+```
+
+Score a complete capture and answer-hash-bound skeptical reviews with:
+
+```sh
+python scripts/evaluate_assistant_conversation.py \
+  --run evaluation/run.json --reviews evaluation/reviews.json \
+  --report evaluation/report.json
+```
+
+Optional `--baseline` and `--baseline-reviews` report per-case regressions.
+The CLI exits nonzero for failures, missing turns or missing reviews. Correctness
+and usefulness require independent review; metadata and keyword matches cannot
+certify prose quality. Controlled test outputs never establish live quality.
+The provisional 180-second ceiling detects severe latency regressions; it is
+not a target user experience or a measured p95. Qualified broad MTG expertise
+continues to use the separate blinded expertise evaluation policy.
+
+CI runs hermetic scorer/runtime tests and exports the input schemas. It does
+not spend model tokens or claim that a release passed live expert review.

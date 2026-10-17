@@ -100,16 +100,18 @@ def evidence_sources(
                     )
                 )
 
-    for card in [*document.get("entries", []), *(additional_cards or [])]:
-        if named(card):
+    # Commander facts are mandatory even when the draft uses a short name.
+    for card in document.get("entries", []):
+        if card.get("is_commander") or named(card):
             cards.append(card)
+    cards.extend(additional_cards or [])
     for action in actions:
         if action.get("type") != "tool_result" or not action.get("ok"):
             continue
         data = action.get("data") or {}
         if action.get("name") == "card_details" and data.get("card"):
             cards.append(data["card"])
-        if action.get("name") == "search_cards":
+        if action.get("name") in {"search_cards", "search_card_functions"}:
             cards.extend(card for card in data.get("cards", []) if named(card))
         if action.get("name") == "retrieve_rules":
             rule_hits(data)
@@ -160,9 +162,22 @@ def evidence_sources(
                 + json.dumps(library_composition(document)),
             )
         )
-    candidates.extend(
-        (str(card.get("name") or "Card"), _card_source(card)) for card in cards
-    )
+    # Preserve priority rules/cost comparisons while preventing unrelated card
+    # paragraphs from displacing the commander's text.
+    candidates = [
+        *candidates[:1],
+        *(
+            (str(card.get("name") or "Card"), _card_source(card))
+            for card in cards
+            if card.get("is_commander")
+        ),
+        *candidates[1:],
+        *(
+            (str(card.get("name") or "Card"), _card_source(card))
+            for card in cards
+            if not card.get("is_commander")
+        ),
+    ]
     result = SourceEvidence()
     result.card_names = [
         str(c["name"]) for c in [*document.get("entries", []), *cards] if c.get("name")
@@ -254,6 +269,7 @@ def review_answer(
     user_request: str,
     *,
     protected_parts: set[int] | None = None,
+    research_context: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if not sources:
         return parts, {"status": "not_checked", "reason": "no_source_evidence"}
@@ -275,6 +291,7 @@ def review_answer(
             "reply_parts": parts,
             "sources": sources,
             "protected_part_indices": sorted(protected_parts),
+            "research_context": research_context or {},
         },
         ensure_ascii=False,
     )
@@ -288,13 +305,14 @@ def review_answer(
                 "reply_parts": parts,
                 "sources": sources,
                 "protected_part_indices": sorted(protected_parts),
+                "research_context": research_context or {},
             },
             ensure_ascii=False,
         )
     if len(payload.encode()) > 32768 or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v1",
+        prompt_version="assistant-answer-review.v2",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),

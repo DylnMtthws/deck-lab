@@ -7,6 +7,7 @@ there is intentionally no tool for applying or adopting changes to a deck.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -16,6 +17,10 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from sabermetrics import db
+from sabermetrics.assistant_functional_search import (
+    FunctionalSearchArgs,
+    functional_search,
+)
 from sabermetrics.card_search import search_cards
 from sabermetrics.cedh.model_gateway import ModelGateway
 from sabermetrics.deck_documents import DeckDocumentRepo, RevisionConflict
@@ -197,6 +202,11 @@ class SearchCall(StrictModel):
     arguments: SearchArgs
 
 
+class FunctionalSearchCall(StrictModel):
+    name: Literal["search_card_functions"]
+    arguments: FunctionalSearchArgs
+
+
 class InspectCall(StrictModel):
     name: Literal["inspect_deck"]
     arguments: InspectArgs
@@ -294,6 +304,7 @@ class ExperimentCall(StrictModel):
 
 ToolCall = Annotated[
     SearchCall
+    | FunctionalSearchCall
     | InspectCall
     | CardCall
     | EvidenceCall
@@ -338,6 +349,8 @@ class AssistantTools:
         review_gateway=None,
     ):
         self.review_gateway = review_gateway
+        self.research_preferences: list[dict[str, Any]] = []
+        self.research_request: str | None = None
         self.package_gateway: ModelGateway | None = None
         self.package_results: dict[str, dict[str, Any]] = {}
         self.reviewed_proposals: set[str] = set()
@@ -525,6 +538,26 @@ class AssistantTools:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
         args = call.arguments
+        search_corrections = []
+        if (
+            call.name in {"search_cards", "search_card_functions"}
+            and args.mana_max == 0
+            and self.research_request is not None
+        ):
+            requested = (
+                self.research_request
+                + " "
+                + " ".join(str(p.get("quote") or "") for p in self.research_preferences)
+            )
+            if not re.search(
+                r"\b(?:zero[ -]mana|0[ -]mana|mana value (?:of )?0|free|zero.cost)\b",
+                requested,
+                re.IGNORECASE,
+            ):
+                args = args.model_copy(update={"mana_max": None})
+                search_corrections.append(
+                    "Unspecified mana ceiling: replaced accidental zero with null; legality, color and type filters retained."
+                )
         if call.name == "research_card_associations":
             from sabermetrics.assistant_associations import research_card_associations
 
@@ -907,6 +940,54 @@ class AssistantTools:
                 "role_counts": composition["role_counts"],
                 "role_note": "Stored roles and text tags are heuristic classifications, not simulated performance.",
             }
+        if call.name == "search_card_functions":
+            values = args.model_dump()
+            for preference in self.research_preferences:
+                if (
+                    preference["dimension"] == "card_type"
+                    and preference["strength"] == "required"
+                    and preference["value"].casefold()
+                    in {
+                        "creature",
+                        "creatures",
+                        "creatures only",
+                        "creature only",
+                        "creatures_only",
+                    }
+                ):
+                    values["type_line"] = "Creature"
+                if (
+                    preference["dimension"] == "draw_control"
+                    and preference["strength"] in {"preferred", "required"}
+                    and preference["value"].casefold() == "optional"
+                ):
+                    values["optionality"] = preference["strength"]
+                elif (
+                    preference["dimension"] == "draw_control"
+                    and preference["value"].casefold() == "any"
+                ):
+                    values["optionality"] = "any"
+                if (
+                    preference["dimension"] == "excluded_card"
+                    and preference["strength"] == "rejected"
+                ):
+                    values["excluded_names"] = [
+                        *values["excluded_names"],
+                        preference["value"],
+                    ][:8]
+                if (
+                    preference["dimension"] == "goal"
+                    and "draw" in preference["value"].casefold()
+                ):
+                    values["prefer_recurring"] = True
+                if preference["dimension"] == "multifunctionality" and preference[
+                    "strength"
+                ] in {"preferred", "required"}:
+                    values["prefer_multifunctional"] = True
+            result = functional_search(
+                self.path, document, FunctionalSearchArgs.model_validate(values)
+            )
+            return {**result, "filter_corrections": search_corrections}
         if call.name == "search_cards":
             colors: set[str] = set()
             for entry in document.get("entries", []):
@@ -955,6 +1036,7 @@ class AssistantTools:
                 card["current_entry_ids"] = [entry["id"] for entry in present_entries]
             return {
                 "oracle_text_filter_mismatch": oracle_filter_mismatch,
+                "filter_corrections": search_corrections,
                 "search_note": (
                     "Exact name resolved but its actual printed text differs from the supplied Oracle fragment. Use returned text, never quote the query as fact."
                     if oracle_filter_mismatch
@@ -1013,6 +1095,29 @@ class AssistantTools:
                         "requested_reference": args.card_id,
                         "note": "Exact name identifies multiple Oracle cards; use a catalog card ID.",
                     }
+                else:
+                    from sabermetrics.assistant_card_references import reference_key
+
+                    wanted = reference_key(args.card_id)
+                    with db.connect(self.path) as conn:
+                        normalized = [
+                            dict(row)
+                            for row in conn.execute(
+                                "SELECT MIN(id) AS id,name,oracle_id FROM cards WHERE oracle_id IS NOT NULL GROUP BY oracle_id,name LIMIT 50001"
+                            )
+                            if wanted and reference_key(row["name"]) == wanted
+                        ]
+                    identities = {row["oracle_id"] for row in normalized}
+                    if len(identities) == 1:
+                        facts = card_facts(self.path, normalized[0]["id"])
+                        facts["reference_resolution"] = "normalized_name"
+                        facts["requested_reference"] = args.card_id
+                    elif len(identities) > 1:
+                        return {
+                            "status": "ambiguous",
+                            "requested_reference": args.card_id,
+                            "note": "Normalized spelling identifies multiple Oracle cards; use a catalog card ID.",
+                        }
             if facts.get("card"):
                 facts["commander_cast_interactions"] = document_cast_trigger_evidence(
                     document, facts["card"]

@@ -3,14 +3,25 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
+from sabermetrics.assistant_conversation_context import PreferenceUpdate
 from sabermetrics.assistant_tools import Proposal, StrictModel
 
 
 class ResearchTask(StrictModel):
+    kind: Literal["auto", "discover", "compare", "explain", "fill", "swap"] = "auto"
+    available_slots: int | None = Field(default=None, ge=0, le=99)
+    named_cards: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Explicit card references in this request, prioritized before further discovery; use their supplied names, never guessed IDs.",
+    )
+    preference_updates: list[PreferenceUpdate] = Field(
+        default_factory=list, max_length=8
+    )
     additions: int = Field(default=0, ge=0, le=99)
     cuts: int = Field(default=0, ge=0, le=99)
     coordinated: bool = False
@@ -172,7 +183,14 @@ def reconcile_task(
             )
             for key in keys:
                 floors[key] = max(floors[key], count)
-    updates = {key: max(getattr(task, key), value) for key, value in floors.items()}
+    updates = {
+        key: (
+            value
+            if task.kind in {"discover", "compare", "explain"}
+            else max(getattr(task, key), value)
+        )
+        for key, value in floors.items()
+    }
     disagreements = {
         key: {"model": getattr(task, key), "explicit_floor": value}
         for key, value in floors.items()
