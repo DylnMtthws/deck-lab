@@ -24,6 +24,12 @@ from sabermetrics.assistant_conversation_context import (
     preference_context,
 )
 from sabermetrics.assistant_deck_facts import library_composition
+from sabermetrics.assistant_request_planner import (
+    RequestPlan,
+    planner_system,
+    planning_payload,
+    synthesis_system,
+)
 from sabermetrics.assistant_research_task import (
     PlanningResearchTask,
     ResearchHypothesis,
@@ -63,7 +69,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v21"
+PROMPT_VERSION = "build-conversation.v22"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1344,6 +1350,7 @@ def run_turn(
     experiment_service=None,
     answer_review_gateway=None,
     package_research_gateway=None,
+    request_planner: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1368,6 +1375,7 @@ def run_turn(
     strategy_presentation: dict[str, Any] | None = None
     partial_draft: dict[str, Any] | None = None
     owns_gateway = gateway is None
+    use_request_planner = owns_gateway if request_planner is None else request_planner
     owned_package_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
@@ -1554,11 +1562,24 @@ def run_turn(
                 ),
                 "",
             )
-            encoded = _encode_context(state, latest_request, transcript)
-            system = SYSTEM
+            narrow_planning = step_index == 0 and use_request_planner
+            if narrow_planning:
+                try:
+                    encoded = planning_payload(current_request, state)
+                except ValueError as exc:
+                    raise AssistantBudgetExceeded(
+                        "The request exceeds the planning context limit."
+                    ) from exc
+            else:
+                encoded = _encode_context(state, latest_request, transcript)
             final_call = step_index == MAX_MODEL_CALLS - 1
             answer_only = (
                 tool_count == MAX_TOOL_CALLS or final_call or synthesis_required
+            )
+            system = (
+                planner_system()
+                if narrow_planning
+                else synthesis_system() if answer_only else SYSTEM
             )
             if answer_only:
                 system += "\nThis call is reserved for a final answer. Return a final answer with the required content lead and substantive findings from confirmed receipts, identifying any missing facts. Do not request more tools or return an empty object.\n"
@@ -1570,6 +1591,7 @@ def run_turn(
                 recommendation
                 and not tools.experiments_started
                 and not final_call
+                and not answer_only
                 and tool_count < MAX_TOOL_CALLS
             ):
                 system += (
@@ -1588,9 +1610,13 @@ def run_turn(
                 system=system,
                 user=encoded,
                 schema=(
-                    AssistantPlanningStep
-                    if step_index == 0
-                    else (AssistantAnswerStep if answer_only else AssistantStep)
+                    RequestPlan
+                    if narrow_planning
+                    else (
+                        AssistantPlanningStep
+                        if step_index == 0
+                        else (AssistantAnswerStep if answer_only else AssistantStep)
+                    )
                 ),
                 mode=ReasoningMode.EXPLAIN,
                 call_type="build:assistant",
@@ -1638,6 +1664,34 @@ def run_turn(
                 return result
             value = generated.value
             raw_step = value.model_dump() if hasattr(value, "model_dump") else value
+            plan_route = None
+            if isinstance(raw_step, dict) and "route" in raw_step:
+                try:
+                    plan = RequestPlan.model_validate(raw_step)
+                    normalized_task = plan.research_task.to_task(current_request)
+                    plan_route = plan.route
+                    if normalized_task.requires_empirical_evidence:
+                        plan_route = "use_tools"
+                    raw_step = {
+                        "research_task": normalized_task.model_dump(),
+                        **(
+                            plan.direct_answer.model_dump()
+                            if plan_route == "answer" and plan.direct_answer is not None
+                            else {}
+                        ),
+                    }
+                except (ValueError, ValidationError):
+                    tools.check()
+                    result.update(
+                        status="provider_error",
+                        reason="planning_evidence_invalid",
+                        content=_evidence_fallback(
+                            state,
+                            tools.experiments_started,
+                            headline="The model did not return a plan grounded in this request. Confirmed sources remain available; the requested analysis is incomplete.",
+                        ),
+                    )
+                    return result
             if answer_repair_pending:
                 try:
                     if not isinstance(raw_step, dict) or raw_step.get("tool_calls"):
@@ -1778,12 +1832,27 @@ def run_turn(
                                 ]
                             }
                         )
-                elif task.kind in {"compare", "explain"} and not missing_names:
+                elif (
+                    task.kind in {"compare", "explain"}
+                    and not task.requires_empirical_evidence
+                    and not missing_names
+                ):
                     synthesis_required = True
                     # If this response still requests discovery, reserve the next
                     # call for an answer using the named card's confirmed text.
                     if step.tool_calls and not answer_only:
                         continue
+            if plan_route == "use_tools" and not step.tool_calls:
+                # Routing is executable: optional planner prose cannot terminate
+                # research. Named facts may already justify the next answer-only
+                # call; empirical tasks retain the full execution-tool schema.
+                transcript.append(
+                    {
+                        "role": "system",
+                        "content": "The current request plan requires evidence acquisition. Continue with the available tools and validated research task; do not treat a planner announcement as the answer.",
+                    }
+                )
+                continue
             hypotheses = []
             if (
                 task is not None
@@ -2361,9 +2430,13 @@ def run_turn(
                     cache_key = json.dumps(call.model_dump(), sort_keys=True)
                     if call.name in cacheable and cache_key in read_cache:
                         data = read_cache[cache_key]
-                        if cache_key in cached_before_batch and not state[
-                            "workflow"
-                        ].get("reviewed_plans"):
+                        if (
+                            cache_key in cached_before_batch
+                            and not (
+                                task is not None and task.requires_empirical_evidence
+                            )
+                            and not state["workflow"].get("reviewed_plans")
+                        ):
                             synthesis_required = True
                     else:
                         data = tools.execute(call)
@@ -2375,6 +2448,7 @@ def run_turn(
                         if (
                             task is not None
                             and task.kind in {"compare", "explain"}
+                            and not task.requires_empirical_evidence
                             and task.named_cards
                         ):
                             focused_names = [
@@ -2422,6 +2496,7 @@ def run_turn(
                             and len(successful_functional_queries) >= 2
                             and task is not None
                             and task.kind in {"discover", "compare"}
+                            and not task.requires_empirical_evidence
                         ):
                             synthesis_required = True
                     if call.name == "inspect_deck":

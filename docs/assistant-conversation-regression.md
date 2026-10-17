@@ -46,6 +46,17 @@ preserve confirmed source excerpts instead of reporting a successful answer.
 Partial fulfillment remains incomplete. These bounded model judgments and
 field-presence constraints do not replace independent semantic assessment.
 
+Production request interpretation now occupies a narrow first-call contract:
+current request, recent user statements, saved preferences, commander facts and
+capacity. It excludes historical assistant/tool transcripts and execution-tool
+definitions. Its answer/use_tools route is executable; planning announcements
+cannot terminate a research request. Execution keeps the full tool contract;
+answer-only synthesis uses its own compact prompt. All phases share the same
+five primary-call allowance. General research may spend one call planning before
+tool selection; named facts can still resolve during that first pass. Requests
+requiring actual measurements retain operational tool routing rather than
+terminating on printed card facts. Planner decisions confer no action authority.
+
 Named-card comparisons prioritize their card facts before further discovery.
 Excess tool batches reserve the next call for an answer-only schema. Duplicate
 reads reuse checked receipts and trigger synthesis. The five conversation-call,

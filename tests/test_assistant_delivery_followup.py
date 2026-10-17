@@ -288,4 +288,4 @@ def test_run_turn_previews_from_retained_ids_after_broad_receipts(
     assert len(result["proposals"]) == 1
     assert result["proposals"][0]["expected_revision"] == document["revision"]
     assert DeckDocumentRepo(path).get(owner, deck_id) == document
-    assert "build-conversation.v21" == gateway.requests[0].prompt_version
+    assert "build-conversation.v22" == gateway.requests[0].prompt_version

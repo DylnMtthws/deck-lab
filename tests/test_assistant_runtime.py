@@ -893,7 +893,7 @@ def test_transient_provider_overload_has_three_bounded_attempts(
         attempts.append(request)
         assert json.loads(request.content)["max_tokens"] == 4096
         schema = json.loads(request.content)["response_format"]["json_schema"]["schema"]
-        quote = schema["$defs"]["PlanningResearchTask"]["properties"][
+        quote = schema["$defs"]["PlannerResearchTask"]["properties"][
             "current_request_quote"
         ]
         assert "pattern" not in quote
@@ -907,7 +907,13 @@ def test_transient_provider_overload_has_three_bounded_attempts(
                             "message": {
                                 "content": json.dumps(
                                     {
-                                        "content": "The typed provider response succeeded.",
+                                        "route": "answer",
+                                        "direct_answer": {
+                                            "content": "The typed provider response succeeded.",
+                                            "findings": [
+                                                "The supplied current facts remain the source of this response."
+                                            ],
+                                        },
                                         "research_task": {
                                             "kind": "explain",
                                             "current_request_quote": "commander abilities",
@@ -924,8 +930,8 @@ def test_transient_provider_overload_has_three_bounded_attempts(
                                             },
                                             "additions": 0,
                                             "cuts": 0,
+                                            "requires_empirical_evidence": False,
                                         },
-                                        "tool_calls": [],
                                     }
                                 )
                             }
@@ -980,7 +986,10 @@ def test_transient_provider_overload_has_three_bounded_attempts(
     assert sleeps == [1, 2]
     if eventually_succeeds:
         assert result["status"] == "done"
-        assert result["content"] == "The typed provider response succeeded."
+        assert (
+            result["presentation"]["reply"]["lead"]
+            == "The typed provider response succeeded."
+        )
     else:
         assert result["status"] == "provider_error"
         assert result["reason"] == "provider_busy"
