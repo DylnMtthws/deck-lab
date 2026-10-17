@@ -14,6 +14,8 @@ with unrelated cards. A hypothesis is not a strategic approval, simulation,
 verified infinite loop or a measured upgrade. Existing cards in support are not
 new additions. Distinguish return to hand from return to the battlefield.
 Keep conditions to four short concrete statements and each loss concise.
+Use at most 400 characters for shared_interaction. Finish every sentence; never
+truncate a comparison or condition to fit a field. Put details in conditions.
 Return complete JSON: choices, shared_interaction, conditions, blocker.
 
 

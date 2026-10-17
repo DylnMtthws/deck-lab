@@ -732,7 +732,7 @@ mana filters and disclosing the mismatch. Existing-card flags prevent treating
 a present card as a new addition. Package comparisons retain requested feature
 counts even when a focused requirement is absent from the generic after-assessment.
 
-`assistant-package-composition.v1` is a separate bounded composition judgment
+`assistant-package-composition.v2` is a separate bounded composition judgment
 over a deterministic recall pool and current cut candidates. Output is indices,
 exact incoming/outgoing quotes, a shared interaction, conditions and per-cut
 losses. One provider call (4096 output tokens, 24 KiB evidence budget) returns

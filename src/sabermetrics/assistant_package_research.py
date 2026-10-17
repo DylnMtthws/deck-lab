@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 
 from sabermetrics.assistant_research_task import ResearchHypothesis, validate_hypotheses
 from sabermetrics.assistant_tools import StrictModel
@@ -33,6 +33,15 @@ class PackageComposition(StrictModel):
         default_factory=list, max_length=4
     )
     blocker: str = Field(default="", max_length=500)
+
+    @field_validator("shared_interaction")
+    @classmethod
+    def complete_interaction(cls, value: str) -> str:
+        if value and not value.rstrip().endswith((".", "!", "?")):
+            raise ValueError(
+                "The shared interaction must end with a complete sentence."
+            )
+        return value
 
 
 def compose_package(
@@ -132,7 +141,7 @@ def compose_package(
     try:
         generated = gateway.generate(
             StructuredRequest(
-                prompt_version="assistant-package-composition.v1",
+                prompt_version="assistant-package-composition.v2",
                 system=(
                     Path(__file__).parent / "prompts/assistant_package_composition.txt"
                 ).read_text(),

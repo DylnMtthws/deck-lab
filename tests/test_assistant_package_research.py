@@ -102,12 +102,16 @@ class Composer:
             value={
                 "choices": choices,
                 "shared_interaction": (
-                    "Synergy."
-                    if self.failure == "short"
+                    "The return works only when mana value is ≤"
+                    if self.failure == "unfinished"
                     else (
-                        "Incoming 2 (new) makes the package work."
-                        if self.failure == "existing_as_new"
-                        else "Sacrificing another creature can trigger the second card's death draw ability."
+                        "Synergy."
+                        if self.failure == "short"
+                        else (
+                            "Incoming 2 (new) makes the package work."
+                            if self.failure == "existing_as_new"
+                            else "Sacrificing another creature can trigger the second card's death draw ability."
+                        )
                     )
                 ),
                 "conditions": [
@@ -119,7 +123,8 @@ class Composer:
 
 
 @pytest.mark.parametrize(
-    "failure", [None, "index", "quote", "duplicate", "existing_as_new", "short"]
+    "failure",
+    [None, "index", "quote", "duplicate", "existing_as_new", "short", "unfinished"],
 )
 def test_composition_is_bound_to_distinct_source_indices_and_exact_quotes(
     composition_case, failure
