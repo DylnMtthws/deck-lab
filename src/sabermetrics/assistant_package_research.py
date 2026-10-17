@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from sabermetrics.assistant_research_task import ResearchHypothesis, validate_hypotheses
 from sabermetrics.assistant_tools import StrictModel
@@ -27,12 +27,12 @@ class PackageChoice(StrictModel):
 
 
 class PackageComposition(StrictModel):
-    choices: list[PackageChoice] = Field(default_factory=list, max_length=3)
-    shared_interaction: str = Field(default="", max_length=650)
+    choices: list[PackageChoice] = Field(max_length=3)
+    shared_interaction: str = Field(max_length=650)
     conditions: list[Annotated[str, Field(min_length=1, max_length=140)]] = Field(
-        default_factory=list, max_length=4
+        max_length=4
     )
-    blocker: str = Field(default="", max_length=500)
+    blocker: str = Field(max_length=500)
 
     @field_validator("shared_interaction")
     @classmethod
@@ -42,6 +42,15 @@ class PackageComposition(StrictModel):
                 "The shared interaction must end with a complete sentence."
             )
         return value
+
+    @model_validator(mode="after")
+    def complete_or_explained(self):
+        if not self.choices:
+            if len(self.blocker.strip()) < 10:
+                raise ValueError("Abstaining requires a specific evidence blocker.")
+        elif len(self.shared_interaction) < 10 or not self.conditions:
+            raise ValueError("A package requires its interaction and conditions.")
+        return self
 
 
 def compose_package(
@@ -138,15 +147,23 @@ def compose_package(
     if len(json.dumps(payload).encode()) > 24576:
         return blocked("Package evidence exceeds the bounded source budget.")
     encoded = json.dumps(payload, ensure_ascii=False)
+
+    class RequestedComposition(PackageComposition):
+        @model_validator(mode="after")
+        def requested_count(self):
+            if self.choices and len(self.choices) != count:
+                raise ValueError(f"The package requires exactly {count} pairs.")
+            return self
+
     try:
         generated = gateway.generate(
             StructuredRequest(
-                prompt_version="assistant-package-composition.v2",
+                prompt_version="assistant-package-composition.v3",
                 system=(
                     Path(__file__).parent / "prompts/assistant_package_composition.txt"
                 ).read_text(),
                 user=encoded,
-                schema=PackageComposition,
+                schema=RequestedComposition,
                 mode=ReasoningMode.EXPLAIN,
                 call_type="build:package-research",
                 max_output_tokens=4096,
@@ -154,7 +171,7 @@ def compose_package(
             )
         ).value
         tools.check()
-        plan = PackageComposition.model_validate(
+        plan = RequestedComposition.model_validate(
             generated.model_dump() if hasattr(generated, "model_dump") else generated
         )
     except LLMCostCeilingExceeded:

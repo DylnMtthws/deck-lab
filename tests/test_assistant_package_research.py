@@ -123,6 +123,50 @@ class Composer:
 
 
 @pytest.mark.parametrize(
+    "fault", ["empty", "missing_interaction", "missing_conditions", "one_pair"]
+)
+def test_provider_schema_requires_complete_package_or_explained_abstention(
+    composition_case, fault
+):
+    from pydantic import ValidationError
+
+    service, path, owner, deck, document = composition_case
+    tools = AssistantTools(
+        path, owner, deck, "suggest", {}, lambda: False, experiment_service=service
+    )
+    composer = Composer()
+
+    def generate(request):
+        value = composer.generate(request).value
+        if fault == "empty":
+            value["choices"] = []
+        elif fault == "missing_interaction":
+            del value["shared_interaction"]
+        elif fault == "missing_conditions":
+            value["conditions"] = []
+        else:
+            value["choices"] = value["choices"][:1]
+        # These failures must reach the gateway's existing schema repair path,
+        # rather than first being discovered after a successful provider call.
+        with pytest.raises(ValidationError):
+            request.schema.model_validate(value)
+        value.update(
+            choices=[],
+            shared_interaction="",
+            conditions=[],
+            blocker="The supplied pool lacks a supported shared interaction.",
+        )
+        request.schema.model_validate(value)
+        return SimpleNamespace(value=value)
+
+    result = compose_package(
+        tools, document, "package", 2, SimpleNamespace(generate=generate)
+    )
+    assert result["reason"] == "The supplied pool lacks a supported shared interaction."
+    assert not result["hypotheses"]
+
+
+@pytest.mark.parametrize(
     "failure",
     [None, "index", "quote", "duplicate", "existing_as_new", "short", "unfinished"],
 )

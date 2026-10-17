@@ -16,7 +16,9 @@ new additions. Distinguish return to hand from return to the battlefield.
 Keep conditions to four short concrete statements and each loss concise.
 Use at most 400 characters for shared_interaction. Finish every sentence; never
 truncate a comparison or condition to fit a field. Put details in conditions.
-Return complete JSON: choices, shared_interaction, conditions, blocker.
+Return all required fields: choices, shared_interaction, conditions, blocker.
+An abstention must give a specific evidence blocker of at least ten characters.
+Otherwise supply exactly count pairs, a complete interaction and nonempty conditions.
 
 
 Keep each quote to the relevant complete clause, normally below 240 characters.
