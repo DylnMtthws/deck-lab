@@ -952,6 +952,11 @@ def test_nonanswer_checker_allows_one_bounded_unverified_answer_repair(prepared)
     assert result["answer_review"]["reason"] == "not_checked_repaired_answer"
     assert result["answer_review"]["fulfillment"] == "unknown"
     assert "supplied candidates differ" in result["content"]
+    assert "These findings are incomplete" in result["content"]
+    assert (
+        "These findings are incomplete"
+        in result["presentation"]["reply"]["next_action"]
+    )
     assert not [
         row
         for row in result["actions"]

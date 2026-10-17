@@ -2247,6 +2247,13 @@ def run_turn(
                             + " The requested additions and distinct cuts are not all supported by the collected evidence."
                         }
                     )
+                if answer_repair_pending:
+                    step = step.model_copy(
+                        update={
+                            "next_action": step.next_action
+                            + " These findings are incomplete and need a further rules and strategy check."
+                        }
+                    )
                 sections = [step.content.strip()] if step.content.strip() else []
                 if step.findings:
                     sections.append(
