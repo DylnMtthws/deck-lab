@@ -294,6 +294,8 @@ def evaluate(benchmark: Benchmark, run: Run, reviews: list[Review]) -> dict[str,
             records.append({"id": case.id, "status": "incomplete"})
             continue
         failed = []
+        if turn.state.get("request_sha256") != answer_digest(case.prompt):
+            failed.append("request_mismatch")
         if not turn.answer.strip():
             failed.append("substantive_answer_missing")
         if turn.status not in {"done", "partial"}:

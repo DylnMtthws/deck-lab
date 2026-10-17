@@ -56,6 +56,10 @@ five primary-call allowance. General research may spend one call planning before
 tool selection; named facts can still resolve during that first pass. Requests
 requiring actual measurements retain operational tool routing rather than
 terminating on printed card facts. Planner decisions confer no action authority.
+An empirical request without a successful current-turn operational receipt stays
+incomplete, even if the model or checker declares it finished. A completed lookup
+that finds no saved results can support an honest no-results answer. Receipt
+existence does not certify metric validity or freshness.
 
 Named-card comparisons prioritize their card facts before further discovery.
 Excess tool batches reserve the next call for an answer-only schema. Duplicate
@@ -91,6 +95,8 @@ result and externally measured elapsed time. Supply previous captured turns,
 relevant actual initial card facts and independently checked deck integrity.
 Never populate capture fields from expected answers. The adapter retains public
 source text for review and strips account/deck identifiers and preference quotes.
+The scorer checks the captured request digest against the frozen case prompt;
+missing or mismatched provenance fails the deterministic gate.
 
 Export the typed input contracts with:
 

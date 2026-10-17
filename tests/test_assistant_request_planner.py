@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from sabermetrics.assistant_request_planner import (
     RequestPlan,
     planner_system,
@@ -347,3 +349,116 @@ def test_plan_routing_preserves_call_budget_and_cancellation(prepared, monkeypat
     )
     assert result["status"] == "stopped" and len(gateway.requests) == 1
     assert not result["actions"]
+
+
+@pytest.mark.parametrize("tool_name", [None, "card_details", "latest_goldfish"])
+def test_empirical_terminal_prose_cannot_bypass_receipt_gate(
+    prepared, monkeypatch, tool_name
+):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    request = "Compare Elegy Acolyte using actual measured results."
+    original = AssistantTools.execute
+    checked = []
+
+    def execute(self, tool):
+        if tool.name == "latest_goldfish":
+            raise ValueError("Recorded measurements unavailable because lookup failed.")
+        return original(self, tool)
+
+    def review(gateway, parts, sources, current_request, **kwargs):
+        checked.append(kwargs["research_context"])
+        return parts, {"status": "no_supported_correction", "fulfillment": "complete"}
+
+    monkeypatch.setattr(AssistantTools, "execute", execute)
+    monkeypatch.setattr("sabermetrics.assistant_runtime.review_answer", review)
+    steps = [plan(request, empirical=True)]
+    if tool_name:
+        steps.append(
+            step(
+                call(
+                    tool_name,
+                    {"card_id": "elegy"} if tool_name == "card_details" else {},
+                )
+            )
+        )
+    steps.append(
+        AssistantStep(
+            content="Elegy Acolyte has a conditional combat draw ability.",
+            findings=[
+                "Printed card facts remain useful, but cannot establish measured performance."
+            ],
+        )
+    )
+    gateway = Gateway(steps)
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        answer_review_gateway=object(),
+        experiment_service=service,
+    )
+    assert result["status"] == "incomplete"
+    assert result["reason"] == "empirical_evidence_missing"
+    assert "conditional combat draw" in result["content"]
+    assert "have not been retrieved or run successfully" in result["content"]
+    assert checked[0]["task"]["requires_empirical_evidence"] is True
+    assert checked[0]["empirical_receipts"] == []
+    assert len(gateway.requests) <= 3
+
+
+@pytest.mark.parametrize("missing_report", [False, True])
+def test_successful_operational_lookup_can_support_terminal_answer(
+    prepared, monkeypatch, missing_report
+):
+    service, path, owner, deck, _, _ = prepared
+    request = "Retrieve measured Goldfish results, or tell me if none are saved."
+    original = AssistantTools.execute
+
+    def execute(self, tool):
+        if tool.name == "latest_goldfish":
+            return (
+                {
+                    "status": "not_simulated",
+                    "report_status": "unavailable",
+                    "observations": [],
+                }
+                if missing_report
+                else {
+                    "report_status": "done",
+                    "observations": [],
+                    "freshness": "current",
+                }
+            )
+        return original(self, tool)
+
+    monkeypatch.setattr(AssistantTools, "execute", execute)
+    gateway = Gateway(
+        [
+            plan(request, empirical=True),
+            step(call("latest_goldfish")),
+            AssistantStep(
+                content=(
+                    "The report lookup returned no saved measured results."
+                    if missing_report
+                    else "The report lookup returned a report with no populated metric observations."
+                ),
+                findings=["No numeric performance claim is supported by this receipt."],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert result["reason"] != "empirical_evidence_missing"
+    assert len(gateway.requests) == 3

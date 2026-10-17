@@ -46,6 +46,7 @@ def evidence():
                 "status": "done",
                 "latency_ms": 1000.0,
                 "state": {
+                    "request_sha256": answer_digest(case.prompt),
                     "task": {
                         "kind": "discover" if i == 0 else "compare",
                         "requested_additions": 0,
@@ -96,6 +97,15 @@ def evidence():
         for case, turn in zip(benchmark.cases, run.turns, strict=True)
     ]
     return benchmark, run, reviews
+
+
+@pytest.mark.parametrize("digest", [None, answer_digest("A different request")])
+def test_missing_or_wrong_request_cannot_pass_frozen_scenario(digest):
+    benchmark, run, reviews = evidence()
+    run.turns[0].state["request_sha256"] = digest
+    report = evaluate(benchmark, run, reviews)
+    assert report["quality_gate_pass"] is False
+    assert "request_mismatch" in report["cases"][0]["deterministic"]["failures"]
 
 
 def test_fixture_is_privacy_minimized_three_turn_development_scenario():

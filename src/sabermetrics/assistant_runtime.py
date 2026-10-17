@@ -433,6 +433,53 @@ class AssistantAnswerStep(AssistantReplyFields):
         return value
 
 
+def _empirical_receipts(actions: list[dict[str, Any]], revision: int) -> list[str]:
+    """Current-turn operational receipts, not card facts or model assertions.
+
+    A completed lookup with no saved report supports an honest no-results answer;
+    a failed run, rejected replay, or exception does not satisfy the obligation.
+    This gate establishes receipt existence, never metric validity or freshness.
+    """
+    operational = {
+        "latest_goldfish",
+        "research_evidence",
+        "goldfish_card_coverage",
+        "run_goldfish",
+        "replay_deck_combination",
+        "test_recommended_alternatives",
+        "start_experiment",
+    }
+    receipts = []
+    for event in actions:
+        name = event.get("name")
+        data = event.get("data")
+        if (
+            event.get("type") != "tool_result"
+            or name not in operational
+            or event.get("revision") != revision
+            or not isinstance(data, dict)
+            or not data
+            or event.get("error")
+        ):
+            continue
+        # Read-only report lookup may explicitly return no stored simulation.
+        no_report = (
+            name == "latest_goldfish"
+            and data.get("status") == "not_simulated"
+            and data.get("report_status") in {None, "unavailable", "not_simulated"}
+        )
+        if not event.get("ok") and not no_report:
+            continue
+        if data.get("status") in {"failed", "stopped", "rejected", "cancelled"}:
+            continue
+        if name == "replay_deck_combination" and (data.get("replay") or {}).get(
+            "status"
+        ) in {"failed", "stopped", "rejected", "cancelled"}:
+            continue
+        receipts.append(str(name))
+    return list(dict.fromkeys(receipts))
+
+
 def _compact(value: Any, depth: int = 0) -> Any:
     """Bound context while preserving an explicit record of omitted data."""
     if depth > 8:
@@ -1777,6 +1824,12 @@ def run_turn(
                 state["answer_obligations"] = {
                     "kind": task.kind,
                     "deliverables": task.deliverables,
+                    "requires_empirical_evidence": (
+                        task.requires_empirical_evidence
+                        or state.get("answer_obligations", {}).get(
+                            "requires_empirical_evidence", False
+                        )
+                    ),
                 }
             if task is not None and task.named_cards:
                 planned_calls = step.tool_calls
@@ -2173,6 +2226,9 @@ def run_turn(
                         research_context={
                             "preferences": state["conversation_context"]["preferences"],
                             "task": state.get("answer_obligations", {}),
+                            "empirical_receipts": _empirical_receipts(
+                                actions, result["revision"]
+                            ),
                         },
                         protected_parts=(
                             {
@@ -2323,6 +2379,16 @@ def run_turn(
                             + " These findings are incomplete and need a further rules and strategy check."
                         }
                     )
+                if state.get("answer_obligations", {}).get(
+                    "requires_empirical_evidence"
+                ) and not _empirical_receipts(actions, result["revision"]):
+                    result["reason"] = "empirical_evidence_missing"
+                    step = step.model_copy(
+                        update={
+                            "next_action": step.next_action
+                            + " The requested measurements or operational results have not been retrieved or run successfully, so this answer is incomplete."
+                        }
+                    )
                 sections = [step.content.strip()] if step.content.strip() else []
                 if step.findings:
                     sections.append(
@@ -2346,6 +2412,7 @@ def run_turn(
                         "research_incomplete",
                         "answer_partially_fulfilled",
                         "answer_repair_unverified",
+                        "empirical_evidence_missing",
                     }
                     else "incomplete"
                 )
