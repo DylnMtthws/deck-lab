@@ -10,7 +10,7 @@ from sabermetrics.assistant_runtime import AssistantStep, run_turn
 from sabermetrics.assistant_swap_review import SwapReviewResponse
 from sabermetrics.assistant_tools import TOOL_ADAPTER, AssistantTools
 from sabermetrics.cedh.errors import ModelConfigurationError
-from sabermetrics.deck_documents import DeckDocumentRepo
+from sabermetrics.deck_documents import DeckDocumentRepo, DeckNotFound
 
 pytest_plugins = ["tests.test_assistant_experiments"]
 
@@ -90,6 +90,66 @@ def call(name, arguments=None):
 
 def step(*calls, content=""):
     return AssistantStep.model_validate({"content": content, "tool_calls": list(calls)})
+
+
+def test_package_transport_matches_existing_experiment_and_joint_review_bounds():
+    from pydantic import ValidationError
+
+    proposal = {
+        "name": "Joint package",
+        "rationale": "Review the complete two-card transition.",
+        "replacements": [
+            {"outgoing_entry_id": f"old-{n}", "incoming_card_id": f"new-{n}"}
+            for n in range(2)
+        ],
+    }
+    typed = TOOL_ADAPTER.validate_python(
+        call("propose_replacements", {"proposal": proposal})
+    )
+    assert len(typed.arguments.proposal.replacements) == 2
+    proposal["replacements"] *= 2
+    with pytest.raises(ValidationError):
+        TOOL_ADAPTER.validate_python(
+            call("propose_replacements", {"proposal": proposal})
+        )
+
+
+def test_last_model_call_is_reserved_for_answer_and_does_not_execute_tools(prepared):
+    _service, path, owner, deck_id, _document, _alternatives = prepared
+    gateway = Gateway([step(call("inspect_deck")) for _ in range(5)])
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [
+            {
+                "role": "user",
+                "content": "Compare the actual deck functions; do not simulate.",
+            }
+        ],
+        mode="suggest",
+        constraints={},
+        gateway=gateway,
+    )
+    assert len(gateway.requests) == 5
+    assert "Return a final answer" in gateway.requests[-1].system
+    assert len([a for a in result["actions"] if a.get("type") == "tool_started"]) == 4
+    assert result["status"] == "budget_exhausted"
+    assert "analysis is incomplete" in result["content"]
+    assert "did not start an experiment" not in result["content"]
+
+
+def test_complete_deck_evidence_tool_is_owner_scoped_and_revision_checked(prepared):
+    _service, path, owner, deck_id, document, _alternatives = prepared
+    tools = AssistantTools(path, owner, deck_id, "suggest", {}, lambda: False)
+    facts = tools.execute(call("retrieve_deck_facts", {"query": "draw"}))
+    assert facts["version"] == "assistant-deck-facts.v1"
+    assert facts["library_entries_scanned"] > 0
+    assert facts["revision"] == document["revision"]
+    rules = tools.execute(call("retrieve_rules", {"query": "tap ability"}))
+    assert rules["status"] == "unavailable"
+    with pytest.raises(DeckNotFound):
+        AssistantTools(path, "different-owner", deck_id, "suggest", {}, lambda: False)
 
 
 def test_multi_turn_search_inspect_propose_is_validated_and_source_unchanged(prepared):

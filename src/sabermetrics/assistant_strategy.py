@@ -175,9 +175,9 @@ def strategy_capabilities(card: dict[str, Any]) -> set[str]:
         result.add("sacrifice_outlet")
     if re.search(r"\b(?:return|cast|play)\b[^.\n]*\bfrom your graveyard\b", text):
         result.add("graveyard_access")
-    if re.search(
-        r"(?:^|[.\n])\s*(?:you )?mill\b|put the top[^.\n]*your graveyard", text
-    ):
+    from sabermetrics.assistant_deck_facts import graveyard_stock_quote
+
+    if graveyard_stock_quote(card):
         result.add("graveyard_stock")
     if re.search(r"\bput\b[^.\n]*\+1/\+1 counters?\b", text):
         result.add("counter_producer")

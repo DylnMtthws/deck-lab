@@ -543,3 +543,26 @@ sabermetrics invite-user --email tester@example.com
 `sabermetrics serve` runs under `waitress`. To survive reboots, run it from a
 launchd job in the style of the ones in `launchd/`, and set `tailscale serve`
 to persist with `--bg` (it already does; check with `tailscale serve status`).
+
+
+## Research Assistant rules and rulings preparation
+
+Prepare public knowledge artifacts offline from the reviewed source checkout.
+`PYTHONPATH=src python scripts/prepare_assistant_rules.py` requires
+`--db-path`, `--text-file`, `--source-url`, `--version` and the raw file
+`--sha256`. Obtain the text URL from Wizards' rules page and preserve the
+downloaded bytes and effective date. Import validates numbering and hashes
+before atomically replacing the rules index.
+
+`PYTHONPATH=src python scripts/prepare_assistant_rulings.py` requires
+`--db-path`, `--rulings-file`, `--source-url`, `--version`, `--sha256`, and
+optionally `--descriptor` for the saved Scryfall bulk-data object. The current
+public endpoint supplies `jsonl_download_uri` and `compressed_size`; do not
+assume older `download_uri` fields. All downloads occur outside assistant turns.
+
+These are source-checkout preparation utilities, not an automatic refresh job.
+Publish only the verified public knowledge namespace to QA using the reviewed
+container's import functions, then verify counts, hashes and source-specific
+retrieval. Never replace the application database with a knowledge-only file.
+The code tolerates missing indexes with explicit unavailable states. Production
+publication remains a separate owner-approved release.

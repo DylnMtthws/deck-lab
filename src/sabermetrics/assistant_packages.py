@@ -50,6 +50,12 @@ def recommend_packages(
         requested |= gaps & {"draw"}
     catalog = _eligible_catalog_lines(service.db_path, document)
     library = _library_entries(document)
+    from sabermetrics.assistant_engine_graph import (
+        build_engine_graph,
+        engine_loss_score,
+    )
+
+    engine_graph = build_engine_graph(document)
     outgoing = [
         c
         for c in library
@@ -63,9 +69,11 @@ def recommend_packages(
     # commander support. Final transition validation is authoritative.
     outgoing.sort(
         key=lambda c: (
+            engine_loss_score(engine_graph, c),
             len(commander_support(document, c, strategy)),
             len(old_caps[c["id"]] & gaps),
-            str(c["id"]),
+            str(c.get("name") or ""),
+            str(c.get("oracle_id") or ""),
         )
     )
     outgoing = outgoing[:12]

@@ -57,6 +57,52 @@ def test_unknown_commander_explicit_general_fallback(prepared):
     )
 
 
+def test_engine_link_ranking_prefers_filler_cut_before_trigger_multiplier(prepared):
+    path, document = prepared
+    commander = next(c for c in document["entries"] if c["is_commander"])
+    commander.update(
+        type_line="Legendary Creature — Wizard",
+        oracle_text="Whenever you cast a noncreature spell, it deals 1 damage to each opponent.",
+    )
+    library = next(c for c in document["entries"] if not c["is_commander"])
+    library["quantity"] = 97
+    for cid, name, text in [
+        (
+            "multiplier",
+            "A core multiplier",
+            "If an ability of a Wizard you control triggers, that ability triggers an additional time.",
+        ),
+        ("filler", "Z filler", "Whenever you gain life, you may gain 1 life."),
+    ]:
+        extra = copy.deepcopy(library)
+        extra.update(
+            id=cid + "-entry",
+            card_id=cid,
+            oracle_id=cid,
+            quantity=1,
+            name=name,
+            type_line="Creature",
+            cmc=3,
+            oracle_text=text,
+        )
+        document["entries"].append(extra)
+        with db.connect(path) as conn:
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,oracle_text,color_identity,cmc,is_legal_in_99) VALUES(?,?,?,?,?,?,?,?)",
+                (cid, cid, name, "Creature", text, "[]", 3, 1),
+            )
+            conn.commit()
+    result = recommend_replacements(path, document, focus="draw", candidate_limit=1)
+    assert result["alternatives"]
+    assert (
+        result["alternatives"][0]["replacements"][0]["outgoing_entry_id"]
+        != "multiplier-entry"
+    )
+    assert result["candidate_evidence"][0]["context_rank"]["matched_functions"] == [
+        "draw"
+    ]
+
+
 def test_commander_shape_not_name_and_quantity(prepared):
     _, document = prepared
     commander = next(e for e in document["entries"] if e["is_commander"])

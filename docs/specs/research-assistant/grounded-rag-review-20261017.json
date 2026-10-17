@@ -1,0 +1,76 @@
+{
+  "version": "assistant-grounded-rag-review.v1",
+  "partner": "Claude Code Opus 5.5",
+  "model_verified": "claude-opus-5-5",
+  "parallel_task": {
+    "summary": "Rules retrieval corrections, source integrity and targeted tests",
+    "reported_targeted_tests": 33,
+    "session_id": "ce957d0e-edca-46e2-889d-a568db5c6565"
+  },
+  "initial_integration_review": {
+    "session_id": "0713bb94-6ebf-4d75-9cd2-c710a86f7389",
+    "approved": false,
+    "findings": [
+      "Functional improvement and distinct cuts must precede engine loss",
+      "Mana-base focus must retain land relevance",
+      "Negated functions must not become requested functions",
+      "Bounded facts receipts must preserve all counts",
+      "Trigger multipliers require a real commander trigger",
+      "Mill subjects and payoffs must be distinguished",
+      "Protection-loss text is not protection",
+      "Quote the matched activation, not an unrelated clause",
+      "Final-call instructions must not direct new tests",
+      "Fallback must disclose actual action state",
+      "Supplemental retrieval must not crowd out complete candidate facts",
+      "Full-name matching must exclude sideboard and substring collisions"
+    ]
+  },
+  "status": "Implementation corrected following skeptical feedback; current targeted regressions pass. QA functional quality evaluation remains separate.",
+  "qualification": "Engineering review only; not independent MTG expertise qualification",
+  "followup_reviews": [
+    {
+      "session_id": "33807a23-462a-47d8-9505-6aa77b63475e",
+      "findings": "Confirmed initial blockers corrected; identified need-expression regression, source-type recreation and graph filter ordering."
+    },
+    {
+      "session_id": "be3422d0-987a-4547-a175-29bab2167df3",
+      "findings": "Confirmed engine recreation and graph ordering fixes; identified negation-list carryover and broad have-no normalization.",
+      "reported_targeted_tests": 59
+    }
+  ],
+  "final_corrections": [
+    "Preserve need/add expressions while carrying unwanted-list scope across conjunctions",
+    "Require complete Oracle text and type equality before waiving static link loss",
+    "Filter full graph for changed providers before limiting review context",
+    "Preserve all feature counts within bounded facts view",
+    "Pin targeted evidence and disclose actual action state at budget exhaustion",
+    "Allow 1\u20133 replacement transport, matching existing joint validation",
+    "Carry negation across unwanted-function lists, preserving explicit new add/need clauses; regressions cover final reviewer examples"
+  ],
+  "rules_and_rulings": {
+    "session_id": "dde2c4b8-59c5-42c7-a1ba-3b692e879cca",
+    "targeted_tests": 71,
+    "opt_in_real_probes_passed": 2,
+    "rules_count": 3165,
+    "rulings_count": 79661,
+    "duplicates_dropped": 43,
+    "blank_comments_skipped": 2,
+    "canonical_test_commander_id_check": "Coordinator verified ruling counts against public canonical Oracle IDs: Vivi 2, Kinnan 4, Lathril 1, Meren 6"
+  },
+  "remaining_limits": [
+    "Finite text predicates and request parsing are incomplete; counts do not establish absence or optimality",
+    "No independent MTG expertise qualification",
+    "Same-source wording is not complete rules execution",
+    "Global package search and broader roadmap options remain deferred"
+  ],
+  "validation": {
+    "full_tests_passed": 2933,
+    "optional_tests_skipped": 34,
+    "final_targeted_tests_passed": 170,
+    "real_snapshot_probes_passed": 2,
+    "deterministic_checks_passed": 99,
+    "format_files_checked": 393,
+    "typed_source_files_checked": 181,
+    "lint": "passed"
+  }
+}

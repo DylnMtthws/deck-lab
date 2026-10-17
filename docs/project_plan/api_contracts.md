@@ -773,3 +773,58 @@ cli_commands:
 ```
 
 </context>
+
+
+## Research Assistant grounded retrieval
+
+`assistant_deck_facts.build_deck_facts(document, query="")` returns the typed
+`assistant-deck-facts.v1` envelope. It scans every current library entry before
+bounding examples to eight per feature and query matches to twelve. Each match
+identifies entry ID, canonical card ID, Oracle ID, quantity and exact source
+clause; truncation is explicit. Counts describe supported text patterns, not
+complete coverage or proof of absence. The runtime pins a compact fresh summary.
+
+`assistant_engine_graph.build_engine_graph(document)` derives sourced static
+commander links. `engine_loss_score` only orders cuts; it never authorizes or
+vetoes a replacement. Summaries prioritize multipliers, damage/draw and
+power/mana links ahead of generic cast ingredients.
+
+`assistant_context_rank.rank_card_context(document, card, focus)` returns
+separate requested functions, actual matches, source-backed engine relationships
+and conditions. It ranks the existing canonical recall pool before bounded
+proposal construction. Existing legality, budget, protected-card, revision and
+semantic-review checks remain authoritative.
+
+`assistant_rules.retrieve_rules(path, query, cards=(), limit=4)` reads a local
+versioned rules index and existing `card_rulings`, returning the typed
+`assistant-rules.v1` envelope. Query <=300 characters, scoped cards <=16, hits
+<=6, passage text <=1200 characters with explicit truncation. Missing corpus,
+missing rulings and no match are distinguished. The runtime never downloads
+rules. `scripts/prepare_assistant_rules.py` explicitly imports Wizards text
+offline and atomically replaces the rules snapshot after parsing.
+
+New owner-scoped assistant tools `retrieve_deck_facts` and `retrieve_rules` use
+the existing revision check. `prepare_improvement`, card details and strategic
+review carry relevant evidence. The last of five conversation calls requests
+a final answer; new tool calls on that final step are not executed. A partial
+evidence fallback makes budget exhaustion visible without claiming an
+experiment was requested or performed.
+
+The roadmap and partner ownership contracts are in
+`docs/specs/research-assistant/rag-roadmap-20261017.md` and
+`grounded-rag-contract-20261017.md`.
+
+
+The focused facts tool bounds source examples before model receipt compaction;
+all feature counts remain available. Whole-name matching scopes rules to the
+current library and commanders, excluding sideboard and substring collisions.
+Targeted rule hits and fact matches are pinned when older receipts are evicted.
+Supplemental retrieval is omitted explicitly before dropping complete candidate
+facts at the 24 KiB strategic-review boundary.
+
+`assistant_rulings_import.import_rulings` validates a caller-supplied Scryfall
+JSON/JSONL snapshot (optionally gzip) against its required raw-byte SHA-256.
+An optional saved bulk descriptor also binds URL, size and timestamp. The
+explicit CLI is `scripts/prepare_assistant_rulings.py`. No runtime network call
+is added. Rows are bounded and validated before namespace replacement; original
+source/date/Oracle identity and snapshot provenance remain visible in retrieval.

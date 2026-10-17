@@ -67,6 +67,25 @@ class StrategyArgs(StrictModel):
     limit: int = Field(default=4, ge=1, le=4)
 
 
+class DeckFactsArgs(StrictModel):
+    query: str = Field(default="", max_length=300)
+
+
+class RulesArgs(StrictModel):
+    query: str = Field(min_length=1, max_length=300)
+    limit: int = Field(default=4, ge=1, le=6)
+
+
+class DeckFactsCall(StrictModel):
+    name: Literal["retrieve_deck_facts"]
+    arguments: DeckFactsArgs
+
+
+class RulesCall(StrictModel):
+    name: Literal["retrieve_rules"]
+    arguments: RulesArgs
+
+
 class AssociationArgs(StrictModel):
     oracle_id: str = Field(
         min_length=1,
@@ -153,7 +172,7 @@ class Replacement(StrictModel):
 class Proposal(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     rationale: str = Field(min_length=1, max_length=2000)
-    replacements: list[Replacement] = Field(min_length=1, max_length=1)
+    replacements: list[Replacement] = Field(min_length=1, max_length=3)
 
 
 class ProposalArgs(StrictModel):
@@ -275,6 +294,8 @@ ToolCall = Annotated[
     | RunCall
     | IntelligenceCall
     | StrategyCall
+    | DeckFactsCall
+    | RulesCall
     | AssociationCall
     | RequirementsCall
     | MemoryCall
@@ -421,6 +442,7 @@ class AssistantTools:
                 **document,
                 "strategy_evidence": self.strategy_evidence,
                 "strategy_context": strategy.model_dump(),
+                "db_path": self.path,
             },
             self.constraints,
             str(
@@ -476,16 +498,31 @@ class AssistantTools:
         if call.name == "research_card_associations":
             from sabermetrics.assistant_associations import research_card_associations
 
+            resolved = {
+                str(c["oracle_id"])
+                for c in _library_entries(document)
+                if c.get("oracle_id")
+                and args.oracle_id.casefold()
+                in {
+                    str(c.get("id") or "").casefold(),
+                    str(c.get("card_id") or "").casefold(),
+                    str(c.get("oracle_id") or "").casefold(),
+                    str(c.get("name") or "").casefold(),
+                }
+            }
+            anchor = next(iter(resolved)) if len(resolved) == 1 else args.oracle_id
             return {
                 **research_card_associations(
                     self.path,
                     document,
-                    args.oracle_id,
+                    anchor,
                     window_days=args.window_days,
                     limit=args.limit,
                 ),
                 "revision": self.revision,
                 "original_changed": False,
+                "requested_reference": args.oracle_id,
+                "resolved_oracle_id": anchor,
             }
         if call.name == "research_known_combinations":
             from sabermetrics.combo_catalog import known_combinations
@@ -571,6 +608,11 @@ class AssistantTools:
 
             return research_memory(self.path, self.owner, self.deck_id, limit=3)
         if call.name == "prepare_improvement":
+            from sabermetrics.assistant_deck_facts import (
+                build_deck_facts,
+                summarize_deck_facts,
+            )
+
             # One bounded read plan, no implicit simulation or deck mutation.
             # Reuse the same validators and recommendation handles as individual
             # tools. Evidence and assessment cannot authorize experiment writes.
@@ -579,7 +621,8 @@ class AssistantTools:
                     {
                         "name": "retrieve_strategy_evidence",
                         "arguments": {
-                            "query": args.focus or "deck strategy engine recovery"
+                            "query": args.focus.strip()
+                            or "deck strategy engine recovery"
                         },
                     }
                 )
@@ -603,6 +646,16 @@ class AssistantTools:
             )
             return {
                 **candidates,
+                "grounded_deck_facts": summarize_deck_facts(build_deck_facts(document)),
+                "rules_evidence": self.execute(
+                    {
+                        "name": "retrieve_rules",
+                        "arguments": {
+                            "query": args.focus.strip()
+                            or "commander activated and triggered abilities"
+                        },
+                    }
+                ),
                 "strategy_evidence": strategy_evidence,
                 "assessment": candidates.get("assessment") or assessment,
                 "plan_status": (
@@ -612,6 +665,23 @@ class AssistantTools:
                 ),
                 "execution_started": False,
             }
+        if call.name == "retrieve_deck_facts":
+            from sabermetrics.assistant_deck_facts import (
+                build_deck_facts,
+                deck_facts_view,
+            )
+
+            return deck_facts_view(build_deck_facts(document, args.query))
+        if call.name == "retrieve_rules":
+            from sabermetrics.assistant_deck_facts import scoped_rule_cards
+            from sabermetrics.assistant_rules import retrieve_rules
+
+            return retrieve_rules(
+                self.path,
+                args.query,
+                cards=scoped_rule_cards(document, args.query),
+                limit=args.limit,
+            ).model_dump()
         if call.name == "retrieve_strategy_evidence":
             from sabermetrics.assistant_strategy_evidence import (
                 retrieve_strategy_evidence,
@@ -658,6 +728,7 @@ class AssistantTools:
                     **document,
                     "strategy_evidence": self.strategy_evidence,
                     "strategy_context": result.get("strategy_context"),
+                    "db_path": self.path,
                 },
                 self.constraints,
                 args.focus,
@@ -822,6 +893,18 @@ class AssistantTools:
 
             facts = card_facts(self.path, args.card_id)
             if not facts.get("card"):
+                resolved_entry = next(
+                    (
+                        c
+                        for c in document.get("entries", [])
+                        if c.get("id") == args.card_id and c.get("card_id")
+                    ),
+                    None,
+                )
+                if resolved_entry:
+                    facts = card_facts(self.path, resolved_entry["card_id"])
+                    facts["reference_resolution"] = "current_deck_entry_id"
+            if not facts.get("card"):
                 # Names and Oracle IDs are common conversational references.
                 # Resolve exact matches only; distinct identities are never merged.
                 with db.connect(self.path) as conn:
@@ -857,6 +940,14 @@ class AssistantTools:
                 facts["capability_note"] = (
                     "Bounded Oracle-text inferences with prerequisites; not certified rules execution or native simulation coverage."
                 )
+                from sabermetrics.assistant_rules import retrieve_rules
+
+                facts["rules_evidence"] = retrieve_rules(
+                    self.path,
+                    str(facts["card"].get("name") or "card abilities")[:300],
+                    cards=[facts["card"]],
+                    limit=3,
+                ).model_dump()
             return facts
         if call.name == "research_evidence":
             evidence = DeckEvidenceService(self.path)

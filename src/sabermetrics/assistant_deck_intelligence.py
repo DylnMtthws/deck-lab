@@ -369,6 +369,18 @@ def recommend_replacements(
     deterministic; insufficient valid candidates are reported, never padded.
     """
     candidate_limit = max(1, min(12, int(candidate_limit)))
+    from sabermetrics.assistant_context_rank import (
+        positive_focus,
+        rank_card_context,
+        requested_functions,
+    )
+    from sabermetrics.assistant_engine_graph import (
+        build_engine_graph,
+        engine_loss_score,
+        summarize_engine_graph,
+    )
+
+    engine_graph = build_engine_graph(document)
     service = ExperimentService(path)
     constraints = service._constraints(constraints or {})
     assessment = assess_deck_requirements(document, constraints)
@@ -378,7 +390,8 @@ def recommend_replacements(
         if row["gap"]
     }
     focus = focus[:160].lower()
-    if "recovery" in focus or "recursion" in focus:
+    intent_focus = positive_focus(focus)
+    if "recovery" in intent_focus or "recursion" in intent_focus:
         actual = sum(
             int(e.get("quantity", 1))
             for e in _library_entries(document)
@@ -399,12 +412,22 @@ def recommend_replacements(
     requested = {
         role
         for role in {row["requirement"] for row in assessment["requirements"]}
-        if role.replace("_", " ") in focus
+        if role.replace("_", " ") in intent_focus
     }
-    if "mana" in focus:
+    if "mana" in intent_focus:
         requested.update({"land", "ramp"})
+    focus_roles = requested_functions(focus)
+    if "draw" in focus_roles:
+        requested.add("draw")
+    if "physical_land" in focus_roles:
+        requested.add("land")
+    if "interaction" in focus_roles:
+        requested.add("removal")
+    if "graveyard_access" in focus_roles:
+        requested.add("recursion")
     if any(
-        term in focus for term in ("card advantage", "card selection", "consistency")
+        term in intent_focus
+        for term in ("card advantage", "card selection", "consistency")
     ):
         requested.update({"draw", "card_selection"})
     entries = _library_entries(document)
@@ -458,6 +481,10 @@ def recommend_replacements(
     recall_evidence = {
         item.card["oracle_id"]: item.model_dump(exclude={"card"})
         for item in recall.candidates
+    }
+    context_ranks = {
+        oid: rank_card_context(document, card, focus, engine_graph)
+        for oid, card in pool.items()
     }
     support = {
         oid: commander_support(document, card, strategy) for oid, card in pool.items()
@@ -521,6 +548,7 @@ def recommend_replacements(
                 )
             )
             - int(bool(item[2] & requested)),
+            -context_ranks[item[0]["oracle_id"]].priority,
             -len(item[1] & requested),
             -len(item[2] & requested),
             -int(bool(support[item[0]["oracle_id"]])) if not requested else 0,
@@ -585,6 +613,7 @@ def recommend_replacements(
                     -2 * int((old["id"], card["oracle_id"]) in improvements)
                     - int((old["id"], card["oracle_id"]) in tradeoffs),
                     old["id"] in used_outgoing,
+                    engine_loss_score(engine_graph, old, card),
                     sum(
                         item.get("matches_trigger") is True
                         and item.get("commander") not in incoming_triggers
@@ -750,6 +779,13 @@ def recommend_replacements(
                             "outgoing": [r.model_dump() for r in draw_routes(old)],
                         },
                         "functional_improvement": improvement,
+                        "context_rank": context_ranks[card["oracle_id"]].model_dump(),
+                        "engine_retention": {
+                            "outgoing_loss_score": engine_loss_score(
+                                engine_graph, old, card
+                            ),
+                            "scope": "Ranking preference only; actual losses require strategic review.",
+                        },
                         "strategic_tradeoff": tradeoff,
                         "incoming_oracle_facts": oracle_facts(card),
                         "outgoing_oracle_facts": oracle_facts(old),
@@ -832,6 +868,7 @@ def recommend_replacements(
         "candidate_evidence": evidence,
         "assessment": assessment,
         "strategy_context": strategy.model_dump(),
+        "engine_graph": summarize_engine_graph(engine_graph),
         "recall": recall.model_dump(exclude={"candidates"}),
         "requires_semantic_review": bool(alternatives),
         "rejections": dict(rejected.most_common(3)),

@@ -910,3 +910,43 @@ combos:
 - Document each later migration here with: version, date, description, migration script reference
 
 </context>
+
+
+## Research Assistant grounded retrieval schema
+
+The explicit offline importer creates additive SQLite tables:
+
+- `assistant_rules(rule_id TEXT PRIMARY KEY, text TEXT NOT NULL, content_sha256 TEXT NOT NULL)`
+- `assistant_rules_metadata(singleton INTEGER PRIMARY KEY CHECK(singleton=1), source_url TEXT NOT NULL, source_version TEXT NOT NULL, content_sha256 TEXT NOT NULL, rules_count INTEGER NOT NULL)`
+- `assistant_rules_fts` is an FTS5 index of rule ID and text.
+
+Rule replacement and index replacement share one transaction. Malformed input
+is rejected before replacement; runtime access is read-only and does not create
+missing tables. Existing `card_rulings` remains the source of per-Oracle rulings,
+with its original source/date attribution. No new service or account data is
+required. Snapshot hashes identify imported bytes, not currentness.
+
+`DeckFacts`, `FeatureEvidence` and `CardEvidence` are strict Pydantic envelopes
+for current-library matches. `EngineGraph` and `EngineLink` carry exact endpoint
+source text, prerequisites and static inference status. `ContextRank` carries
+request relevance, not probability of improvement. All envelopes use explicit
+version strings; derived deck facts are fingerprinted by revision, zones,
+identities, quantities and source text.
+
+
+The offline Scryfall rulings importer adds `card_rulings_snapshots`, keyed by
+`namespace`, with `source_url`, `source_version`, `content_sha256`, `raw_bytes`,
+`input_format`, `rows_count`, `wotc_count`, `scryfall_count`, `duplicates_dropped`,
+`empty_comments_skipped`, `descriptor_uri`, `descriptor_updated_at`, and
+`imported_at`. It replaces only `card_rulings.source IN
+('scryfall-bulk:wotc', 'scryfall-bulk:scryfall')` atomically, preserving other
+providers. Re-importing identical verified input is idempotent. Source labels
+record upstream attribution and are not independent authentication. A changed
+snapshot may allocate different ruling row IDs; persisted citations must retain
+the snapshot hash and version alongside the row identifier. Runtime retrieval
+withholds namespace rows when the recorded row count is inconsistent.
+
+`DeckFacts.commanders` is separate from library feature counts, with explicit
+example omissions. The focused tool presents <=7500 characters while retaining
+all feature counts; per-feature examples and query matches carry exact clipped
+quotes and truncation flags.

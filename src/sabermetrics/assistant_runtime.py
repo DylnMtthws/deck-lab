@@ -33,7 +33,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v9"
+PROMPT_VERSION = "build-conversation.v10"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -57,6 +57,16 @@ Freshness in saved conversation receipts only describes the state when the tool
 ran. Call latest_goldfish again before assessing the present deck from a saved
 report; do not reuse an old current flag as evidence of present freshness. Role tags and model claims are not verified card mechanics.
 Use search_cards for real catalog IDs; inspect_deck for outgoing entry IDs;
+retrieve_deck_facts to search the complete current library and verify detected
+gaps without paging through the list; retrieve_rules for sourced local rules and
+card rulings. The state's grounded_deck_facts scans all current library cards.
+Detected zero is not proof of absence: compare named examples and card text.
+The engine_graph identifies important relationships to preserve or explicitly
+trade away. Its weights rank cuts, not quality or legality. Retrieved rules are
+versioned evidence; missing or truncated passages do not establish an exception.
+Distinguish tap-symbol costs from instructions to tap other creatures. Amass
+can add counters to an existing Army; do not assume it always creates a token.
+When discussing commander mana, retain activation timing and per-turn limits.
 card_details for printed facts; research_evidence for tournament-list use;
 latest_goldfish or run_goldfish for measured native observations;
 goldfish_card_coverage for bounded per-card supported effects and limitations;
@@ -68,6 +78,9 @@ floor. Adjusted lift corrects for baseline popularity and shrinks small samples;
 it is not synergy, confidence, a causal benefit or a win prediction. Treat these
 as discovery leads: check Oracle interactions, current legality and constraints
 before proposing a swap. Thin samples and unavailable data require abstention.
+A mixed channel status such as available plus an uninformative anchor does not
+establish global association unavailability; retain each result's scope and
+inspect the actual association candidate count.
 If status is uninformative_anchor, the anchor occurs in every cohort list:
 conditional and baseline inclusion are identical, so lift is exactly one.
 Explain that identity, never insufficient pair support. A different anchor is
@@ -371,10 +384,19 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
                 "alternatives",
                 "experiment_ready",
                 "next_step",
+                "grounded_deck_facts",
             }
             if result.get("name") in {"prepare_improvement", "find_replacements"}
             else set()
         )
+        if result.get("name") == "retrieve_deck_facts":
+            protected |= {
+                "features",
+                "fingerprint",
+                "revision",
+                "scope",
+                "library_entries_scanned",
+            }
         removable = [key for key in data if key not in protected] or list(data)
         key = max(removable, key=lambda key: len(json.dumps(data[key], default=str)))
         del data[key]
@@ -499,6 +521,15 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
     if isinstance(data.get("strategy_context"), dict):
         state["strategy_context"] = _strategy_summary(data["strategy_context"])
     state["swap_review"] = {
+        "rejections": [
+            {
+                "changed_cards": r.get("changed_cards", [])[:3],
+                "reason": str(r.get("reason") or "")[:350],
+                "decision": r.get("decision"),
+            }
+            for r in data.get("review_receipts", [])
+            if r.get("decision") != "accept"
+        ][:2],
         "candidates": [
             {
                 "package_cards": [
@@ -533,6 +564,74 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
         ],
         "note": "Candidates, not measured upgrades. Cast eligibility assumes you cast the specified face with the commander on the battlefield; no altered types or abilities. Omitted details require card_details before further rules claims.",
     }
+
+
+def _evidence_fallback(state: dict[str, Any], experiments_started: int = 0) -> str:
+    """Expose confirmed partial findings if the final model call ignores its budget."""
+    names = [str(c.get("name")) for c in state.get("commanders", []) if c.get("name")]
+    lines = [
+        "The assistant reached its research budget. These confirmed findings are available; the requested analysis is incomplete."
+    ]
+    lines.append(
+        "The source deck was not changed. "
+        + (
+            "An isolated experiment was started; consult its recorded status before drawing conclusions."
+            if experiments_started
+            else "No experiment was started."
+        )
+    )
+    if names:
+        lines.append("Commander: " + ", ".join(names) + ".")
+    for feature in (state.get("grounded_deck_facts") or {}).get("features", []):
+        if feature.get("feature") in {
+            "graveyard_stock",
+            "draw",
+            "trigger_multiplier",
+        } and feature.get("examples"):
+            lines.append(
+                "Detected "
+                + feature["feature"].replace("_", " ")
+                + " sources include "
+                + ", ".join(feature["examples"][:4])
+                + ". This is incomplete text evidence, not a measured deficiency or upgrade."
+            )
+    for candidate in (state.get("swap_review") or {}).get("candidates", [])[:2]:
+        lines.append(
+            (
+                "Reviewed candidate: "
+                if (candidate.get("review") or {}).get("decision")
+                else "Unreviewed discovery candidate: "
+            )
+            + str((candidate.get("outgoing") or {}).get("name"))
+            + " → "
+            + str((candidate.get("incoming") or {}).get("name"))
+            + ". "
+            + str(
+                (candidate.get("review") or {}).get("reason")
+                or "Performance unmeasured."
+            )
+        )
+    for rejected in (state.get("swap_review") or {}).get("rejections", [])[:2]:
+        if rejected.get("reason"):
+            lines.append(
+                "Review did not accept a proposed change: " + rejected["reason"]
+            )
+    return "\n\n".join(lines)
+
+
+def _rules_context(data: dict[str, Any]) -> dict[str, Any]:
+    """Retain targeted source identity and text when full receipts are evicted."""
+    bounded = {k: v for k, v in data.items() if k != "hits"}
+    bounded["hits"] = []
+    for original in data.get("hits", [])[:3]:
+        hit = dict(original)
+        hit["text_truncated"] = (
+            bool(hit.get("text_truncated")) or len(str(hit.get("text") or "")) > 650
+        )
+        hit["text"] = str(hit.get("text") or "")[:650]
+        bounded["hits"].append(hit)
+    bounded["hits_omitted"] = max(0, len(data.get("hits", [])) - 3)
+    return bounded
 
 
 def _retain_combination_context(
@@ -766,8 +865,39 @@ def run_turn(
         from sabermetrics.card_economy import printed_cast_trigger_damage
 
         transcript: list[dict[str, Any]] = _conversation(messages)
+        from sabermetrics.assistant_deck_facts import (
+            build_deck_facts,
+            scoped_rule_cards,
+            summarize_deck_facts,
+        )
+        from sabermetrics.assistant_engine_graph import (
+            build_engine_graph,
+            summarize_engine_graph,
+        )
+        from sabermetrics.assistant_rules import retrieve_rules
+
+        current_request = next(
+            (
+                m.get("content", "")
+                for m in reversed(messages)
+                if m.get("role") == "user"
+            ),
+            "commander abilities",
+        )
+        current_request = current_request if isinstance(current_request, str) else ""
+        rule_cards = scoped_rule_cards(document, current_request)
+        initial_rules = retrieve_rules(
+            Path(db_path),
+            current_request.strip()[:300] or "commander abilities",
+            cards=rule_cards[:16],
+            limit=3,
+        ).model_dump()
+        initial_rules = _rules_context(initial_rules)
         state: dict[str, Any] = {
             "mode": mode,
+            "grounded_deck_facts": summarize_deck_facts(build_deck_facts(document)),
+            "engine_graph": summarize_engine_graph(build_engine_graph(document)),
+            "rules_evidence": initial_rules,
             "strategy_context": _strategy_summary(current_strategy),
             "constraints": constraints or {},
             "deck_id": deck_id,
@@ -810,10 +940,16 @@ def run_turn(
             )
             encoded = _encode_context(state, latest_request, transcript)
             system = SYSTEM
-            if tool_count == MAX_TOOL_CALLS:
+            final_call = step_index == MAX_MODEL_CALLS - 1
+            if tool_count == MAX_TOOL_CALLS or final_call:
                 system += "\nNo tool calls remain. Return a final answer from the confirmed receipts, identifying any missing facts. Do not request more tools.\n"
             recommendation = state["workflow"].get("recommendation")
-            if recommendation and not tools.experiments_started:
+            if (
+                recommendation
+                and not tools.experiments_started
+                and not final_call
+                and tool_count < MAX_TOOL_CALLS
+            ):
                 system += (
                     "\nTURN PROGRESS: find_replacements has already completed. "
                     "Do not call it again for the same request. Use the returned "
@@ -900,6 +1036,15 @@ def run_turn(
                     presentation["strategy_evidence"] = strategy_presentation
                 result["presentation"] = presentation
                 return result
+            if final_call:
+                # Respect the original five-call budget without spending the
+                # final call on actions whose results cannot be explained.
+                result.update(
+                    status="budget_exhausted",
+                    reason="final_answer_required",
+                    content=_evidence_fallback(state, tools.experiments_started),
+                )
+                return result
             if tool_count + len(step.tool_calls) > MAX_TOOL_CALLS:
                 raise AssistantBudgetExceeded(
                     "Assistant tool-call budget exhausted; remaining calls were not executed."
@@ -925,6 +1070,19 @@ def run_turn(
                 try:
                     data = tools.execute(call)
                     state["workflow"]["completed_tools"].append(call.name)
+                    if call.name == "retrieve_rules":
+                        state["rules_evidence"] = _rules_context(data)
+                    elif isinstance(data.get("rules_evidence"), dict):
+                        state["rules_evidence"] = _rules_context(data["rules_evidence"])
+                    if call.name == "retrieve_deck_facts":
+                        state["focused_deck_facts"] = {
+                            "revision": data.get("revision"),
+                            "fingerprint": data.get("fingerprint"),
+                            "matches": data.get("matches", [])[:2],
+                            "matches_omitted": data.get("matches_omitted", 0)
+                            + max(0, len(data.get("matches", [])) - 2),
+                            "scope": data.get("scope"),
+                        }
                     _retain_combination_context(state, call.name, data)
                     if call.name in {"find_replacements", "prepare_improvement"}:
                         _retain_swap_context(state, data)
@@ -1058,10 +1216,7 @@ def run_turn(
             reason="model_call_budget",
             content="The assistant reached its turn budget. The confirmed tool receipts are available; no further actions were performed.",
         )
-        if tools.recommendations and not tools.experiments_started:
-            result["content"] = (
-                "Recommendations were prepared, but the assistant did not start an experiment before reaching its turn budget. No experiment results are available and the original deck was not changed."
-            )
+        result["content"] = _evidence_fallback(state, tools.experiments_started)
     except AssistantBudgetExceeded as exc:
         result.update(
             status="budget_exhausted", reason="tool_or_context_budget", content=str(exc)

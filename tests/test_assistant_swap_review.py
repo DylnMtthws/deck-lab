@@ -86,6 +86,65 @@ def run(gateway, case):
     return review_candidates(gateway, document, {}, "mana", alternatives, evidence)
 
 
+def test_review_selects_changed_engine_links_before_bounding_summary(case):
+    import json
+
+    document, _alternatives, evidence, decision = case
+    commander = document["entries"][1]
+    commander.update(
+        name="Kinnan",
+        oracle_id="kinnan",
+        oracle_text="Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.",
+    )
+    document["entries"][0]["name"] = "Z Slow Rock"
+    evidence[0]["outgoing_oracle_facts"]["name"] = "Z Slow Rock"
+    document["entries"].extend(
+        {
+            "id": f"dork-{n}",
+            "oracle_id": f"dork-{n}",
+            "name": f"A Dork {n}",
+            "quantity": 1,
+            "type_line": "Creature — Elf Druid",
+            "oracle_text": "{T}: Add {G}.",
+        }
+        for n in range(11)
+    )
+    gateway = Gateway([decision])
+    run(gateway, case)
+    packet = json.loads(gateway.requests[0].user)
+    assert any(
+        link["provider"] == "Z Slow Rock"
+        and link["relationship"] == "nonland_tap_mana_ingredient"
+        for link in packet["engine_graph"]["links"]
+    )
+
+
+def test_large_supplemental_rules_do_not_displace_complete_candidate(
+    case, monkeypatch, tmp_path
+):
+    import json
+
+    from sabermetrics.assistant_rules import RulesEvidence
+
+    document, _alternatives, _evidence, decision = case
+    document["db_path"] = tmp_path / "unused.db"
+    monkeypatch.setattr(
+        "sabermetrics.assistant_rules.retrieve_rules",
+        lambda *a, **kw: RulesEvidence(
+            status="available",
+            query="synthetic",
+            rules_snapshot={"oversized_source_metadata": "x" * 30000},
+        ),
+    )
+    gateway = Gateway([decision])
+    result = run(gateway, case)
+    assert result["alternatives"]
+    packet = json.loads(gateway.requests[0].user)
+    assert len(packet["candidates"]) == 1
+    assert "rules_evidence" in packet["grounding_omitted_for_budget"]
+    assert len(gateway.requests[0].user.encode()) <= 24576
+
+
 @pytest.mark.parametrize("acknowledged", [False, True])
 def test_review_cannot_hide_known_conditional_commander_mana_loss(case, acknowledged):
     import json

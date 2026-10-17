@@ -654,3 +654,20 @@ revision_triggers:
 ```
 
 </context>
+
+
+## Grounded retrieval revision
+
+Conversation prompt `build-conversation.v10` receives fresh compact full-library
+facts, commander engine links and locally retrieved rules. Detector zeros cannot
+establish absence. The assistant must retain activation limits and distinguish
+tap-symbol costs from tapping other creatures. It may retrieve detailed matches
+without paging through the whole deck. On the final allowed conversation call it
+must answer from confirmed evidence, including missing facts, without new tools.
+
+Swap review `assistant-swap-review.v5` receives the same deck fact and engine
+summaries, contextual rank components and relevant local rule/ruling passages
+when available. All additions share the existing 24 KiB input bound; exact facts
+for changed cards remain mandatory. Link weights are cut-order preferences and
+source snippets are evidence, never complete rules execution or measured quality.
+No extra model call or new provider is introduced by these retrieval changes.
