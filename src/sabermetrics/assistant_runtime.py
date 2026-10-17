@@ -69,7 +69,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v23"
+PROMPT_VERSION = "build-conversation.v24"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -2485,7 +2485,10 @@ def run_turn(
                     call.name == "search_card_functions"
                     and len(successful_functional_queries) >= 2
                     and task is not None
-                    and task.kind in {"discover", "compare"}
+                    and (
+                        task.kind in {"discover", "compare"}
+                        or task.evidence_scope == "candidate_discovery"
+                    )
                 ):
                     skipped = {
                         "type": "tool_skipped",
@@ -2578,8 +2581,12 @@ def run_turn(
                             and data.get("cards")
                             and len(successful_functional_queries) >= 2
                             and task is not None
-                            and task.kind in {"discover", "compare"}
+                            and (
+                                task.kind in {"discover", "compare"}
+                                or task.evidence_scope == "candidate_discovery"
+                            )
                             and not task.requires_empirical_evidence
+                            and not state["workflow"].get("reviewed_plans")
                         ):
                             synthesis_required = True
                     if call.name == "inspect_deck":

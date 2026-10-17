@@ -871,8 +871,16 @@ def test_named_in_deck_source_is_exposed_before_lookup_is_skipped(prepared):
     assert any(oracle in source for source in json.loads(checks[0].user)["sources"])
 
 
+@pytest.mark.parametrize(
+    ("kind", "scope"),
+    [
+        ("discover", "unknown"),
+        ("swap", "candidate_discovery"),
+        ("explain", "candidate_discovery"),
+    ],
+)
 def test_two_successful_functional_queries_bound_reads_inside_a_batch(
-    prepared, monkeypatch
+    prepared, monkeypatch, kind, scope
 ):
     service, path, owner, deck, _, _ = prepared
     seed_card(path, "elegy", "Elegy Acolyte")
@@ -897,7 +905,7 @@ def test_two_successful_functional_queries_bound_reads_inside_a_batch(
         [
             AssistantStep.model_validate(
                 {
-                    "research_task": {"kind": "discover"},
+                    "research_task": {"kind": kind, "evidence_scope": scope},
                     "tool_calls": [call("search_card_functions", {"query": "first"})],
                 }
             ),
@@ -926,6 +934,7 @@ def test_two_successful_functional_queries_bound_reads_inside_a_batch(
     )
     assert result["status"] == "done"
     assert searches == ["first", "second"]
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
     assert any(
         row["type"] == "tool_started" and row["name"] == "card_details"
         for row in result["actions"]
