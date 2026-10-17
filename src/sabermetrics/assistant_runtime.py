@@ -45,7 +45,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v13"
+PROMPT_VERSION = "build-conversation.v14"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -68,6 +68,11 @@ certify that settings match another run or that card mechanics are complete.
 Freshness in saved conversation receipts only describes the state when the tool
 ran. Call latest_goldfish again before assessing the present deck from a saved
 report; do not reuse an old current flag as evidence of present freshness. Role tags and model claims are not verified card mechanics.
+For a known exact card name, prefer card_details to verify its actual text.
+search_cards.query is a printed-name filter and oracle_text is a LITERAL substring.
+Do not invent an Oracle clause and pass it alongside an exact name: modern text
+may use 'this creature' or optional wording. An empty filtered search is not
+missing card data. Card results mark already_in_library; choose new additions.
 Use search_cards for real catalog IDs; inspect_deck for outgoing entry IDs;
 retrieve_deck_facts to search the complete current library and verify detected
 gaps without paging through the list; retrieve_rules for sourced local rules and
@@ -945,6 +950,7 @@ def _encode_context(
         "commanders",
         "deck_composition",
         "research_task",
+        "deck_entry_handles",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1659,6 +1665,31 @@ def run_turn(
                     state["workflow"]["completed_tools"].append(call.name)
                     if call.name == "card_details":
                         _retain_card_context(state, data)
+                    if call.name == "search_cards":
+                        for card in data.get("cards", [])[:4]:
+                            _retain_card_context(
+                                state,
+                                {
+                                    "card": card,
+                                    "status": "catalog_snapshot",
+                                    "provenance": {"source": data.get("source")},
+                                },
+                            )
+                    if call.name == "inspect_deck":
+                        handles = state.get("deck_entry_handles", [])
+                        new_handles = [
+                            {key: entry.get(key) for key in ("id", "card_id", "name")}
+                            for entry in data.get("entries", [])[:8]
+                        ]
+                        returned_entry_ids = {entry["id"] for entry in new_handles}
+                        state["deck_entry_handles"] = (
+                            [
+                                entry
+                                for entry in handles
+                                if entry["id"] not in returned_entry_ids
+                            ]
+                            + new_handles
+                        )[-8:]
                     if call.name == "retrieve_rules":
                         state["rules_evidence"] = _rules_context(data)
                     elif isinstance(data.get("rules_evidence"), dict):

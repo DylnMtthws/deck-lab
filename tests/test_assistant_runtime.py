@@ -88,6 +88,92 @@ def call(name, arguments=None):
     return {"name": name, "arguments": arguments or {}}
 
 
+def test_topic_inspection_returns_real_entry_handles_with_explicit_fallback(prepared):
+    _, path, owner, deck, document, _ = prepared
+    tools = AssistantTools(path, owner, deck, "suggest", {}, lambda: False)
+    result = tools.execute(
+        call("inspect_deck", {"query": "sacrifice outlet and high-impact slots"})
+    )
+    assert result["literal_name_matches"] == 0
+    assert result["query_match_mode"] in {"function_ranked", "library_fallback"}
+    assert result["entries"]
+    assert {e["id"] for e in result["entries"]} <= {
+        e["id"] for e in document["entries"]
+    }
+
+
+def test_exact_name_survives_a_wrong_oracle_filter_without_weakening_other_constraints(
+    prepared,
+):
+    _, path, owner, deck, _, _ = prepared
+    tools = AssistantTools(path, owner, deck, "suggest", {}, lambda: False)
+    result = tools.execute(
+        call(
+            "search_cards",
+            {
+                "query": "Incoming 0",
+                "oracle_text": "A remembered clause that is not printed.",
+            },
+        )
+    )
+    assert result["oracle_text_filter_mismatch"]
+    assert [c["name"] for c in result["cards"]] == ["Incoming 0"]
+    assert not result["cards"][0]["already_in_library"]
+    assert (
+        result["cards"][0]["oracle_text"] != "A remembered clause that is not printed."
+    )
+    constrained = tools.execute(
+        call(
+            "search_cards",
+            {"query": "Incoming 0", "oracle_text": "wrong", "type_line": "Sorcery"},
+        )
+    )
+    assert constrained["cards"] == []
+    fuzzy = tools.execute(
+        call("search_cards", {"query": "Incoming", "oracle_text": "wrong"})
+    )
+    assert fuzzy["cards"] == []
+
+
+def test_inspected_handles_and_catalog_facts_survive_later_reads(prepared):
+    service, path, owner, deck, _, _ = prepared
+
+    gateway = Gateway(
+        [
+            step(
+                call("inspect_deck", {"query": "topic phrase without literal names"}),
+                call("search_cards", {"query": "Incoming 0"}),
+            ),
+            step(call("retrieve_deck_facts", {"query": "draw"})),
+            step(content="Source-backed research, unmeasured."),
+        ]
+    )
+    result = run_turn(
+        path, owner, deck, [], gateway=gateway, experiment_service=service
+    )
+    assert result["status"] == "done"
+    observed = json.loads(gateway.requests[-1].user)["state"]
+    assert observed["deck_entry_handles"]
+    assert any(c["card"]["name"] == "Incoming 0" for c in observed["consulted_cards"])
+
+
+def test_search_annotations_never_modify_shared_catalog_rows(prepared, monkeypatch):
+    _, path, owner, deck, _, _ = prepared
+    shared = {
+        "id": "incoming-0",
+        "oracle_id": "incoming-oracle-0",
+        "name": "Incoming 0",
+    }
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.search_cards", lambda *args, **kwargs: [shared]
+    )
+    result = AssistantTools(path, owner, deck, "suggest", {}, lambda: False).execute(
+        call("search_cards", {"query": "Incoming 0"})
+    )
+    assert result["cards"][0] is not shared
+    assert "current_entry_ids" not in shared and "already_in_library" not in shared
+
+
 def step(*calls, content=""):
     return AssistantStep.model_validate({"content": content, "tool_calls": list(calls)})
 

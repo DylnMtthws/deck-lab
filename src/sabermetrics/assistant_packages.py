@@ -177,6 +177,15 @@ def recommend_packages(
             after_counts = {
                 r["requirement"]: r["actual"] for r in after["requirements"]
             }
+            # Discovery can add requested requirements (e.g. recursion) that
+            # the generic after-assessment does not list. Compare the same
+            # feature predicates over the complete resulting library.
+            after_features: Counter[str] = Counter()
+            for entry in _library_entries(preview["document"]):
+                for feature in _features(entry):
+                    after_features[feature] += int(entry.get("quantity", 1))
+            for requirement in targets:
+                after_counts.setdefault(requirement, after_features[requirement])
             improved = sorted(r for r in gaps if after_counts[r] > counts[r])
             if (
                 not transition["allowed"]

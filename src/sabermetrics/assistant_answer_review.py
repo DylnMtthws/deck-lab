@@ -21,6 +21,10 @@ from sabermetrics.deck_documents import _is_public_library_zone
 from sabermetrics.errors import LLMCostCeilingExceeded
 
 
+class AnswerPatchRejected(ValueError):
+    """Controlled diagnostic; never includes provider payloads or credentials."""
+
+
 class Citation(StrictModel):
     source_index: int = Field(ge=0)
     quote: str = Field(min_length=12, max_length=1200)
@@ -186,18 +190,20 @@ def apply_patches(
     spans: dict[int, list[tuple[int, int, str]]] = {}
     for patch in review.patches:
         if patch.part_index >= len(parts):
-            raise ValueError("Unknown reply part")
+            raise AnswerPatchRejected("Unknown reply part")
         if patch.part_index in (protected_parts or set()):
-            raise ValueError("Measurement-derived reply parts cannot be rewritten")
+            raise AnswerPatchRejected(
+                "Measurement-derived reply parts cannot be rewritten"
+            )
         text = parts[patch.part_index]
         if text.count(patch.claim) != 1:
-            raise ValueError("Claim is absent or ambiguous")
+            raise AnswerPatchRejected("Claim is absent or ambiguous")
         for citation in patch.citations:
             if (
                 citation.source_index >= len(sources)
                 or citation.quote not in sources[citation.source_index]
             ):
-                raise ValueError("Citation is not in supplied evidence")
+                raise AnswerPatchRejected("Citation is not in supplied evidence")
         allowed = patch.claim + " " + " ".join(c.quote for c in patch.citations)
         token_pattern = r"\{[^{}]+\}|\b\d+(?:[.,]\d+)*\b|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|x)\b"
         tokens = re.findall(token_pattern, patch.replacement, re.IGNORECASE)
@@ -206,7 +212,7 @@ def apply_patches(
             for token in re.findall(token_pattern, allowed, re.IGNORECASE)
         }
         if any(token.casefold() not in allowed_tokens for token in tokens):
-            raise ValueError(
+            raise AnswerPatchRejected(
                 "Correction introduces an unsupported number or mana symbol"
             )
         names = [
@@ -220,7 +226,7 @@ def apply_patches(
             and name.casefold() not in allowed.casefold()
             for name in names
         ):
-            raise ValueError(
+            raise AnswerPatchRejected(
                 "Correction introduces a card name outside its cited evidence"
             )
         start = text.index(patch.claim)
@@ -230,7 +236,7 @@ def apply_patches(
             start < previous_end and end > previous_start
             for previous_start, previous_end, _ in used
         ):
-            raise ValueError("Overlapping answer corrections")
+            raise AnswerPatchRejected("Overlapping answer corrections")
         used.append((start, end, patch.replacement))
     corrected = parts[:]
     for index, patches in spans.items():
@@ -313,7 +319,10 @@ def review_answer(
         ValidationError,
         ValueError,
     ) as exc:
-        return parts, {"status": "unverified", "reason": type(exc).__name__}
+        receipt = {"status": "unverified", "reason": type(exc).__name__}
+        if isinstance(exc, AnswerPatchRejected):
+            receipt["reason_detail"] = str(exc)
+        return parts, receipt
     return corrected, {
         "status": (
             "partially_checked"

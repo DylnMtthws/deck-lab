@@ -35,8 +35,16 @@ class EmptyArgs(StrictModel):
 
 
 class SearchArgs(StrictModel):
-    query: str = Field(default="", max_length=160)
-    oracle_text: str = Field(default="", max_length=160)
+    query: str = Field(
+        default="",
+        max_length=160,
+        description="Printed card name filter, not a prose research request. For an exact known name prefer card_details.",
+    )
+    oracle_text: str = Field(
+        default="",
+        max_length=160,
+        description="Literal Oracle substring; do not guess a whole clause or combine remembered text with an exact name.",
+    )
     type_line: str = Field(default="", max_length=80)
     mana_max: float | None = Field(default=None, ge=0, le=30)
     limit: int = Field(default=8, ge=1, le=12)
@@ -798,8 +806,39 @@ class AssistantTools:
                 for entry in document.get("entries", [])
                 if args.query.casefold() in str(entry.get("name") or "").casefold()
             ]
+            literal_matches = len(matching)
+            query_mode = "name"
+            if args.query.strip() and not matching:
+                from sabermetrics.assistant_context_rank import rank_card_context
+
+                ranked = [
+                    (entry, rank_card_context(document, entry, args.query))
+                    for entry in _library_entries(document)
+                ]
+                functional = [
+                    (entry, rank) for entry, rank in ranked if rank.matched_functions
+                ]
+                matching = (
+                    [
+                        entry
+                        for entry, _ in sorted(
+                            functional,
+                            key=lambda row: (-row[1].priority, str(row[0].get("name"))),
+                        )
+                    ]
+                    if functional
+                    else _library_entries(document)
+                )
+                query_mode = "function_ranked" if functional else "library_fallback"
             shown = matching[args.offset : args.offset + args.limit]
             return {
+                "query_match_mode": query_mode,
+                "literal_name_matches": literal_matches,
+                "query_note": (
+                    "Literal name matches."
+                    if query_mode == "name"
+                    else "No literal card name matched. Returned actual current-library entries for further inspection; function ranking is incomplete evidence, not proof of fit or name matches."
+                ),
                 "deck_id": self.deck_id,
                 "revision": self.revision,
                 "front_land_count": composition["front_land_count"],
@@ -835,6 +874,8 @@ class AssistantTools:
                             "is_commander",
                             "zone_name",
                             "mana_value",
+                            "mana_cost",
+                            "type_line",
                         )
                     }
                     for entry in shown
@@ -861,7 +902,41 @@ class AssistantTools:
                     allowed_colors=colors,
                     **args.model_dump(),
                 )
+                oracle_filter_mismatch = False
+                if not results and args.query.strip() and args.oracle_text.strip():
+                    relaxed = args.model_dump()
+                    relaxed["oracle_text"] = ""
+                    name_lookup_results = search_cards(
+                        conn, db_key=str(self.path), allowed_colors=colors, **relaxed
+                    )
+                    # Only resolve an exact printed identity; never broaden a
+                    # fuzzy name or weaken legality/color/mana/type constraints.
+                    results = [
+                        card
+                        for card in name_lookup_results
+                        if card["name"].casefold() == args.query.strip().casefold()
+                    ]
+                    oracle_filter_mismatch = bool(results)
+            results = [dict(card) for card in results]
+            for card in results:
+                present_entries = [
+                    entry
+                    for entry in _library_entries(document)
+                    if entry.get("card_id") == card.get("id")
+                    or (
+                        card.get("oracle_id")
+                        and entry.get("oracle_id") == card["oracle_id"]
+                    )
+                ]
+                card["already_in_library"] = bool(present_entries)
+                card["current_entry_ids"] = [entry["id"] for entry in present_entries]
             return {
+                "oracle_text_filter_mismatch": oracle_filter_mismatch,
+                "search_note": (
+                    "Exact name resolved but its actual printed text differs from the supplied Oracle fragment. Use returned text, never quote the query as fact."
+                    if oracle_filter_mismatch
+                    else "Filters use literal name/text substrings. For an exact known card use card_details; empty results do not establish corpus absence."
+                ),
                 "cards": results,
                 "source": "Imported Commander-legal card catalog",
                 "identity_filter": sorted(colors),

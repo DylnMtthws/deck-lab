@@ -150,3 +150,43 @@ def test_protected_cuts_block_package_discovery(package_case):
         include_packages=True,
     )
     assert not any(len(p["replacements"]) > 1 for p in result["alternatives"])
+
+
+def test_requested_recursion_remains_comparable_after_package(
+    package_case, monkeypatch
+):
+    import sabermetrics.assistant_deck_intelligence as intelligence
+
+    path, document, _, _ = package_case
+    original = intelligence.assess_deck_requirements
+    calls = []
+
+    def focused_assessment(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if not calls:
+            result["requirements"].append(
+                {
+                    "requirement": "recursion",
+                    "actual": 0,
+                    "target": 1,
+                    "gap": 1,
+                    "basis": "requested-recovery-starter-target",
+                }
+            )
+        calls.append(True)
+        return result
+
+    monkeypatch.setattr(intelligence, "assess_deck_requirements", focused_assessment)
+    result = recommend_replacements(
+        path, document, candidate_limit=8, include_packages=True
+    )
+    packages = [
+        e
+        for e in result["candidate_evidence"]
+        if len(e.get("replacement_pairs", [])) == 2
+    ]
+    assert packages
+    assert all(
+        any(row["requirement"] == "recursion" for row in e["joint_requirement_changes"])
+        for e in packages
+    )

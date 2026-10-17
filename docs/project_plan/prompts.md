@@ -722,3 +722,12 @@ Answer checks use literal source text, protect measurement statements, reject ne
 unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
 when checking cannot run because of cost/time limits. Research and check receipts
 are saved in both the result and its structured presentation.
+
+Conversation v14 clarifies literal catalog filters and recommends card_details
+for an exact known name instead of guessed Oracle fragments. Topic inspection
+uses bounded source-backed function ranking (or explicitly labelled library
+fallback) and pins returned entry handles. Exact-name catalog lookup can retry
+without a conflicting Oracle fragment, preserving colors, legality, type and
+mana filters and disclosing the mismatch. Existing-card flags prevent treating
+a present card as a new addition. Package comparisons retain requested feature
+counts even when a focused requirement is absent from the generic after-assessment.
