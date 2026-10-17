@@ -24,7 +24,7 @@
   "cases": [
     {
       "id": "draw-lists",
-      "prompt": "I have seven open slots in a Marchesa deck. Suggest two useful lists: broadly strong draw engines, and draw cards that fit sacrificing and recurring creatures. Rhystic Study and Mystic Remora are examples, not the whole first list.",
+      "prompt": "I have seven open slots in a Marchesa deck. Suggest two useful lists: broadly strong draw engines, and draw cards that fit sacrificing and recurring creatures. Rhystic Study and Mystic Remora are examples, not the whole first list. I already run Teval's Judgement and like its graveyard-return draw; use it as a synergy reference, not a new addition.",
       "checks": [
         {
           "id": "no_required_count",
