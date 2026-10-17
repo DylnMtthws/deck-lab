@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 
 from sabermetrics.assistant_answer_review import evidence_sources, review_answer
 from sabermetrics.assistant_card_references import reference_key
@@ -62,7 +62,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v19"
+PROMPT_VERSION = "build-conversation.v20"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -406,11 +406,19 @@ class AssistantPlanningStep(AssistantReplyFields):
 
 class AssistantAnswerStep(AssistantReplyFields):
     content: str = Field(
-        min_length=1,
+        min_length=12,
         max_length=6000,
-        pattern=r"\S",
         description="Required nonempty answer lead addressing the user's question from confirmed evidence. A progress announcement or checker warning is not an answer.",
     )
+
+    @field_validator("content")
+    @classmethod
+    def nonblank_content(cls, value: str) -> str:
+        if len(value.strip()) < 12:
+            raise ValueError(
+                "The final answer needs a nonblank lead of at least twelve characters"
+            )
+        return value
 
 
 def _compact(value: Any, depth: int = 0) -> Any:
@@ -803,6 +811,35 @@ def _restore_card_sources(
         "unavailable": min(8, len(identities)) - len(restored),
     }
     return restored
+
+
+def _pin_named_deck_sources(path, state, document) -> dict[str, dict[str, Any]]:
+    """Expose current named library facts before considering a lookup resolved."""
+    from sabermetrics.assistant_card_facts import card_facts
+    from sabermetrics.cast_trigger_evidence import document_cast_trigger_evidence
+
+    names = {reference_key(name) for name in state.get("focused_card_names", [])}
+    sources = {}
+    for entry in document.get("entries", []):
+        if (
+            not entry.get("card_id")
+            or reference_key(str(entry.get("name") or "")) not in names
+        ):
+            continue
+        data = card_facts(path, entry["card_id"])
+        card = data.get("card") or {}
+        if (
+            not card.get("id")
+            or not card.get("oracle_text")
+            or reference_key(str(card.get("name") or "")) not in names
+        ):
+            continue
+        data["commander_cast_interactions"] = document_cast_trigger_evidence(
+            document, card
+        )
+        _retain_card_context(state, data)
+        sources[card["id"]] = card
+    return sources
 
 
 def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
@@ -1621,6 +1658,9 @@ def run_turn(
                     )
                     in focused
                 )
+                named_sources = _pin_named_deck_sources(db_path, state, document)
+                source_cards.update(named_sources)
+                known_card_ids.update(named_sources)
                 state["conversation_context"]["preferences"] = merge_preferences(
                     state["conversation_context"]["preferences"],
                     task.preference_updates,
@@ -1640,7 +1680,7 @@ def run_turn(
                         row.get("card") or {}
                         for row in state.get("consulted_cards", [])
                     ),
-                    *document.get("entries", []),
+                    *state.get("commanders", []),
                 ]
                 missing_names = [
                     name
@@ -1829,7 +1869,14 @@ def run_turn(
                     step = step.model_copy(
                         update={"findings": [*step.findings, *extra_findings]}
                     )
-                if not any(part.strip() for part in [step.content, *step.findings]):
+                if (
+                    len(
+                        " ".join(
+                            part.strip() for part in [step.content, *step.findings]
+                        ).strip()
+                    )
+                    < 12
+                ):
                     # A next-action/checker caveat is not the requested answer.
                     # Spend only an already-budgeted outer call on synthesis.
                     if not final_call:
@@ -2018,7 +2065,10 @@ def run_turn(
                             raise RevisionConflict(int(current["revision"]))
                     else:
                         tools.check()
-                    if not any(part.strip() for part in corrected[:-1]):
+                    if (
+                        len(" ".join(part.strip() for part in corrected[:-1]).strip())
+                        < 12
+                    ):
                         # An invalid checker patch must not replace an answer
                         # with whitespace and then pass via its warning text.
                         corrected = parts
@@ -2159,6 +2209,23 @@ def run_turn(
             cached_before_batch = set(read_cache)
             for call in step.tool_calls:
                 tools.check()
+                if (
+                    call.name == "search_card_functions"
+                    and len(successful_functional_queries) >= 2
+                    and task is not None
+                    and task.kind in {"discover", "compare"}
+                ):
+                    skipped = {
+                        "type": "tool_skipped",
+                        "name": call.name,
+                        "reason": "two_successful_functional_queries",
+                        "revision": result["revision"],
+                    }
+                    emit(skipped)
+                    transcript.append(
+                        {"role": "tool", "name": call.name, "result": skipped}
+                    )
+                    continue
                 tool_count += 1
                 emit(
                     {
@@ -2206,7 +2273,7 @@ def run_turn(
                                     reference_key(str(card.get("name") or ""))
                                     == reference_key(name)
                                     and card.get("oracle_text")
-                                    for card in document.get("entries", [])
+                                    for card in state.get("commanders", [])
                                 )
                                 for name in focused_names
                             ):

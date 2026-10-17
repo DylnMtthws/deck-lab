@@ -161,3 +161,30 @@ def test_current_brief_rejects_historical_quote_instead_of_renewing_old_task():
     )
     with pytest.raises(ValueError, match="current user request"):
         brief.to_task("Compare the candidates using my changed priorities.")
+
+
+def test_current_request_quote_has_no_provider_regex_and_checks_meaningful_length():
+    import pytest
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_conversation_context import PreferenceAssessment
+    from sabermetrics.assistant_research_task import PlanningResearchTask
+
+    field = PlanningResearchTask.model_json_schema()["properties"][
+        "current_request_quote"
+    ]
+    assert "pattern" not in field and field["minLength"] == 1
+    base = {
+        "kind": "compare",
+        "deliverables": ["Compare options"],
+        "preference_assessment": {
+            key: None for key in PreferenceAssessment.model_fields
+        },
+    }
+    with pytest.raises(ValidationError):
+        PlanningResearchTask.model_validate({**base, "current_request_quote": " " * 8})
+    brief = PlanningResearchTask.model_validate({**base, "current_request_quote": "I"})
+    with pytest.raises(ValueError, match="current user request"):
+        brief.to_task("I want a meaningful comparison of these candidates.")
+    short = PlanningResearchTask.model_validate({**base, "current_request_quote": "Hi"})
+    assert short.to_task("Hi").current_request_quote == "Hi"

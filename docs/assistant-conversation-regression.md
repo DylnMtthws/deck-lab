@@ -28,6 +28,16 @@ checker caveat. Malformed replies preserve confirmed source excerpts with an
 incomplete label. Focused card names take priority over discovery candidates
 when retaining and compacting sources.
 
+Named cards already in the deck are refreshed and exposed to synthesis and
+checking before their lookup is considered resolved. A name in the library
+alone does not establish that the model received its printed facts. Extra
+functional reads in the same batch are skipped after the two-query recall
+bound is met; explicit card lookups and revision/cancellation checks remain.
+Provider-facing free-text fields use length bounds rather than an unanchored
+nonblank regex. Code checks meaningful nonblank text and current-request quote
+provenance, including short user messages. Live provider behavior must be
+checked separately from Pydantic's schema validation.
+
 Named-card comparisons prioritize their card facts before further discovery.
 Excess tool batches reserve the next call for an answer-only schema. Duplicate
 reads reuse checked receipts and trigger synthesis. The five conversation-call,

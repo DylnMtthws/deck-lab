@@ -194,10 +194,16 @@ def test_research_brief_cannot_be_reduced_to_hide_unfinished_work(package_prepar
     gateway = Gateway(
         [
             AssistantStep.model_validate(
-                {"research_task": {"additions": 2, "cuts": 2}, "content": "Partial."}
+                {
+                    "research_task": {"additions": 2, "cuts": 2},
+                    "content": "The requested research is partially complete.",
+                }
             ),
             AssistantStep.model_validate(
-                {"research_task": {"additions": 0, "cuts": 0}, "content": "Done."}
+                {
+                    "research_task": {"additions": 0, "cuts": 0},
+                    "content": "The requested research is complete.",
+                }
             ),
         ]
     )

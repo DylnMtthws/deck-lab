@@ -460,7 +460,21 @@ def test_answer_only_schema_requires_nonblank_answer_lead():
     from sabermetrics.assistant_runtime import AssistantAnswerStep
 
     assert "content" in AssistantAnswerStep.model_json_schema()["required"]
-    for value in ({}, {"content": ""}, {"content": " \n\t"}):
+    assert (
+        "pattern"
+        not in AssistantAnswerStep.model_json_schema()["properties"]["content"]
+    )
+    assert (
+        AssistantAnswerStep.model_json_schema()["properties"]["content"]["minLength"]
+        == 12
+    )
+    for value in (
+        {},
+        {"content": ""},
+        {"content": " \n\t"},
+        {"content": "P"},
+        {"content": " " * 12},
+    ):
         with pytest.raises(ValidationError):
             AssistantAnswerStep.model_validate(value)
     final = AssistantAnswerStep(content="A concise direct answer.")
@@ -744,3 +758,143 @@ def test_named_card_sources_stay_pinned_through_shortlist_growth_and_compaction(
         row["card"]["name"] == "Elegy Acolyte" and row["card"]["oracle_text"] == ELEGY
         for row in cards
     )
+
+
+def test_named_in_deck_source_is_exposed_before_lookup_is_skipped(prepared):
+    from types import SimpleNamespace
+
+    from sabermetrics.deck_documents import DeckDocumentRepo
+
+    service, path, owner, deck, document, _ = prepared
+    oracle = "Whenever one or more cards leave your graveyard, choose one that hasn't been chosen this turn —\n• Draw a card.\n• Create a Treasure token.\n• Create a 2/2 black Zombie Druid creature token."
+    seed_card(path, "teval-catalog-id", "Teval's Judgment", oracle)
+    entry = next(row for row in document["entries"] if not row.get("is_commander"))
+    assert entry["id"] != "teval-catalog-id"
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_entries SET card_id=?,oracle_id=?,name=?,oracle_text=? WHERE id=?",
+            (
+                "teval-catalog-id",
+                "teval-catalog-id",
+                "Teval's Judgment",
+                oracle,
+                entry["id"],
+            ),
+        )
+        conn.commit()
+    assert (
+        next(
+            row
+            for row in DeckDocumentRepo(path).get(owner, deck)["entries"]
+            if row["id"] == entry["id"]
+        )["oracle_text"]
+        == oracle
+    )
+    checks = []
+    checker = SimpleNamespace(
+        generate=lambda request: checks.append(request)
+        or SimpleNamespace(value={"patches": [], "unresolved": []})
+    )
+    gateway = Gateway(
+        [
+            AssistantStep.model_validate(
+                {
+                    "research_task": {
+                        "kind": "compare",
+                        "named_cards": ["Teval's Judgment"],
+                    },
+                    "tool_calls": [call("inspect_deck")],
+                }
+            ),
+            step(
+                content="Teval's Judgment lets you choose its draw mode only once each turn."
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Explain Teval’s Judgement in my deck."}],
+        gateway=gateway,
+        answer_review_gateway=checker,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 2
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
+    card = json.loads(gateway.requests[-1].user)["state"]["consulted_cards"][0]["card"]
+    assert card["id"] == "teval-catalog-id" and card["id"] != entry["id"]
+    assert card["oracle_text"] == oracle
+    assert not [
+        row
+        for row in result["actions"]
+        if row["type"] == "tool_started" and row["name"] != "check_answer"
+    ]
+    assert any(oracle in source for source in json.loads(checks[0].user)["sources"])
+
+
+def test_two_successful_functional_queries_bound_reads_inside_a_batch(
+    prepared, monkeypatch
+):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    searches = []
+
+    def search(path, document, args):
+        searches.append(args.query)
+        return {
+            "status": "available",
+            "cards": [
+                {
+                    "id": "elegy",
+                    "oracle_id": "elegy",
+                    "name": "Elegy Acolyte",
+                    "oracle_text": ELEGY,
+                }
+            ],
+        }
+
+    monkeypatch.setattr("sabermetrics.assistant_tools.functional_search", search)
+    gateway = Gateway(
+        [
+            AssistantStep.model_validate(
+                {
+                    "research_task": {"kind": "discover"},
+                    "tool_calls": [call("search_card_functions", {"query": "first"})],
+                }
+            ),
+            step(
+                call("search_card_functions", {"query": "second"}),
+                call("search_card_functions", {"query": "third"}),
+                call("card_details", {"card_id": "Elegy Acolyte"}),
+            ),
+            step(
+                content="The two retrieved lists provide draw options with different conditions."
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "user",
+                "content": "Research two draw lists and verify the named candidate.",
+            }
+        ],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert searches == ["first", "second"]
+    assert any(
+        row["type"] == "tool_started" and row["name"] == "card_details"
+        for row in result["actions"]
+    )
+    assert any(
+        row["type"] == "tool_skipped" and row["name"] == "search_card_functions"
+        for row in result["actions"]
+    )
+    assert json.loads(gateway.requests[-1].user)["state"]["tool_calls_remaining"] == 5

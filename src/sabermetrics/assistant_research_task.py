@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from sabermetrics.assistant_conversation_context import (
     PreferenceAssessment,
@@ -45,8 +45,7 @@ class PlanningResearchTask(StrictModel):
     current_request_quote: str = Field(
         min_length=1,
         max_length=600,
-        pattern=r"\S",
-        description="Exact meaningful excerpt from current_user_request supporting this turn's kind and deliverables. Never quote a historical request here.",
+        description="Exact meaningful excerpt from current_user_request supporting this turn's kind and deliverables. Use at least eight characters, or the whole request if shorter. Never quote a historical request here.",
     )
     deliverables: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
         min_length=1,
@@ -64,8 +63,17 @@ class PlanningResearchTask(StrictModel):
     cuts: int = Field(default=0, ge=0, le=99)
     coordinated: bool = False
 
+    @field_validator("current_request_quote")
+    @classmethod
+    def nonblank_quote(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("The current-request quote must not be blank")
+        return value
+
     def to_task(self, current_request: str) -> ResearchTask:
-        if self.current_request_quote not in current_request:
+        if self.current_request_quote not in current_request or len(
+            self.current_request_quote.strip()
+        ) < min(8, len(current_request.strip())):
             raise ValueError(
                 "Planning brief is not grounded in the current user request"
             )

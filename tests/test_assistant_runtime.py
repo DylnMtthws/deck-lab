@@ -892,6 +892,12 @@ def test_transient_provider_overload_has_three_bounded_attempts(
     def handler(request):
         attempts.append(request)
         assert json.loads(request.content)["max_tokens"] == 4096
+        schema = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        quote = schema["$defs"]["PlanningResearchTask"]["properties"][
+            "current_request_quote"
+        ]
+        assert "pattern" not in quote
+        assert quote["minLength"] == 1
         if eventually_succeeds and len(attempts) == 3:
             return httpx.Response(
                 200,
