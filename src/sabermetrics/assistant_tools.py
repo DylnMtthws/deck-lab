@@ -337,6 +337,8 @@ class AssistantTools:
         review_gateway=None,
     ):
         self.review_gateway = review_gateway
+        self.package_gateway = None
+        self.package_results: dict[str, dict[str, Any]] = {}
         self.reviewed_proposals: set[str] = set()
         self.path = Path(db_path)
         self.owner = owner_id
@@ -362,6 +364,26 @@ class AssistantTools:
     @staticmethod
     def _proposal_key(proposal: dict[str, Any]) -> str:
         return json.dumps(proposal.get("replacements", []), sort_keys=True)
+
+    def research_package(self, focus: str, count: int) -> dict[str, Any]:
+        """Runtime-owned primitive; absent from the model-visible tool union."""
+        from sabermetrics.assistant_package_research import compose_package
+
+        if self.mode != "suggest" or type(count) is not int or count not in {2, 3}:
+            raise ValueError(
+                "Package composition requires suggest mode and two or three pairs."
+            )
+        document = self.check()
+        if self.package_results:
+            return {
+                **next(iter(self.package_results.values())),
+                "already_completed": True,
+            }
+        key = json.dumps({"focus": focus, "count": count}, sort_keys=True)
+        self.package_results[key] = compose_package(
+            self, document, focus[:300], count, self.package_gateway
+        )
+        return self.package_results[key]
 
     def _require_review(
         self, document: dict[str, Any], proposals: list[dict[str, Any]]

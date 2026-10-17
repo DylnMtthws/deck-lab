@@ -650,7 +650,7 @@
     if (presentation.strategy_evidence) appendStrategyEvidence(article, presentation.strategy_evidence);
   }
   function toolLabel(action) {
-    var names = { check_answer: "Checking card text and conditions", research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
+    var names = { research_package: "Composing a research package", check_answer: "Checking card text and conditions", research_known_combinations: "Sourced combination research", replay_deck_combination: "Hypothetical interaction replay", analyze_deck_combinations: "Conditional card interactions", prepare_improvement: "Improvement research", research_memory: "Previous experiments and preferences", retrieve_strategy_evidence: "Strategy evidence", assess_deck_requirements: "Deck requirements", find_replacements: "Replacement research", test_recommended_alternatives: "Recommended alternatives experiment", inspect_deck: "Deck summary", search_cards: "Card catalog search", card_details: "Card details", latest_goldfish: "Latest Goldfish report", run_goldfish: "Goldfish run", preview_replacements: "Replacement preview", start_experiment: "Automated experiment" };
     return names[action && action.name] || "Research step";
   }
   // Pure helpers for progress and scrolling; the renderer supplies DOM measurements.
@@ -772,6 +772,17 @@
     if (action.name === "search_cards" && action.ok === true) appendSearchResults(step, message);
     if (action.name === "retrieve_strategy_evidence" && action.ok === true) appendStrategyEvidence(step, action.data);
     if (action.ok === true && action.data && Array.isArray(action.data.review_receipts)) appendSwapReviews(step, action.data.review_receipts);
+    if (action.name === "research_package" && action.ok === true && action.data) {
+      var quotes = element("details");
+      quotes.appendChild(element("summary", "Package card text · interaction remains an inference"));
+      (action.data.hypotheses || []).forEach(function (hypothesis) {
+        (hypothesis.source_citations || []).forEach(function (pair) {
+          quotes.appendChild(element("p", pair.incoming + ": “" + pair.incoming_quote + "”"));
+          quotes.appendChild(element("p", pair.outgoing + ": “" + pair.outgoing_quote + "”"));
+        });
+      });
+      step.appendChild(quotes);
+    }
     if (action.ok === true && action.data && Array.isArray(action.data.observations)) observationChart(step, action.data);
     if (action.ok === true && ["start_experiment", "test_recommended_alternatives"].indexOf(action.name) >= 0 && action.data && action.data.metric_summary) appendMetricSummary(step, action.data.metric_summary);
     return step;

@@ -861,3 +861,14 @@ Answer checks use literal source text, protect measurement statements, reject ne
 unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
 when checking cannot run because of cost/time limits. Research and check receipts
 are saved in both the result and its structured presentation.
+
+### Bounded package composition
+
+`research_package` composes a two- or three-pair hypothesis using one metered
+structured call over at most 20 canonical incoming cards and 12 actual cuts.
+The model selects indices and exact Oracle quotes; code resolves identities,
+checks every quote and distinct pair, excludes existing cards and reuses joint
+constraint validation. No proposal handle or strategic approval is created.
+Suggest-mode coordinated briefs can route directly to this primitive and render
+its typed interaction, conditions and per-cut losses, then run the answer check.
+It may abstain with a specific evidence blocker; there is no quota filler.

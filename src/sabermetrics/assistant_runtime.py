@@ -45,7 +45,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v14"
+PROMPT_VERSION = "build-conversation.v15"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1090,6 +1090,7 @@ def run_turn(
     gateway=None,
     experiment_service=None,
     answer_review_gateway=None,
+    package_research_gateway=None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1178,6 +1179,9 @@ def run_turn(
             "strategy_context"
         ]
         tools.review_gateway = gateway
+        tools.package_gateway = package_research_gateway or (
+            gateway if owns_gateway else None
+        )
         result.update(provider=gateway.provider, model_id=gateway.model_id)
         from sabermetrics.card_economy import printed_cast_trigger_damage
 
@@ -1240,6 +1244,8 @@ def run_turn(
             ],
             "tool_budget": MAX_TOOL_CALLS,
             "model_call_budget": MAX_MODEL_CALLS,
+            "package_composition_call_budget": 1,
+            "answer_review_call_budget": 1,
             "workflow": {"completed_tools": []},
             "deck_composition": {
                 "revision": result["revision"],
@@ -1249,6 +1255,8 @@ def run_turn(
         tool_count = 0
         task = None
         continuation_used = False
+        package_research_attempted = False
+        package_research_blocker = None
         hypotheses: list[dict[str, Any]] = []
         executed_plans: list[dict[str, Any]] = []
 
@@ -1330,6 +1338,84 @@ def run_turn(
                 )
                 state["research_brief_disagreements"] = disagreements
             hypotheses = []
+            if (
+                task is not None
+                and task.coordinated
+                and task.additions in {2, 3}
+                and task.cuts == task.additions
+                and mode == "suggest"
+                and tools.package_gateway is not None
+                and not package_research_attempted
+                and not final_call
+                and tool_count < MAX_TOOL_CALLS
+                and MAX_TURN_SECONDS - (time.monotonic() - started) >= 240
+            ):
+                package_research_attempted = True
+                tools.check()
+                tool_count += 1
+                arguments = {"focus": current_request[:300], "count": task.additions}
+                emit(
+                    {
+                        "type": "tool_started",
+                        "name": "research_package",
+                        "arguments": arguments,
+                        "revision": result["revision"],
+                    }
+                )
+                data = tools.research_package(current_request[:300], task.additions)
+                emit(
+                    {
+                        "type": "tool_result",
+                        "name": "research_package",
+                        "ok": bool(data.get("hypotheses")),
+                        "status": data.get("status"),
+                        "data": data,
+                        "revision": result["revision"],
+                    }
+                )
+                if data.get("hypotheses"):
+                    hypotheses = data["hypotheses"]
+                    h = hypotheses[0]
+                    losses = {
+                        loss["outgoing_entry_id"]: loss["explanation"]
+                        for loss in h["losses"]
+                    }
+                    findings = [
+                        "Research hypothesis: Cut "
+                        + names["outgoing"]
+                        + "; add "
+                        + names["incoming"]
+                        + ". What the cut loses (inferred): "
+                        + losses[pair["outgoing_entry_id"]]
+                        for names, pair in zip(
+                            h["replacement_names"], h["replacements"]
+                        )
+                    ]
+                    findings += [
+                        "How the additions work together (inferred): "
+                        + h["shared_interaction"],
+                        "Conditions: " + " ".join(h["conditions"]),
+                    ]
+                    step = AssistantStep.model_validate(
+                        {
+                            "content": "Here is a coordinated research package based on the current list and catalog text.",
+                            "findings": findings,
+                            "next_action": "Joint strategic review is the next step before an actionable preview.",
+                            "card_ids": [
+                                p["incoming_card_id"] for p in h["replacements"]
+                            ],
+                        }
+                    )
+                else:
+                    package_research_blocker = str(
+                        data.get("reason")
+                        or "No coherent package was supported by the supplied evidence."
+                    )
+                    step = AssistantStep(
+                        content="I could not support a complete package from the bounded evidence.",
+                        findings=[package_research_blocker],
+                        next_action="No actionable preview or simulation was created.",
+                    )
             if step.research_hypotheses:
                 hypotheses, hypothesis_errors = validate_hypotheses(
                     tools, step.research_hypotheses
@@ -1382,6 +1468,7 @@ def run_turn(
                     if (
                         not task_progress["counts_complete"]
                         and not continuation_used
+                        and package_research_blocker is None
                         and step_index <= MAX_MODEL_CALLS - 3
                         and tool_count < MAX_TOOL_CALLS
                     ):

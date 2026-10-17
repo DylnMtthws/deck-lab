@@ -731,3 +731,17 @@ without a conflicting Oracle fragment, preserving colors, legality, type and
 mana filters and disclosing the mismatch. Existing-card flags prevent treating
 a present card as a new addition. Package comparisons retain requested feature
 counts even when a focused requirement is absent from the generic after-assessment.
+
+`assistant-package-composition.v1` is a separate bounded composition judgment
+over a deterministic recall pool and current cut candidates. Output is indices,
+exact incoming/outgoing quotes, a shared interaction, conditions and per-cut
+losses. One provider call (4096 output tokens, 24 KiB evidence budget) returns
+a hypothesis or an evidence blocker. Code, not prose, binds it to actual IDs.
+
+Conversation v15 routes suggest-mode coordinated two/three-pair briefs directly
+to package composition once per turn. A successful result is rendered from the
+validated indices and typed explanations; a blocked result replaces stale chat
+prose with its actual evidence blocker. Extra provider calls are separately
+metered (one composition, one answer check) alongside the five-call conversation
+budget and existing tool-bound strategic review. A 240-second remaining-time
+gate covers composition lookup and the configured provider retries.
