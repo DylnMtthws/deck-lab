@@ -223,6 +223,30 @@ def test_faces_and_priority_sources_survive_many_cards():
     assert any("Destroy target creature" in s for s in face)
 
 
+def test_long_type_lines_do_not_displace_the_cost_comparison():
+    document = {
+        "entries": [
+            {
+                "name": f"Current library card {i}",
+                "mana_cost": "{2}{B}",
+                "type_line": "Legendary Artifact Enchantment Creature — "
+                + "LongSubtype " * 10,
+                "zone_name": "Library",
+                "is_commander": i == 0,
+            }
+            for i in range(100)
+        ]
+    }
+    sources = evidence_sources(document, [], ["The commander has useful synergies."])
+    assert any(
+        "Current deck printed mana costs" in s
+        and "Current library card 99: {2}{B}" in s
+        for s in sources
+    )
+    assert any("Current deck printed types" in s for s in sources)
+    assert all(len(s) <= 6000 for s in sources)
+
+
 def test_checker_cannot_rewrite_measurement_or_introduce_unsupported_mana():
     def generate(request):
         return SimpleNamespace(

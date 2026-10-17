@@ -178,6 +178,36 @@ def evidence_sources(
             if not card.get("is_commander")
         ),
     ]
+    # Types are separate bounded sources: long type lines cannot displace the
+    # deck's cost comparison as one oversized combined table.
+    if cards:
+        type_rows: list[str] = []
+        for card in document.get("entries", []):
+            if not card.get("is_commander") and not _is_public_library_zone(
+                card.get("zone_name")
+            ):
+                continue
+            row = (
+                str(card.get("name") or "")
+                + ": "
+                + str(card.get("type_line") or "unknown")
+            )
+            if sum(len(text) + 1 for text in type_rows) + len(row) > 3000 and type_rows:
+                candidates.append(
+                    (
+                        "Current deck printed types (part)",
+                        "Current deck printed types:\n" + "\n".join(type_rows),
+                    )
+                )
+                type_rows = []
+            type_rows.append(row)
+        if type_rows:
+            candidates.append(
+                (
+                    "Current deck printed types (part)",
+                    "Current deck printed types:\n" + "\n".join(type_rows),
+                )
+            )
     result = SourceEvidence()
     result.card_names = [
         str(c["name"]) for c in [*document.get("entries", []), *cards] if c.get("name")

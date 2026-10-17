@@ -35,6 +35,11 @@ mandatory or unclassified routes; preferred optionality ranks rather than
 excludes. Clause coverage remains partial. An unspecified mana ceiling is null;
 the runtime corrects an accidental zero unless the user requested zero/free
 cards. The correction is recorded with returned search results.
+Base card types and preferred draw events are typed; `any` means no type filter.
+Discovery verifies explicitly named examples and moves to synthesis after two
+distinct successful nonempty functional queries. Rich search profiles are reduced
+to a bounded shortlist with printed text and route conditions before envelope
+compaction; returned cards must not disappear as one oversized metadata field.
 
 ## Capturing and scoring
 

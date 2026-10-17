@@ -57,7 +57,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v16"
+PROMPT_VERSION = "build-conversation.v17"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -86,6 +86,9 @@ facts and the quote-backed conversation_context, including earlier user requests
 Later successful identity resolution supersedes an earlier missing lookup. Never
 claim printed text is unavailable when a confirmed receipt contains it.
 For FUNCTIONAL discovery use search_card_functions, not search_cards.query.
+Choose its typed draw_event for the requested mechanism. Ordinary draw discovery
+does not require combo-catalog searches. Retrieve the requested functional lists
+in one bounded batch, then synthesize instead of searching paraphrases repeatedly.
 That query field is a name filter: never place a mechanical sentence there.
 Do not set mana_max to zero unless the user explicitly wants zero-mana cards;
 use null for unspecified. Avoid repeating identical unsuccessful searches.
@@ -97,6 +100,9 @@ roles, with actual deck support. Drawing within a voluntary activation is requir
 once it resolves but the user controls whether to activate it. Missing 'may' alone
 does not reject it when optionality is a preference. Proliferate has costs; counters,
 combat, tokens and conditional card types require their relevant sourced conditions.
+Before calling a death-draw creature a recurring engine, establish that it survives
+returning and receives the commander's required counters again. An X-dependent
+entry ability alone does not establish a useful reanimation loop; state the gap.
 Return the separate requested lists with ranked relevant candidates, not non-draw
 support cards filling a draw list. Do not repeat only the user's examples. Treat
 retrieval scores as discovery relevance, never proof of strategic quality.
@@ -436,6 +442,51 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
                 printed[key] = data[key]
         data = printed
         omitted.append("printing metadata and full rulings")
+    if result.get("name") == "search_card_functions":
+        selected = []
+        for card in data.get("cards", [])[:12]:
+            item = {
+                key: card.get(key)
+                for key in (
+                    "id",
+                    "oracle_id",
+                    "name",
+                    "mana_cost",
+                    "mana_value",
+                    "type_line",
+                    "oracle_text",
+                    "already_in_library",
+                )
+            }
+            text = str(item.get("oracle_text") or "")
+            item["oracle_text"] = text[:900]
+            item["oracle_text_truncated"] = len(text) > 900
+            profile = card.get("functional_profile") or {}
+            item["draw_routes"] = [
+                {
+                    key: route.get(key)
+                    for key in ("kind", "draw_control", "prerequisites")
+                }
+                for route in profile.get("draw_routes", [])[:3]
+            ]
+            item["secondary_capabilities"] = profile.get("secondary_capabilities", [])[
+                :6
+            ]
+            item["deck_support"] = {
+                key: (profile.get("deck_support") or {}).get(key)
+                for key in ("relationship", "status", "conditions")
+            }
+            item["recall_channels"] = card.get("recall_channels", [])
+            selected.append(item)
+        data["cards"] = selected
+        while len(json.dumps(data, ensure_ascii=False)) > 10500 and len(selected) > 2:
+            selected.pop()
+        data["cards_omitted"] = len((receipt.get("data") or {}).get("cards", [])) - len(
+            selected
+        )
+        omitted.append(
+            "rich profile duplicates; canonical text and route conditions retained"
+        )
     # These tools already provide shallow measured observations, settings and
     # coverage. The complete view duplicates them and includes large raw traces.
     if result.get("name") in {"latest_goldfish", "run_goldfish"} and "view" in data:
@@ -1363,6 +1414,7 @@ def run_turn(
         tool_count = 0
         synthesis_required = False
         read_cache: dict[str, dict[str, Any]] = {}
+        successful_functional_queries: set[str] = set()
         cacheable = {
             "card_details",
             "search_cards",
@@ -1479,11 +1531,8 @@ def run_turn(
                     "kind": task.kind,
                     "deliverables": task.deliverables,
                 }
-            if (
-                task is not None
-                and task.kind in {"compare", "explain"}
-                and task.named_cards
-            ):
+            if task is not None and task.named_cards:
+                planned_calls = step.tool_calls
                 sources = [
                     *(
                         row.get("card") or {}
@@ -1517,7 +1566,26 @@ def run_turn(
                             ]
                         }
                     )
-                elif not missing_names:
+                    if task.kind == "discover":
+                        step = step.model_copy(
+                            update={
+                                "tool_calls": [
+                                    *step.tool_calls,
+                                    *[
+                                        call
+                                        for call in planned_calls
+                                        if call.name == "search_card_functions"
+                                    ][
+                                        : max(
+                                            0,
+                                            min(3, MAX_TOOL_CALLS - tool_count)
+                                            - len(step.tool_calls),
+                                        )
+                                    ],
+                                ]
+                            }
+                        )
+                elif task.kind in {"compare", "explain"} and not missing_names:
                     synthesis_required = True
                     # If this response still requests discovery, reserve the next
                     # call for an answer using the named card's confirmed text.
@@ -2000,6 +2068,20 @@ def run_turn(
                                     "provenance": {"source": data.get("source")},
                                 },
                             )
+                        if (
+                            call.name == "search_card_functions"
+                            and data.get("cards")
+                            and data.get("status") == "available"
+                        ):
+                            successful_functional_queries.add(cache_key)
+                        if (
+                            call.name == "search_card_functions"
+                            and data.get("cards")
+                            and len(successful_functional_queries) >= 2
+                            and task is not None
+                            and task.kind in {"discover", "compare"}
+                        ):
+                            synthesis_required = True
                     if call.name == "inspect_deck":
                         handles = state.get("deck_entry_handles", [])
                         new_handles = [

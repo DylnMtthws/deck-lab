@@ -163,3 +163,40 @@ def test_required_control_excludes_a_second_unavoidable_draw_route(prepared):
         path, document, FunctionalSearchArgs(optionality="required")
     )
     assert "mixed" not in {c["id"] for c in result["cards"]}
+
+
+def test_any_type_means_no_type_filter(prepared):
+    path, document = prepared
+    result = functional_search(path, document, FunctionalSearchArgs(type_line="any"))
+    assert result["cards"]
+    assert FunctionalSearchArgs(type_line="Creature").type_line == "creature"
+
+
+def test_requested_draw_event_beats_irrelevant_secondary_roles(prepared):
+    path, document = prepared
+    insert(
+        path,
+        "aura",
+        "AAA Death Aura",
+        "Enchantment",
+        "Whenever enchanted creature dies, draw a card.\nWhenever enchanted creature attacks, create a Treasure token.",
+    )
+    insert(
+        path,
+        "tax",
+        "ZZZ Opponent Engine",
+        "Enchantment",
+        "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+    )
+    result = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(
+            type_line="enchantment",
+            draw_event="opponent_action",
+            prefer_recurring=True,
+            prefer_multifunctional=True,
+            limit=1,
+        ),
+    )
+    assert result["cards"][0]["id"] == "tax"

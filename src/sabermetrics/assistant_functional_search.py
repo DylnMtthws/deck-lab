@@ -13,7 +13,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from sabermetrics.assistant_candidate_recall import _colors, _lexical, _semantic
 from sabermetrics.assistant_strategy import draw_routes, strategy_capabilities
@@ -29,7 +29,31 @@ class FunctionalSearchArgs(BaseModel):
     function: Literal[
         "draw", "selection", "mana", "interaction", "recursion", "any"
     ] = "draw"
-    type_line: str = Field(default="", max_length=80)
+    type_line: Literal[
+        "",
+        "any",
+        "creature",
+        "artifact",
+        "enchantment",
+        "instant",
+        "sorcery",
+        "land",
+        "planeswalker",
+        "battle",
+        "permanent",
+    ] = ""
+    draw_event: Literal[
+        "any",
+        "death",
+        "sacrifice",
+        "combat",
+        "opponent_action",
+        "turn",
+        "graveyard_leave",
+    ] = Field(
+        default="any",
+        description="Preferred draw mechanism, not an exact Oracle substring. Choose opponent_action for generic opponent-spell/draw engines, death or sacrifice for recursion engines.",
+    )
     mana_max: float | None = Field(
         default=None,
         ge=0,
@@ -42,6 +66,15 @@ class FunctionalSearchArgs(BaseModel):
     excluded_names: list[str] = Field(default_factory=list, max_length=8)
     prefer_recurring: bool = False
     prefer_multifunctional: bool = False
+
+    @field_validator("type_line", mode="before")
+    @classmethod
+    def normalize_type(cls, value):
+        return (
+            ""
+            if isinstance(value, str) and value.casefold().strip() == "any"
+            else value.casefold().strip() if isinstance(value, str) else value
+        )
 
 
 _FUNCTIONS = {
@@ -142,7 +175,14 @@ def functional_search(
             if not _identity_ok(row, allowed):
                 continue
             kind = str(row.get("type_line") or "")
-            if args.type_line.casefold() not in kind.casefold():
+            if args.type_line == "permanent" and any(
+                t in kind.casefold() for t in ("instant", "sorcery")
+            ):
+                continue
+            if (
+                args.type_line not in {"", "permanent"}
+                and args.type_line not in kind.casefold()
+            ):
                 continue
             value = row.get("mana_value")
             if args.mana_max is not None and (
@@ -205,6 +245,22 @@ def functional_search(
             controls & {"voluntary_activation", "optional_trigger", "voluntary_spell"}
         )
         death_draw = any("death_event_required" in r["prerequisites"] for r in routes)
+        events = set()
+        for route in routes:
+            for prerequisite, event in (
+                ("death_event_required", "death"),
+                ("sacrifice_required", "sacrifice"),
+                ("combat_required", "combat"),
+                ("opponent_action_or_choice", "opponent_action"),
+            ):
+                if prerequisite in route["prerequisites"]:
+                    events.add(event)
+            text = route["source_quote"].casefold()
+            if re.search(r"upkeep|at the beginning|end step", text):
+                events.add("turn")
+            if "leave your graveyard" in text:
+                events.add("graveyard_leave")
+        profile["draw_events"] = sorted(events)
         creature = "creature" in str(cards[oid].get("type_line") or "").casefold()
         engine_link = bool(death_draw and support and return_engine)
         cards[oid]["functional_profile"]["deck_support"] = {
@@ -264,6 +320,7 @@ def functional_search(
         )
         mana = cards[oid].get("mana_value")
         return (
+            -int(args.draw_event != "any" and args.draw_event in events),
             -int(args.optionality == "preferred" and controllable),
             -int(args.prefer_recurring and recurring),
             -int(args.prefer_multifunctional and multifunctional),

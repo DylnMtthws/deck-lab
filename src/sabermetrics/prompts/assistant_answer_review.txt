@@ -11,6 +11,9 @@ death-draw triggers; once activated, draw may still be compulsory on resolution.
 Check once-per-turn modes, counter prerequisites, costs of proliferate, and combat
 draw grouping where the supplied sources establish them. Report gaps without
 turning heuristic relevance into expert approval.
+For a proposed death/return engine, check survival and counter replenishment on
+return. Do not accept an X-dependent entry ability alone as proof of repeatability;
+flag missing setup evidence rather than certifying a loop.
 Check exact costs, legal targets, timing deadlines, tap-symbol summoning sickness,
 continuous control or haste, activation limits, and comparisons with actual deck
 cards. Preserve 'until the END of your next turn', player versus permanent

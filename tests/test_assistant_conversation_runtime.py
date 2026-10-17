@@ -179,7 +179,7 @@ def test_functional_tool_uses_session_preferences_without_inventing_mana_ceiling
         lambda path, document, args: received.append(args) or {"cards": []},
     )
     tools.execute(call("search_card_functions", {}))
-    assert received[0].type_line == "Creature"
+    assert received[0].type_line == "creature"
     assert received[0].optionality == "preferred"
     assert received[0].mana_max is None
     assert received[0].excluded_names == ["Harvester of Souls"]
@@ -314,3 +314,141 @@ def test_historical_long_card_keeps_excerpt_marker_and_full_checker_source(prepa
         text in source for source in json.loads(checker_requests[0].user)["sources"]
     )
     assert result["status"] == "done"
+
+
+def test_rich_functional_shortlists_reach_model_context_instead_of_being_dropped():
+    from sabermetrics.assistant_runtime import _model_receipt
+
+    cards = []
+    for index in range(20):
+        cards.append(
+            {
+                "id": f"card-{index}",
+                "oracle_id": f"oracle-{index}",
+                "name": f"Candidate {index}",
+                "oracle_text": "Whenever another nontoken creature dies, draw a card. "
+                * 6,
+                "functional_profile": {
+                    "draw_routes": [
+                        {
+                            "kind": "trigger",
+                            "draw_control": "mandatory_trigger",
+                            "source_quote": "Full source duplicate " * 50,
+                            "prerequisites": ["death_event_required"],
+                        }
+                    ],
+                    "deck_support": {
+                        "commander_sources": [
+                            {"oracle_text": "Repeated commander text " * 60}
+                        ]
+                        * 3,
+                        "relationship": "death_draw_with_recursion_and_sacrifice",
+                    },
+                },
+            }
+        )
+    receipt = _model_receipt(
+        {
+            "name": "search_card_functions",
+            "data": {"cards": cards, "channel_status": {"semantic": "available"}},
+        }
+    )
+    assert 4 <= len(receipt["data"]["cards"]) <= 12
+    assert receipt["data"]["cards"][0]["name"] == "Candidate 0"
+    assert (
+        receipt["data"]["cards"][0]["draw_routes"][0]["draw_control"]
+        == "mandatory_trigger"
+    )
+    assert len(json.dumps(receipt)) < 12000
+    assert receipt["data"]["cards_omitted"] > 0
+
+
+def test_discovery_keeps_named_lookup_when_remaining_tools_are_fewer_than_batch(
+    prepared, monkeypatch
+):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 2)
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.functional_search",
+        lambda *args: {"status": "available", "cards": []},
+    )
+    gateway = Gateway(
+        [
+            AssistantStep.model_validate(
+                {
+                    "research_task": {
+                        "kind": "discover",
+                        "named_cards": ["Elegy Acolyte"],
+                    },
+                    "tool_calls": [
+                        call("search_card_functions", {"query": "generic draw"}),
+                        call("search_card_functions", {"query": "death draw"}),
+                    ],
+                }
+            ),
+            step(
+                content="Elegy Acolyte is a combat-draw option; discovery remains limited."
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find draw options including Elegy Acolyte."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert [a["name"] for a in result["actions"] if a["type"] == "tool_started"] == [
+        "card_details",
+        "search_card_functions",
+    ]
+
+
+def test_empty_functional_result_does_not_count_as_a_completed_list(
+    prepared, monkeypatch
+):
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.functional_search",
+        lambda path, document, args: {
+            "status": "available",
+            "cards": (
+                []
+                if args.query == "empty"
+                else [
+                    {
+                        "id": "draw",
+                        "name": "Real Draw Candidate",
+                        "oracle_text": "Draw a card.",
+                    }
+                ]
+            ),
+        },
+    )
+    gateway = Gateway(
+        [
+            AssistantStep.model_validate(
+                {
+                    "research_task": {"kind": "discover"},
+                    "tool_calls": [call("search_card_functions", {"query": "empty"})],
+                }
+            ),
+            step(call("search_card_functions", {"query": "nonempty"})),
+            step(call("inspect_deck", {"query": "remaining evidence"})),
+            step(content="Here are the available source-backed options."),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find two draw lists."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert any(a["name"] == "inspect_deck" for a in result["actions"])
+    assert gateway.requests[2].schema.__name__ == "AssistantStep"
