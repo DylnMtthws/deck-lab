@@ -17,8 +17,10 @@ from typing import Annotated, Any
 
 from pydantic import Field, ValidationError
 
+from sabermetrics.assistant_deck_facts import library_composition
 from sabermetrics.assistant_tools import (
     AssistantTools,
+    Proposal,
     StrictModel,
     ToolCall,
     ToolStopped,
@@ -33,7 +35,7 @@ from sabermetrics.deck_documents import DeckNotFound, RevisionConflict
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v11"
+PROMPT_VERSION = "build-conversation.v12"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -213,7 +215,10 @@ research tools remain available for focused questions. Embedding similarity and
 heuristic reranking are relevance signals, not proof of synergy or correctness.
 Complete all requested card lookups before answering; batch independent reads
 where possible rather than asking the user to repeat an already clear request.
-Use propose_replacements to validate reviewed previews. A coordinated package
+Use propose_replacements to validate reviewed previews. When state.workflow.reviewed_plans
+is present, copy its exact outgoing_entry_id and incoming_card_id values; never pass
+a card name as an ID. If an ID you need is absent, use inspect_deck to read it.
+state.deck_composition holds the current revision's full-library land counts and curve. A coordinated package
 contains up to three replacements evaluated together. Explain every cut and add,
 and evaluate the full package rather than claiming each member improves alone.
 The state's strategy_context describes detected engines, support and draw routes;
@@ -660,6 +665,61 @@ def _retain_swap_context(state: dict[str, Any], data: dict[str, Any]) -> None:
     }
 
 
+def _reviewed_plans(
+    data: dict[str, Any], document: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Carry schema-checked reviewed plan IDs; hints only, never authorization.
+
+    propose_replacements and start_experiment still revalidate review, owner,
+    revision, legality and constraints. Pending, empty or invalid plans are
+    not carried.
+    """
+    if (
+        not data.get("experiment_ready")
+        or not data.get("recommendation_id")
+        or data.get("requires_semantic_review")
+    ):
+        return None
+    outgoing_names = {
+        str(entry.get("id")): str(entry.get("name") or "")[:100]
+        for entry in document.get("entries", [])
+        if not entry.get("is_commander")
+    }
+    incoming_names = {
+        str(item.get("card_id")): str(item.get("name") or "")[:100]
+        for item in data.get("candidate_evidence", [])
+        if isinstance(item, dict) and item.get("card_id")
+    }
+    plans = []
+    for item in data.get("alternatives", [])[:3]:
+        try:
+            proposal = Proposal.model_validate(item)
+        except ValidationError:
+            continue
+        plans.append(
+            {
+                "name": proposal.name[:120],
+                "replacements": [
+                    {
+                        "outgoing_entry_id": pair.outgoing_entry_id,
+                        "outgoing_name": outgoing_names.get(pair.outgoing_entry_id),
+                        "incoming_card_id": pair.incoming_card_id,
+                        "incoming_name": incoming_names.get(pair.incoming_card_id),
+                    }
+                    for pair in proposal.replacements[:3]
+                ],
+            }
+        )
+    if not plans:
+        return None
+    return {
+        "recommendation_id": data["recommendation_id"],
+        "revision": data.get("revision"),
+        "plans": plans,
+        "note": "Exact IDs from reviewed alternatives. Pass these IDs, not names, to propose_replacements; tools revalidate everything.",
+    }
+
+
 def _evidence_fallback(state: dict[str, Any], experiments_started: int = 0) -> str:
     """Expose confirmed partial findings if the final model call ignores its budget."""
     names = [str(c.get("name")) for c in state.get("commanders", []) if c.get("name")]
@@ -838,9 +898,21 @@ def _encode_context(
         conversation.append(entry)
     payload = {"state": _compact(state), "conversation": conversation}
     # These facts must not depend on the generic dictionary's first-32-key cap.
-    for key in ("consulted_cards", "consulted_cards_omitted", "commanders"):
+    for key in (
+        "consulted_cards",
+        "consulted_cards_omitted",
+        "commanders",
+        "deck_composition",
+    ):
         if key in state:
             payload["state"][key] = _compact(state[key])
+    workflow = state.get("workflow")
+    if isinstance(workflow, dict):
+        payload["state"]["workflow"] = _compact(workflow)
+        plans = workflow.get("reviewed_plans")
+        if isinstance(plans, dict):
+            # Bounded at build time (3 plans x 3 pairs); bypass generic caps.
+            payload["state"]["workflow"]["reviewed_plans"] = plans
     facts = state.get("grounded_deck_facts")
     if isinstance(facts, dict) and isinstance(facts.get("features"), list):
         payload["state"]["grounded_deck_facts"] = _compact(facts)
@@ -928,6 +1000,15 @@ def _encode_context(
                         "Supplemental retrieval omitted for size; not evidence of absence. "
                         "Consulted card facts remain available. Narrow follow-up retrieval if needed."
                     )
+                elif isinstance(
+                    payload["state"].get("workflow", {}).get("reviewed_plans"), dict
+                ):
+                    plans = payload["state"]["workflow"].pop("reviewed_plans")
+                    payload["state"]["workflow"]["reviewed_plans_omitted"] = {
+                        "recommendation_id": plans.get("recommendation_id"),
+                        "plan_count": len(plans.get("plans", [])),
+                        "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
+                    }
                 else:
                     raise AssistantBudgetExceeded(
                         "The request exceeds the assistant context limit. Please shorten it."
@@ -1108,6 +1189,10 @@ def run_turn(
             "tool_budget": MAX_TOOL_CALLS,
             "model_call_budget": MAX_MODEL_CALLS,
             "workflow": {"completed_tools": []},
+            "deck_composition": {
+                "revision": result["revision"],
+                **library_composition(document),
+            },
         }
         tool_count = 0
         for step_index in range(MAX_MODEL_CALLS):
@@ -1286,6 +1371,11 @@ def run_turn(
                             "discovery_already_completed": True,
                             "do_not_repeat_discovery": True,
                         }
+                        plans = _reviewed_plans(data, document)
+                        if plans is None:
+                            state["workflow"].pop("reviewed_plans", None)
+                        else:
+                            state["workflow"]["reviewed_plans"] = plans
                     if call.name in {
                         "start_experiment",
                         "test_recommended_alternatives",

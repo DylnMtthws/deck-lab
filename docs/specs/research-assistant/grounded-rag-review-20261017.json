@@ -64,15 +64,16 @@
     "Global package search and broader roadmap options remain deferred"
   ],
   "validation": {
-    "full_tests_passed": 2944,
+    "full_tests_passed": 2956,
     "optional_tests_skipped": 34,
-    "final_targeted_tests_passed": 75,
+    "final_targeted_tests_passed": 70,
     "real_snapshot_probes_passed": 2,
     "deterministic_checks_passed": 99,
     "format_files_checked": 393,
     "typed_source_files_checked": 181,
     "lint": "passed",
-    "context_delivery_tests_passed": 11
+    "context_delivery_tests_passed": 11,
+    "delivery_followup_tests_passed": 12
   },
   "live_qa_context_correction": {
     "observed": "Successful card_details receipts were evicted before the first live comparison answer; answer contradicted cast eligibility and claimed verified text/costs were missing. Initial run paused after two complete cases and one interrupted case; all disposable decks removed.",
@@ -96,5 +97,24 @@
       "status": "Reported compaction flaw corrected and targeted regressions passed; review is engineering feedback, not MTG expert certification."
     },
     "test_stability_fix": "Existing research HTML equality check now ignores only timestamped CSRF token values; full suite rerun passed."
+  },
+  "delivery_followup": {
+    "partner_session_id": "70e6fb10-35ca-4878-88ee-a75ec0101251",
+    "partner_tests": 11,
+    "coordinator_additional_tests": 1,
+    "observations": [
+      "Land count returned by inspect_deck was evicted before the answer",
+      "Reviewed replacement entry/card IDs were lost while display names survived, leading to rejected preview attempts"
+    ],
+    "corrections": [
+      "Share quantity-aware library_composition between runtime and inspect_deck; pin current-revision counts and curve",
+      "Pin schema-checked reviewed alternative IDs separately from display names; never treat transport as authorization",
+      "Exclude plans still requiring semantic review even if contradictory ready flags are supplied"
+    ],
+    "remaining_limits": [
+      "Model can still use a wrong ID; tools reject it",
+      "Full twelve-case assessment remains on frozen prior build; affected-case rechecks are recorded separately after this correction",
+      "These fixes address delivery, not broad MTG expert judgment or coherent package construction"
+    ]
   }
 }

@@ -326,3 +326,46 @@ def scoped_rule_cards(document: dict[str, Any], query: str) -> list[dict[str, An
         for c in commanders + named
     }
     return list(unique.values())[:16]
+
+
+LAND_COUNT_NOTE = (
+    "Quantity-aware counts cover the full main-deck library, excluding commanders "
+    "and sideboard. Back-land faces are counted separately; imported type lines do "
+    "not establish that every back face can be played from hand. Do not call this a "
+    "verified MDFC count. No colored-source count is implied."
+)
+
+
+def library_composition(document: dict[str, Any]) -> dict[str, Any]:
+    """Quantity-aware main-library composition shared by inspect_deck and runtime.
+
+    Excludes commanders and non-library zones through the canonical
+    ``_library_entries``. Front-face lands and land back faces are separate.
+    """
+    from collections import Counter
+
+    from sabermetrics.deck_evidence import _card_roles
+
+    curve: Counter[str] = Counter()
+    roles: Counter[str] = Counter()
+    front = back = total = 0
+    for entry in _library_entries(document):
+        quantity = int(entry.get("quantity") or 1)
+        total += quantity
+        mana = entry.get("mana_value")
+        curve[str(mana) if mana is not None else "unknown"] += quantity
+        for role in _card_roles(entry):
+            roles[role] += quantity
+        faces = str(entry.get("type_line") or "").split("//", 1)
+        if "Land" in faces[0]:
+            front += quantity
+        elif len(faces) == 2 and "Land" in faces[1]:
+            back += quantity
+    return {
+        "library_card_count": total,
+        "front_land_count": front,
+        "land_back_face_count": back,
+        "land_count_note": LAND_COUNT_NOTE,
+        "mana_curve": dict(curve),
+        "role_counts": dict(roles),
+    }

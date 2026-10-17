@@ -79,3 +79,12 @@ clipping. A repeated lookup refreshes that identity without displacing another
 card. At the 16,000-character conversation bound, omit supplementary retrieval
 with a disclosure before discarding consulted printed facts. These facts do not
 certify live source freshness or legality. Full receipts stay in persisted history.
+
+Live QA follow-up: `library_composition(document)` shares exact quantity-aware
+library composition between inspect_deck and the runtime. Pin its current revision,
+front lands, separate back-land faces, curve and heuristic role counts. Do not
+infer that all back faces are playable or that counts establish colored sources.
+Pin up to three reviewed alternatives with three exact replacement pairs each
+in workflow state. Preserve entry IDs separately from card IDs and display names.
+These are transport hints, not authorization; every action revalidates review,
+owner, revision, legality and constraints. Pending plans are not retained.

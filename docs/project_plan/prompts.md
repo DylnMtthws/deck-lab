@@ -658,7 +658,7 @@ revision_triggers:
 
 ## Grounded retrieval revision
 
-Conversation prompt `build-conversation.v11` receives fresh compact full-library
+Conversation prompt `build-conversation.v12` receives fresh compact full-library
 facts, commander engine links and locally retrieved rules. Detector zeros cannot
 establish absence. The assistant must retain activation limits and distinguish
 tap-symbol costs from tapping other creatures. It may retrieve detailed matches
@@ -677,3 +677,10 @@ including costs, type, Oracle text and source/truncation metadata, across tool-h
 eviction. Compact card-detail receipts before generic budgeting. Supplemental state
 may be omitted explicitly when necessary; consulted printed facts and user requests
 remain pinned. Detector zeros cannot justify deficiency claims.
+
+Follow-up delivery correction: fresh `deck_composition` pins the complete library's
+quantity-aware front-land and back-land-face counts with curve/role summaries.
+`workflow.reviewed_plans` retains bounded exact incoming-card and outgoing-entry
+IDs from reviewed alternatives; display names are separate. Pending plans are
+excluded, extreme-size omission is explicit, and preview/execution tools keep
+all owner, revision, legality, constraint and semantic-review checks.

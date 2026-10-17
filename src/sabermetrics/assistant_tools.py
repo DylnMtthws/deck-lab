@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -787,15 +786,9 @@ class AssistantTools:
                 }
             )
         if call.name == "inspect_deck":
-            entries = _library_entries(document)
-            curve: Counter[str] = Counter()
-            roles: Counter[str] = Counter()
-            for entry in entries:
-                quantity = int(entry.get("quantity") or 1)
-                mana = entry.get("mana_value")
-                curve[str(mana) if mana is not None else "unknown"] += quantity
-                for role in _card_roles(entry):
-                    roles[role] += quantity
+            from sabermetrics.assistant_deck_facts import library_composition
+
+            composition = library_composition(document)
             matching = [
                 entry
                 for entry in document.get("entries", [])
@@ -805,19 +798,9 @@ class AssistantTools:
             return {
                 "deck_id": self.deck_id,
                 "revision": self.revision,
-                "front_land_count": sum(
-                    int(entry.get("quantity") or 1)
-                    for entry in entries
-                    if "Land" in str(entry.get("type_line") or "").split("//", 1)[0]
-                ),
-                "land_back_face_count": sum(
-                    int(entry.get("quantity") or 1)
-                    for entry in entries
-                    if "Land" not in str(entry.get("type_line") or "").split("//", 1)[0]
-                    and "//" in str(entry.get("type_line") or "")
-                    and "Land" in str(entry.get("type_line") or "").split("//", 1)[1]
-                ),
-                "land_count_note": "Quantity-aware counts cover the full main-deck library, excluding commanders and sideboard. Back-land faces are counted separately; imported type lines do not establish that every back face can be played from hand. Do not call this a verified MDFC count.",
+                "front_land_count": composition["front_land_count"],
+                "land_back_face_count": composition["land_back_face_count"],
+                "land_count_note": composition["land_count_note"],
                 "commanders": [
                     {
                         "name": entry.get("name"),
@@ -852,8 +835,8 @@ class AssistantTools:
                     }
                     for entry in shown
                 ],
-                "mana_curve": dict(curve),
-                "role_counts": dict(roles),
+                "mana_curve": composition["mana_curve"],
+                "role_counts": composition["role_counts"],
                 "role_note": "Stored roles and text tags are heuristic classifications, not simulated performance.",
             }
         if call.name == "search_cards":
