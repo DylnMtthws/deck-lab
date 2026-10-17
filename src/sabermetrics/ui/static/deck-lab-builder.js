@@ -216,9 +216,14 @@
     var result = [], commanders = state.entries.filter(function (entry) { return !!entry.is_commander; });
     if (commanders.length) result.push({ id: "commander", name: "Commander", entries: commanders, permanent: true });
     if (preference("group_mode", "zone") === "type") {
-      var types = {};
-      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var name = (entry.type_line || "Other").split(/[—-]/)[0].trim() || "Other"; (types[name] || (types[name] = [])).push(entry); });
-      Object.keys(types).sort().forEach(function (name) { result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
+      var types = {}, typeOrder = ["Planeswalker", "Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Land"];
+      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {
+        // Use the front face's card types, excluding supertypes and subtypes.
+        var cardTypes = (entry.type_line || "").split("//")[0].split(/[—–-]/)[0].trim().split(/\s+/);
+        var name = cardTypes.indexOf("Creature") >= 0 ? "Creature" : typeOrder.find(function (type) { return cardTypes.indexOf(type) >= 0; }) || "Other";
+        (types[name] || (types[name] = [])).push(entry);
+      });
+      typeOrder.concat(["Other"]).forEach(function (name) { if (types[name]) result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
     } else if (preference("group_mode", "zone") === "role") {
       var roles = {}, noRole = [], privateEntries = [];
       state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {

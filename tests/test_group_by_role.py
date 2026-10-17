@@ -166,11 +166,11 @@ def test_group_select_has_role_option_and_reflects_saved_preference() -> None:
 
 
 # --------------------------------------------------------------------------
-# AC-7: Zone and type grouping unchanged.
+# AC-7: Zone grouping preserved and type grouping normalized.
 # --------------------------------------------------------------------------
 
 
-def test_zone_and_type_grouping_unchanged() -> None:
+def test_zone_and_type_grouping() -> None:
     zone_payload = _run_harness("zone_group_snapshot")
     type_payload = _run_harness("type_group_snapshot")
 
@@ -180,13 +180,13 @@ def test_zone_and_type_grouping_unchanged() -> None:
     # Zone grouping: commander + zones by their name
     assert zone_names == ["Commander", "Unsorted", "Considering"]
 
-    # Type grouping: commander + types, sorted
+    # Type grouping: commander + normalized types in deck order
     assert type_names == [
         "Commander",
-        "Artifact",
-        "Basic Land",
         "Creature",
+        "Artifact",
         "Enchantment",
+        "Land",
     ]
 
 
@@ -270,3 +270,37 @@ def test_single_other_group_when_other_and_unknown_roles_coexist() -> None:
             "role-none",
             "role-private",
         ), f"Unexpected group {rid} after role-other"
+
+
+def test_type_groups_use_card_types_and_keep_every_entry_once() -> None:
+    groups = _run_harness("normalized_types")
+    assert [group["name"] for group in groups] == [
+        "Commander",
+        "Planeswalker",
+        "Creature",
+        "Instant",
+        "Sorcery",
+        "Artifact",
+        "Enchantment",
+        "Land",
+        "Other",
+    ]
+    entries = {group["name"]: group["entryIds"] for group in groups}
+    assert entries == {
+        "Commander": ["entry-cmd"],
+        "Planeswalker": ["walker"],
+        "Creature": [
+            "legend",
+            "artifact-creature",
+            "enchantment-creature",
+            "land-creature",
+            "walker-creature",
+            "adventure",
+        ],
+        "Instant": ["instant"],
+        "Sorcery": ["sorcery", "modal"],
+        "Artifact": ["artifact", "artifact-enchantment"],
+        "Enchantment": ["enchantment"],
+        "Land": ["basic", "legendary-land", "snow-land"],
+        "Other": ["battle", "missing"],
+    }

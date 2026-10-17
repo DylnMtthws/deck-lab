@@ -208,6 +208,3 @@
 .dl-assistant-strategy-evidence small { display:block; margin-block:5px; color:var(--muted); line-height:1.5; }
 .dl-assistant-strategy-evidence blockquote { margin:8px 0; padding-inline-start:10px; border-inline-start:2px solid var(--line); font:inherit; }
 .dl-assistant-strategy-evidence a { display:inline-block; margin-block:5px; text-decoration:underline; }
-@media (min-width:768px) {
-  .dl-assistant-sidebar { height:calc(100% - 36px); }
-}
