@@ -866,8 +866,8 @@ are saved in both the result and its structured presentation.
 
 `research_package` composes a two- or three-pair hypothesis using one metered
 structured call over at most 20 canonical incoming cards and 12 actual cuts.
-The model selects indices and exact Oracle quotes; code resolves identities,
-checks every quote and distinct pair, excludes existing cards and reuses joint
+The model selects indices; code resolves identities and attaches complete exact
+Oracle text for both sides, checks distinct pairs, excludes existing cards and reuses joint
 constraint validation. No proposal handle or strategic approval is created.
 Suggest-mode coordinated briefs can route directly to this primitive and render
 its typed interaction, conditions and per-cut losses, then run the answer check.

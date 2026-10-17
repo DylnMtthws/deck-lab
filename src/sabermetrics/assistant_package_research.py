@@ -21,8 +21,6 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 class PackageChoice(StrictModel):
     incoming_index: int = Field(ge=0, le=19)
     outgoing_index: int = Field(ge=0, le=11)
-    incoming_quote: str = Field(min_length=12, max_length=1200)
-    outgoing_quote: str = Field(min_length=12, max_length=1200)
     loss: str = Field(min_length=10, max_length=200)
 
 
@@ -153,12 +151,21 @@ def compose_package(
         def requested_count(self):
             if self.choices and len(self.choices) != count:
                 raise ValueError(f"The package requires exactly {count} pairs.")
+            if len({c.incoming_index for c in self.choices}) != len(
+                self.choices
+            ) or len({c.outgoing_index for c in self.choices}) != len(self.choices):
+                raise ValueError("Each addition and cut must be distinct.")
+            if any(
+                c.incoming_index >= len(incoming) or c.outgoing_index >= len(outgoing)
+                for c in self.choices
+            ):
+                raise ValueError("Every index must identify a supplied card.")
             return self
 
     try:
         generated = gateway.generate(
             StructuredRequest(
-                prompt_version="assistant-package-composition.v3",
+                prompt_version="assistant-package-composition.v4",
                 system=(
                     Path(__file__).parent / "prompts/assistant_package_composition.txt"
                 ).read_text(),
@@ -203,13 +210,6 @@ def compose_package(
         ):
             return blocked("A selected index was outside the supplied pool.")
         new, old = incoming[choice.incoming_index], outgoing[choice.outgoing_index]
-        if (
-            choice.incoming_quote not in new["oracle_text"]
-            or choice.outgoing_quote not in old["oracle_text"]
-        ):
-            return blocked(
-                "A selected card's quoted ability was not in its supplied Oracle text."
-            )
         pairs.append({"incoming_card_id": new["id"], "outgoing_entry_id": old["id"]})
         losses.append(
             {
@@ -260,9 +260,9 @@ def compose_package(
     hypotheses[0]["source_citations"] = [
         {
             "incoming": incoming[c.incoming_index]["name"],
-            "incoming_quote": c.incoming_quote,
+            "incoming_quote": incoming[c.incoming_index]["oracle_text"],
             "outgoing": outgoing[c.outgoing_index]["name"],
-            "outgoing_quote": c.outgoing_quote,
+            "outgoing_quote": outgoing[c.outgoing_index]["oracle_text"],
         }
         for c in plan.choices
     ]

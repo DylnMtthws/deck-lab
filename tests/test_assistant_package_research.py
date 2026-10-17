@@ -84,8 +84,6 @@ class Composer:
             {
                 "incoming_index": i,
                 "outgoing_index": i,
-                "incoming_quote": state["incoming"][i]["oracle_text"],
-                "outgoing_quote": state["outgoing"][i]["oracle_text"],
                 "loss": "Loses this permanent's repeatable tap ability.",
             }
             for i in range(2)
@@ -185,6 +183,12 @@ def test_composition_is_bound_to_distinct_source_indices_and_exact_quotes(
         hypothesis = result["hypotheses"][0]
         assert len(hypothesis["replacements"]) == 2
         assert len(hypothesis["source_citations"]) == 2
+        pool = json.loads(composer.calls[0].user)
+        for citation in hypothesis["source_citations"]:
+            for side in ("incoming", "outgoing"):
+                assert citation[side + "_quote"] == next(
+                    c["oracle_text"] for c in pool[side] if c["name"] == citation[side]
+                )
         assert hypothesis["joint_strategic_review"] == "not_performed"
     assert tools.proposals == [] and not tools.reviewed_proposals
     assert DeckDocumentRepo(path).get(owner, deck) == document

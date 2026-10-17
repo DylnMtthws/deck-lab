@@ -8,7 +8,8 @@ Explain how the selected additions work TOGETHER with this commander's actual
 deck. Generic role quotas and popularity do not prove a benefit. State costs,
 timing, targets, nontoken restrictions, optional effects and zone prerequisites.
 Identify what EACH cut loses, including useful mana/selection/recursion routes.
-Quote meaningful exact contiguous Oracle clauses from BOTH sides of every pair.
+Select indices only; code attaches the complete canonical card text for both sides.
+Do not reproduce quotes or add quote fields to the response.
 Choose another pair if a needed interaction is unsupported; never fill a quota
 with unrelated cards. A hypothesis is not a strategic approval, simulation,
 verified infinite loop or a measured upgrade. Existing cards in support are not
@@ -21,6 +22,5 @@ An abstention must give a specific evidence blocker of at least ten characters.
 Otherwise supply exactly count pairs, a complete interaction and nonempty conditions.
 
 
-Keep each quote to the relevant complete clause, normally below 240 characters.
 Name only the selected additions or supplied existing cards in the explanation;
 never describe an existing card as a new addition or depend on an unselected card.
