@@ -280,7 +280,7 @@ def test_multi_turn_search_inspect_propose_is_validated_and_source_unchanged(pre
     assert '"name": "search_cards"' in gateway.requests[1].user
     assert "untrusted data" in gateway.requests[0].system
     assert gateway.requests[0].call_type == "build:assistant"
-    assert gateway.requests[0].max_output_tokens == 4096
+    assert gateway.requests[0].max_output_tokens == 6144
     assert "requested facts first" in gateway.requests[0].system
     assert "under 300 words" in gateway.requests[0].system
 
@@ -891,7 +891,8 @@ def test_transient_provider_overload_has_three_bounded_attempts(
 
     def handler(request):
         attempts.append(request)
-        assert json.loads(request.content)["max_tokens"] == 4096
+        assert json.loads(request.content)["max_tokens"] == 2048
+        assert json.loads(request.content)["reasoning_effort"] == "none"
         schema = json.loads(request.content)["response_format"]["json_schema"]["schema"]
         quote = schema["$defs"]["PlannerResearchTask"]["properties"][
             "current_request_quote"
@@ -958,7 +959,11 @@ def test_transient_provider_overload_has_three_bounded_attempts(
         from sabermetrics.cedh.model_gateway import ReasoningMode
 
         assert (
-            settings.model.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 4096
+            settings.model.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 6144
+        )
+        assert (
+            settings.model.mode_profile(ReasoningMode.CLASSIFY).max_output_tokens
+            == 2048
         )
         client = httpx.Client(
             base_url="https://mock.invalid", transport=httpx.MockTransport(handler)

@@ -89,7 +89,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v26"
+PROMPT_VERSION = "build-conversation.v27"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -440,7 +440,7 @@ class AssistantPlanningStep(AssistantReplyFields):
 class AssistantAnswerStep(AssistantReplyFields):
     findings: list[Annotated[str, Field(min_length=1, max_length=700)]] = Field(
         min_length=1,
-        max_length=6,
+        max_length=24,
         description="Required concrete findings answering the current request; a promise to retrieve evidence is not a finding.",
     )
     content: str = Field(
@@ -1500,6 +1500,7 @@ def run_turn(
     package_research_gateway=None,
     request_planner: bool | None = None,
     direct_routes: bool | None = None,
+    schema_repair: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1507,7 +1508,8 @@ def run_turn(
     It is checked before every provider call and tool action and passed into the
     experiment service. ``on_event`` receives actual start/result/error receipts.
     Injectable gateways/services are test seams, not production fallback models.
-    Production performs one separately metered source check after drafting; tests
+    Generated production answers receive a separately metered source check; exact
+    printed-fact renders do not call a model. Tests
     injecting a conversational gateway can inject answer_review_gateway separately.
     """
     if mode not in {"suggest", "automate"}:
@@ -1526,6 +1528,7 @@ def run_turn(
     owns_gateway = gateway is None
     use_request_planner = owns_gateway if request_planner is None else request_planner
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
+    use_schema_repair = owns_gateway if schema_repair is None else schema_repair
     owned_package_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
@@ -1573,10 +1576,15 @@ def run_turn(
                     "max_validation_retries": 0,
                     "modes": {
                         **settings.model.modes,
+                        ReasoningMode.CLASSIFY.value: settings.model.mode_profile(
+                            ReasoningMode.CLASSIFY
+                        ).model_copy(
+                            update={"max_output_tokens": 2048, "temperature": 0.0}
+                        ),
                         ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
                             ReasoningMode.EXPLAIN
                         ).model_copy(
-                            update={"max_output_tokens": 4096, "temperature": 0.0}
+                            update={"max_output_tokens": 6144, "temperature": 0.0}
                         ),
                     },
                 }
@@ -1970,6 +1978,7 @@ def run_turn(
                     )
         model_observations: list[dict[str, Any]] = []
         discovery_repair_attempted = False
+        schema_repair_attempted = False
         planned_lists_executed = False
         attempted_named_sources: set[str] = set()
         query_group_ids: dict[str, str] = {}
@@ -2036,9 +2045,11 @@ def run_turn(
                         else (AssistantAnswerStep if answer_only else AssistantStep)
                     )
                 ),
-                mode=ReasoningMode.EXPLAIN,
+                mode=(
+                    ReasoningMode.CLASSIFY if narrow_planning else ReasoningMode.EXPLAIN
+                ),
                 call_type="build:assistant",
-                max_output_tokens=4096,
+                max_output_tokens=2048 if narrow_planning else 6144,
                 evidence_hash=hashlib.sha256(encoded.encode()).hexdigest(),
                 metadata={
                     "deck_id": deck_id,
@@ -2078,6 +2089,50 @@ def run_turn(
                 ModelProviderError,
                 LLMCostCeilingExceeded,
             ) as exc:
+                # One complete regeneration is allowed within the same turn
+                # budget. Never parse or accept a fragment of invalid output.
+                model_observations.append(
+                    {
+                        "step": step_index,
+                        "route": (
+                            "planner"
+                            if narrow_planning
+                            else "synthesis" if answer_only else "orchestration"
+                        ),
+                        "elapsed_seconds": round(time.monotonic() - call_started, 3),
+                        "input_chars": len(encoded),
+                        "evidence_hash": request.evidence_hash,
+                        "outcome": (
+                            "schema_invalid"
+                            if isinstance(exc, ModelValidationError)
+                            else "provider_failed"
+                        ),
+                    }
+                )
+                if (
+                    isinstance(exc, ModelValidationError)
+                    and use_schema_repair
+                    and answer_only
+                    and not schema_repair_attempted
+                    and not final_call
+                    and MAX_TURN_SECONDS - (time.monotonic() - started) >= 90
+                ):
+                    tools.check()
+                    schema_repair_attempted = True
+                    synthesis_required = True
+                    state["answer_repair_feedback"] = {
+                        "reason": "schema_invalid",
+                        "instruction": "Regenerate a COMPLETE concise JSON answer from confirmed sources. Use one short lead, one short finding per chosen candidate, next_action empty when no action requested, discovery_answer groups with chosen retrieved IDs, and claims empty. Do not duplicate lists in content and findings. Reserve room for closing braces. No tools are available.",
+                    }
+                    emit(
+                        {
+                            "type": "model_retry",
+                            "name": "answer_regeneration",
+                            "revision": result["revision"],
+                            "message": "Regenerating the complete answer from retained sources.",
+                        }
+                    )
+                    continue
                 # Reject malformed responses rather than accepting partial model
                 # fields. Recheck cancellation/revision before exposing sources.
                 if (
@@ -2111,7 +2166,9 @@ def run_turn(
                     if (
                         normalized_task.requires_empirical_evidence
                         or normalized_task.evidence_scope == "candidate_discovery"
-                        or normalized_task.kind in {"fill", "swap", "discover"}
+                        or normalized_task.kind
+                        in {"fill", "swap", "discover", "compare"}
+                        or normalized_task.named_cards
                     ):
                         plan_route = "use_tools"
                     raw_step = {

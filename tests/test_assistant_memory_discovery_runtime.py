@@ -388,3 +388,49 @@ def test_named_role_override_handles_selection_mistag_without_recursion():
         function="selection",
     )
     assert negative.function == "any"
+
+
+def test_truncated_synthesis_regenerates_full_json_once_with_retained_sources(prepared):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    seed_card(
+        path,
+        "repair-source",
+        "Repair Scholar",
+        "When this creature enters, draw a card.",
+    )
+    gateway = Gateway(
+        [
+            AssistantStep(
+                research_task={
+                    "kind": "compare",
+                    "evidence_scope": "named_cards_only",
+                    "current_request_quote": "What about Repair Scholar?",
+                    "named_cards": ["Repair Scholar"],
+                }
+            ),
+            ModelValidationError("Invalid JSON: EOF while parsing a string"),
+            AssistantStep(
+                content="Repair Scholar draws a card when it enters.",
+                findings=["Its printed enter trigger is in the retained source."],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "What about Repair Scholar?"}],
+        gateway=gateway,
+        schema_repair=True,
+        experiment_service=service,
+    )
+    assert result["status"] == "done", result
+    assert len(gateway.requests) == 3
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
+    assert "Repair Scholar" in gateway.requests[-1].user
+    assert any(event["type"] == "model_retry" for event in result["actions"])
+    assert (
+        result["research"]["runtime"]["model_calls"][1]["outcome"] == "schema_invalid"
+    )
