@@ -1703,6 +1703,7 @@ def run_turn(
     use_schema_repair = owns_gateway if schema_repair is None else schema_repair
     owned_package_gateway: ModelGateway | None = None
     owned_answer_review_gateway: ModelGateway | None = None
+    owned_concise_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
         "status": "incomplete",
@@ -2246,6 +2247,41 @@ def run_turn(
                     "research for a coherent hypothesis. Do not restart discovery "
                     "or require a new focus or measurement objective.\n"
                 )
+            concise_answer = (
+                answer_only
+                and not narrow_planning
+                and (
+                    task is None
+                    or not (task.additions or task.cuts or task.coordinated)
+                )
+                and sum(row.requested_count or 3 for row in discovery_requirements)
+                <= 10
+            )
+            output_budget = (
+                2048 if narrow_planning else (4096 if concise_answer else 6144)
+            )
+            request_gateway = gateway
+            if owns_gateway and concise_answer:
+                if owned_concise_gateway is None:
+                    concise_model = settings.model.model_copy(
+                        update={
+                            "modes": {
+                                **settings.model.modes,
+                                ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
+                                    ReasoningMode.EXPLAIN
+                                ).model_copy(
+                                    update={"max_output_tokens": 4096}
+                                ),
+                            }
+                        }
+                    )
+                    owned_concise_gateway = build_gateway(
+                        settings.model_copy(update={"model": concise_model}),
+                        db_path=str(db_path),
+                        user_id=owner_id,
+                        deck_id=deck_id,
+                    )
+                request_gateway = owned_concise_gateway
             request = StructuredRequest(
                 prompt_version=PROMPT_VERSION,
                 system=system,
@@ -2263,7 +2299,7 @@ def run_turn(
                     ReasoningMode.CLASSIFY if narrow_planning else ReasoningMode.EXPLAIN
                 ),
                 call_type="build:assistant",
-                max_output_tokens=2048 if narrow_planning else 6144,
+                max_output_tokens=output_budget,
                 evidence_hash=hashlib.sha256(encoded.encode()).hexdigest(),
                 metadata={
                     "deck_id": deck_id,
@@ -2278,7 +2314,7 @@ def run_turn(
                 )
             try:
                 call_started = time.monotonic()
-                generated = gateway.generate(request)
+                generated = request_gateway.generate(request)
                 model_observations.append(
                     {
                         "step": step_index,
@@ -2289,6 +2325,7 @@ def run_turn(
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
                         "input_chars": len(encoded),
+                        "output_token_budget": output_budget,
                         "evidence_hash": request.evidence_hash,
                         "retained_candidate_ids": [
                             row.card_id for row in session.ledger.candidates
@@ -2315,6 +2352,7 @@ def run_turn(
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
                         "input_chars": len(encoded),
+                        "output_token_budget": output_budget,
                         "evidence_hash": request.evidence_hash,
                         "outcome": (
                             "schema_invalid"
@@ -3901,18 +3939,19 @@ def run_turn(
                         if key in result["research"]
                     }
                 )
-        if owned_answer_review_gateway is not None:
-            close = getattr(owned_answer_review_gateway, "close", None)
-            if close:
-                close()
-        if owned_package_gateway is not None and owned_package_gateway is not gateway:
-            close = getattr(owned_package_gateway, "close", None)
-            if close:
-                close()
-        if owns_gateway and gateway is not None:
-            close = getattr(gateway, "close", None)
-            if close:
-                close()
+        closed_gateways: set[int] = set()
+        for owned in (
+            owned_concise_gateway,
+            owned_answer_review_gateway,
+            owned_package_gateway,
+            gateway if owns_gateway else None,
+        ):
+            if owned is not None and id(owned) not in closed_gateways:
+                closed_gateways.add(id(owned))
+                close = getattr(owned, "close", None)
+                if close:
+                    close()
+
     return result
 
 

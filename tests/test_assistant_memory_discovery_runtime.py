@@ -797,3 +797,66 @@ def test_empty_prior_selection_groups_fall_back_to_retained_source_facts(prepare
     view = json.loads(gateway.requests[0].user)["state"]["session_evidence"]
     assert view["priority_bundles_retained"] == 1
     assert view["discovery_candidates"][0]["printed_fields"]["oracle_text"] == oracle
+
+
+def test_owned_bounded_synthesis_uses_smaller_profile_and_closes_clients(
+    prepared, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from sabermetrics.cedh.model_gateway import ReasoningMode
+
+    service, path, owner, deck, _, _ = prepared
+    seed_card(
+        path,
+        "summary-source",
+        "Retained Scholar",
+        "When this creature enters, draw a card.",
+    )
+    created, closed = {}, []
+
+    def build(settings, **kwargs):
+        cap = settings.model.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens
+        if cap == 3072:
+            client = SimpleNamespace(
+                generate=lambda request: SimpleNamespace(
+                    value={"fulfillment": "complete", "patches": [], "unresolved": []}
+                )
+            )
+        else:
+            client = Gateway(
+                [
+                    AssistantStep(
+                        content="Retained Scholar draws a card when it enters.",
+                        findings=["The printed trigger requires it to enter."],
+                    )
+                ]
+            )
+        client.close = lambda: closed.append(cap)
+        created[cap] = client
+        return client
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "assistant",
+                "content": "Retained Scholar was retrieved.",
+                "research": {"source_card_ids": ["summary-source"]},
+            },
+            {"role": "user", "content": "Tell me about Retained Scholar."},
+        ],
+        direct_routes=True,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert not created[6144].requests
+    assert len(created[4096].requests) == 1
+    assert created[4096].requests[0].max_output_tokens == 4096
+    assert sorted(closed) == [3072, 4096, 6144]
+    assert (
+        result["research"]["runtime"]["model_calls"][0]["output_token_budget"] == 4096
+    )
