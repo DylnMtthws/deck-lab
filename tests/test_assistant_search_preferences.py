@@ -388,3 +388,69 @@ def test_constraint_only_single_type_keeps_narrow_exception_fallback():
         ],
     )
     assert args.type_line == ""
+
+
+@pytest.mark.parametrize(
+    "second",
+    [
+        preference("constraint", "artifacts only"),
+        preference("card_type", "artifact"),
+    ],
+)
+def test_distinct_required_single_types_never_replace_an_earlier_constraint(second):
+    first = preference(
+        "constraint", "Hard rule: creatures only for new recommendations"
+    )
+    for rows in ([first, second], [second, first]):
+        before = deepcopy(rows)
+        args = _functional_preference_args(FunctionalSearchArgs(), rows)
+        assert args.type_line == ""
+        assert args.allowed_type_groups == []
+        assert rows == before
+
+
+@pytest.mark.parametrize(
+    "comparison", ["less", "more", "fewer", "greater", "higher", "lower"]
+)
+def test_type_led_numeric_comparison_does_not_clear_required_type(comparison):
+    rows = [
+        preference("constraint", "creatures only"),
+        preference("constraint", f"creatures with mana value two or {comparison}"),
+    ]
+    assert (
+        _functional_preference_args(FunctionalSearchArgs(), rows).type_line
+        == "creature"
+    )
+
+
+def test_type_alternatives_inside_unsupported_wrappers_keep_broad_fallback():
+    for wrapper in [
+        "Must be a creature or artifact",
+        "Must be a creature with mana value two or less or an artifact",
+    ]:
+        rows = [preference("card_type", "creature"), preference("constraint", wrapper)]
+        args = _functional_preference_args(
+            FunctionalSearchArgs(type_line="creature"), rows
+        )
+        assert args.type_line == ""
+        assert args.allowed_type_groups == []
+
+
+def test_required_permanent_projection_remains_supported():
+    assert (
+        _functional_preference_args(
+            FunctionalSearchArgs(), [preference("constraint", "Permanents only")]
+        ).type_line
+        == "permanent"
+    )
+
+
+def test_required_single_type_and_disjunction_never_drop_either_rule():
+    first = preference("constraint", "creatures only")
+    second = preference("constraint", "artifacts or enchantments")
+    for rows in ([first, second], [second, first]):
+        before = deepcopy(rows)
+        args = _functional_preference_args(FunctionalSearchArgs(), rows)
+        assert args.type_line == ""
+        assert args.allowed_type_groups == []
+        assert rows == before

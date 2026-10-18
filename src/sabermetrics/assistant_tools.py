@@ -91,11 +91,17 @@ def _canonical_single_type_constraint(value: str) -> str | None:
 
 
 def _starts_canonical_type_constraint(value: str) -> bool:
-    """Recognize type-led restrictions without treating arbitrary ORs as types."""
+    """Recognize type-led restrictions and bounded explicit type alternatives."""
     value = re.sub(r"^hard rule:\s*", "", value.strip(), flags=re.IGNORECASE)
+    card_type = r"(?:creatures?|artifacts?|enchantments?|instants?|sorcer(?:y|ies)|lands?|planeswalkers?|battles?|permanents?)"
     return bool(
         re.match(
             r"^(?:only\s+)?(?:non[- ]?creature\s+)?(?:creatures?|artifacts?|enchantments?|instants?|sorcer(?:y|ies)|lands?|planeswalkers?|battles?|permanents?)\b",
+            value,
+            re.IGNORECASE,
+        )
+        or re.search(
+            rf"\b{card_type}\b[^.;:\n]{{0,80}}\bor\s+(?:(?:an?|the)\s+)?(?:non[- ]?creature\s+)?{card_type}\b",
             value,
             re.IGNORECASE,
         )
@@ -129,6 +135,7 @@ def _functional_preference_args(
     type_groups: list[dict[str, Any]] = []
     unsupported_type_rule = False
     type_exception = False
+    required_single_types: set[str] = set()
     for row in preferences:
         dimension = row.get("dimension")
         value = str(row.get("value") or "").casefold().strip()
@@ -146,6 +153,13 @@ def _functional_preference_args(
         if not general:
             continue
         quote = str(row.get("quote") or "")
+        disjunctive_or = bool(
+            re.search(
+                r"\bor\b(?!\s+(?:less|more|fewer|greater|higher|lower)\b)",
+                quote + " " + value,
+                re.IGNORECASE,
+            )
+        )
         type_constraint = dimension == "card_type" or (
             dimension == "constraint"
             and (
@@ -153,11 +167,7 @@ def _functional_preference_args(
                 or _starts_canonical_type_constraint(quote)
             )
         )
-        if type_constraint and re.search(
-            r"\bor\b",
-            quote + " " + value,
-            re.IGNORECASE,
-        ):
+        if type_constraint and disjunctive_or:
             broaden_type = True
             parsed = None
             if (
@@ -187,6 +197,7 @@ def _functional_preference_args(
                 value
             ) or _canonical_single_type_constraint(quote)
             if single_type is not None:
+                required_single_types.add(single_type)
                 values["type_line"] = single_type
         if dimension == "card_type":
             if (
@@ -200,11 +211,12 @@ def _functional_preference_args(
                 values["type_line"] = ""
                 type_groups = []
                 values["allowed_type_groups"] = []
+                required_single_types.clear()
             elif (
                 operation == "set"
                 and row.get("polarity", "include") == "include"
                 and strength == "required"
-                and not re.search(r"\bor\b", str(row.get("quote") or ""), re.IGNORECASE)
+                and not disjunctive_or
             ):
                 normalized = {
                     "creatures": "creature",
@@ -213,6 +225,7 @@ def _functional_preference_args(
                     "creatures_only": "creature",
                 }.get(value, value)
                 if normalized in supported_types:
+                    required_single_types.add(normalized)
                     values["type_line"] = normalized
         elif dimension == "draw_control" and args.function == "draw":
             if value == "any":
@@ -250,6 +263,12 @@ def _functional_preference_args(
             "required",
         }:
             values["prefer_multifunctional"] = operation != "relax"
+    alternative_types = {t for group in type_groups for t in group["required_types"]}
+    if len(required_single_types) > 1 or (
+        type_groups and not required_single_types.issubset(alternative_types)
+    ):
+        broaden_type = True
+        unsupported_type_rule = True
     if broaden_type:
         values["type_line"] = ""
         values["allowed_type_groups"] = (
