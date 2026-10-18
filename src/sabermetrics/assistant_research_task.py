@@ -49,6 +49,8 @@ class DiscoveryListPlan(StrictModel):
             return self
         if re.search(r"\b(?:sac|sacrifice) outlets?\b", text):
             self.function = "sacrifice"
+        elif re.fullmatch(r"(?:(?:cheap|low[- ]mana|mana)\s+)*rocks?", text):
+            self.function = "mana"
         elif re.search(r"\+1/\+1 counter|\bcounter sources?\b", text):
             self.function = "counters"
         elif re.search(r"\bdeath payoffs?\b|\bdies triggers?\b", text):

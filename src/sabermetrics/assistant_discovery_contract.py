@@ -88,11 +88,19 @@ class DiscoveryClaim(DiscoveryFact):
     card_id: Short
 
 
+class DiscoveryNote(DiscoveryModel):
+    """Bounded candidate-specific prose; source checking remains separate."""
+
+    card_id: Short
+    note: Annotated[str, Field(min_length=8, max_length=400)]
+
+
 class DiscoveryAnswer(DiscoveryModel):
     groups: list[DiscoveryAnswerGroup] = Field(
         default_factory=list, max_length=MAX_DISCOVERY_GROUPS
     )
     claims: list[DiscoveryClaim] = Field(default_factory=list, max_length=160)
+    notes: list[DiscoveryNote] = Field(default_factory=list, max_length=40)
 
 
 class DiscoveryIssue(DiscoveryModel):
@@ -107,7 +115,7 @@ class DiscoveryValidation(DiscoveryModel):
     issues: list[DiscoveryIssue]
     grounded_card_ids: list[Short]
     scope: str = (
-        "Structured manifest checks only; free text and Magic legality are not certified."
+        "Structured manifest checks only; notes, other free text and Magic legality are not certified."
     )
 
 
@@ -463,6 +471,12 @@ def validate_discovery_answer(
                 f"Supply the requested {requirement.label} list.",
                 requirement.group_id,
             )
+        elif observed == 0:
+            issue(
+                "empty_group",
+                f"No retrieved additional candidates supplied for {requirement.label}; this list remains incomplete.",
+                requirement.group_id,
+            )
         if (
             requirement.requested_count is not None
             and observed != requirement.requested_count
@@ -471,6 +485,28 @@ def validate_discovery_answer(
                 "requested_count_mismatch",
                 f"Requested {requirement.requested_count} {requirement.label}; {observed} retrieved, additional distinct cards supplied.",
                 requirement.group_id,
+            )
+
+    noted: set[str] = set()
+    for note in answer.notes:
+        if note.card_id in noted:
+            issue(
+                "duplicate_note",
+                "Provide one note per selected candidate.",
+                card_id=note.card_id,
+            )
+        noted.add(note.card_id)
+        if note.card_id not in cards:
+            issue(
+                "unknown_note_card",
+                "Notes must reference retrieved candidate IDs.",
+                card_id=note.card_id,
+            )
+        if note.card_id not in listed:
+            issue(
+                "unselected_note",
+                "Notes must reference a card selected in a discovery group.",
+                card_id=note.card_id,
             )
 
     for claim in answer.claims:
@@ -508,3 +544,47 @@ def validate_discovery_answer(
             card_id for card_id in listed if card_id not in invalid_cards
         ],
     )
+
+
+def render_discovery_groups(
+    requirements: list[DiscoveryRequirement],
+    ledger: DiscoveryLedger,
+    answer: DiscoveryAnswer,
+) -> list[str]:
+    """Render one complete candidate per line with retrieved names and mana costs.
+
+    Callers must run manifest validation and source-check the returned prose.
+    Notes are not verified here. Unretrieved identities are omitted rather than
+    invented; duplicate note bodies are omitted pending a bounded repair.
+    """
+    labels = {row.group_id: row.label for row in requirements}
+    cards = {row.card_id: row for row in ledger.candidates}
+    notes: dict[str, str] = {}
+    repeated: set[str] = set()
+    for note_row in answer.notes:
+        if note_row.card_id in notes:
+            repeated.add(note_row.card_id)
+        notes[note_row.card_id] = " ".join(note_row.note.split())
+    rendered = []
+    for group in answer.groups:
+        label = " ".join(labels.get(group.group_id, "Candidates").split())
+        seen: set[str] = set()
+        for card_id in group.card_ids:
+            card = cards.get(card_id)
+            if card is None or card_id in seen:
+                continue
+            seen.add(card_id)
+            mana_cost = next(
+                (fact.value for fact in card.source_facts if fact.kind == "mana_cost"),
+                None,
+            )
+            row = f"{label}: {card.name}"
+            row += (
+                f" ({mana_cost})"
+                if mana_cost is not None
+                else " (mana cost not retrieved)"
+            )
+            if card_id in notes and card_id not in repeated:
+                row += f" — {notes[card_id]}"
+            rendered.append(row)
+    return rendered

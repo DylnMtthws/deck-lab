@@ -8,9 +8,12 @@ from sabermetrics.assistant_discovery_contract import (
     DiscoveryAnswerGroup,
     DiscoveryClaim,
     DiscoveryLedger,
+    DiscoveryNote,
+    DiscoveryRequirement,
     candidate_from_card,
     derive_discovery_requirements,
     merge_discovery_ledger,
+    render_discovery_groups,
     revises_discovered_candidates,
     validate_discovery_answer,
     validate_discovery_prose_counts,
@@ -219,6 +222,7 @@ def test_duplicate_unknown_and_missing_facts_do_not_supply_counts():
         "unknown_card",
         "missing_card_facts",
         "requested_count_mismatch",
+        "empty_group",
     }
     assert result.grounded_card_ids == []
 
@@ -303,3 +307,92 @@ def test_fresh_candidates_outrank_inherited_records_even_with_new_query_groups()
         row.card_id for row in incoming.candidates
     }
     assert all(row.group_ids == ["new-query"] for row in merged.candidates)
+
+
+def test_renderer_emits_one_whole_candidate_per_row_with_actual_cost_and_note():
+    cards = [candidate(i) for i in range(3)]
+    ledger = DiscoveryLedger(candidates=cards)
+    requirements = derive_discovery_requirements("Give me three sacrifice outlets.")
+    note = "This is a candidate-specific strategic hypothesis; its printed costs and restrictions still apply."
+    answer = DiscoveryAnswer(
+        groups=[
+            DiscoveryAnswerGroup(
+                group_id="list_1", card_ids=[card.card_id for card in cards]
+            )
+        ],
+        notes=[DiscoveryNote(card_id=card.card_id, note=note) for card in cards],
+    )
+    rows = render_discovery_groups(requirements, ledger, answer)
+    assert len(rows) == 3
+    for index, row in enumerate(rows):
+        assert row == f"sacrifice outlets: Card {index} ({{1}}{{B}}) — {note}"
+        assert "\n" not in row
+    assert validate_discovery_answer(requirements, ledger, answer).complete
+
+
+def test_note_validation_requires_unique_selected_retrieved_ids():
+    card = candidate(0)
+    other = candidate(1)
+    answer = DiscoveryAnswer(
+        groups=[DiscoveryAnswerGroup(group_id="list_1", card_ids=[card.card_id])],
+        notes=[
+            DiscoveryNote(card_id=card.card_id, note="First candidate note."),
+            DiscoveryNote(card_id=card.card_id, note="Duplicate candidate note."),
+            DiscoveryNote(card_id=other.card_id, note="Unselected candidate note."),
+            DiscoveryNote(card_id="unknown", note="Unretrieved candidate note."),
+        ],
+    )
+    ledger = DiscoveryLedger(candidates=[card, other])
+    result = validate_discovery_answer([], ledger, answer)
+    assert not result.complete
+    assert {issue.code for issue in result.issues} == {
+        "duplicate_note",
+        "unselected_note",
+        "unknown_note_card",
+    }
+    assert render_discovery_groups([], ledger, answer) == [
+        "Candidates: Card 0 ({1}{B})"
+    ]
+
+
+def test_renderer_preserves_complete_long_note_and_discloses_missing_cost():
+    card = candidate_from_card(
+        {"id": "unknown-cost", "name": "Unpriced Fact", "type_line": "Creature"}
+    )
+    note = "A complete explanation. " * 15
+    answer = DiscoveryAnswer(
+        groups=[DiscoveryAnswerGroup(group_id="list_1", card_ids=[card.card_id])],
+        notes=[DiscoveryNote(card_id=card.card_id, note=note)],
+    )
+    row = render_discovery_groups([], DiscoveryLedger(candidates=[card]), answer)[0]
+    assert row.endswith(note.strip())
+    assert "mana cost not retrieved" in row
+    with pytest.raises(ValidationError):
+        DiscoveryNote(card_id=card.card_id, note="x" * 401)
+    with pytest.raises(ValidationError):
+        DiscoveryNote(card_id=card.card_id, note="short")
+
+
+def test_legacy_manifest_without_notes_still_renders_canonical_facts():
+    card = candidate(0)
+    answer = DiscoveryAnswer(
+        groups=[
+            DiscoveryAnswerGroup(group_id="list_1", card_ids=[card.card_id, "invented"])
+        ]
+    )
+    assert answer.notes == []
+    assert render_discovery_groups([], DiscoveryLedger(candidates=[card]), answer) == [
+        "Candidates: Card 0 ({1}{B})"
+    ]
+
+
+def test_uncounted_requested_list_cannot_be_fulfilled_by_an_empty_group():
+    requirement = DiscoveryRequirement(
+        group_id="list_1", label="mana sinks", request_quote="mana sinks"
+    )
+    answer = DiscoveryAnswer(
+        groups=[DiscoveryAnswerGroup(group_id="list_1", card_ids=[])]
+    )
+    result = validate_discovery_answer([requirement], DiscoveryLedger(), answer)
+    assert not result.complete
+    assert "empty_group" in {issue.code for issue in result.issues}

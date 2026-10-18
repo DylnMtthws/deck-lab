@@ -20,6 +20,26 @@ from sabermetrics.assistant_strategy import draw_routes, strategy_capabilities
 from sabermetrics.card_search import _catalog_faces, _identity_ok
 from sabermetrics.deck_evidence import _library_entries
 
+PrintedType = Literal[
+    "creature",
+    "artifact",
+    "enchantment",
+    "instant",
+    "sorcery",
+    "land",
+    "planeswalker",
+    "battle",
+    "permanent",
+]
+
+
+class FunctionalTypeGroup(BaseModel):
+    """One conjunction of canonical printed types within a bounded OR filter."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    required_types: list[PrintedType] = Field(min_length=1, max_length=3)
+    excluded_types: list[PrintedType] = Field(default_factory=list, max_length=3)
+
 
 class FunctionalSearchArgs(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -75,6 +95,9 @@ class FunctionalSearchArgs(BaseModel):
     excluded_names: list[str] = Field(default_factory=list, max_length=8)
     prefer_recurring: bool = False
     prefer_multifunctional: bool = False
+    allowed_type_groups: list[FunctionalTypeGroup] = Field(
+        default_factory=list, max_length=4
+    )
 
     @field_validator("type_line", mode="before")
     @classmethod
@@ -369,6 +392,31 @@ def functional_search(
             if not _identity_ok(row, allowed):
                 continue
             kind = str(row.get("type_line") or "")
+            printed_types = set(re.findall(r"[a-z]+", kind.split("—", 1)[0].casefold()))
+
+            def has_type(card_type: str) -> bool:
+                return (
+                    bool(
+                        printed_types
+                        & {
+                            "creature",
+                            "artifact",
+                            "enchantment",
+                            "land",
+                            "planeswalker",
+                            "battle",
+                        }
+                    )
+                    if card_type == "permanent"
+                    else card_type in printed_types
+                )
+
+            if args.allowed_type_groups and not any(
+                all(has_type(t) for t in group.required_types)
+                and not any(has_type(t) for t in group.excluded_types)
+                for group in args.allowed_type_groups
+            ):
+                continue
             if args.type_line == "permanent" and any(
                 t in kind.casefold() for t in ("instant", "sorcery")
             ):
@@ -403,10 +451,14 @@ def functional_search(
                 controls
                 & {"voluntary_activation", "optional_trigger", "voluntary_spell"}
             )
-            if args.optionality == "required" and (
-                not controlled
-                or "mandatory_trigger" in controls
-                or "unclassified" in controls
+            if (
+                args.function == "draw"
+                and args.optionality == "required"
+                and (
+                    not controlled
+                    or "mandatory_trigger" in controls
+                    or "unclassified" in controls
+                )
             ):
                 continue
             card["already_in_library"] = present
@@ -417,6 +469,13 @@ def functional_search(
             conn, cards, args.query or args.function
         )
     semantic_scores = dict(semantic)
+    prefer_cheap_sacrifice = args.function == "sacrifice" and bool(
+        re.search(
+            r"\b(?:free|cheap|low[- ]mana|no[- ]mana|zero[- ]mana|mana[- ]free)\b",
+            args.query,
+            re.IGNORECASE,
+        )
+    )
     associations: dict[str, dict[str, Any]] = {}
     association_status = "unavailable_no_draw_anchor"
     anchors = [c for c in library if c.get("oracle_id") and draw_routes(c)][:2]
@@ -457,7 +516,9 @@ def functional_search(
                 events.add("graveyard_leave")
         profile["draw_events"] = sorted(events)
         creature = "creature" in str(cards[oid].get("type_line") or "").casefold()
-        engine_link = bool(death_draw and support and return_engine)
+        engine_link = bool(
+            args.function == "draw" and death_draw and support and return_engine
+        )
         cards[oid]["functional_profile"]["deck_support"] = {
             "relationship": (
                 "death_draw_with_recursion_and_sacrifice"
@@ -502,8 +563,9 @@ def functional_search(
         if oid in associations:
             cards[oid]["association_evidence"] = associations[oid]
         role_routes = profile["function_routes"].get(args.function, [])
-        recurring = any(r["kind"] in {"activation", "trigger"} for r in routes) or any(
-            r["kind"] in {"activation", "trigger"} for r in role_routes
+        recurring_routes = routes if args.function == "draw" else role_routes
+        recurring = any(
+            r["kind"] in {"activation", "trigger"} for r in recurring_routes
         )
         secondary = profile["secondary_capabilities"]
         multifunctional = bool(
@@ -517,15 +579,38 @@ def functional_search(
             }
         )
         mana = cards[oid].get("mana_value")
+        no_mana_activation = any(
+            not re.search(
+                r"\{(?:[1-9][0-9]*|[WUBRGCSXP](?:/[WUBRGPC])?|2/[WUBRG])\}|\bmana\b",
+                route["activation_cost"],
+                re.IGNORECASE,
+            )
+            for route in role_routes
+            if route["mechanism"] == "activated_sacrifice_cost"
+        )
+        cheap_cast = isinstance(mana, (int, float)) and mana <= 2
+        relevance = (-semantic_scores.get(oid, 0), -lexical.get(oid, 0))
         return (
-            -int(args.draw_event != "any" and args.draw_event in events),
-            -int(args.optionality == "preferred" and controllable),
+            *(relevance if args.function == "any" else (0, 0)),
+            -int(prefer_cheap_sacrifice and no_mana_activation),
+            -int(prefer_cheap_sacrifice and cheap_cast),
+            mana if prefer_cheap_sacrifice and isinstance(mana, (int, float)) else 0,
+            -int(
+                args.function == "draw"
+                and args.draw_event != "any"
+                and args.draw_event in events
+            ),
+            -int(
+                args.function == "draw"
+                and args.optionality == "preferred"
+                and controllable
+            ),
             -int(args.prefer_recurring and recurring),
             -int(args.prefer_multifunctional and multifunctional),
             -int(engine_link and creature),
             -int(engine_link),
             -int(recurring),
-            -int(oid in associations),
+            -int(args.function == "draw" and oid in associations),
             -semantic_scores.get(oid, 0),
             -lexical.get(oid, 0),
             mana if isinstance(mana, (int, float)) else 100,

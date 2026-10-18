@@ -322,3 +322,129 @@ def test_self_death_value_is_distinct_from_other_creature_payoff():
         "self_death_value",
         "creature_death_trigger",
     ]
+
+
+def test_cheap_sacrifice_portfolio_beats_expensive_draw_outlets_without_excluding_them(
+    prepared,
+):
+    path, document = prepared
+    commander = next(card for card in document["entries"] if card.get("is_commander"))
+    commander["oracle_text"] = (
+        "Whenever a creature dies, return that card to the battlefield."
+    )
+    document["entries"].append(
+        {
+            "name": "Existing Outlet",
+            "oracle_text": "Sacrifice a creature: Scry 1.",
+            "card_id": "existing-outlet",
+            "quantity": 1,
+        }
+    )
+    cheap = [
+        ("seer", "Viscera Seer", "Sacrifice a creature: Scry 1.", 1),
+        (
+            "feeder",
+            "Carrion Feeder",
+            "Sacrifice a creature: Put a +1/+1 counter on Carrion Feeder.",
+            1,
+        ),
+        (
+            "altar",
+            "Altar of Dementia",
+            "Sacrifice a creature: Target player mills cards equal to the sacrificed creature's power.",
+            2,
+        ),
+        (
+            "bombardment",
+            "Goblin Bombardment",
+            "Sacrifice a creature: Goblin Bombardment deals 1 damage to any target.",
+            2,
+        ),
+    ]
+    for card_id, name, text, mana in cheap:
+        insert(
+            path,
+            card_id,
+            name,
+            (
+                "Creature"
+                if mana == 1
+                else "Artifact" if card_id == "altar" else "Enchantment"
+            ),
+            text,
+            cmc=mana,
+        )
+    for index in range(10):
+        insert(
+            path,
+            f"expensive-draw-{index}",
+            f"AAA Expensive Draw Outlet {index}",
+            "Creature",
+            "{1}, Sacrifice another creature: Draw a card.\nWhenever another creature dies, draw a card.",
+            cmc=4,
+        )
+    requested = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(
+            function="sacrifice",
+            query="free cheap low-mana sacrifice outlets",
+            draw_event="death",
+            optionality="preferred",
+            prefer_multifunctional=True,
+            limit=4,
+        ),
+    )
+    assert {card["id"] for card in requested["cards"]} == {row[0] for row in cheap}
+    broad = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(
+            function="sacrifice", query="free cheap sacrifice outlets", limit=20
+        ),
+    )
+    assert any(card["id"].startswith("expensive-draw-") for card in broad["cards"])
+    assert all(
+        "engine_ingredients" not in card["recall_channels"] for card in broad["cards"]
+    )
+    assert all(
+        card["functional_profile"]["function_routes"]["sacrifice"][0]["activation_cost"]
+        for card in requested["cards"]
+    )
+
+
+def test_draw_optionality_does_not_filter_out_non_draw_sacrifice_outlets(prepared):
+    path, document = prepared
+    insert(
+        path,
+        "non-draw-outlet",
+        "Viscera Seer",
+        "Creature",
+        "Sacrifice a creature: Scry 1.",
+        cmc=1,
+    )
+    result = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(function="sacrifice", optionality="required"),
+    )
+    assert "non-draw-outlet" in {card["id"] for card in result["cards"]}
+
+
+def test_any_function_ranks_query_relevance_before_unrelated_recurring_draw(prepared):
+    path, document = prepared
+    for index in range(20):
+        insert(
+            path,
+            f"draw-decoy-{index}",
+            f"AAA Draw Engine {index}",
+            "Creature",
+            "{T}: Draw a card.",
+        )
+    insert(
+        path, "instant-target", "Relevant Answer", "Instant", "Counter target spell."
+    )
+    result = functional_search(
+        path, document, FunctionalSearchArgs(function="any", query="instant", limit=1)
+    )
+    assert result["cards"][0]["id"] == "instant-target"

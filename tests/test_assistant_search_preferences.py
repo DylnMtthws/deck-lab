@@ -64,6 +64,7 @@ def test_disjunction_does_not_collapse_to_a_single_type(compound):
         [compound, preference("card_type", "creature")],
     )
     assert args.type_line == ""
+    assert len(args.allowed_type_groups) == 2
 
 
 def test_narrow_exception_preserves_ledger_and_allows_exception_retrieval(
@@ -143,3 +144,95 @@ def test_negative_or_relaxed_type_is_never_turned_into_a_positive_filter():
             ).type_line
             == ""
         )
+
+
+def test_canonical_noncreature_artifact_or_instant_filters_before_candidate_limit(
+    prepared,
+):
+    _, path, owner, deck, _, _ = prepared
+    for index in range(20):
+        insert(
+            path,
+            f"creature-decoy-{index}",
+            f"AAA Draw Creature {index}",
+            "Artifact Creature — Golem",
+            "{T}: Draw a card.",
+        )
+    insert(path, "allowed-rock", "ZZZ Mana Artifact", "Artifact", "{T}: Add {C}{C}.")
+    insert(
+        path,
+        "allowed-instant",
+        "ZZZ Imprint Instant",
+        "Instant",
+        "Counter target spell.",
+    )
+    tools = AssistantTools(path, owner, deck, "suggest", {}, lambda: False)
+    tools.research_preferences = [
+        preference(
+            "constraint",
+            "noncreature artifacts or instants only",
+            quote="Hard rule: noncreature artifacts or instants only.",
+        )
+    ]
+    result = tools.execute(
+        call("search_card_functions", {"function": "any", "limit": 20})
+    )
+    assert {card["id"] for card in result["cards"]} >= {
+        "allowed-rock",
+        "allowed-instant",
+    }
+    assert not any(card["id"].startswith("creature-decoy-") for card in result["cards"])
+    for card in result["cards"]:
+        kind = card["type_line"].lower()
+        assert "instant" in kind or ("artifact" in kind and "creature" not in kind)
+
+
+@pytest.mark.parametrize(
+    "special",
+    [
+        preference(
+            "card_type_exception", "one protective creature", scope="explicit_exception"
+        ),
+        preference(
+            "constraint", "artifacts with counter abilities or cheap instants only"
+        ),
+    ],
+)
+def test_narrow_exceptions_and_unsupported_compounds_keep_retrieval_broad(special):
+    before = [
+        preference("constraint", "noncreature artifacts or instants only"),
+        special,
+    ]
+    assert (
+        _functional_preference_args(
+            FunctionalSearchArgs(type_line="artifact"), before
+        ).allowed_type_groups
+        == []
+    )
+
+
+def test_rocks_are_mana_only_for_explicit_unambiguous_role_labels():
+    from sabermetrics.assistant_research_task import DiscoveryListPlan
+
+    assert (
+        DiscoveryListPlan(
+            label="cheap rocks",
+            query="mana rock mana value 2 or less",
+            request_quote="cheap rocks",
+        ).function
+        == "mana"
+    )
+    assert (
+        DiscoveryListPlan(
+            label="mana rocks", query="mana rocks", request_quote="mana rocks"
+        ).function
+        == "mana"
+    )
+    assert (
+        DiscoveryListPlan(
+            label="rocks and instants",
+            query="rocks and instants",
+            request_quote="rocks and instants",
+        ).function
+        == "any"
+    )

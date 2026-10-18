@@ -2,7 +2,16 @@
 
 import json
 
-from sabermetrics.assistant_runtime import AssistantStep, _encode_context, run_turn
+import pytest
+from pydantic import ValidationError
+
+from sabermetrics import db
+from sabermetrics.assistant_runtime import (
+    AssistantAnswerStep,
+    AssistantStep,
+    _encode_context,
+    run_turn,
+)
 from tests.test_assistant_conversation_runtime import seed_card
 from tests.test_assistant_runtime import Gateway, call, step
 
@@ -434,3 +443,150 @@ def test_truncated_synthesis_regenerates_full_json_once_with_retained_sources(pr
     assert (
         result["research"]["runtime"]["model_calls"][1]["outcome"] == "schema_invalid"
     )
+
+
+@pytest.mark.parametrize("remove_second", [False, True])
+def test_discovery_notes_render_complete_card_rows_before_checker(
+    prepared, monkeypatch, remove_second
+):
+    service, path, owner, deck, _, _ = prepared
+    notes = [
+        "Its printed enter trigger draws a card; this remains an unmeasured candidate.",
+        "Its printed death trigger draws a card; retain its full conditions when comparing.",
+    ]
+    for index in range(2):
+        seed_card(
+            path,
+            f"render-{index}",
+            f"Rendered Scholar {index}",
+            (
+                "When this creature enters, draw a card."
+                if index == 0
+                else "When this creature dies, draw a card."
+            ),
+        )
+    with db.connect(path) as conn:
+        for index, cost in enumerate(["{B}", "{1}{B}"]):
+            conn.execute(
+                "UPDATE cards SET mana_cost=? WHERE id=?", (cost, f"render-{index}")
+            )
+        conn.commit()
+    answer = AssistantAnswerStep(
+        content="Here are two sourced candidates for comparison.",
+        findings=[],
+        discovery_answer={
+            "groups": [
+                {
+                    "group_id": "list_1",
+                    "claimed_count": 2,
+                    "card_ids": ["render-0", "render-1"],
+                }
+            ],
+            "notes": [
+                {"card_id": f"render-{index}", "note": note}
+                for index, note in enumerate(notes)
+            ],
+        },
+    )
+    checked = []
+    closed = []
+
+    class InjectedReviewer:
+        def close(self):
+            closed.append(True)
+
+    def check(_gateway, parts, *_args, **_kwargs):
+        checked.extend(parts)
+        return ([parts[0], parts[1], parts[-1]] if remove_second else parts), {
+            "status": "corrected" if remove_second else "no_supported_correction",
+            "fulfillment": "complete",
+        }
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.review_answer", check)
+    gateway = Gateway(
+        [
+            step(
+                call("card_details", {"card_id": "render-0"}),
+                call("card_details", {"card_id": "render-1"}),
+            ),
+            answer,
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Give me two card recommendations."}],
+        gateway=gateway,
+        answer_review_gateway=InjectedReviewer(),
+        experiment_service=service,
+    )
+    assert len(checked) == 4
+    assert closed == [], "The caller retains ownership of its injected reviewer"
+    assert "Rendered Scholar 0 ({B})" in checked[1]
+    assert "Rendered Scholar 1 ({1}{B})" in checked[2]
+    assert checked[1].endswith(notes[0])
+    assert checked[2].endswith(notes[1])
+    assert all("\n" not in row for row in checked[1:3])
+    if remove_second:
+        assert result["status"] == "incomplete", result
+        assert not result["research"]["discovery_validation"]["complete"]
+    else:
+        assert result["status"] == "done", result
+        rows = result["presentation"]["reply"]["findings"]
+        assert len(rows) == 2
+        assert rows == checked[1:3]
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [None, {"groups": []}, {"groups": [{"group_id": "list_1", "card_ids": []}]}],
+)
+def test_empty_findings_require_selected_discovery_candidates(manifest):
+    with pytest.raises(
+        ValidationError, match="findings or selected discovery candidates"
+    ):
+        AssistantAnswerStep(
+            content="This is a complete nonblank lead.",
+            findings=[],
+            discovery_answer=manifest,
+        )
+
+
+def test_owned_review_has_separate_bounded_budget_and_is_closed(prepared, monkeypatch):
+    from sabermetrics.cedh.model_gateway import ReasoningMode
+
+    service, path, owner, deck, _, _ = prepared
+    settings_seen, closed = [], []
+
+    def build(settings, **kwargs):
+        index = len(settings_seen)
+        settings_seen.append(settings.model)
+        gateway = Gateway([step(content="The current facts support this answer.")])
+        if index:
+            from types import SimpleNamespace
+
+            gateway.generate = lambda request: SimpleNamespace(
+                value={"fulfillment": "complete", "patches": [], "unresolved": []}
+            )
+        gateway.close = lambda: closed.append(index)
+        return gateway
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [],
+        experiment_service=service,
+        request_planner=False,
+        direct_routes=False,
+    )
+    assert result["status"] == "done"
+    assert len(settings_seen) == 2
+    main, review = settings_seen
+    assert main.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 6144
+    assert main.max_retries == 2 and main.timeout_seconds == 60
+    assert review.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 3072
+    assert review.max_retries == 0 and review.timeout_seconds == 45
+    assert sorted(closed) == [0, 1]

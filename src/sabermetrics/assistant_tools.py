@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from sabermetrics import db
 from sabermetrics.assistant_functional_search import (
     FunctionalSearchArgs,
+    FunctionalTypeGroup,
     functional_search,
 )
 from sabermetrics.card_search import search_cards
@@ -32,13 +33,41 @@ from sabermetrics.deck_evidence import (
 from sabermetrics.deck_simulation import simulation_view
 
 
+def _canonical_type_disjunction(value: str) -> list[dict[str, Any]] | None:
+    """Parse only complete, canonical type alternatives, never arbitrary prose."""
+    value = re.sub(r"^hard rule:\s*", "", value.strip(), flags=re.IGNORECASE).rstrip(
+        "."
+    )
+    value = re.sub(r"\s+only$", "", value, flags=re.IGNORECASE)
+    parts = re.split(r"\s+or\s+", value.casefold())
+    if not 2 <= len(parts) <= 4:
+        return None
+    groups = []
+    for part in parts:
+        match = re.fullmatch(
+            r"(?P<non>non[- ]?creature\s+)?(?P<type>creature|artifact|enchantment|instant|sorcery|land|planeswalker|battle|permanent)s?",
+            part,
+        )
+        if not match:
+            return None
+        groups.append(
+            FunctionalTypeGroup.model_validate(
+                {
+                    "required_types": [match["type"]],
+                    "excluded_types": ["creature"] if match["non"] else [],
+                }
+            ).model_dump()
+        )
+    return groups
+
+
 def _functional_preference_args(
     args: FunctionalSearchArgs, preferences: list[dict[str, Any]]
 ) -> FunctionalSearchArgs:
     """Apply representable general preferences without narrowing scoped rules.
 
-    Retrieval cannot express disjunctions or a rule with a narrow exception.
-    Those remain in the ledger for evaluation after broad candidate retrieval.
+    Exact canonical disjunctions are representable; narrow exceptions or other
+    compound prose remain in the ledger for evaluation after broad retrieval.
     Core membership only skips new recommendations; it never becomes rejection.
     """
     values = args.model_dump()
@@ -56,6 +85,9 @@ def _functional_preference_args(
         "permanent",
     }
     broaden_type = False
+    type_groups: list[dict[str, Any]] = []
+    unsupported_type_rule = False
+    type_exception = False
     for row in preferences:
         dimension = row.get("dimension")
         value = str(row.get("value") or "").casefold().strip()
@@ -69,6 +101,7 @@ def _functional_preference_args(
             and not (general and value == "any")
         ):
             broaden_type = True
+            type_exception = True
         if not general:
             continue
         if dimension in {"constraint", "card_type"} and re.search(
@@ -77,6 +110,19 @@ def _functional_preference_args(
             re.IGNORECASE,
         ):
             broaden_type = True
+            parsed = None
+            if (
+                strength == "required"
+                and operation == "set"
+                and row.get("polarity", "include") == "include"
+            ):
+                parsed = _canonical_type_disjunction(
+                    value
+                ) or _canonical_type_disjunction(str(row.get("quote") or ""))
+            if parsed is None:
+                unsupported_type_rule = True
+            else:
+                type_groups = parsed
         if dimension == "card_type":
             if (
                 row.get("polarity", "include") != "include"
@@ -84,8 +130,11 @@ def _functional_preference_args(
                 or value in {"noncreature", "non-creature"}
             ):
                 broaden_type = True
+                unsupported_type_rule = True
             if value == "any":
                 values["type_line"] = ""
+                type_groups = []
+                values["allowed_type_groups"] = []
             elif (
                 operation == "set"
                 and row.get("polarity", "include") == "include"
@@ -138,6 +187,9 @@ def _functional_preference_args(
             values["prefer_multifunctional"] = operation != "relax"
     if broaden_type:
         values["type_line"] = ""
+        values["allowed_type_groups"] = (
+            type_groups if not type_exception and not unsupported_type_rule else []
+        )
     checked = FunctionalSearchArgs.model_validate(values)
     # The public tool caps model-supplied names at eight. The already validated
     # session ledger may contain more distinct exclusions and core members.

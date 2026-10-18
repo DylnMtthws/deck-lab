@@ -16,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from sabermetrics.assistant_answer_review import evidence_sources, review_answer
 from sabermetrics.assistant_card_references import reference_key
@@ -33,6 +33,7 @@ from sabermetrics.assistant_discovery_contract import (
     candidate_from_card,
     derive_discovery_requirements,
     merge_discovery_ledger,
+    render_discovery_groups,
     validate_discovery_answer,
     validate_discovery_prose_counts,
 )
@@ -89,7 +90,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v27"
+PROMPT_VERSION = "build-conversation.v28"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -383,6 +384,7 @@ For final replies, populate content as a short direct lead, findings as concise
 user-facing bullet statements covering the requested facts/options, and
 next_action as one concrete step. Leave tool_calls empty. Put implementation
 IDs, hashes and metadata in receipts, not the conversational answer.
+Array limits are maxima, never quotas. Return only substantive findings; never pad arrays with placeholders or omitted-for-brevity markers.
 Use one candidate or one focused comparison per finding. Do not stuff a numbered
 multi-card list into one finding. Each finding must be a complete sentence within
 its 700-character limit; shorten the explanation before the limit rather than
@@ -418,6 +420,22 @@ class AssistantReplyFields(StrictModel):
     discovery_answer: DiscoveryAnswer | None = None
     card_ids: list[str] = Field(default_factory=list, max_length=40)
 
+    @field_validator("findings")
+    @classmethod
+    def no_placeholder_findings(cls, values: list[str]) -> list[str]:
+        if any(
+            re.fullmatch(
+                r"[\w_]*(?:omitted_for_brevity|placeholder)[\w_]*",
+                value.strip(),
+                re.IGNORECASE,
+            )
+            for value in values
+        ):
+            raise ValueError(
+                "Findings must contain substantive answers, not padding markers"
+            )
+        return values
+
     @field_validator("next_action")
     @classmethod
     def empty_next_action(cls, value: str) -> str:
@@ -439,15 +457,26 @@ class AssistantPlanningStep(AssistantReplyFields):
 
 class AssistantAnswerStep(AssistantReplyFields):
     findings: list[Annotated[str, Field(min_length=1, max_length=700)]] = Field(
-        min_length=1,
+        default_factory=list,
         max_length=24,
-        description="Required concrete findings answering the current request; a promise to retrieve evidence is not a finding.",
+        description="Concrete findings for ordinary answers. For discovery lists return findings=[] and put one concise reason per selected card in discovery_answer.notes; the application renders names and costs.",
     )
     content: str = Field(
         min_length=12,
         max_length=6000,
         description="Required nonempty answer lead addressing the user's question from confirmed evidence. A progress announcement or checker warning is not an answer.",
     )
+
+    @model_validator(mode="after")
+    def substantive_findings(self):
+        if not self.findings and not (
+            self.discovery_answer
+            and any(g.card_ids for g in self.discovery_answer.groups)
+        ):
+            raise ValueError(
+                "An answer requires findings or selected discovery candidates"
+            )
+        return self
 
     @field_validator("content")
     @classmethod
@@ -1252,6 +1281,8 @@ def _encode_context(
     state: dict[str, Any], latest_request: str, transcript: list
 ) -> str:
     """Pin the request and preferences while evicting older evidence as needed."""
+    from copy import deepcopy
+
     conversation = []
     for item in transcript[-10:]:
         if item.get("role") == "tool" and isinstance(item.get("result"), dict):
@@ -1285,7 +1316,7 @@ def _encode_context(
             or state[key].get("discovery_candidates")
             or state[key].get("session_findings")
         ):
-            payload["state"][key] = state[key]
+            payload["state"][key] = deepcopy(state[key])
         else:
             payload["state"].pop(key, None)
     context = state.get("conversation_context")
@@ -1315,8 +1346,33 @@ def _encode_context(
             task_context.pop("preference_updates", None)
         if task_context.get("discovery_lists"):
             task_context.pop("discovery_lists", None)
+    # Full printed facts need one authoritative slot. Follow-ups otherwise pin
+    # the same oracle text in consulted cards, the session ledger and tool history.
+    consulted_by_id = {
+        str((row.get("card") or {}).get("id")): row.get("card") or {}
+        for row in payload["state"].get("consulted_cards", [])
+        if (row.get("card") or {}).get("id")
+    }
+    session_context = payload["state"].get("session_evidence") or {}
+    for candidate in session_context.get("discovery_candidates", []):
+        card = consulted_by_id.get(str(candidate.get("card_id")))
+        if not card:
+            continue
+        fields = dict(candidate.get("printed_fields") or {})
+        shared_fields = [
+            key for key, value in fields.items() if key in card and card[key] == value
+        ]
+        if shared_fields:
+            candidate["printed_fields"] = {
+                key: value for key, value in fields.items() if key not in shared_fields
+            }
+            candidate["fields_in_consulted_cards"] = shared_fields
+    if session_context:
+        # Preferences have their own lossless quote table in conversation_context.
+        session_context.pop("preferences", None)
     shortened: set[str] = set()
     preferences_compacted = False
+    source_metadata_compacted = False
     # Do not truncate the actual instruction to the generic 1,200-character
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
@@ -1332,6 +1388,25 @@ def _encode_context(
             payload["state"]["conversation_context"][
                 "preference_encoding"
             ] = "rows[].fields retain every constraint field; rows[].evidence indexes the shared evidence table of exact user quote and source_turn."
+            continue
+        if not source_metadata_compacted:
+            source_metadata_compacted = True
+            has_source_scope = any(
+                "scope" in row for row in payload["state"].get("consulted_cards", [])
+            )
+            for row in payload["state"].get("consulted_cards", []):
+                # Remove duplicated boilerplate and empty metadata, not facts,
+                # source IDs, truncation warnings or freshness/provenance values.
+                row.pop("scope", None)
+                for key in list(row):
+                    if row[key] is None or row[key] == [] or row[key] == {}:
+                        row.pop(key)
+            if has_source_scope:
+                payload["state"]["consulted_cards_scope"] = (
+                    "Printed source facts; truncation/freshness metadata remains attached. "
+                    "Session fields_in_consulted_cards refer to the identical card ID here. "
+                    "Omitted or excerpted text cannot prove absence of costs or restrictions."
+                )
             continue
         if payload["conversation"] and (
             len(payload["conversation"]) > 1
@@ -1439,10 +1514,32 @@ def _encode_context(
                         None,
                     )
                     if unpinned is None:
+                        # Focused cards must not bypass the same bounded escape
+                        # hatch available to ordinary sessions. The old early
+                        # raise refused real follow-ups that fit below 24k.
+                        if state.get("session_evidence") and len(encoded) <= 23800:
+                            payload["context_budget_extended"] = True
+                            payload["context_budget_chars"] = 24000
+                            return json.dumps(payload, ensure_ascii=False, default=str)
                         raise AssistantBudgetExceeded(
                             "The request and focused card evidence exceed the assistant context limit."
                         )
-                    payload["state"]["consulted_cards"].pop(unpinned)
+                    removed_source = payload["state"]["consulted_cards"].pop(unpinned)
+                    removed_card = removed_source.get("card") or {}
+                    # A shared field must outlive the consulted slot it used.
+                    # Restore exact values to the ledger before evicting a card.
+                    for candidate in session_context.get("discovery_candidates", []):
+                        if str(candidate.get("card_id")) != str(removed_card.get("id")):
+                            continue
+                        shared = candidate.pop("fields_in_consulted_cards", [])
+                        if shared:
+                            candidate.setdefault("printed_fields", {}).update(
+                                {
+                                    key: removed_card[key]
+                                    for key in shared
+                                    if key in removed_card
+                                }
+                            )
                     payload["state"]["consulted_cards_omitted"] = (
                         payload["state"].get("consulted_cards_omitted", 0) + 1
                     )
@@ -1530,6 +1627,7 @@ def run_turn(
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
     use_schema_repair = owns_gateway if schema_repair is None else schema_repair
     owned_package_gateway: ModelGateway | None = None
+    owned_answer_review_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
         "status": "incomplete",
@@ -1593,6 +1691,25 @@ def run_turn(
             gateway = build_gateway(
                 settings, db_path=str(db_path), user_id=owner_id, deck_id=deck_id
             )
+            if answer_review_gateway is None:
+                review_model = model.model_copy(
+                    update={
+                        "timeout_seconds": 45.0,
+                        "max_retries": 0,
+                        "modes": {
+                            **model.modes,
+                            ReasoningMode.EXPLAIN.value: model.mode_profile(
+                                ReasoningMode.EXPLAIN
+                            ).model_copy(update={"max_output_tokens": 3072}),
+                        },
+                    }
+                )
+                owned_answer_review_gateway = answer_review_gateway = build_gateway(
+                    settings.model_copy(update={"model": review_model}),
+                    db_path=str(db_path),
+                    user_id=owner_id,
+                    deck_id=deck_id,
+                )
         from sabermetrics.assistant_deck_intelligence import assess_deck_requirements
 
         current_strategy = assess_deck_requirements(document, constraints or {})[
@@ -2007,7 +2124,7 @@ def run_turn(
                 else synthesis_system() if answer_only else SYSTEM
             )
             if not narrow_planning and state.get("discovery_requirements"):
-                system += "\nFor every discovery_requirements group, return discovery_answer with the matching group_id and retrieved card_ids, and visibly list every selected canonical card name. Meet the requested counts or explicitly identify shortfalls. Use retained session_evidence printed facts for costs and conditions.\n"
+                system += "\nFor every discovery_requirements group, return discovery_answer with the matching group_id and retrieved card_ids, and one concise note per selected card in discovery_answer.notes. Return findings=[] for discovery; the application renders each canonical card name and retrieved mana cost separately. Include actual activation costs and restrictions in notes. Do not compress a whole list into one note. Meet the requested counts or explicitly identify shortfalls. Use retained session_evidence printed facts for costs and conditions.\n"
             if answer_only:
                 system += "\nThis call is reserved for a final answer. Return a final answer with the required content lead and substantive findings from confirmed receipts, identifying any missing facts. Do not request more tools or return an empty object.\n"
             if task is not None:
@@ -2122,7 +2239,7 @@ def run_turn(
                     synthesis_required = True
                     state["answer_repair_feedback"] = {
                         "reason": "schema_invalid",
-                        "instruction": "Regenerate a COMPLETE concise JSON answer from confirmed sources. Use one short lead, one short finding per chosen candidate, next_action empty when no action requested, discovery_answer groups with chosen retrieved IDs, and claims empty. Do not duplicate lists in content and findings. Reserve room for closing braces. No tools are available.",
+                        "instruction": "Regenerate a COMPLETE concise JSON answer from confirmed sources. Use one short lead, findings=[] for discovery, next_action empty when no action requested, discovery_answer groups with chosen retrieved IDs and one concise note per card, and claims empty. Do not duplicate lists in content and findings. Reserve room for closing braces. No tools are available.",
                     }
                     emit(
                         {
@@ -2691,6 +2808,16 @@ def run_turn(
                             }
                         )
                         continue
+                if step.discovery_answer is not None and step.discovery_answer.notes:
+                    step = step.model_copy(
+                        update={
+                            "findings": render_discovery_groups(
+                                discovery_requirements,
+                                session.ledger,
+                                step.discovery_answer,
+                            )
+                        }
+                    )
                 discovery_issues = validate_discovery_prose_counts(
                     "\n\n".join([step.content, *step.findings])
                 )
@@ -3638,6 +3765,10 @@ def run_turn(
                         if key in result["research"]
                     }
                 )
+        if owned_answer_review_gateway is not None:
+            close = getattr(owned_answer_review_gateway, "close", None)
+            if close:
+                close()
         if owned_package_gateway is not None and owned_package_gateway is not gateway:
             close = getattr(owned_package_gateway, "close", None)
             if close:
