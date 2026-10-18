@@ -531,6 +531,7 @@ class AssistantTools:
     ):
         self.review_gateway = review_gateway
         self.research_preferences: list[dict[str, Any]] = []
+        self.recommendation_exclusions: set[str] = set()
         self.research_request: str | None = None
         self.package_gateway: ModelGateway | None = None
         self.package_results: dict[str, dict[str, Any]] = {}
@@ -1122,11 +1123,23 @@ class AssistantTools:
                 "role_note": "Stored roles and text tags are heuristic classifications, not simulated performance.",
             }
         if call.name == "search_card_functions":
-            result = functional_search(
-                self.path,
-                document,
-                _functional_preference_args(args, self.research_preferences),
-            )
+            effective = _functional_preference_args(args, self.research_preferences)
+            if self.recommendation_exclusions:
+                # These names are server-derived, current-request exclusions,
+                # not rejected cards or a permanent preference. Lookups remain available.
+                effective = effective.model_copy(
+                    update={
+                        "excluded_names": list(
+                            dict.fromkeys(
+                                [
+                                    *effective.excluded_names,
+                                    *sorted(self.recommendation_exclusions),
+                                ]
+                            )
+                        )
+                    }
+                )
+            result = functional_search(self.path, document, effective)
             return {
                 **result,
                 "filter_corrections": search_corrections,

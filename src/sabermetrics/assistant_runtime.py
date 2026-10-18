@@ -33,7 +33,9 @@ from sabermetrics.assistant_discovery_contract import (
     candidate_from_card,
     derive_discovery_requirements,
     merge_discovery_ledger,
+    prior_recommendations,
     render_discovery_groups,
+    revises_discovered_candidates,
     validate_discovery_answer,
     validate_discovery_prose_counts,
 )
@@ -1307,6 +1309,7 @@ def _encode_context(
         "answer_repair_feedback",
         "prior_conclusions",
         "prior_selected_candidates",
+        "recommendation_novelty",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1957,6 +1960,8 @@ def run_turn(
         tools.research_preferences = state["conversation_context"]["preferences"]
         previous_conclusions = []
         previous_selection = None
+        earlier_recommendations = prior_recommendations(messages)
+        excluded_prior_ids: set[str] = set()
         for prior_message in reversed(messages):
             if prior_message.get("role") != "assistant":
                 continue
@@ -2542,6 +2547,28 @@ def run_turn(
                 }
             if (
                 task is not None
+                and task.kind == "discover"
+                and task.evidence_scope == "candidate_discovery"
+                and re.search(
+                    r"\b(?:additional|more|other|different|further|another)\b",
+                    current_request,
+                    re.IGNORECASE,
+                )
+                and not revises_discovered_candidates(current_request)
+            ):
+                excluded_prior_ids = set(earlier_recommendations)
+                tools.recommendation_exclusions = set(earlier_recommendations.values())
+                state["recommendation_novelty"] = {
+                    "required": True,
+                    "previously_recommended_card_ids": [
+                        c.card_id
+                        for c in session.ledger.candidates
+                        if c.card_id in excluded_prior_ids
+                    ],
+                    "scope": "This request asks for additional cards. Previously recommended cards do not count as new choices; they remain available for comparison and recap. This is not a rejected-card preference.",
+                }
+            if (
+                task is not None
                 and task.discovery_lists
                 and not planned_lists_executed
                 and not task.requires_empirical_evidence
@@ -2971,6 +2998,7 @@ def run_turn(
                             discovery_requirements,
                             session.ledger,
                             step.discovery_answer,
+                            excluded_card_ids=excluded_prior_ids,
                         )
                         discovery_issues.extend(validation.issues)
                         # Manifest membership must also be visible in the user's answer.
@@ -3260,6 +3288,7 @@ def run_turn(
                             discovery_requirements,
                             session.ledger,
                             step.discovery_answer,
+                            excluded_card_ids=excluded_prior_ids,
                         )
                         final_discovery_issues.extend(final_validation.issues)
                         final_names = reference_key(

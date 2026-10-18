@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 MAX_DISCOVERY_CANDIDATES = 40
 MAX_DISCOVERY_GROUPS = 8
@@ -390,6 +390,8 @@ def validate_discovery_answer(
     requirements: list[DiscoveryRequirement],
     ledger: DiscoveryLedger,
     answer: DiscoveryAnswer,
+    *,
+    excluded_card_ids: set[str] | None = None,
 ) -> DiscoveryValidation:
     """Check manifest counts, membership, exact fact values and source attribution.
 
@@ -399,6 +401,7 @@ def validate_discovery_answer(
     """
     issues: list[DiscoveryIssue] = []
     cards = {card.card_id: card for card in ledger.candidates}
+    excluded = excluded_card_ids or set()
     groups: dict[str, DiscoveryAnswerGroup] = {}
     invalid_cards: set[str] = set()
     listed: list[str] = []
@@ -435,6 +438,14 @@ def validate_discovery_answer(
             if card_id not in listed:
                 listed.append(card_id)
             card = cards.get(card_id)
+            if card_id in excluded:
+                invalid_cards.add(card_id)
+                issue(
+                    "previously_recommended",
+                    "This candidate was previously recommended; supply an additional candidate for this request.",
+                    group.group_id,
+                    card_id,
+                )
             if card is None:
                 invalid_cards.add(card_id)
                 issue(
@@ -544,6 +555,56 @@ def validate_discovery_answer(
             card_id for card_id in listed if card_id not in invalid_cards
         ],
     )
+
+
+def prior_recommendations(messages: list[dict[str, Any]]) -> dict[str, str]:
+    """Return selected retrieved identities from the last 100 supplied messages.
+
+    This is a transient novelty scope, never a user rejection. Only selections
+    intersecting a typed ledger on that same assistant receipt are admitted;
+    prose, user text, and selected IDs absent from retrieved records are ignored.
+    """
+    recommended: dict[str, str] = {}
+    for message in messages[-100:]:
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        research = message.get("research")
+        if not isinstance(research, dict):
+            presentation = message.get("presentation")
+            research = (
+                presentation.get("research") if isinstance(presentation, dict) else None
+            )
+        if not isinstance(research, dict):
+            continue
+        manifest = research.get("selected_candidates") or research.get(
+            "discovery_answer"
+        )
+        try:
+            selected = DiscoveryAnswer.model_validate(manifest)
+        except (TypeError, ValidationError):
+            continue
+        retrieved: dict[str, str] = {}
+        session_state = research.get("session_state")
+        session_ledger = (
+            session_state.get("ledger") if isinstance(session_state, dict) else None
+        )
+        for raw_ledger in (research.get("discovery_ledger"), session_ledger):
+            try:
+                ledger = DiscoveryLedger.model_validate(raw_ledger)
+            except (TypeError, ValidationError):
+                continue
+            retrieved.update(
+                {
+                    card.card_id: card.name
+                    for card in ledger.candidates
+                    if card.source_facts
+                }
+            )
+        for group in selected.groups:
+            for card_id in group.card_ids:
+                if card_id in retrieved:
+                    recommended[card_id] = retrieved[card_id]
+    return recommended
 
 
 def render_discovery_groups(

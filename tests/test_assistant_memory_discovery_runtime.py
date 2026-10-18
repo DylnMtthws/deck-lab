@@ -860,3 +860,137 @@ def test_owned_bounded_synthesis_uses_smaller_profile_and_closes_clients(
     assert (
         result["research"]["runtime"]["model_calls"][0]["output_token_budget"] == 4096
     )
+
+
+def test_additional_discovery_excludes_prior_selection_and_rejects_reused_manifest(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_discovery_contract import (
+        DiscoveryLedger,
+        candidate_from_card,
+    )
+    from sabermetrics.assistant_session_state import (
+        SessionState,
+        session_state_research,
+        update_session_state,
+    )
+
+    service, path, owner, deck, document, _ = prepared
+    cards = [
+        {
+            "id": f"novelty-{index}",
+            "name": f"Novelty Scholar {index}",
+            "type_line": "Creature",
+            "mana_cost": "{1}",
+            "oracle_text": "When this creature enters, draw a card.",
+        }
+        for index in range(3)
+    ]
+    for card in cards:
+        seed_card(path, card["id"], card["name"], card["oracle_text"])
+    old = cards[0]
+    previous = update_session_state(
+        SessionState(),
+        ledger=DiscoveryLedger(candidates=[candidate_from_card(old)]),
+        evidence={f"card:{old['id']}": json.dumps(old)},
+        revision=document["revision"],
+    )
+    research = session_state_research(previous)
+    research["selected_candidates"] = {
+        "groups": [{"group_id": "list_1", "card_ids": [old["id"]]}]
+    }
+    searched = []
+
+    def retrieve(_path, _document, args):
+        searched.append(args)
+        # Simulate a stale/misbehaving retrieval result: final validation must
+        # enforce novelty even when a previously selected card slips through.
+        return {"status": "available", "cards": cards}
+
+    monkeypatch.setattr("sabermetrics.assistant_tools.functional_search", retrieve)
+    request = "Find three additional card candidates."
+    answer = AssistantStep(
+        content="These supplied candidates have printed enter triggers.",
+        discovery_answer={
+            "groups": [
+                {
+                    "group_id": "list_1",
+                    "claimed_count": 3,
+                    "card_ids": [card["id"] for card in cards],
+                }
+            ],
+            "notes": [
+                {
+                    "card_id": card["id"],
+                    "note": "Its printed enter trigger draws a card; performance remains unmeasured.",
+                }
+                for card in cards
+            ],
+        },
+    )
+    gateway = Gateway(
+        [
+            AssistantStep(
+                research_task={
+                    "kind": "discover",
+                    "evidence_scope": "candidate_discovery",
+                    "current_request_quote": request,
+                },
+                tool_calls=[
+                    call(
+                        "search_card_functions",
+                        {"function": "any", "query": "card candidates"},
+                    )
+                ],
+            ),
+            *[answer] * 4,
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "assistant",
+                "content": "Previously recommended a sourced card.",
+                "research": research,
+            },
+            {"role": "user", "content": request},
+        ],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert searched and old["name"] in searched[0].excluded_names
+    state = json.loads(gateway.requests[1].user)["state"]
+    assert state["recommendation_novelty"]["previously_recommended_card_ids"] == [
+        old["id"]
+    ]
+    assert result["status"] == "incomplete", result
+    assert {
+        issue["code"] for issue in result["research"]["discovery_validation"]["issues"]
+    } >= {"previously_recommended", "requested_count_mismatch"}
+    assert not any(
+        row["dimension"] == "excluded_card"
+        for row in result["research"]["conversation_preferences"]
+    )
+
+
+def test_transient_recommendation_exclusions_are_not_truncated_to_tool_name_cap(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_tools import AssistantTools
+
+    _, path, owner, deck, _, _ = prepared
+    tools = AssistantTools(path, owner, deck, "suggest", {}, lambda: False)
+    tools.recommendation_exclusions = {
+        f"Previously Recommended {index}" for index in range(12)
+    }
+    captured = []
+    monkeypatch.setattr(
+        "sabermetrics.assistant_tools.functional_search",
+        lambda _path, _document, args: captured.append(args) or {"cards": []},
+    )
+    tools.execute(call("search_card_functions", {"function": "any"}))
+    assert set(captured[0].excluded_names) == tools.recommendation_exclusions
+    assert tools.research_preferences == []

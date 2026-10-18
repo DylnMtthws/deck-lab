@@ -13,6 +13,7 @@ from sabermetrics.assistant_discovery_contract import (
     candidate_from_card,
     derive_discovery_requirements,
     merge_discovery_ledger,
+    prior_recommendations,
     render_discovery_groups,
     revises_discovered_candidates,
     validate_discovery_answer,
@@ -396,3 +397,120 @@ def test_uncounted_requested_list_cannot_be_fulfilled_by_an_empty_group():
     result = validate_discovery_answer([requirement], DiscoveryLedger(), answer)
     assert not result.complete
     assert "empty_group" in {issue.code for issue in result.issues}
+
+
+def test_additional_seven_must_exclude_prior_three_but_comparisons_can_reuse_them():
+    ledger = DiscoveryLedger(candidates=[candidate(index) for index in range(7)])
+    prior = DiscoveryAnswer(
+        groups=[
+            DiscoveryAnswerGroup(group_id="list_1", card_ids=["id-0", "id-1", "id-2"])
+        ]
+    )
+    messages = [
+        {
+            "role": "assistant",
+            "research": {
+                "selected_candidates": prior.model_dump(),
+                "discovery_ledger": ledger.model_dump(),
+            },
+        }
+    ]
+    excluded = prior_recommendations(messages)
+    assert excluded == {f"id-{index}": f"Card {index}" for index in range(3)}
+    answer = DiscoveryAnswer(
+        groups=[
+            DiscoveryAnswerGroup(
+                group_id="list_1",
+                claimed_count=7,
+                card_ids=[card.card_id for card in ledger.candidates],
+            )
+        ]
+    )
+    requirements = derive_discovery_requirements("Give me seven additional candidates.")
+    assert validate_discovery_answer(requirements, ledger, answer).complete
+    result = validate_discovery_answer(
+        requirements, ledger, answer, excluded_card_ids=set(excluded)
+    )
+    assert not result.complete
+    assert sum(issue.code == "previously_recommended" for issue in result.issues) == 3
+    assert "requested_count_mismatch" in {issue.code for issue in result.issues}
+    assert result.grounded_card_ids == [f"id-{index}" for index in range(3, 7)]
+
+
+def test_prior_recommendations_need_selected_ids_and_same_receipt_retrieved_facts():
+    first, second = candidate(0), candidate(1)
+    selected = DiscoveryAnswer(
+        groups=[
+            DiscoveryAnswerGroup(
+                group_id="list_1", card_ids=[first.card_id, "invented"]
+            )
+        ]
+    )
+    receipt = {
+        "selected_candidates": selected.model_dump(),
+        "session_state": {
+            "ledger": DiscoveryLedger(candidates=[first, second]).model_dump()
+        },
+    }
+    messages = [
+        {"role": "user", "research": receipt},
+        {"role": "assistant", "content": "I recommend Invented Card."},
+        {
+            "role": "assistant",
+            "research": {"selected_candidates": selected.model_dump()},
+        },
+        {"role": "assistant", "presentation": {"research": receipt}},
+    ]
+    assert prior_recommendations(messages) == {first.card_id: first.name}
+    # A later receipt cannot retroactively ground an earlier unknown selection.
+    assert (
+        prior_recommendations(
+            [
+                {
+                    "role": "assistant",
+                    "research": {"selected_candidates": selected.model_dump()},
+                },
+                {
+                    "role": "assistant",
+                    "research": {
+                        "discovery_ledger": DiscoveryLedger(
+                            candidates=[first]
+                        ).model_dump()
+                    },
+                },
+            ]
+        )
+        == {}
+    )
+
+
+def test_prior_recommendations_bounds_messages_and_ignores_malformed_state():
+    card = candidate(0)
+    receipt = {
+        "role": "assistant",
+        "research": {
+            "selected_candidates": {
+                "groups": [{"group_id": "list_1", "card_ids": [card.card_id]}]
+            },
+            "discovery_ledger": DiscoveryLedger(candidates=[card]).model_dump(),
+        },
+    }
+    assert prior_recommendations([receipt]) == {card.card_id: card.name}
+    assert (
+        prior_recommendations([receipt] + [{"role": "user", "content": "later"}] * 100)
+        == {}
+    )
+    assert (
+        prior_recommendations(
+            [
+                {
+                    "role": "assistant",
+                    "research": {
+                        "selected_candidates": "bad",
+                        "discovery_ledger": "bad",
+                    },
+                }
+            ]
+        )
+        == {}
+    )
