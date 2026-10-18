@@ -2435,7 +2435,7 @@ def run_turn(
                             {
                                 "name": "search_card_functions",
                                 "arguments": {
-                                    "query": row.query,
+                                    "query": f"{row.label}: {row.query}",
                                     "function": row.function,
                                     "limit": min(20, max(8, row.requested_count or 8)),
                                 },

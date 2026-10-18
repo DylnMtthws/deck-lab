@@ -182,7 +182,7 @@ def test_planner_executes_separate_lists_without_intermediate_model_call(
     from tests.test_assistant_request_planner import plan
 
     service, path, owner, deck, _, _ = prepared
-    request = "Find draw engines and sacrifice outlets."
+    request = "Find draw engines and free or cheap sacrifice outlets."
     planned = plan(request, scope="candidate_discovery")
     planned.research_task.discovery_lists = [
         DiscoveryListPlan.model_validate(row)
@@ -194,8 +194,8 @@ def test_planner_executes_separate_lists_without_intermediate_model_call(
                 "function": "draw",
             },
             {
-                "label": "sacrifice outlets",
-                "query": "free sacrifice outlets",
+                "label": "free or cheap sacrifice outlets",
+                "query": "sacrifice outlet",
                 "request_quote": "sacrifice outlets",
                 "function": "any",
             },
@@ -207,6 +207,9 @@ def test_planner_executes_separate_lists_without_intermediate_model_call(
 
     def execute(self, call):
         if call.name == "search_card_functions":
+            if call.arguments.function == "sacrifice":
+                assert "free or cheap" in call.arguments.query
+                assert "sacrifice outlet" in call.arguments.query
             name = (
                 "Draw Scholar" if call.arguments.function == "draw" else "Free Outlet"
             )
