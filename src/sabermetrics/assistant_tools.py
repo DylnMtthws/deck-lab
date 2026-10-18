@@ -73,6 +73,35 @@ def _canonical_type_disjunction(value: str) -> list[dict[str, Any]] | None:
     return groups
 
 
+def _canonical_single_type_constraint(value: str) -> str | None:
+    """Project only a complete canonical type directive with bounded wrappers."""
+    value = re.sub(r"^hard rule:\s*", "", value.strip(), flags=re.IGNORECASE).rstrip(
+        "."
+    )
+    match = re.fullmatch(
+        r"(?:only\s+)?(?P<type>creatures?|artifacts?|enchantments?|instants?|sorcer(?:y|ies)|lands?|planeswalkers?|battles?|permanents?)"
+        r"(?:\s+only)?(?:\s+for\s+(?:new\s+)?recommendations)?",
+        value,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    card_type = match["type"].casefold()
+    return "sorcery" if card_type == "sorceries" else card_type.removesuffix("s")
+
+
+def _starts_canonical_type_constraint(value: str) -> bool:
+    """Recognize type-led restrictions without treating arbitrary ORs as types."""
+    value = re.sub(r"^hard rule:\s*", "", value.strip(), flags=re.IGNORECASE)
+    return bool(
+        re.match(
+            r"^(?:only\s+)?(?:non[- ]?creature\s+)?(?:creatures?|artifacts?|enchantments?|instants?|sorcer(?:y|ies)|lands?|planeswalkers?|battles?|permanents?)\b",
+            value,
+            re.IGNORECASE,
+        )
+    )
+
+
 def _functional_preference_args(
     args: FunctionalSearchArgs, preferences: list[dict[str, Any]]
 ) -> FunctionalSearchArgs:
@@ -116,9 +145,17 @@ def _functional_preference_args(
             type_exception = True
         if not general:
             continue
-        if dimension in {"constraint", "card_type"} and re.search(
+        quote = str(row.get("quote") or "")
+        type_constraint = dimension == "card_type" or (
+            dimension == "constraint"
+            and (
+                _starts_canonical_type_constraint(value)
+                or _starts_canonical_type_constraint(quote)
+            )
+        )
+        if type_constraint and re.search(
             r"\bor\b",
-            str(row.get("quote") or "") + " " + value,
+            quote + " " + value,
             re.IGNORECASE,
         ):
             broaden_type = True
@@ -140,6 +177,17 @@ def _functional_preference_args(
                 unsupported_type_rule = True
             else:
                 type_groups = parsed
+        if (
+            dimension == "constraint"
+            and strength == "required"
+            and operation == "set"
+            and row.get("polarity", "include") == "include"
+        ):
+            single_type = _canonical_single_type_constraint(
+                value
+            ) or _canonical_single_type_constraint(quote)
+            if single_type is not None:
+                values["type_line"] = single_type
         if dimension == "card_type":
             if (
                 row.get("polarity", "include") != "include"

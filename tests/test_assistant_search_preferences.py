@@ -283,3 +283,108 @@ def test_multiple_required_disjunctions_never_replace_an_earlier_hard_rule():
         assert args.type_line == ""
         assert args.allowed_type_groups == []
     assert rows == before
+
+
+@pytest.mark.parametrize(
+    "directive",
+    [
+        "Hard rule: creatures only for new recommendations",
+        "Only creatures.",
+        "Hard rule: only creatures for new recommendations.",
+        "creatures only",
+    ],
+)
+def test_required_constraint_only_projects_exact_canonical_type(directive):
+    args = _functional_preference_args(
+        FunctionalSearchArgs(type_line="planeswalker"),
+        [preference("constraint", directive, quote=directive)],
+    )
+    assert args.type_line == "creature"
+
+
+@pytest.mark.parametrize(
+    "unrelated",
+    [
+        preference("constraint", "mana value two or less"),
+        preference("constraint", "use mana or life for costs"),
+        preference("constraint", "sacrifice a creature or pay life"),
+        preference("mana", "two or less"),
+    ],
+)
+def test_unrelated_constraints_and_or_prose_do_not_clear_required_creature_filter(
+    unrelated,
+):
+    required = preference(
+        "constraint", "Hard rule: creatures only for new recommendations"
+    )
+    for rows in ([required, unrelated], [unrelated, required]):
+        args = _functional_preference_args(FunctionalSearchArgs(), rows)
+        assert args.type_line == "creature"
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"scope": "sacrifice fodder"},
+        {"strength": "preferred"},
+        {"polarity": "exclude"},
+        {"operation": "relax"},
+    ],
+)
+def test_single_type_constraint_projection_requires_general_required_positive_rule(
+    updates,
+):
+    args = _functional_preference_args(
+        FunctionalSearchArgs(), [preference("constraint", "creatures only", **updates)]
+    )
+    assert args.type_line == ""
+
+
+def test_constraint_only_creature_rule_excludes_planeswalker_before_result_limit(
+    prepared,
+):
+    _, path, owner, deck, _, _ = prepared
+    for index in range(12):
+        insert(
+            path,
+            f"walker-decoy-{index}",
+            f"AAA Walker {index}",
+            "Planeswalker",
+            "+1: Draw a card.",
+        )
+    insert(
+        path,
+        "new-creature",
+        "ZZZ Creature Candidate",
+        "Creature",
+        "When this creature enters, draw a card.",
+    )
+    tools = AssistantTools(path, owner, deck, "suggest", {}, lambda: False)
+    tools.research_preferences = [
+        preference(
+            "constraint",
+            "Hard rule: creatures only for new recommendations",
+            quote="Hard rule: creatures only for new recommendations",
+        )
+    ]
+    result = tools.execute(
+        call("search_card_functions", {"function": "draw", "limit": 1})
+    )
+    assert [card["id"] for card in result["cards"]] == ["new-creature"]
+
+
+def test_constraint_only_single_type_keeps_narrow_exception_fallback():
+    args = _functional_preference_args(
+        FunctionalSearchArgs(),
+        [
+            preference(
+                "constraint", "Hard rule: creatures only for new recommendations"
+            ),
+            preference(
+                "card_type_exception",
+                "one protective instant",
+                scope="explicit_exception",
+            ),
+        ],
+    )
+    assert args.type_line == ""
