@@ -505,3 +505,30 @@ def test_priority_view_drops_whole_lower_priority_bundles_without_oracle_cuts():
         )
         assert set(row["printed_fields"]) == {"oracle_text", "mana_cost", "type_line"}
     assert packed["candidate_facts_omitted"] == (12 - len(retained)) * 3
+
+
+def test_unknown_priority_ids_do_not_consume_the_bundle_limit():
+    from sabermetrics.assistant_discovery_contract import candidate_from_card
+
+    candidates = [
+        candidate_from_card(
+            {
+                "id": f"known-{i}",
+                "name": f"Known {i}",
+                "mana_cost": "{U}",
+                "type_line": "Creature",
+                "oracle_text": "{T}: Draw a card.",
+            },
+            rank=i + 1,
+            in_deck=False,
+        )
+        for i in range(8)
+    ]
+    state = SessionState(ledger=DiscoveryLedger(candidates=candidates))
+    priority = [f"unknown-{i}" for i in range(12)] + [c.card_id for c in candidates]
+    view = protected_session_context(
+        state, [], max_chars=9000, priority_card_ids=priority
+    )
+    assert view["priority_bundles_requested"] == 8
+    assert view["priority_bundles_retained"] == 8
+    assert view["priority_bundle_shortfall"] is False

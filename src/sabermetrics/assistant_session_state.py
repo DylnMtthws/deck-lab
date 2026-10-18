@@ -339,7 +339,10 @@ def protected_session_context(
     if priority_card_ids is not None:
         # Current-turn retrieval priority supersedes historical role heads. Keep
         # coherent complete printed bundles rather than unrelated text fragments.
-        ordered_ids = list(dict.fromkeys(priority_card_ids))[:12]
+        available_ids = {candidate.card_id for candidate in state.ledger.candidates}
+        ordered_ids = [
+            cid for cid in dict.fromkeys(priority_card_ids) if cid in available_ids
+        ][:12]
         priority = set(ordered_ids)
         packed_candidates: list[dict[str, Any]] = []
         total_facts = sum(len(card.source_facts) for card in state.ledger.candidates)
@@ -410,7 +413,9 @@ def protected_session_context(
                     support["reference"]
                     for support in complete_finding.pop("evidence", [])
                 ]
-                priority_context["findings_omitted"] += 1
+                priority_context["findings_claims_compacted"] = (
+                    priority_context.get("findings_claims_compacted", 0) + 1
+                )
                 continue
             removed = False
             for card_id in reversed(ordered_ids):

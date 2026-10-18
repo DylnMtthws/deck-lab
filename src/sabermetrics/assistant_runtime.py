@@ -1937,10 +1937,10 @@ def run_turn(
         priority_buckets: dict[str, list[str]] = {}
 
         def context_priority_ids() -> list[str]:
-            buckets = list(priority_buckets.values())
+            buckets = [bucket for bucket in priority_buckets.values() if bucket]
             if not buckets:
                 groups = (previous_selection or {}).get("groups", [])
-                buckets = [g.get("card_ids", []) for g in groups]
+                buckets = [g["card_ids"] for g in groups if g.get("card_ids")]
             if not buckets:
                 buckets = [
                     list(source_cards),

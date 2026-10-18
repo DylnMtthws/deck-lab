@@ -705,6 +705,8 @@ def test_one_planned_list_synthesizes_once_with_complete_current_candidate_facts
     assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
     evidence = json.loads(gateway.requests[-1].user)["state"]["session_evidence"]
     supplied = {c["card_id"]: c for c in evidence["discovery_candidates"]}
+    assert evidence["priority_bundles_retained"] == 8
+    assert evidence["priority_bundle_shortfall"] is False
     consulted = {
         row["card"]["id"]: row["card"]
         for row in json.loads(gateway.requests[-1].user)["state"].get(
@@ -714,6 +716,84 @@ def test_one_planned_list_synthesizes_once_with_complete_current_candidate_facts
     for card in cards:
         fields = supplied[card["id"]].get("printed_fields", {})
         shared = consulted.get(card["id"], {})
+        for kind in ("oracle_text", "type_line"):
+            if kind not in fields:
+                assert kind in supplied[card["id"]]["fields_in_consulted_cards"]
         assert fields.get("oracle_text", shared.get("oracle_text")) == oracle
         assert fields.get("type_line", shared.get("type_line")) == card["type_line"]
         assert "oracle_text" not in supplied[card["id"]].get("excerpted_fields", [])
+
+
+def test_empty_prior_selection_groups_fall_back_to_retained_source_facts(prepared):
+    from sabermetrics.assistant_discovery_contract import (
+        DiscoveryLedger,
+        candidate_from_card,
+    )
+    from sabermetrics.assistant_session_state import (
+        SessionState,
+        session_state_research,
+        update_session_state,
+    )
+
+    service, path, owner, deck, _, _ = prepared
+    oracle = "{2}, {T}: Draw a card. Activate only during your turn."
+    candidate = candidate_from_card(
+        {
+            "id": "retained",
+            "name": "Retained Scholar",
+            "oracle_text": oracle,
+            "type_line": "Creature",
+            "mana_cost": "{U}",
+        },
+        rank=1,
+        in_deck=False,
+    )
+    state = update_session_state(
+        SessionState(),
+        ledger=DiscoveryLedger(candidates=[candidate]),
+        evidence={
+            "card:retained": json.dumps(
+                {
+                    "id": "retained",
+                    "name": "Retained Scholar",
+                    "oracle_text": oracle,
+                    "type_line": "Creature",
+                    "mana_cost": "{U}",
+                }
+            )
+        },
+        revision=0,
+    )
+    research = session_state_research(state)
+    research["selected_candidates"] = {
+        "groups": [{"group_id": "list_1", "card_ids": []}],
+        "claims": [],
+        "notes": [],
+    }
+    gateway = Gateway(
+        [
+            AssistantStep(
+                content="Retained Scholar remains a sourced draw candidate.",
+                findings=["Its activation has a timing restriction."],
+            )
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {
+                "role": "assistant",
+                "content": "An earlier list was incomplete.",
+                "research": research,
+            },
+            {"role": "user", "content": "Summarize our findings."},
+        ],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    view = json.loads(gateway.requests[0].user)["state"]["session_evidence"]
+    assert view["priority_bundles_retained"] == 1
+    assert view["discovery_candidates"][0]["printed_fields"]["oracle_text"] == oracle
