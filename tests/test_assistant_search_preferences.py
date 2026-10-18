@@ -236,3 +236,50 @@ def test_rocks_are_mana_only_for_explicit_unambiguous_role_labels():
         ).function
         == "any"
     )
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "noncreature artifacts or enchantments only",
+        "noncreature artifacts or permanents only",
+        "noncreature artifacts or lands only",
+    ],
+)
+def test_ambiguous_noncreature_modifier_scope_falls_back_without_narrowing(rule):
+    args = _functional_preference_args(
+        FunctionalSearchArgs(type_line="artifact"), [preference("constraint", rule)]
+    )
+    assert args.type_line == ""
+    assert args.allowed_type_groups == []
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "noncreature artifacts or instants only",
+        "noncreature artifacts or sorceries only",
+        "noncreature artifacts or noncreature enchantments only",
+    ],
+)
+def test_explicit_or_nonpermanent_alternatives_keep_exact_noncreature_scope(rule):
+    args = _functional_preference_args(
+        FunctionalSearchArgs(), [preference("constraint", rule)]
+    )
+    assert len(args.allowed_type_groups) == 2
+    assert args.allowed_type_groups[0].excluded_types == ["creature"]
+
+
+def test_multiple_required_disjunctions_never_replace_an_earlier_hard_rule():
+    rows = [
+        preference("constraint", "artifacts or instants only"),
+        preference("constraint", "creatures or enchantments only"),
+    ]
+    before = deepcopy(rows)
+    for ordered in (rows, list(reversed(rows))):
+        args = _functional_preference_args(
+            FunctionalSearchArgs(type_line="creature"), ordered
+        )
+        assert args.type_line == ""
+        assert args.allowed_type_groups == []
+    assert rows == before

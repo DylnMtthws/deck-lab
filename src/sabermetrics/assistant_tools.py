@@ -43,13 +43,25 @@ def _canonical_type_disjunction(value: str) -> list[dict[str, Any]] | None:
     if not 2 <= len(parts) <= 4:
         return None
     groups = []
+    noncreature_scope = False
     for part in parts:
+        part = re.sub(r"\bsorceries$", "sorcery", part)
         match = re.fullmatch(
             r"(?P<non>non[- ]?creature\s+)?(?P<type>creature|artifact|enchantment|instant|sorcery|land|planeswalker|battle|permanent)s?",
             part,
         )
         if not match:
             return None
+        # 'Noncreature artifacts or enchantments' leaves the adjective's
+        # scope ambiguous. Supported instant/sorcery alternatives are explicit;
+        # later permanent alternatives need their own noncreature modifier.
+        if (
+            noncreature_scope
+            and not match["non"]
+            and match["type"] not in {"instant", "sorcery"}
+        ):
+            return None
+        noncreature_scope = noncreature_scope or bool(match["non"])
         groups.append(
             FunctionalTypeGroup.model_validate(
                 {
@@ -120,6 +132,11 @@ def _functional_preference_args(
                     value
                 ) or _canonical_type_disjunction(str(row.get("quote") or ""))
             if parsed is None:
+                unsupported_type_rule = True
+            elif type_groups:
+                # Multiple required alternatives form an intersection, not a
+                # replacement. Keep retrieval broad rather than dropping an
+                # earlier rule or expanding the bounded OR schema implicitly.
                 unsupported_type_rule = True
             else:
                 type_groups = parsed

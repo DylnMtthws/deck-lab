@@ -593,3 +593,33 @@ def test_owned_review_has_separate_bounded_budget_and_is_closed(prepared, monkey
     assert review.mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 3072
     assert review.max_retries == 0 and review.timeout_seconds == 45
     assert sorted(closed) == [0, 1]
+
+
+def test_provider_failure_preserves_retrieved_facts_without_claiming_analysis(prepared):
+    from sabermetrics.cedh.errors import ModelProviderError
+
+    service, path, owner, deck, _, _ = prepared
+    seed_card(
+        path,
+        "retained-source",
+        "Retained Scholar",
+        "When this creature enters, draw a card.",
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Assess Retained Scholar."}],
+        gateway=Gateway(
+            [
+                step(call("card_details", {"card_id": "retained-source"})),
+                ModelProviderError("provider returned 503: private detail"),
+            ]
+        ),
+        experiment_service=service,
+    )
+    assert result["status"] == "provider_error" and result["reason"] == "provider_busy"
+    assert "Retrieved source excerpt" in result["content"]
+    assert "When this creature enters, draw a card." in result["content"]
+    assert "requested analysis is incomplete" in result["content"]
+    assert "private detail" not in result["content"]

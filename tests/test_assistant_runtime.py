@@ -277,7 +277,10 @@ def test_multi_turn_search_inspect_propose_is_validated_and_source_unchanged(pre
     assert all(event["ok"] for event in events if event["type"] == "tool_result")
     assert DeckDocumentRepo(path).get(owner, deck_id) == document
     assert "Keep the blue commander" in gateway.requests[0].user
-    assert '"name": "search_cards"' in gateway.requests[1].user
+    assert any(
+        entry.get("role") == "tool" and entry.get("name") == "search_cards"
+        for entry in json.loads(gateway.requests[1].user)["conversation"]
+    )
     assert "untrusted data" in gateway.requests[0].system
     assert gateway.requests[0].call_type == "build:assistant"
     assert gateway.requests[0].max_output_tokens == 6144

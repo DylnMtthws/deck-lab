@@ -1310,6 +1310,13 @@ def _encode_context(
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
+    selection = state.get("prior_selected_candidates")
+    if isinstance(selection, dict) and isinstance(selection.get("groups"), list):
+        # Group membership is bounded by the discovery contract, not the generic
+        # twelve-item display cap. Never silently forget a selected identity.
+        payload["state"]["prior_selected_candidates"]["groups"] = deepcopy(
+            selection["groups"]
+        )
     for key in ("session_evidence", "discovery_requirements", "direct_route"):
         if state.get(key) and (
             key != "session_evidence"
@@ -1379,7 +1386,9 @@ def _encode_context(
     payload["current_user_request"] = latest_request
     payload["state"]["constraints"] = state.get("constraints", {})
     while True:
-        encoded = json.dumps(payload, ensure_ascii=False, default=str)
+        encoded = json.dumps(
+            payload, ensure_ascii=False, default=str, separators=(",", ":")
+        )
         if len(encoded) <= 16000:
             return encoded
         if not preferences_compacted and context and context.get("preferences"):
@@ -1457,22 +1466,27 @@ def _encode_context(
                 "Older context was omitted; do not infer missing results."
             )
         else:
-            # Extremely large preference lists are still enforced by every
-            # mutation tool. Make their omission explicit rather than failing.
-            constraints = dict(payload["state"].get("constraints", {}))
-            cards = constraints.get("protected_cards", [])
-            if cards:
-                constraints["protected_cards"] = []
-                constraints["protected_cards_omitted_count"] = len(cards)
-                constraints["protected_cards_note"] = (
-                    "Identities omitted for size; all remain enforced by tools."
-                )
-                payload["state"]["constraints"] = constraints
-            else:
-                # Supplementary retrieval can grow independently. Evict it with
-                # explicit disclosure before sacrificing consulted printed facts,
-                # commander text, the request or preferences.
-                secondary = next(
+            # Protected identities remain available to synthesis. Tool-side
+            # enforcement is not a substitute for preserving the user's brief.
+            # Supplementary retrieval can grow independently. Evict it with
+            # explicit disclosure before sacrificing consulted printed facts,
+            # commander text, the request or preferences.
+            secondary = next(
+                (
+                    key
+                    for key in (
+                        "engine_graph",
+                        "rules_evidence",
+                        "focused_deck_facts",
+                        "strategy_context",
+                        "grounded_deck_facts",
+                        "swap_review",
+                        "combination_sources",
+                        "combination_analysis",
+                    )
+                    if key in payload["state"] and key not in shortened
+                ),
+                next(
                     (
                         key
                         for key in (
@@ -1485,131 +1499,68 @@ def _encode_context(
                             "combination_sources",
                             "combination_analysis",
                         )
-                        if key in payload["state"] and key not in shortened
+                        if key in payload["state"]
                     ),
-                    next(
-                        (
-                            key
-                            for key in (
-                                "engine_graph",
-                                "rules_evidence",
-                                "focused_deck_facts",
-                                "strategy_context",
-                                "grounded_deck_facts",
-                                "swap_review",
-                                "combination_sources",
-                                "combination_analysis",
-                            )
-                            if key in payload["state"]
-                        ),
-                        None,
-                    ),
+                    None,
+                ),
+            )
+            if secondary and secondary not in shortened:
+                shortened.add(secondary)
+                payload["state"][secondary] = _shorten_supplemental(
+                    payload["state"][secondary]
                 )
-                if secondary and secondary not in shortened:
-                    shortened.add(secondary)
-                    payload["state"][secondary] = _shorten_supplemental(
-                        payload["state"][secondary]
-                    )
-                    payload.setdefault("state_evidence_shortened", []).append(secondary)
-                    payload["state_evidence_note"] = (
-                        "Supplemental lists/text shortened for size; omitted details are not evidence of absence. "
-                        "All feature categories/counts are retained. Consulted printed card facts remain available."
-                    )
-                elif secondary:
-                    del payload["state"][secondary]
-                    payload.setdefault("state_evidence_omitted", []).append(secondary)
-                    payload["state_evidence_note"] = (
-                        "Supplemental retrieval omitted for size; not evidence of absence. "
-                        "Consulted card facts remain available. Narrow follow-up retrieval if needed."
-                    )
-                elif isinstance(
-                    payload["state"].get("workflow", {}).get("reviewed_plans"), dict
-                ):
-                    plans = payload["state"]["workflow"].pop("reviewed_plans")
-                    payload["state"]["workflow"]["reviewed_plans_omitted"] = {
-                        "recommendation_id": plans.get("recommendation_id"),
-                        "plan_count": len(plans.get("plans", [])),
-                        "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
-                    }
-                elif payload["conversation"]:
-                    payload["conversation"].pop(0)
-                    payload["history_truncated"] = True
-                elif len(payload["state"].get("consulted_cards", [])) > 2:
-                    focused = {
-                        reference_key(name)
-                        for name in state.get("focused_card_names", [])
-                    }
-                    unpinned = next(
-                        (
-                            index
-                            for index, row in enumerate(
-                                payload["state"]["consulted_cards"]
-                            )
-                            if reference_key(
-                                str((row.get("card") or {}).get("name") or "")
-                            )
-                            not in focused
-                        ),
-                        None,
-                    )
-                    if unpinned is None:
-                        # Focused cards must not bypass the same bounded escape
-                        # hatch available to ordinary sessions. The old early
-                        # raise refused real follow-ups that fit below 24k.
-                        if state.get("session_evidence") and len(encoded) <= 23800:
-                            payload["context_budget_extended"] = True
-                            payload["context_budget_chars"] = 24000
-                            return json.dumps(payload, ensure_ascii=False, default=str)
-                        budget_error = AssistantBudgetExceeded(
-                            "The request and focused card evidence exceed the assistant context limit."
+                payload.setdefault("state_evidence_shortened", []).append(secondary)
+                payload["state_evidence_note"] = (
+                    "Supplemental lists/text shortened for size; omitted details are not evidence of absence. "
+                    "All feature categories/counts are retained. Consulted printed card facts remain available."
+                )
+            elif secondary:
+                del payload["state"][secondary]
+                payload.setdefault("state_evidence_omitted", []).append(secondary)
+                payload["state_evidence_note"] = (
+                    "Supplemental retrieval omitted for size; not evidence of absence. "
+                    "Consulted card facts remain available. Narrow follow-up retrieval if needed."
+                )
+            elif isinstance(
+                payload["state"].get("workflow", {}).get("reviewed_plans"), dict
+            ):
+                plans = payload["state"]["workflow"].pop("reviewed_plans")
+                payload["state"]["workflow"]["reviewed_plans_omitted"] = {
+                    "recommendation_id": plans.get("recommendation_id"),
+                    "plan_count": len(plans.get("plans", [])),
+                    "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
+                }
+            elif payload["conversation"]:
+                payload["conversation"].pop(0)
+                payload["history_truncated"] = True
+            elif len(payload["state"].get("consulted_cards", [])) > 2:
+                focused = {
+                    reference_key(name) for name in state.get("focused_card_names", [])
+                }
+                unpinned = next(
+                    (
+                        index
+                        for index, row in enumerate(payload["state"]["consulted_cards"])
+                        if reference_key(str((row.get("card") or {}).get("name") or ""))
+                        not in focused
+                    ),
+                    None,
+                )
+                if unpinned is None:
+                    # Focused cards must not bypass the same bounded escape
+                    # hatch available to ordinary sessions. The old early
+                    # raise refused real follow-ups that fit below 24k.
+                    if state.get("session_evidence") and len(encoded) <= 23800:
+                        payload["context_budget_extended"] = True
+                        payload["context_budget_chars"] = 24000
+                        return json.dumps(
+                            payload,
+                            ensure_ascii=False,
+                            default=str,
+                            separators=(",", ":"),
                         )
-                        budget_error.context_sizes = {
-                            **{
-                                str(key): len(
-                                    json.dumps(value, ensure_ascii=False, default=str)
-                                )
-                                for key, value in payload["state"].items()
-                            },
-                            "_total": len(encoded),
-                            "_conversation": len(
-                                json.dumps(
-                                    payload["conversation"],
-                                    ensure_ascii=False,
-                                    default=str,
-                                )
-                            ),
-                        }
-                        raise budget_error
-                    removed_source = payload["state"]["consulted_cards"].pop(unpinned)
-                    removed_card = removed_source.get("card") or {}
-                    # A shared field must outlive the consulted slot it used.
-                    # Restore exact values to the ledger before evicting a card.
-                    for candidate in session_context.get("discovery_candidates", []):
-                        if str(candidate.get("card_id")) != str(removed_card.get("id")):
-                            continue
-                        shared = candidate.pop("fields_in_consulted_cards", [])
-                        if shared:
-                            candidate.setdefault("printed_fields", {}).update(
-                                {
-                                    key: removed_card[key]
-                                    for key in shared
-                                    if key in removed_card
-                                }
-                            )
-                    payload["state"]["consulted_cards_omitted"] = (
-                        payload["state"].get("consulted_cards_omitted", 0) + 1
-                    )
-                elif state.get("session_evidence") and len(encoded) <= 23800:
-                    # New RAG slots may need a bounded extension after all old
-                    # prose/supplemental evidence has been evicted. Preserve
-                    # scoped constraints and source facts instead of refusing
-                    # synthesis; telemetry measures the actual input/cost.
-                    payload["context_budget_extended"] = True
-                    payload["context_budget_chars"] = 24000
-                    return json.dumps(payload, ensure_ascii=False, default=str)
-                else:
                     budget_error = AssistantBudgetExceeded(
-                        "The request exceeds the assistant context limit. Please shorten it."
+                        "The request and focused card evidence exceed the assistant context limit."
                     )
                     budget_error.context_sizes = {
                         **{
@@ -1621,11 +1572,61 @@ def _encode_context(
                         "_total": len(encoded),
                         "_conversation": len(
                             json.dumps(
-                                payload["conversation"], ensure_ascii=False, default=str
+                                payload["conversation"],
+                                ensure_ascii=False,
+                                default=str,
                             )
                         ),
                     }
                     raise budget_error
+                removed_source = payload["state"]["consulted_cards"].pop(unpinned)
+                removed_card = removed_source.get("card") or {}
+                # A shared field must outlive the consulted slot it used.
+                # Restore exact values to the ledger before evicting a card.
+                for candidate in session_context.get("discovery_candidates", []):
+                    if str(candidate.get("card_id")) != str(removed_card.get("id")):
+                        continue
+                    shared = candidate.pop("fields_in_consulted_cards", [])
+                    if shared:
+                        candidate.setdefault("printed_fields", {}).update(
+                            {
+                                key: removed_card[key]
+                                for key in shared
+                                if key in removed_card
+                            }
+                        )
+                payload["state"]["consulted_cards_omitted"] = (
+                    payload["state"].get("consulted_cards_omitted", 0) + 1
+                )
+            elif state.get("session_evidence") and len(encoded) <= 23800:
+                # New RAG slots may need a bounded extension after all old
+                # prose/supplemental evidence has been evicted. Preserve
+                # scoped constraints and source facts instead of refusing
+                # synthesis; telemetry measures the actual input/cost.
+                payload["context_budget_extended"] = True
+                payload["context_budget_chars"] = 24000
+                return json.dumps(
+                    payload, ensure_ascii=False, default=str, separators=(",", ":")
+                )
+            else:
+                budget_error = AssistantBudgetExceeded(
+                    "The request exceeds the assistant context limit. Please shorten it."
+                )
+                budget_error.context_sizes = {
+                    **{
+                        str(key): len(
+                            json.dumps(value, ensure_ascii=False, default=str)
+                        )
+                        for key, value in payload["state"].items()
+                    },
+                    "_total": len(encoded),
+                    "_conversation": len(
+                        json.dumps(
+                            payload["conversation"], ensure_ascii=False, default=str
+                        )
+                    ),
+                }
+                raise budget_error
 
 
 def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -3762,6 +3763,16 @@ def run_turn(
         else:
             reason = "provider_temporarily_unavailable"
             message = "The AI provider is temporarily unavailable. Please retry your message. Check the confirmed tool receipts for any actions that occurred; no preview was applied to the original deck."
+        if tools is not None and (
+            state.get("consulted_cards")
+            or (state.get("session_evidence") or {}).get("discovery_candidates")
+        ):
+            message = _evidence_fallback(
+                state,
+                tools.experiments_started,
+                headline=message
+                + " These retrieved source facts remain available; the requested analysis is incomplete.",
+            )
         result.update(status="provider_error", reason=reason, content=message)
     except Exception:
         result.update(

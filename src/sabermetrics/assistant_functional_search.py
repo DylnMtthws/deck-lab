@@ -89,7 +89,10 @@ class FunctionalSearchArgs(BaseModel):
         le=30,
         description="Null means unspecified; zero means ONLY zero-mana cards.",
     )
-    optionality: Literal["any", "preferred", "required"] = "any"
+    optionality: Literal["any", "preferred", "required"] = Field(
+        default="any",
+        description="Draw-control preference, applied only when function is draw. Ignored for other functions; it never requires a sacrifice outlet, mana source or protection card to draw cards.",
+    )
     include_existing: bool = False
     limit: int = Field(default=12, ge=1, le=20)
     excluded_names: list[str] = Field(default_factory=list, max_length=8)

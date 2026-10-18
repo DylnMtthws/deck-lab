@@ -386,7 +386,7 @@ def protected_session_context(
                 "group_ids": card.group_ids,
                 "printed_fields": printed,
                 "excerpted_fields": excerpted,
-                "omitted_fields": omitted,
+                "omitted_fields": list(dict.fromkeys(omitted)),
             }
         )
     context: dict[str, Any] = {
@@ -447,7 +447,8 @@ def protected_session_context(
             _, index, kind = min(removable)
             packed_card = candidates[index]
             del packed_card["printed_fields"][kind]
-            packed_card.setdefault("omitted_fields", []).append(kind)
+            if kind not in packed_card.setdefault("omitted_fields", []):
+                packed_card["omitted_fields"].append(kind)
             if kind in packed_card.get("excerpted_fields", []):
                 packed_card["excerpted_fields"].remove(kind)
             context["candidate_facts_omitted"] += 1

@@ -229,3 +229,62 @@ def test_impossible_context_reports_numeric_slot_sizes_without_source_text():
     sizes = raised.value.context_sizes
     assert sizes and sizes["_total"] > 24000
     assert all(isinstance(value, int) for value in sizes.values())
+
+
+def test_protected_identities_survive_pressure_before_supplemental_eviction():
+    state = followup_state()
+    protected = [f"protected-card-{index}" for index in range(24)]
+    state["constraints"] = {"protected_cards": protected}
+    state["engine_graph"] = {"details": "Supplemental engine prose. " * 300}
+    payload = json.loads(_encode_context(state, "Keep all protected cards.", []))
+    assert payload["state"]["constraints"]["protected_cards"] == protected
+    assert state["constraints"]["protected_cards"] == protected
+
+
+def test_prior_selection_keeps_more_than_twelve_group_members():
+    state = {
+        "prior_selected_candidates": {
+            "groups": [
+                {"group_id": "list_1", "card_ids": [f"card-{i}" for i in range(20)]}
+            ],
+            "claims": [],
+            "notes": [],
+        }
+    }
+    payload = json.loads(_encode_context(state, "Compare those candidates.", []))
+    assert (
+        payload["state"]["prior_selected_candidates"]["groups"]
+        == state["prior_selected_candidates"]["groups"]
+    )
+
+
+def test_omission_metadata_names_each_field_once_but_counts_all_facts():
+    from sabermetrics.assistant_discovery_contract import (
+        DiscoveryCandidate,
+        DiscoveryFact,
+        DiscoveryLedger,
+    )
+    from sabermetrics.assistant_session_state import (
+        SessionState,
+        protected_session_context,
+    )
+
+    facts = [
+        DiscoveryFact(
+            fact_id=f"condition-{i}",
+            kind="condition",
+            value=f"Condition {i}",
+            source_id="card:c",
+        )
+        for i in range(8)
+    ]
+    state = SessionState(
+        ledger=DiscoveryLedger(
+            candidates=[
+                DiscoveryCandidate(card_id="c", name="Source Card", source_facts=facts)
+            ]
+        )
+    )
+    context = protected_session_context(state, [], max_chars=9000)
+    assert context["discovery_candidates"][0]["omitted_fields"] == ["condition"]
+    assert context["candidate_facts_omitted"] == 8
