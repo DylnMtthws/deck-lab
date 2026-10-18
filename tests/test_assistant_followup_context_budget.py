@@ -235,8 +235,13 @@ def test_protected_identities_survive_pressure_before_supplemental_eviction():
     state = followup_state()
     protected = [f"protected-card-{index}" for index in range(24)]
     state["constraints"] = {"protected_cards": protected}
-    state["engine_graph"] = {"details": "Supplemental engine prose. " * 300}
+    state["engine_graph"] = {
+        "nodes": [{"details": "Supplemental engine prose. " * 60} for _ in range(12)]
+    }
     payload = json.loads(_encode_context(state, "Keep all protected cards.", []))
+    assert "engine_graph" in payload.get(
+        "state_evidence_shortened", []
+    ) or "engine_graph" in payload.get("state_evidence_omitted", [])
     assert payload["state"]["constraints"]["protected_cards"] == protected
     assert state["constraints"]["protected_cards"] == protected
 
