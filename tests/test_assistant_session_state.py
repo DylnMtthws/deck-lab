@@ -7,7 +7,9 @@ from sabermetrics.assistant_discovery_contract import (
 )
 from sabermetrics.assistant_session_state import (
     SessionState,
+    compact_preferences,
     evidence_text,
+    expand_preferences,
     load_session_state,
     protected_session_context,
     session_state_research,
@@ -165,10 +167,10 @@ def test_context_protects_all_scope_core_and_identity_fields_under_pressure():
         }
     ]
     context = protected_session_context(state, preferences, max_chars=1)
-    assert context["preferences"] == preferences
+    assert expand_preferences(context["preferences"]) == preferences
     assert context["discovery_candidates"][0]["name"] == "Winter Orb"
     assert context["findings_omitted"] == len(state.findings)
-    assert context["candidate_facts_omitted"] == 2
+    assert context["candidate_facts_omitted"] == 1
     assert context["mandatory_context_exceeds_budget"]
     assert len(state.ledger.candidates[0].source_facts) == 2
 
@@ -267,8 +269,161 @@ def test_twenty_candidates_drop_duplicate_findings_before_all_printed_facts():
     assert len(context["discovery_candidates"]) == 20
     assert context["findings_omitted"] == len(state.findings)
     kept = context["discovery_candidates"]
-    assert any(f["kind"] == "oracle_text" for f in kept[0]["source_facts"])
-    assert any(f["kind"] == "mana_cost" for card in kept for f in card["source_facts"])
+    assert "oracle_text" in kept[0]["printed_fields"]
+    assert any("mana_cost" in card["printed_fields"] for card in kept)
     assert context["candidate_facts_omitted"] == sum(
         len(card.source_facts) for card in state.ledger.candidates
-    ) - sum(len(card["source_facts"]) for card in kept)
+    ) - sum(len(card["printed_fields"]) for card in kept)
+
+
+def test_preference_compaction_is_exact_and_shares_core_quote():
+    preferences = [
+        {
+            "dimension": "core_card",
+            "value": name,
+            "strength": "required",
+            "polarity": "include",
+            "scope": "recommendations",
+            "operation": "set",
+            "quote": "My six core cards are: Winter Orb; Static Orb; Dramatic Reversal; Isochron Scepter; Sol Ring; Skullclamp.",
+            "source_turn": "u1",
+        }
+        for name in [
+            "Winter Orb",
+            "Static Orb",
+            "Dramatic Reversal",
+            "Isochron Scepter",
+            "Sol Ring",
+            "Skullclamp",
+        ]
+    ]
+    preferences.append(
+        {
+            "dimension": "constraint",
+            "value": "permanents only",
+            "strength": "required",
+            "scope": "recommendations",
+            "polarity": "include",
+            "operation": "set",
+            "quote": "Hard rule: permanents only.",
+        }
+    )
+    packed = compact_preferences(preferences)
+    assert len(packed["evidence"]) == 2
+    assert expand_preferences(packed) == preferences
+    assert len(json.dumps(packed)) < len(json.dumps(preferences))
+
+
+def test_lean_fields_flag_oracle_excerpts_and_keep_group_balanced_facts():
+    cards = [
+        {
+            "id": str(i),
+            "name": f"Candidate {i}",
+            "mana_cost": "{2}",
+            "type_line": "Artifact",
+            "oracle_text": "Draw a card. " * 50,
+        }
+        for i in range(24)
+    ]
+    candidates = [
+        candidate_from_card(
+            card, rank=i + 1, group_ids=["common" if i < 20 else "rare"]
+        )
+        for i, card in enumerate(cards)
+    ]
+    state = update_session_state(
+        SessionState(),
+        ledger=DiscoveryLedger(candidates=candidates),
+        evidence={f"card:{card['id']}": json.dumps(card) for card in cards},
+    )
+    packed = protected_session_context(state, [])
+    assert len(json.dumps(packed, ensure_ascii=False)) <= 6000
+    assert len(packed["discovery_candidates"]) == 24
+    assert any(
+        card["printed_fields"]
+        for card in packed["discovery_candidates"]
+        if "rare" in card["group_ids"]
+    )
+    assert any(card.get("excerpted_fields") for card in packed["discovery_candidates"])
+    assert all("source_facts" not in card for card in packed["discovery_candidates"])
+
+
+def test_each_group_head_keeps_oracle_and_cost_for_twenty_four_candidates():
+    cards = [
+        {
+            "id": f"card-{i}",
+            "name": f"Candidate {i}",
+            "type_line": "Creature",
+            "mana_cost": "{2}{B}",
+            "oracle_text": "When another creature dies, draw a card. " * 12,
+        }
+        for i in range(24)
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(card, rank=i % 8 + 1, group_ids=[f"list_{i // 8 + 1}"])
+            for i, card in enumerate(cards)
+        ]
+    )
+    packed = protected_session_context(SessionState(ledger=ledger), [])
+    assert len(json.dumps(packed, ensure_ascii=False)) <= 6000
+    assert len(packed["discovery_candidates"]) == 24
+    by_id = {row["card_id"]: row for row in packed["discovery_candidates"]}
+    for head in (0, 8, 16):
+        assert "oracle_text" in by_id[f"card-{head}"]["printed_fields"]
+        assert "mana_cost" in by_id[f"card-{head}"]["printed_fields"]
+
+
+def test_head_oracle_retains_trailing_activation_restriction_at_nine_thousand():
+    oracle = (
+        "{2}, Sacrifice another creature: Draw a card. "
+        + "This is printed rules text. " * 12
+        + "Activate only once each turn."
+    )
+    cards = [
+        {
+            "id": f"card-{i}",
+            "name": f"Candidate {i}",
+            "type_line": "Creature",
+            "mana_cost": "{2}{B}",
+            "oracle_text": oracle,
+        }
+        for i in range(24)
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(card, rank=i % 8 + 1, group_ids=[f"list_{i // 8 + 1}"])
+            for i, card in enumerate(cards)
+        ]
+    )
+    packed = protected_session_context(SessionState(ledger=ledger), [], max_chars=9000)
+    assert len(json.dumps(packed, ensure_ascii=False)) <= 9000
+    by_id = {row["card_id"]: row for row in packed["discovery_candidates"]}
+    for i in (0, 8, 16):
+        assert by_id[f"card-{i}"]["printed_fields"]["oracle_text"] == oracle
+        assert "oracle_text" not in by_id[f"card-{i}"].get("excerpted_fields", [])
+    assert "retrieve card_details" in packed["scope"]
+
+
+def test_nonhead_oracle_never_exposes_half_activation_cost():
+    cards = [
+        {"id": "head", "name": "Head", "oracle_text": "Draw a card."},
+        {
+            "id": "long",
+            "name": "Long Cost",
+            "oracle_text": "Sacrifice "
+            + "a creature and " * 20
+            + ": Draw a card. Activate only once each turn.",
+        },
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(card, rank=i + 1) for i, card in enumerate(cards)
+        ]
+    )
+    packed = protected_session_context(SessionState(ledger=ledger), [])
+    long_card = next(
+        card for card in packed["discovery_candidates"] if card["card_id"] == "long"
+    )
+    assert "oracle_text" not in long_card["printed_fields"]
+    assert "oracle_text" in long_card["omitted_fields"]

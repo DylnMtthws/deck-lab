@@ -6,6 +6,7 @@ request outside the narrow complete grammars keeps the ordinary planner route.
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal
 
@@ -105,27 +106,42 @@ def focused_route(
             )
         # Duplicate records are allowed only when every relevant printed fact and
         # identity agree; distinct printings/face ambiguity retain normal planning.
-        signatures = {
-            tuple(
-                str(card.get(key) or "")
-                for key in (
-                    "oracle_id",
-                    "name",
-                    "mana_cost",
-                    "cmc",
-                    "mana_value",
-                    "type_line",
-                    "oracle_text",
+        # Deck rows use mana_value while catalog rows use cmc. Missing aliases
+        # are not disagreements; compare actual supplied values in one namespace.
+        for key in ("oracle_id", "mana_cost", "mana_value", "type_line", "oracle_text"):
+            values = set()
+            for supplied in matches:
+                value = supplied.get(key)
+                if key == "mana_value":
+                    value = value if value is not None else supplied.get("cmc")
+                    if value is not None:
+                        try:
+                            numeric = float(value)
+                        except (TypeError, ValueError):
+                            return FocusedRoutePlan(
+                                route="fallback",
+                                reason="The supplied mana value is not numeric.",
+                            )
+                        if not math.isfinite(numeric):
+                            return FocusedRoutePlan(
+                                route="fallback",
+                                reason="The supplied mana value is not finite.",
+                            )
+                        value = str(numeric)
+                if value is not None and value != "":
+                    values.add(str(value))
+            if len(values) > 1:
+                return FocusedRoutePlan(
+                    route="fallback",
+                    reason="The supplied named-card records disagree or are ambiguous.",
                 )
-            )
-            for card in matches
-        }
-        if len(signatures) != 1:
-            return FocusedRoutePlan(
-                route="fallback",
-                reason="The supplied named-card records disagree or are ambiguous.",
-            )
-        card = matches[0]
+        card = max(
+            matches,
+            key=lambda row: sum(
+                row.get(key) is not None and row.get(key) != ""
+                for key in ("oracle_text", "mana_cost", "cmc", "mana_value")
+            ),
+        )
         if field == "mana_value":
             present = card.get("mana_value") is not None or card.get("cmc") is not None
         elif field in {"oracle_text", "card_facts"}:

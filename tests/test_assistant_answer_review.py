@@ -364,3 +364,155 @@ def test_nonanswer_decision_survives_rejected_mechanical_patch():
     assert receipt["status"] == "unverified"
     assert receipt["fulfillment"] == "nonanswer"
     assert receipt["unresolved"] == ["The requested two lists are missing."]
+
+
+@pytest.mark.parametrize(
+    "name,replacement", [("Opt", "optional draw"), ("Island", "Islands can matter")]
+)
+def test_name_guard_does_not_match_names_inside_other_words(name, replacement):
+    quote = "You may draw a card, then discard a card."
+    assert apply_patches(
+        ["incorrect claim"],
+        [quote],
+        review("incorrect claim", replacement, quote),
+        known_names=[name],
+    ) == [replacement]
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "Use Opt instead",
+        "Use Island instead",
+        "Use Fell Mire instead",
+        "Use Teval’s Judgment instead",
+    ],
+)
+def test_name_guard_still_rejects_introduced_whole_card_or_face_names(replacement):
+    quote = "You may draw a card, then discard a card."
+    with pytest.raises(ValueError, match="card name outside its cited evidence"):
+        apply_patches(
+            ["incorrect claim"],
+            [quote],
+            review("incorrect claim", replacement, quote),
+            known_names=[
+                "Opt",
+                "Island",
+                "Fell the Profane // Fell Mire",
+                "Teval's Judgment",
+            ],
+        )
+
+
+def test_source_selection_uses_whole_card_names_not_word_prefixes():
+    document = {
+        "entries": [
+            {"name": "Opt", "oracle_text": "Scry 1. Draw a card."},
+            {"name": "Island", "oracle_text": "{T}: Add {U}."},
+        ]
+    }
+    assert (
+        evidence_sources(document, [], ["Draw is optional. Islands can matter."]) == []
+    )
+    assert any(
+        "Card: Opt" in source
+        for source in evidence_sources(document, [], ["Opt is a draw spell."])
+    )
+
+
+def test_canonical_face_aliases_and_normalized_apostrophes_are_allowed():
+    quote = "You may put that card onto the battlefield tapped."
+    assert apply_patches(
+        ["Fell the Profane enters untapped"],
+        [quote],
+        review("Fell the Profane enters untapped", "Fell Mire enters tapped", quote),
+        known_names=["Fell the Profane // Fell Mire"],
+    ) == ["Fell Mire enters tapped"]
+    assert apply_patches(
+        ["Teval's Judgment is mandatory"],
+        [quote],
+        review("Teval's Judgment is mandatory", "Teval’s Judgment is optional", quote),
+        known_names=["Teval's Judgment", "Opt"],
+    ) == ["Teval’s Judgment is optional"]
+
+
+def test_face_metadata_is_available_for_source_selection_and_patch_guard():
+    card = {
+        "name": "Fell the Profane",
+        "oracle_text": "Fell Mire enters the battlefield tapped.",
+        "card_faces": [{"name": "Fell the Profane"}, {"name": "Fell Mire"}],
+    }
+    sources = evidence_sources({"entries": [card]}, [], ["Fell Mire enters untapped."])
+    assert any("Card: Fell the Profane // Fell Mire" in source for source in sources)
+    assert "Fell the Profane // Fell Mire" in sources.card_names
+
+
+def test_yawgmoth_cost_correction_survives_unrelated_opt_in_known_names():
+    oracle = "Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card."
+    document = {
+        "entries": [
+            {"name": "Yawgmoth, Thran Physician", "oracle_text": oracle},
+            {"name": "Opt", "oracle_text": "Scry 1. Draw a card."},
+        ]
+    }
+    draft = ["Yawgmoth, Thran Physician is free-to-activate."]
+    sources = evidence_sources(document, [], draft)
+    source_index = next(
+        index for index, source in enumerate(sources) if oracle in source
+    )
+    replacement = "optional to activate, with no mana payment but costing 1 life and another creature"
+    value = review("free-to-activate", replacement, oracle).model_dump()
+    value["patches"][0]["citations"][0]["source_index"] = source_index
+    requests = []
+
+    def generate(request):
+        requests.append(request)
+        return SimpleNamespace(value=value)
+
+    corrected, receipt = review_answer(
+        SimpleNamespace(generate=generate), draft, sources, "Compare draw engines."
+    )
+    assert corrected == ["Yawgmoth, Thran Physician is " + replacement + "."]
+    assert receipt["status"] == "corrected"
+    assert "No mana cost does not mean free to activate" in requests[0].system
+    assert "Preserve requirements such as 'another'" in requests[0].system
+
+
+def test_common_word_split_faces_do_not_turn_mechanical_prose_into_card_names():
+    quote = "Sacrifice another creature: Draw a card."
+    replacement = (
+        "pay life when a creature faces death; return a card, never ignore fire or ice"
+    )
+    known_names = ["Life // Death", "Never // Return", "Fire // Ice"]
+    assert apply_patches(
+        ["incorrect claim"],
+        [quote],
+        review("incorrect claim", replacement, quote),
+        known_names=known_names,
+    ) == [replacement]
+    document = {
+        "entries": [{"name": name, "oracle_text": quote} for name in known_names]
+    }
+    assert evidence_sources(document, [], [replacement]) == []
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "Use Life instead",
+        "Use Return instead",
+        "Use Fire instead",
+        "Use life//death instead",
+    ],
+)
+def test_titled_split_faces_and_full_joined_names_still_guard_real_card_mentions(
+    replacement,
+):
+    quote = "Sacrifice another creature: Draw a card."
+    with pytest.raises(ValueError, match="card name outside its cited evidence"):
+        apply_patches(
+            ["incorrect claim"],
+            [quote],
+            review("incorrect claim", replacement, quote),
+            known_names=["Life // Death", "Never // Return", "Fire // Ice"],
+        )

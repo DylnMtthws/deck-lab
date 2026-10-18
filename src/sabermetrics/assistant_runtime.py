@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import time
 from collections.abc import Callable
@@ -53,6 +54,7 @@ from sabermetrics.assistant_research_task import (
     progress as research_progress,
 )
 from sabermetrics.assistant_session_state import (
+    compact_preferences,
     load_session_state,
     protected_session_context,
     session_state_research,
@@ -87,7 +89,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v25"
+PROMPT_VERSION = "build-conversation.v26"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1305,7 +1307,16 @@ def _encode_context(
         payload["state"]["grounded_deck_facts"]["features"] = [
             _compact(row) for row in facts["features"]
         ]
+    task_context = payload["state"].get("research_task")
+    if isinstance(task_context, dict):
+        # Planning-only copies are already represented by the validated ledger
+        # and requested-list contract. Repeating all quotes can crowd out facts.
+        if task_context.get("preference_updates"):
+            task_context.pop("preference_updates", None)
+        if task_context.get("discovery_lists"):
+            task_context.pop("discovery_lists", None)
     shortened: set[str] = set()
+    preferences_compacted = False
     # Do not truncate the actual instruction to the generic 1,200-character
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
@@ -1314,6 +1325,14 @@ def _encode_context(
         encoded = json.dumps(payload, ensure_ascii=False, default=str)
         if len(encoded) <= 16000:
             return encoded
+        if not preferences_compacted and context and context.get("preferences"):
+            preferences_compacted = True
+            packed = compact_preferences(context["preferences"])
+            payload["state"]["conversation_context"]["preferences"] = packed
+            payload["state"]["conversation_context"][
+                "preference_encoding"
+            ] = "rows[].fields retain every constraint field; rows[].evidence indexes the shared evidence table of exact user quote and source_turn."
+            continue
         if payload["conversation"] and (
             len(payload["conversation"]) > 1
             or payload["conversation"][0].get("role") != "tool"
@@ -1427,6 +1446,14 @@ def _encode_context(
                     payload["state"]["consulted_cards_omitted"] = (
                         payload["state"].get("consulted_cards_omitted", 0) + 1
                     )
+                elif state.get("session_evidence") and len(encoded) <= 23800:
+                    # New RAG slots may need a bounded extension after all old
+                    # prose/supplemental evidence has been evicted. Preserve
+                    # scoped constraints and source facts instead of refusing
+                    # synthesis; telemetry measures the actual input/cost.
+                    payload["context_budget_extended"] = True
+                    payload["context_budget_chars"] = 24000
+                    return json.dumps(payload, ensure_ascii=False, default=str)
                 else:
                     raise AssistantBudgetExceeded(
                         "The request exceeds the assistant context limit. Please shorten it."
@@ -1704,7 +1731,7 @@ def run_turn(
             row.model_dump() for row in discovery_requirements
         ]
         state["session_evidence"] = protected_session_context(
-            session, [], max_chars=6000
+            session, [], max_chars=9000
         )
         trusted_session_evidence: dict[str, str] = {}
         tools.research_preferences = state["conversation_context"]["preferences"]
@@ -1828,15 +1855,116 @@ def run_turn(
                         revision=result["revision"],
                     )
                     state["session_evidence"] = protected_session_context(
-                        session, [], max_chars=6000
+                        session, [], max_chars=9000
                     )
+                    # Exact printed-fact requests need no model interpretation.
+                    # Render the authoritative source directly, never as a
+                    # provider-error fallback or as strategic/rules analysis.
+                    requested_field = direct_plan.fact_field
+                    printed_value = (
+                        card.get("mana_value")
+                        if card.get("mana_value") is not None
+                        else card.get("cmc")
+                    )
+                    has_requested_fact = (
+                        requested_field in {"oracle_text", "type_line"}
+                        and isinstance(card.get(requested_field), str)
+                        and bool(str(card.get(requested_field)).strip())
+                        or (
+                            requested_field == "mana_cost"
+                            and isinstance(card.get("mana_cost"), str)
+                        )
+                        or (
+                            requested_field == "mana_value"
+                            and isinstance(printed_value, (int, float))
+                            and math.isfinite(printed_value)
+                        )
+                    )
+                    printed_cost = (
+                        "no printed mana cost"
+                        if card.get("mana_cost") == ""
+                        else (
+                            str(card["mana_cost"])
+                            if card.get("mana_cost") is not None
+                            else "not supplied"
+                        )
+                    )
+                    if (
+                        has_requested_fact
+                        and direct_plan.fact_field
+                        in {"oracle_text", "mana_cost", "mana_value", "type_line"}
+                        and not card.get("oracle_text_truncated")
+                        and " // " not in str(card.get("name") or "")
+                    ):
+                        field = direct_plan.fact_field
+                        name = str(card.get("name") or "Card")
+                        if field == "oracle_text":
+                            lead = name + " — printed Oracle text."
+                            findings = [
+                                "Mana cost: "
+                                + printed_cost
+                                + ". "
+                                + str(card.get("type_line") or ""),
+                                str(card.get("oracle_text") or ""),
+                            ]
+                        elif field == "mana_value":
+                            value = (
+                                card.get("mana_value")
+                                if card.get("mana_value") is not None
+                                else card.get("cmc")
+                            )
+                            assert isinstance(value, (int, float))
+                            lead = (
+                                name
+                                + " has printed mana value "
+                                + str(
+                                    int(value) if float(value).is_integer() else value
+                                )
+                                + "."
+                            )
+                            findings = ["Mana cost: " + printed_cost + "."]
+                        else:
+                            lead = (
+                                name
+                                + " — printed "
+                                + field.replace("_", " ")
+                                + ": "
+                                + str(card.get(field) or "none")
+                                + "."
+                            )
+                            findings = []
+                        review = {
+                            "status": "source_rendered",
+                            "scope": "Exact printed facts only; no generated interpretation, strategic assessment or rules ruling.",
+                        }
+                        result.update(
+                            status="done",
+                            reason="",
+                            content="\n\n".join([lead, *findings]),
+                            answer_review=review,
+                            presentation={
+                                "reply": {
+                                    "lead": lead,
+                                    "findings": findings,
+                                    "next_action": "",
+                                },
+                                "cards": resolve_presentation_cards(
+                                    db_path,
+                                    known_card_ids,
+                                    name,
+                                    [str(card.get("id") or "")],
+                                ),
+                                "answer_review": review,
+                            },
+                        )
+                        return result
                     emit(
                         {
                             "type": "partial_finding",
                             "name": "confirmed_finding",
                             "ok": True,
                             "revision": result["revision"],
-                            "content": f"{card.get('name')}: {card.get('mana_cost') or 'No mana cost printed'}. {card.get('oracle_text') or ''}",
+                            "content": f"{card.get('name')}: {card.get('mana_cost') or 'Printed mana cost not supplied'}. {card.get('oracle_text') or ''}",
                             "data": {"cards": [card], "source_scope": "printed facts"},
                         }
                     )
@@ -2072,6 +2200,7 @@ def run_turn(
                     name
                     for name in task.named_cards
                     if reference_key(name) in reference_key(current_request)
+                    and task.evidence_scope != "candidate_discovery"
                 ]
                 focused = {reference_key(name) for name in state["focused_card_names"]}
                 state.get("consulted_cards", []).sort(
@@ -2157,6 +2286,7 @@ def run_turn(
                         for row in state.get("consulted_cards", [])
                     ),
                     *state.get("commanders", []),
+                    *document.get("entries", []),
                 ]
                 missing_names = [
                     name
@@ -3098,7 +3228,7 @@ def run_turn(
                                 },
                             )
                             state["session_evidence"] = protected_session_context(
-                                session, [], max_chars=6000
+                                session, [], max_chars=9000
                             )
                             emit(
                                 {

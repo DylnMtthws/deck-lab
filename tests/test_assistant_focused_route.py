@@ -103,3 +103,27 @@ def test_summary_requires_retained_structured_provenance():
         ).route
         == "fallback"
     )
+
+
+def test_deck_mana_value_and_catalog_cmc_are_equivalent_authoritative_facts():
+    deck_card = {key: value for key, value in CARD.items() if key != "cmc"}
+    deck_card["mana_value"] = 4.0
+    assert (
+        focused_route("What does Grave Pact do?", [CARD, deck_card]).route
+        == "named_card_facts"
+    )
+
+
+def test_bad_numeric_metadata_falls_back_instead_of_crashing():
+    assert (
+        focused_route("What's the cmc of Grave Pact?", [{**CARD, "cmc": "X"}]).route
+        == "fallback"
+    )
+
+
+def test_empty_duplicate_fields_do_not_hide_actual_oracle_text():
+    partial = {**CARD, "oracle_text": ""}
+    assert (
+        focused_route("What does Grave Pact do?", [partial, CARD]).route
+        == "named_card_facts"
+    )

@@ -25,6 +25,11 @@ Check exact costs, legal targets, timing deadlines, tap-symbol summoning sicknes
 continuous control or haste, activation limits, and comparisons with actual deck
 cards. Preserve 'until the END of your next turn', player versus permanent
 hexproof, and the distinction between tap-symbol costs and tapping other creatures.
+Check every activation cost and condition in the supplied Oracle evidence.
+No mana cost does not mean free to activate: life payments, sacrifice, discard,
+tap costs, and required other permanents still apply. Include costs before the
+colon and conditions on resolution. Preserve requirements such as 'another'
+creature rather than treating the source itself as a valid sacrifice payment.
 Tap costs alone do not impose a once-per-turn limit. Do not call a spell cheapest
 without comparing actual printed mana costs in the supplied deck. Land counts are
 computed deck facts, not printed rules. Never infer absence from partial evidence.

@@ -24,8 +24,40 @@ class DiscoveryListPlan(StrictModel):
     request_quote: str = Field(min_length=8, max_length=300)
     requested_count: int | None = Field(default=None, ge=1, le=20)
     function: Literal[
-        "draw", "selection", "mana", "interaction", "recursion", "any"
+        "draw",
+        "selection",
+        "mana",
+        "interaction",
+        "recursion",
+        "sacrifice",
+        "counters",
+        "death_payoff",
+        "protection",
+        "any",
     ] = "any"
+
+    @model_validator(mode="after")
+    def requested_function(self):
+        # Align explicit role vocabulary with supported retrieval mechanisms.
+        # A model's generic "selection" tag cannot turn a sac-outlet request
+        # into a scry search. Ambiguous roles retain the supplied broad route.
+        text = self.label.casefold().strip()
+        if re.search(r"\b(?:no|not|avoid|without|except)\b", text):
+            self.function = "any"
+            return self
+        if self.function not in {"any", "selection"}:
+            return self
+        if re.search(r"\b(?:sac|sacrifice) outlets?\b", text):
+            self.function = "sacrifice"
+        elif re.search(r"\+1/\+1 counter|\bcounter sources?\b", text):
+            self.function = "counters"
+        elif re.search(r"\bdeath payoffs?\b|\bdies triggers?\b", text):
+            self.function = "death_payoff"
+        elif self.function == "selection" and not re.search(
+            r"\bscry|\bsurveil|\bselection|\bfilter", text
+        ):
+            self.function = "any"
+        return self
 
 
 class ResearchTask(StrictModel):

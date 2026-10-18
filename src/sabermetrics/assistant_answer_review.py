@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Literal
 
@@ -58,10 +59,62 @@ class SourceEvidence(list[str]):
         self.card_names: list[str] = []
 
 
+def _normalized_name_text(text: str, *, preserve_case: bool = False) -> str:
+    """Normalize typography without converting words into card-name matches."""
+    text = unicodedata.normalize("NFKC", text)
+    if not preserve_case:
+        text = text.casefold()
+    text = text.translate(str.maketrans("’‘ʼ–—‑", "'''---"))
+    return " ".join(text.split())
+
+
+def _mentions_card_name(text: str, name: str) -> bool:
+    """Match whole names or a known face alias, never a substring of a word."""
+    normalized = _normalized_name_text(text)
+    aliases = [
+        alias
+        for alias in re.split(
+            r"\s*//\s*", _normalized_name_text(name, preserve_case=True)
+        )
+        if alias
+    ]
+    full_name = r"\s*//\s*".join(re.escape(alias.casefold()) for alias in aliases)
+    if full_name and re.search(r"(?<!\w)" + full_name + r"(?!\w)", normalized):
+        return True
+    # Single-word split faces (Life, Death, Return, etc.) are ordinary prose too.
+    # Require their canonical capitalization unless the complete card is named.
+    raw = _normalized_name_text(text, preserve_case=True)
+    return any(
+        re.search(
+            r"(?<!\w)"
+            + re.escape(alias if len(alias.split()) == 1 else alias.casefold())
+            + r"(?!\w)",
+            raw if len(alias.split()) == 1 else normalized,
+        )
+        for alias in aliases
+    )
+
+
+def _card_name(card: dict[str, Any]) -> str:
+    """Retain canonical and face names as aliases of one supplied card."""
+    names = [str(card.get("name") or "")]
+    names.extend(
+        str(face.get("name") or "")
+        for face in (card.get("card_faces") or [])
+        if isinstance(face, dict)
+    )
+    aliases: dict[str, str] = {}
+    for name in names:
+        for alias in re.split(r"\s*//\s*", name):
+            if alias.strip():
+                aliases.setdefault(_normalized_name_text(alias), alias.strip())
+    return " // ".join(aliases.values())
+
+
 def _card_source(card: dict[str, Any]) -> str:
     return (
         "Card: "
-        + str(card.get("name") or "unknown")
+        + (_card_name(card) or "unknown")
         + "\nMana cost: "
         + str(card.get("mana_cost") or "unknown")
         + "\nType: "
@@ -86,11 +139,7 @@ def evidence_sources(
     candidates: list[tuple[str, str]] = []
 
     def named(card):
-        return any(
-            name.strip().casefold() in answer
-            for name in str(card.get("name") or "").split(" // ")
-            if name.strip()
-        )
+        return _mentions_card_name(answer, _card_name(card))
 
     def rule_hits(data):
         for hit in data.get("hits", [])[:6]:
@@ -217,7 +266,7 @@ def evidence_sources(
             )
     result = SourceEvidence()
     result.card_names = [
-        str(c["name"]) for c in [*document.get("entries", []), *cards] if c.get("name")
+        _card_name(c) for c in [*document.get("entries", []), *cards] if c.get("name")
     ]
     total = 0
     for label, source in candidates:
@@ -274,8 +323,8 @@ def apply_patches(
         ]
         names.extend(known_names or [])
         if any(
-            name.casefold() in patch.replacement.casefold()
-            and name.casefold() not in allowed.casefold()
+            _mentions_card_name(patch.replacement, name)
+            and not _mentions_card_name(allowed, name)
             for name in names
         ):
             raise AnswerPatchRejected(
@@ -349,7 +398,7 @@ def review_answer(
     if len(payload.encode()) > 32768 or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v3",
+        prompt_version="assistant-answer-review.v4",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),

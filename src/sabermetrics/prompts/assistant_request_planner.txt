@@ -38,3 +38,10 @@ functional queries and exact supporting request_quotes (up to three). Leave empt
 for explanations, comparisons of named cards, or empirical requests. Count means
 requested candidates PER list; null when unspecified, never open slots or number
 of categories. The runtime runs these bounded catalog queries before synthesis.
+Use function=sacrifice for activated sacrifice outlets, counters for +1/+1
+counter sources, death_payoff for death triggers, protection for protection,
+and draw for drawing cards. selection means scry/surveil/card filtering only;
+it is not a generic tag for choosing recommendations. Use any when unsupported.
+Exact core-card lists and Hard rule statements already present in saved_preferences
+were parsed locally. Do not repeat saved rows in preference_assessment; use null
+for dimensions without additional current-user meaning to extract.

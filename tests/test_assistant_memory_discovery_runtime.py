@@ -9,7 +9,7 @@ from tests.test_assistant_runtime import Gateway, call, step
 pytest_plugins = ["tests.test_assistant_experiments"]
 
 
-def test_focused_card_route_prefetches_and_synthesizes_once(prepared):
+def test_focused_card_route_renders_authoritative_facts_without_model_call(prepared):
     service, path, owner, deck, _, _ = prepared
     seed_card(
         path,
@@ -58,14 +58,13 @@ def test_focused_card_route_prefetches_and_synthesizes_once(prepared):
         experiment_service=service,
     )
     assert result["status"] == "done", result
-    assert len(gateway.requests) == 1
-    assert gateway.requests[0].schema.__name__ == "AssistantAnswerStep"
+    assert len(gateway.requests) == 0
+    assert result["answer_review"]["status"] == "source_rendered"
     assert events[0]["type"] == "tool_started"
-    partial = next(event for event in events if event["type"] == "partial_finding")
-    assert partial["data"]["source_scope"] == "printed facts"
-    assert "draw a card" in partial["content"]
+    assert any(event["type"] == "tool_result" and event["ok"] for event in events)
+    assert "When this creature enters, draw a card." in result["content"]
     assert result["presentation"]["reply"]["next_action"] == ""
-    assert result["research"]["runtime"]["model_calls"][0]["route"] == "synthesis"
+    assert result["research"]["runtime"]["model_calls"] == []
 
 
 def test_requested_list_cannot_finish_without_retrieved_manifest(prepared):
@@ -255,3 +254,137 @@ def test_planner_executes_separate_lists_without_intermediate_model_call(
         row["group_ids"][0]
         for row in result["research"]["discovery_ledger"]["candidates"]
     } == {"list_1", "list_2"}
+
+
+def test_three_list_context_keeps_facts_when_core_quotes_repeat():
+    from sabermetrics.assistant_discovery_contract import (
+        DiscoveryLedger,
+        candidate_from_card,
+    )
+    from sabermetrics.assistant_session_state import (
+        SessionState,
+        compact_preferences,
+        expand_preferences,
+        protected_session_context,
+    )
+
+    quote = "My six core cards are: " + "; ".join(
+        f"Retained Core {i}" for i in range(6)
+    )
+    preferences = [
+        {
+            "dimension": "core_card",
+            "value": f"Retained Core {i}",
+            "strength": "required",
+            "scope": "recommendations",
+            "polarity": "include",
+            "operation": "set",
+            "quote": quote,
+        }
+        for i in range(6)
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(
+                {
+                    "id": f"card-{i}",
+                    "name": f"Candidate {i}",
+                    "type_line": "Creature",
+                    "mana_cost": "{2}{B}",
+                    "oracle_text": "When another creature dies, draw a card. " * 12,
+                },
+                rank=i % 8 + 1,
+                group_ids=[f"list_{i//8+1}"],
+            )
+            for i in range(24)
+        ]
+    )
+    state = {
+        "conversation_context": {"preferences": preferences},
+        "research_task": {
+            "preference_updates": preferences,
+            "discovery_lists": [{"label": "role", "query": "query" * 60}] * 3,
+        },
+        "session_evidence": protected_session_context(
+            SessionState(ledger=ledger), [], max_chars=9000
+        ),
+        "consulted_cards": [
+            {
+                "card": {
+                    "id": f"core-{i}",
+                    "oracle_id": f"oracle-{i}",
+                    "name": f"Retained Core {i}",
+                    "oracle_text": "Printed core card text. " * 40,
+                }
+            }
+            for i in range(6)
+        ],
+        "engine_graph": {"nodes": ["supplemental" * 100] * 12},
+    }
+    encoded = _encode_context(
+        state, "Find three short candidate lists beyond these core cards.", []
+    )
+    assert len(encoded) <= 24000
+    payload = json.loads(encoded)["state"]
+    visible = payload["session_evidence"]["discovery_candidates"]
+    assert all(
+        any(
+            row["group_ids"] == [f"list_{group}"]
+            and row["printed_fields"].get("oracle_text")
+            for row in visible
+        )
+        for group in (1, 2, 3)
+    )
+    packed = payload["conversation_context"]["preferences"]
+    assert (
+        expand_preferences(packed) if isinstance(packed, dict) else packed
+    ) == preferences
+    assert expand_preferences(compact_preferences(preferences)) == preferences
+
+
+def test_context_packing_never_mutates_live_memory_under_pressure():
+    from copy import deepcopy
+
+    state = {
+        "conversation_context": {
+            "preferences": [
+                {
+                    "dimension": "core_card",
+                    "value": f"Core {i}",
+                    "strength": "required",
+                    "quote": "Keep these core cards in the deck." * 6,
+                }
+                for i in range(20)
+            ]
+        },
+        "research_task": {
+            "preference_updates": [{"quote": "Required constraint."}] * 20,
+            "discovery_lists": [{"query": "role query"}] * 3,
+        },
+    }
+    before = deepcopy(state)
+    _encode_context(
+        state,
+        "Recap my constraints.",
+        [{"role": "assistant", "content": "old prose" * 1200}] * 10,
+    )
+    assert state == before
+
+
+def test_named_role_override_handles_selection_mistag_without_recursion():
+    from sabermetrics.assistant_research_task import DiscoveryListPlan
+
+    value = DiscoveryListPlan(
+        label="Sac outlets",
+        request_quote="Find free sac outlets",
+        query="Sacrifice another creature",
+        function="selection",
+    )
+    assert value.function == "sacrifice"
+    negative = DiscoveryListPlan(
+        label="No more sac outlets",
+        request_quote="No more sac outlets",
+        query="New draw engines",
+        function="selection",
+    )
+    assert negative.function == "any"

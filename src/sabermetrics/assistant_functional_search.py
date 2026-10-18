@@ -27,7 +27,16 @@ class FunctionalSearchArgs(BaseModel):
         default="", max_length=500, description="Research goal, not a card-name filter."
     )
     function: Literal[
-        "draw", "selection", "mana", "interaction", "recursion", "any"
+        "draw",
+        "selection",
+        "mana",
+        "interaction",
+        "recursion",
+        "sacrifice",
+        "counters",
+        "death_payoff",
+        "protection",
+        "any",
     ] = "draw"
     type_line: Literal[
         "",
@@ -86,6 +95,176 @@ _FUNCTIONS = {
     "recursion": re.compile(r"from (?:your|a|the) graveyard", re.IGNORECASE),
 }
 
+_ROLE_FUNCTIONS = {"sacrifice", "counters", "death_payoff", "protection"}
+_CHEAP_FUNCTION_TERMS = {
+    "draw": ("draw",),
+    "sacrifice": ("sacrifice",),
+    "counters": ("+1/+1",),
+    # Preserve the older 'put into a graveyard from the battlefield' wording
+    # accepted by the exact role gate, as well as die/dies trigger wording.
+    "death_payoff": ("die", "graveyard"),
+    "protection": (
+        "hexproof",
+        "shroud",
+        "indestructible",
+        "protection",
+        "phas",
+        "counter",
+    ),
+}
+_TRIGGER_START = re.compile(r"^(?:When(?:ever)?|At the beginning)\b", re.IGNORECASE)
+_COUNTER_QUANTITY = (
+    r"(?:(?:an?|another|one|two|three|four|five|six|seven|eight|nine|ten|x|"
+    r"that many|twice that many|a number of|the same number of|one or more|[0-9]+)\s+)?"
+    r"(?:additional\s+)?"
+)
+_COUNTER_PLACEMENT = re.compile(
+    rf"\b(?:put|distribute)\s+{_COUNTER_QUANTITY}\+1/\+1 counters?\b"
+    rf"|\benters?\s+(?:the battlefield\s+)?(?:tapped\s+)?with\s+{_COUNTER_QUANTITY}\+1/\+1 counters?\b",
+    re.IGNORECASE,
+)
+_PROTECTIVE_KEYWORD = r"(?:hexproof|shroud|indestructible|phasing|protection from)"
+_GRANTED_PROTECTION = re.compile(
+    rf"\b(?:has|have|gains?|are|is)\b[^.:\n]{{0,100}}\b{_PROTECTIVE_KEYWORD}\b",
+    re.IGNORECASE,
+)
+_OUTLET_COST = re.compile(
+    r"\bsacrifice\s+(?:an?|another|one|two|three|four|five|six|x|[0-9]+|"
+    r"any number of|one or more|all)\s+(?:[\w+-]+\s+){0,3}?"
+    r"(?:creatures?|artifacts?|permanents?|enchantments?|lands?|planeswalkers?|"
+    r"battles?|tokens?|foods?|treasures?|clues?|blood)\b",
+    re.IGNORECASE,
+)
+
+
+def _role_routes(card: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Collect exact printed mechanisms, preserving restrictions rather than proving rules.
+
+    These bounded clause gates exclude incidental mentions and trigger antecedents.
+    They do not promise complete Oracle parsing, unlimited activations, beneficial
+    strategic impact, or applicability to a particular board state.
+    """
+    result: dict[str, list[dict[str, Any]]] = {
+        key: [] for key in sorted(_ROLE_FUNCTIONS)
+    }
+    raw = str(card.get("oracle_text") or "")
+    for match in re.finditer(r"[^.\n]+(?:\.|$)", raw, re.MULTILINE):
+        quote = match[0].strip()
+        text = quote.lstrip("• ")
+        restriction = re.match(
+            r"\s*(?:Activate only\b|This ability triggers only\b)[^.\n]*(?:\.|$)",
+            raw[match.end() :],
+            re.IGNORECASE,
+        )
+        restrictions = []
+        if restriction:
+            quote = raw[match.start() : match.end() + restriction.end()].strip()
+            restrictions.append(restriction[0].strip())
+        trigger = bool(_TRIGGER_START.match(text))
+        activation_cost = ""
+        event = ""
+        if trigger:
+            event, separator, effect = text.partition(",")
+            if not separator:
+                effect = ""
+        elif ":" in text:
+            activation_cost, effect = text.split(":", 1)
+        else:
+            effect = text
+        conditional = (
+            trigger
+            or bool(activation_cost)
+            or bool(restrictions)
+            or bool(
+                re.search(
+                    r"\b(?:if|unless|may|only|until|from)\b|\bas long as\b",
+                    text,
+                    re.IGNORECASE,
+                )
+            )
+        )
+
+        def add(function: str, mechanism: str) -> None:
+            result[function].append(
+                {
+                    "source_quote": quote,
+                    "mechanism": mechanism,
+                    "kind": (
+                        "trigger"
+                        if trigger
+                        else "activation" if activation_cost else "printed_effect"
+                    ),
+                    "activation_cost": activation_cost.strip(),
+                    "conditional": conditional,
+                    "restrictions": restrictions,
+                    "scope": "Printed mechanism only; preserve full Oracle conditions, targets, costs and timing. Repeatability and strategic benefit are not certified.",
+                }
+            )
+
+        if activation_cost and _OUTLET_COST.search(activation_cost):
+            add("sacrifice", "activated_sacrifice_cost")
+        if _COUNTER_PLACEMENT.search(effect) and not re.search(
+            r"\b(?:can't|cannot|don't|doesn't|may not)\b", effect, re.IGNORECASE
+        ):
+            add("counters", "plus_one_counter_placement")
+        # Enters-with counters is a replacement/static printed clause, not a
+        # trigger antecedent. Trigger antecedents mentioning counters stay out.
+        death_event = bool(re.search(r"\bdies?\b", event, re.IGNORECASE)) or bool(
+            re.search(
+                r"\bput into\b[^.]{0,80}\bgraveyard\b[^.]{0,80}\bfrom (?:the )?battlefield\b",
+                event,
+                re.IGNORECASE,
+            )
+        )
+        creature_event = bool(re.search(r"\bcreatures?\b", event, re.IGNORECASE))
+        name = str(card.get("name") or "")
+        self_event = bool(name and name.casefold() in event.casefold()) or bool(
+            re.search(r"\bthis (?:creature|permanent)\b", event, re.IGNORECASE)
+        )
+        if (
+            trigger
+            and death_event
+            and (creature_event or self_event)
+            and effect.strip()
+        ):
+            add(
+                "death_payoff",
+                "self_death_value" if self_event else "creature_death_trigger",
+            )
+        # Negative references such as 'lose hexproof' or 'can't gain hexproof'
+        # are not protective effects. Keep this conservative within each clause.
+        detection_effect = re.sub(r"\([^)]*(?:\)|$)", "", effect)
+        negative = re.search(
+            r"\b(?:lose|loses|losing|without|can't|cannot|don't|doesn't|not|no|neither)\b",
+            detection_effect,
+            re.IGNORECASE,
+        )
+        keyword = re.search(
+            rf"(?:^|,\s*){_PROTECTIVE_KEYWORD}\b",
+            detection_effect.strip(),
+            re.IGNORECASE,
+        )
+        granted = _GRANTED_PROTECTION.search(detection_effect)
+        if not negative and (keyword or granted):
+            add("protection", "printed_or_granted_protection")
+        if (
+            re.search(r"\b(?:phase|phases) out\b", detection_effect, re.IGNORECASE)
+            and not negative
+        ):
+            add("protection", "phase_out_effect")
+        counterspell = re.search(
+            r"\bcounter target\b[^.\n]{0,100}\bspell\b",
+            detection_effect,
+            re.IGNORECASE,
+        )
+        if counterspell and not re.search(
+            r"\b(?:can't|cannot|don't|doesn't|do not)\s*$",
+            detection_effect[: counterspell.start()],
+            re.IGNORECASE,
+        ):
+            add("protection", "targeted_spell_counter")
+    return result
+
 
 def functional_profile(card: dict[str, Any]) -> dict[str, Any]:
     routes = []
@@ -133,6 +312,7 @@ def functional_profile(card: dict[str, Any]) -> dict[str, Any]:
         routes.append({**route.model_dump(), "draw_control": control})
     return {
         "draw_routes": routes,
+        "function_routes": _role_routes(card),
         "draw_control_coverage": "partial_printed_clauses",
         "secondary_capabilities": sorted(strategy_capabilities(card))[:12],
         "source_oracle_text": card.get("oracle_text") or "",
@@ -165,12 +345,26 @@ def functional_search(
         and "battlefield" in commander_text
     )
     cards, profiles = {}, {}
+    excluded_names = {name.casefold() for name in args.excluded_names}
+    cheap_terms = _CHEAP_FUNCTION_TERMS.get(args.function)
+    function_pattern = _FUNCTIONS.get(args.function)
     with closing(sqlite3.connect(path)) as conn:
         conn.row_factory = sqlite3.Row
         for row in _catalog_faces(conn, str(Path(path).resolve())):
-            if str(row.get("name") or "").casefold() in {
-                n.casefold() for n in args.excluded_names
-            }:
+            if str(row.get("name") or "").casefold() in excluded_names:
+                continue
+            oracle_text = str(row.get("oracle_text") or "")
+            folded_text = oracle_text.casefold()
+            # Necessary lexical cues only: this avoids expensive route/profile
+            # construction for irrelevant rows without narrowing semantic recall.
+            # Full mechanical relevance checks below remain authoritative.
+            if cheap_terms is not None and not any(
+                term in folded_text for term in cheap_terms
+            ):
+                continue
+            if function_pattern is not None and not function_pattern.search(
+                oracle_text
+            ):
                 continue
             if not _identity_ok(row, allowed):
                 continue
@@ -199,8 +393,9 @@ def functional_search(
             profile = functional_profile(card)
             if args.function == "draw" and not profile["draw_routes"]:
                 continue
-            if args.function in _FUNCTIONS and not _FUNCTIONS[args.function].search(
-                str(card.get("oracle_text") or "")
+            if (
+                args.function in _ROLE_FUNCTIONS
+                and not profile["function_routes"][args.function]
             ):
                 continue
             controls = {r["draw_control"] for r in profile["draw_routes"]}
@@ -306,7 +501,10 @@ def functional_search(
         cards[oid]["recall_channels"] = channels
         if oid in associations:
             cards[oid]["association_evidence"] = associations[oid]
-        recurring = any(r["kind"] in {"activation", "trigger"} for r in routes)
+        role_routes = profile["function_routes"].get(args.function, [])
+        recurring = any(r["kind"] in {"activation", "trigger"} for r in routes) or any(
+            r["kind"] in {"activation", "trigger"} for r in role_routes
+        )
         secondary = profile["secondary_capabilities"]
         multifunctional = bool(
             set(secondary)
