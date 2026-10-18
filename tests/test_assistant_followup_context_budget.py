@@ -293,3 +293,18 @@ def test_omission_metadata_names_each_field_once_but_counts_all_facts():
     context = protected_session_context(state, [], max_chars=9000)
     assert context["discovery_candidates"][0]["omitted_fields"] == ["condition"]
     assert context["candidate_facts_omitted"] == 8
+
+
+def test_extension_checks_actual_envelope_instead_of_guessing_a_margin():
+    state = {
+        "session_evidence": {
+            "discovery_candidates": [{"card_id": "c", "name": "Source"}]
+        }
+    }
+    base = len(_encode_context(state, "q", [])) - 1
+    request = "q" * (23910 - base)
+    wire = _encode_context(state, request, [])
+    assert len(wire) <= 24000
+    payload = json.loads(wire)
+    assert payload["current_user_request"] == request
+    assert payload["context_budget_extended"] is True

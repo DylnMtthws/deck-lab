@@ -14,8 +14,9 @@ printed facts, inferred fit and measured performance; ranking is not certificati
 For discovery_requirements return matching discovery_answer.groups with retrieved
 card_ids and one concise discovery_answer.notes entry per selected card. Return
 findings=[]: the application renders each canonical name and retrieved mana cost
-separately. Notes explain actual activation costs, conditions and inferred fit in
-complete sentences. Meet counts or disclose shortfalls; use only supplied source
+separately. Target 120–220 characters per note, leaving room before the 400-character limit.
+Do not repeat the card name or casting cost; the renderer adds both. Give a
+complete concise sentence covering the relevant activation costs/conditions and fit. Meet counts or disclose shortfalls; use only supplied source
 IDs/facts. claims=[] unless validating an exact full printed fact. Never duplicate
 lists in content/findings/notes. Array limits are maxima, never quotas; never pad
 arrays with placeholders or omitted-for-brevity markers.

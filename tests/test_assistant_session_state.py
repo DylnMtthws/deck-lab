@@ -427,3 +427,81 @@ def test_nonhead_oracle_never_exposes_half_activation_cost():
     )
     assert "oracle_text" not in long_card["printed_fields"]
     assert "oracle_text" in long_card["omitted_fields"]
+
+
+def test_priority_view_keeps_eight_complete_current_bundles_and_forty_identities():
+    cards = [
+        {
+            "id": f"00000000-0000-0000-0000-{i:012d}",
+            "name": f"Source Candidate {i}",
+            "mana_cost": "{2}{B}",
+            "type_line": "Creature — Human",
+            "oracle_text": "{1}, {T}, Sacrifice another creature: Draw a card. "
+            + "This ability has a printed condition. " * 3
+            + "Activate only once each turn.",
+        }
+        for i in range(40)
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(card, rank=i + 1, group_ids=[f"list_{i % 3 + 1}"])
+            for i, card in enumerate(cards)
+        ]
+    )
+    state = SessionState(ledger=ledger)
+    priorities = [card["id"] for card in cards[-8:]]
+    packed = protected_session_context(
+        state, [], max_chars=9000, priority_card_ids=priorities
+    )
+    assert len(json.dumps(packed, ensure_ascii=False)) <= 9000
+    assert len(packed["discovery_candidates"]) == 40
+    assert packed["priority_bundles_retained"] == 8
+    for index, row in enumerate(packed["discovery_candidates"]):
+        assert row["name"] == cards[index]["name"]
+        assert row["group_ids"] == [f"list_{index % 3 + 1}"]
+        if row["card_id"] in priorities:
+            assert row["printed_fields"]["oracle_text"] == cards[index]["oracle_text"]
+            assert row["printed_fields"]["mana_cost"] == cards[index]["mana_cost"]
+            assert row["printed_fields"]["type_line"] == cards[index]["type_line"]
+        else:
+            assert "printed_fields" not in row
+            assert "omitted_fields" not in row
+    assert len(state.ledger.candidates[0].source_facts) == 3
+
+
+def test_priority_view_drops_whole_lower_priority_bundles_without_oracle_cuts():
+    cards = [
+        {
+            "id": str(i),
+            "name": f"Card {i}",
+            "mana_cost": "{B}",
+            "type_line": "Creature",
+            "oracle_text": "Pay 1 life, Sacrifice another creature: Draw a card. " * 25,
+        }
+        for i in range(12)
+    ]
+    state = SessionState(
+        ledger=DiscoveryLedger(
+            candidates=[
+                candidate_from_card(card, rank=i + 1) for i, card in enumerate(cards)
+            ]
+        )
+    )
+    priorities = [card["id"] for card in cards]
+    packed = protected_session_context(
+        state, [], max_chars=6000, priority_card_ids=priorities
+    )
+    assert len(json.dumps(packed, ensure_ascii=False)) <= 6000
+    assert packed["priority_bundle_shortfall"]
+    retained = [
+        row for row in packed["discovery_candidates"] if "printed_fields" in row
+    ]
+    assert retained
+    assert [row["card_id"] for row in retained] == priorities[: len(retained)]
+    for row in retained:
+        assert (
+            row["printed_fields"]["oracle_text"]
+            == cards[int(row["card_id"])]["oracle_text"]
+        )
+        assert set(row["printed_fields"]) == {"oracle_text", "mana_cost", "type_line"}
+    assert packed["candidate_facts_omitted"] == (12 - len(retained)) * 3

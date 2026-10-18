@@ -623,3 +623,97 @@ def test_provider_failure_preserves_retrieved_facts_without_claiming_analysis(pr
     assert "When this creature enters, draw a card." in result["content"]
     assert "requested analysis is incomplete" in result["content"]
     assert "private detail" not in result["content"]
+
+
+def test_one_planned_list_synthesizes_once_with_complete_current_candidate_facts(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_research_task import DiscoveryListPlan
+    from sabermetrics.assistant_tools import AssistantTools
+    from tests.test_assistant_request_planner import plan
+
+    service, path, owner, deck, _, _ = prepared
+    request = "Find three repeatable draw creatures."
+    planned = plan(request, scope="candidate_discovery")
+    planned.research_task.discovery_lists = [
+        DiscoveryListPlan(
+            label="Repeatable draw creatures",
+            query="repeatable creature card draw",
+            request_quote=request,
+            requested_count=3,
+            function="draw",
+        )
+    ]
+    oracle = (
+        "{2}, {T}: Draw a card. "
+        + "Printed context. " * 12
+        + "Activate only during your turn."
+    )
+    cards = [
+        {
+            "id": f"draw-{i}",
+            "name": f"Draw Scholar {i}",
+            "mana_cost": "{2}{U}",
+            "type_line": "Creature — Wizard",
+            "oracle_text": oracle,
+        }
+        for i in range(8)
+    ]
+    original = AssistantTools.execute
+
+    def execute(self, call):
+        if call.name == "search_card_functions":
+            return {"status": "available", "cards": cards}
+        return original(self, call)
+
+    monkeypatch.setattr(AssistantTools, "execute", execute)
+    gateway = Gateway(
+        [
+            planned,
+            AssistantStep(
+                content="These three creatures offer activated draw with timing costs.",
+                discovery_answer={
+                    "groups": [
+                        {
+                            "group_id": "list_1",
+                            "claimed_count": 3,
+                            "card_ids": [c["id"] for c in cards[:3]],
+                        }
+                    ],
+                    "notes": [
+                        {
+                            "card_id": c["id"],
+                            "note": "Draw costs {2} and tapping, and activates only during your turn.",
+                        }
+                        for c in cards[:3]
+                    ],
+                },
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 2
+    assert gateway.requests[-1].schema.__name__ == "AssistantAnswerStep"
+    evidence = json.loads(gateway.requests[-1].user)["state"]["session_evidence"]
+    supplied = {c["card_id"]: c for c in evidence["discovery_candidates"]}
+    consulted = {
+        row["card"]["id"]: row["card"]
+        for row in json.loads(gateway.requests[-1].user)["state"].get(
+            "consulted_cards", []
+        )
+    }
+    for card in cards:
+        fields = supplied[card["id"]].get("printed_fields", {})
+        shared = consulted.get(card["id"], {})
+        assert fields.get("oracle_text", shared.get("oracle_text")) == oracle
+        assert fields.get("type_line", shared.get("type_line")) == card["type_line"]
+        assert "oracle_text" not in supplied[card["id"]].get("excerpted_fields", [])

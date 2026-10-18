@@ -1385,6 +1385,16 @@ def _encode_context(
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
     payload["state"]["constraints"] = state.get("constraints", {})
+
+    def extended_context() -> str | None:
+        expanded = json.dumps(
+            {**payload, "context_budget_extended": True, "context_budget_chars": 24000},
+            ensure_ascii=False,
+            default=str,
+            separators=(",", ":"),
+        )
+        return expanded if len(expanded) <= 24000 else None
+
     while True:
         encoded = json.dumps(
             payload, ensure_ascii=False, default=str, separators=(",", ":")
@@ -1550,15 +1560,11 @@ def _encode_context(
                     # Focused cards must not bypass the same bounded escape
                     # hatch available to ordinary sessions. The old early
                     # raise refused real follow-ups that fit below 24k.
-                    if state.get("session_evidence") and len(encoded) <= 23800:
-                        payload["context_budget_extended"] = True
-                        payload["context_budget_chars"] = 24000
-                        return json.dumps(
-                            payload,
-                            ensure_ascii=False,
-                            default=str,
-                            separators=(",", ":"),
-                        )
+                    if (
+                        state.get("session_evidence")
+                        and (expanded := extended_context()) is not None
+                    ):
+                        return expanded
                     budget_error = AssistantBudgetExceeded(
                         "The request and focused card evidence exceed the assistant context limit."
                     )
@@ -1598,16 +1604,13 @@ def _encode_context(
                 payload["state"]["consulted_cards_omitted"] = (
                     payload["state"].get("consulted_cards_omitted", 0) + 1
                 )
-            elif state.get("session_evidence") and len(encoded) <= 23800:
-                # New RAG slots may need a bounded extension after all old
-                # prose/supplemental evidence has been evicted. Preserve
-                # scoped constraints and source facts instead of refusing
-                # synthesis; telemetry measures the actual input/cost.
-                payload["context_budget_extended"] = True
-                payload["context_budget_chars"] = 24000
-                return json.dumps(
-                    payload, ensure_ascii=False, default=str, separators=(",", ":")
-                )
+            elif (
+                state.get("session_evidence")
+                and (expanded := extended_context()) is not None
+            ):
+                # Measure the actual final envelope, including its flags. A
+                # guessed margin must not refuse an answer that fits the cap.
+                return expanded
             else:
                 budget_error = AssistantBudgetExceeded(
                     "The request exceeds the assistant context limit. Please shorten it."
@@ -1931,6 +1934,25 @@ def run_turn(
             session, [], max_chars=9000
         )
         trusted_session_evidence: dict[str, str] = {}
+        priority_buckets: dict[str, list[str]] = {}
+
+        def context_priority_ids() -> list[str]:
+            buckets = list(priority_buckets.values())
+            if not buckets:
+                groups = (previous_selection or {}).get("groups", [])
+                buckets = [g.get("card_ids", []) for g in groups]
+            if not buckets:
+                buckets = [
+                    list(source_cards),
+                    [c.card_id for c in session.ledger.candidates[:12]],
+                ]
+            ordered: list[str] = []
+            for offset in range(max((len(bucket) for bucket in buckets), default=0)):
+                for bucket in buckets:
+                    if offset < len(bucket) and bucket[offset] not in ordered:
+                        ordered.append(bucket[offset])
+            return ordered
+
         tools.research_preferences = state["conversation_context"]["preferences"]
         previous_conclusions = []
         previous_selection = None
@@ -1957,6 +1979,9 @@ def run_turn(
         }
         if previous_selection:
             state["prior_selected_candidates"] = previous_selection
+        state["session_evidence"] = protected_session_context(
+            session, [], max_chars=9000, priority_card_ids=context_priority_ids()
+        )
         task = None
         continuation_used = False
         package_research_attempted = False
@@ -2509,7 +2534,9 @@ def run_turn(
                                 "arguments": {
                                     "query": f"{row.label}: {row.query}",
                                     "function": row.function,
-                                    "limit": min(20, max(8, row.requested_count or 8)),
+                                    "limit": min(
+                                        20, max(8, (row.requested_count or 4) + 4)
+                                    ),
                                 },
                             }
                         )
@@ -3483,8 +3510,25 @@ def run_turn(
                                     for row in document.get("entries", [])
                                 },
                             )
+                            bucket_key = (
+                                "lookups" if call.name == "card_details" else cache_key
+                            )
+                            ids = [candidate.card_id for candidate in incoming]
+                            priority_buckets[bucket_key] = list(
+                                dict.fromkeys(
+                                    ids
+                                    + (
+                                        priority_buckets.get(bucket_key, [])
+                                        if bucket_key == "lookups"
+                                        else []
+                                    )
+                                )
+                            )
                             state["session_evidence"] = protected_session_context(
-                                session, [], max_chars=9000
+                                session,
+                                [],
+                                max_chars=9000,
+                                priority_card_ids=context_priority_ids(),
                             )
                             emit(
                                 {
@@ -3525,7 +3569,13 @@ def run_turn(
                             call.name == "search_card_functions"
                             and data.get("cards")
                             and len(successful_functional_queries)
-                            >= max(2, min(4, len(discovery_requirements)))
+                            >= (
+                                len(task.discovery_lists)
+                                if task is not None
+                                and planned_lists_executed
+                                and task.discovery_lists
+                                else max(2, min(4, len(discovery_requirements)))
+                            )
                             and task is not None
                             and (
                                 task.kind in {"discover", "compare"}

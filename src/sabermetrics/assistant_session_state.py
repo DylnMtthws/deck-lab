@@ -326,14 +326,116 @@ def protected_session_context(
     preferences: list[dict[str, Any]],
     *,
     max_chars: int = 6000,
+    priority_card_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Pack shared preference evidence and lean printed fields, preserving identity.
 
-    Group-balanced top candidates receive printed fields. Oracle excerpts are
-    explicitly marked; full facts remain in the persisted ledger. Omitted fields
-    and findings are counted. Mandatory preferences/identities are never removed.
+    Priority IDs receive complete coherent printed bundles, never excerpts;
+    lower-priority bundles are omitted whole when necessary. With no priority
+    IDs, the legacy group-balanced excerpt view remains available. Full facts
+    remain persisted; omissions are counted and all identities/preferences stay.
     Insert directly after generic compaction to preserve this packing contract.
     """
+    if priority_card_ids is not None:
+        # Current-turn retrieval priority supersedes historical role heads. Keep
+        # coherent complete printed bundles rather than unrelated text fragments.
+        ordered_ids = list(dict.fromkeys(priority_card_ids))[:12]
+        priority = set(ordered_ids)
+        packed_candidates: list[dict[str, Any]] = []
+        total_facts = sum(len(card.source_facts) for card in state.ledger.candidates)
+        bundled_fact_counts: dict[str, int] = {}
+        for candidate in state.ledger.candidates:
+            packed_candidate: dict[str, Any] = {
+                "card_id": candidate.card_id,
+                "name": candidate.name,
+                "rank": candidate.rank,
+                "in_deck": candidate.in_deck,
+                "group_ids": candidate.group_ids,
+            }
+            if candidate.card_id in priority:
+                fields: dict[str, str] = {}
+                for fact in candidate.source_facts:
+                    if fact.kind in {
+                        "oracle_text",
+                        "mana_cost",
+                        "mana_value",
+                        "type_line",
+                    }:
+                        fields.setdefault(fact.kind, fact.value)
+                if fields:
+                    packed_candidate["printed_fields"] = fields
+                    bundled_fact_counts[candidate.card_id] = len(fields)
+                    missing = [
+                        kind
+                        for kind in ("oracle_text", "mana_cost", "type_line")
+                        if kind not in fields
+                    ]
+                    if missing:
+                        packed_candidate["missing_printed_fields"] = missing
+            packed_candidates.append(packed_candidate)
+        priority_context: dict[str, Any] = {
+            "preferences": compact_preferences(preferences),
+            "discovery_candidates": packed_candidates,
+            "session_findings": [
+                finding.model_dump()
+                for finding in state.findings
+                if finding.kind != "candidate"
+            ],
+            "findings_omitted": sum(
+                finding.kind == "candidate" for finding in state.findings
+            ),
+            "candidate_facts_omitted": total_facts - sum(bundled_fact_counts.values()),
+            "priority_bundles_requested": len(priority),
+            "priority_bundles_retained": len(bundled_fact_counts),
+            "priority_bundle_shortfall": len(bundled_fact_counts) < len(priority),
+            "card_fact_citation": "Each printed_fields bundle cites card:<card_id>. Full supplied Oracle/mana/type fields stay together; text is never excerpted in this view.",
+            "scope": "All candidate identities remain. Missing printed_fields means source facts were omitted for context size or priority, never absence of an ability. Missing_printed_fields are unavailable in the supplied source. Retrieve card_details before characterizing omitted costs, conditions or repeatability. Rankings/groups are planning metadata; provenance is not proof or action authority.",
+        }
+        # A full finding can duplicate larger durable conclusions. Under pressure
+        # preserve its kind and source references rather than spending the entire
+        # source budget before current candidates can be compared.
+        while len(json.dumps(priority_context, ensure_ascii=False)) > max_chars:
+            complete_finding = next(
+                (
+                    finding
+                    for finding in priority_context["session_findings"]
+                    if "claim" in finding
+                ),
+                None,
+            )
+            if complete_finding is not None:
+                complete_finding.pop("claim")
+                complete_finding["claim_omitted"] = True
+                complete_finding["evidence_refs"] = [
+                    support["reference"]
+                    for support in complete_finding.pop("evidence", [])
+                ]
+                priority_context["findings_omitted"] += 1
+                continue
+            removed = False
+            for card_id in reversed(ordered_ids):
+                if card_id not in bundled_fact_counts:
+                    continue
+                packed_candidate = next(
+                    row for row in packed_candidates if row["card_id"] == card_id
+                )
+                packed_candidate.pop("printed_fields", None)
+                packed_candidate.pop("missing_printed_fields", None)
+                priority_context["candidate_facts_omitted"] += bundled_fact_counts.pop(
+                    card_id
+                )
+                priority_context["priority_bundles_retained"] -= 1
+                removed = True
+                break
+            if not removed:
+                priority_context["mandatory_context_exceeds_budget"] = True
+                break
+        if (
+            priority_context["priority_bundles_retained"]
+            < priority_context["priority_bundles_requested"]
+        ):
+            priority_context["priority_bundle_shortfall"] = True
+        return priority_context
     selected = _balanced_fact_ids(state.ledger)
     role_buckets: dict[str, list[str]] = {}
     for item in sorted(
