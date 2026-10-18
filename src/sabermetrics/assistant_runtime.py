@@ -395,7 +395,7 @@ reasoning separately from the concise user-facing answer.
 
 
 class AssistantBudgetExceeded(Exception):
-    pass
+    context_sizes: dict[str, int] | None = None
 
 
 class AssistantReplyFields(StrictModel):
@@ -1373,6 +1373,7 @@ def _encode_context(
     shortened: set[str] = set()
     preferences_compacted = False
     source_metadata_compacted = False
+    selection_compacted = False
     # Do not truncate the actual instruction to the generic 1,200-character
     # text limit, or hide protected cards behind the generic 12-item list cap.
     payload["current_user_request"] = latest_request
@@ -1388,6 +1389,44 @@ def _encode_context(
             payload["state"]["conversation_context"][
                 "preference_encoding"
             ] = "rows[].fields retain every constraint field; rows[].evidence indexes the shared evidence table of exact user quote and source_turn."
+            continue
+        if not selection_compacted:
+            selection_compacted = True
+            selected = payload["state"].get("prior_selected_candidates")
+            original_selection = state.get("prior_selected_candidates")
+            if isinstance(selected, dict) and isinstance(original_selection, dict):
+                notes = original_selection.get("notes")
+                if isinstance(notes, list) and notes:
+                    # Selected notes repeat old model prose; retain membership,
+                    # fact references and durable-history location instead. Current
+                    # printed facts and typed conclusions keep their own slots.
+                    selected.pop("notes", None)
+                    selected["note_card_ids"] = list(
+                        dict.fromkeys(
+                            str(row["card_id"])
+                            for row in notes
+                            if isinstance(row, dict) and row.get("card_id")
+                        )
+                    )
+                    selected["notes_omitted_count"] = len(notes)
+                    selected["notes_scope"] = (
+                        "Prior model notes remain in the saved selected_candidates.notes; "
+                        "not verified card facts. Group membership and source IDs remain here."
+                    )
+                claims = original_selection.get("claims")
+                if isinstance(claims, list) and claims:
+                    selected["claims"] = [
+                        {
+                            **{
+                                key: row[key]
+                                for key in ("card_id", "fact_id", "kind", "source_id")
+                                if key in row
+                            },
+                            "value_omitted": True,
+                        }
+                        for row in claims
+                        if isinstance(row, dict)
+                    ]
             continue
         if not source_metadata_compacted:
             source_metadata_compacted = True
@@ -1521,9 +1560,26 @@ def _encode_context(
                             payload["context_budget_extended"] = True
                             payload["context_budget_chars"] = 24000
                             return json.dumps(payload, ensure_ascii=False, default=str)
-                        raise AssistantBudgetExceeded(
+                        budget_error = AssistantBudgetExceeded(
                             "The request and focused card evidence exceed the assistant context limit."
                         )
+                        budget_error.context_sizes = {
+                            **{
+                                str(key): len(
+                                    json.dumps(value, ensure_ascii=False, default=str)
+                                )
+                                for key, value in payload["state"].items()
+                            },
+                            "_total": len(encoded),
+                            "_conversation": len(
+                                json.dumps(
+                                    payload["conversation"],
+                                    ensure_ascii=False,
+                                    default=str,
+                                )
+                            ),
+                        }
+                        raise budget_error
                     removed_source = payload["state"]["consulted_cards"].pop(unpinned)
                     removed_card = removed_source.get("card") or {}
                     # A shared field must outlive the consulted slot it used.
@@ -1552,9 +1608,24 @@ def _encode_context(
                     payload["context_budget_chars"] = 24000
                     return json.dumps(payload, ensure_ascii=False, default=str)
                 else:
-                    raise AssistantBudgetExceeded(
+                    budget_error = AssistantBudgetExceeded(
                         "The request exceeds the assistant context limit. Please shorten it."
                     )
+                    budget_error.context_sizes = {
+                        **{
+                            str(key): len(
+                                json.dumps(value, ensure_ascii=False, default=str)
+                            )
+                            for key, value in payload["state"].items()
+                        },
+                        "_total": len(encoded),
+                        "_conversation": len(
+                            json.dumps(
+                                payload["conversation"], ensure_ascii=False, default=str
+                            )
+                        ),
+                    }
+                    raise budget_error
 
 
 def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -3640,6 +3711,10 @@ def run_turn(
         )
         result["content"] = _evidence_fallback(state, tools.experiments_started)
     except AssistantBudgetExceeded as exc:
+        if exc.context_sizes:
+            result.setdefault("research", {})[
+                "context_budget_failure"
+            ] = exc.context_sizes
         result.update(
             status="budget_exhausted",
             reason="tool_or_context_budget",
