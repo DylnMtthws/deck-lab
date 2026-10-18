@@ -75,8 +75,19 @@ def planning_payload(current_request: str, state: dict[str, Any]) -> str:
             }
         )
     preferences = [
-        {key: row.get(key) for key in ("dimension", "value", "strength", "quote")}
-        for row in context.get("preferences", [])[:8]
+        {
+            key: row.get(key)
+            for key in (
+                "dimension",
+                "value",
+                "strength",
+                "quote",
+                "scope",
+                "polarity",
+                "operation",
+            )
+        }
+        for row in context.get("preferences", [])
         if isinstance(row, dict)
     ]
     payload: dict[str, Any] = {

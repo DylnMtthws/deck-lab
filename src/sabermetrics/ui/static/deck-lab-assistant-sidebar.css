@@ -185,6 +185,9 @@
 .dl-assistant-transcript { margin:0; padding:4px 2px; gap:20px; }
 .dl-assistant-message[data-role="assistant"] { width:100%; max-width:100%; padding:4px 2px; border:0; border-radius:0; background:transparent; }
 .dl-assistant-message[data-role="tool"] { padding:4px 2px; border:0; background:transparent; }
+.dl-assistant-partial-finding { margin-top:12px; padding:10px 12px; border-left:2px solid var(--line); color:var(--body); }
+.dl-assistant-partial-finding h3 { margin:0 0 4px; font:600 .875rem/1.5 var(--sans); }
+.dl-assistant-partial-finding > small { display:block; margin-bottom:8px; color:var(--muted); }
 .dl-assistant-message[data-role="user"] { max-width:92%; padding:8px 10px; }
 .dl-assistant-next-action { margin-top:.8em; padding-top:.8em; }
 .dl-assistant-welcome { padding:20px 2px; }

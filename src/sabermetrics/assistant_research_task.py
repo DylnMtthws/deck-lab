@@ -18,18 +18,33 @@ EvidenceScope = Literal[
 ]
 
 
+class DiscoveryListPlan(StrictModel):
+    label: str = Field(min_length=1, max_length=120)
+    query: str = Field(min_length=1, max_length=300)
+    request_quote: str = Field(min_length=8, max_length=300)
+    requested_count: int | None = Field(default=None, ge=1, le=20)
+    function: Literal[
+        "draw", "selection", "mana", "interaction", "recursion", "any"
+    ] = "any"
+
+
 class ResearchTask(StrictModel):
     kind: Literal["auto", "discover", "compare", "explain", "fill", "swap"] = "auto"
     requires_empirical_evidence: bool = False
     evidence_scope: EvidenceScope = "unknown"
     available_slots: int | None = Field(default=None, ge=0, le=99)
+    discovery_lists: list[DiscoveryListPlan] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Separate requested candidate lists, each supported by an exact current-request quote. Do not create lists for named-card explanations or comparisons. query describes function and conditions; count is per list only if explicitly requested, never number of lists or open slots.",
+    )
     named_cards: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
         default_factory=list,
-        max_length=5,
+        max_length=24,
         description="Explicit card references in this request, prioritized before further discovery; use their supplied names, never guessed IDs.",
     )
     preference_updates: list[PreferenceUpdate] = Field(
-        default_factory=list, max_length=8
+        default_factory=list, max_length=40
     )
     additions: int = Field(default=0, ge=0, le=99)
     cuts: int = Field(default=0, ge=0, le=99)
@@ -62,8 +77,13 @@ class PlanningResearchTask(StrictModel):
         description="Assess EVERY dimension independently against the current user request. Use explicit null for unexpressed dimensions. Existing conversation preferences remain separate and need not be restated."
     )
     available_slots: int | None = Field(default=None, ge=0, le=99)
+    discovery_lists: list[DiscoveryListPlan] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Separate requested candidate lists, each supported by an exact current-request quote. Do not create lists for named-card explanations or comparisons. query describes function and conditions; count is per list only if explicitly requested, never number of lists or open slots.",
+    )
     named_cards: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
-        default_factory=list, max_length=5
+        default_factory=list, max_length=24
     )
     additions: int = Field(default=0, ge=0, le=99)
     cuts: int = Field(default=0, ge=0, le=99)
@@ -85,6 +105,10 @@ class PlanningResearchTask(StrictModel):
             raise ValueError(
                 "Planning brief is not grounded in the current user request"
             )
+        if any(
+            row.request_quote not in current_request for row in self.discovery_lists
+        ):
+            raise ValueError("Discovery list is not grounded in the current request")
         return ResearchTask(
             **self.model_dump(exclude={"preference_assessment"}),
             preference_updates=self.preference_assessment.updates(current_request),

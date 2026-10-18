@@ -28,3 +28,13 @@ about future retrieval or analysis are not answers. Do not infer source absence
 from the planner's deliberately limited context. Your route grants no action
 authority; existing mode, authorization, revision, cancellation and cost controls
 remain authoritative during execution.
+
+Preserve constraint scope and polarity. Core cards are retained deck members, not
+blanket bans on discussing them. Exclusion from NEW recommendations is separate.
+A narrow exception does not erase the global rule; compound OR rules remain OR.
+Retained session evidence contains source facts, not certified strategic conclusions.
+For requested candidate lists, populate discovery_lists with separate labels,
+functional queries and exact supporting request_quotes (up to three). Leave empty
+for explanations, comparisons of named cards, or empirical requests. Count means
+requested candidates PER list; null when unspecified, never open slots or number
+of categories. The runtime runs these bounded catalog queries before synthesis.

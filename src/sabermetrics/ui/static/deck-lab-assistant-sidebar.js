@@ -661,12 +661,32 @@
     }
     return list.slice();
   }
+  function isPartialFinding(message) {
+    return !!(message && message.role === "tool" && message.action && message.action.type === "partial_finding");
+  }
+  function appendPartialFinding(group, message) {
+    var action = message.action || {};
+    var scope = action.data && action.data.source_scope;
+    var content = typeof action.content === "string" ? action.content : messageContent(message);
+    if (action.ok !== true || ["printed facts", "retrieved candidates"].indexOf(scope) < 0 || typeof content !== "string" || !content.trim()) return;
+    var finding = element("section", null, "dl-assistant-partial-finding");
+    finding.dataset.messageIds = message.id || "";
+    var title = scope === "retrieved candidates" ? "Retrieved candidates" : "Confirmed findings";
+    finding.setAttribute("aria-label", title);
+    finding.appendChild(element("h3", title));
+    finding.appendChild(element("small", scope === "retrieved candidates" ? "Retrieved cards; suitability is not established by retrieval." : "Printed card facts; strategic fit is not established by this finding."));
+    var body = element("div", null, "dl-assistant-prose");
+    appendMarkdown(body, content, knownCards(action.data.cards || []));
+    finding.appendChild(body);
+    // Keep grounded interim text visible even when Research activity is collapsed.
+    group.appendChild(finding);
+  }
   function toolActivity(messages) {
     // A start and its result are one call. Only finished calls count as steps.
     var finished = 0;
     var pending = [];
     (messages || []).forEach(function (message) {
-      if (!message || message.role !== "tool") return;
+      if (!message || message.role !== "tool" || isPartialFinding(message)) return;
       var action = message.action || {};
       var name = String(action.name || "");
       if (action.type === "tool_started") { pending.push(name); return; }
@@ -793,8 +813,9 @@
     var signature = JSON.stringify(messages);
     if (signature === renderedMessageSignature) return;
     var canAppend = renderedMessageSignature !== null && messages.length >= renderedMessageCount;
+    var previousMessages = renderedMessageSignature ? JSON.parse(renderedMessageSignature) : [];
     for (var index = 0; canAppend && index < renderedMessageCount; index += 1) {
-      if ((messages[index] && messages[index].id) !== (renderedMessageIds[index] || null)) canAppend = false;
+      if (JSON.stringify(messages[index]) !== JSON.stringify(previousMessages[index])) canAppend = false;
     }
     var surface = scrollSurface || transcript;
     var previousIds = new Set(renderedMessageIds);
@@ -805,6 +826,7 @@
       transcript.replaceChildren(); renderedMessageCount = 0; renderedMessageIds = [];
     }
     var newReply = null;
+    var findingIds = new Set(renderedMessageIds);
     var cursor = renderedMessageCount;
     while (cursor < messages.length) {
       var message = messages[cursor];
@@ -827,6 +849,11 @@
         var finished = Number(activity.dataset.finishedCount || 0);
         toolMessages.forEach(function (item) {
           var action = item.action || {};
+          if (isPartialFinding(item)) {
+            if (!item.id || !findingIds.has(item.id)) appendPartialFinding(group, item);
+            if (item.id) findingIds.add(item.id);
+            return;
+          }
           var step = renderToolStep(item);
           if (action.type === "tool_started") { step.dataset.pendingTool = String(action.name || ""); activity.appendChild(step); return; }
           // The result replaces its own "working" line; it is one step, not two.

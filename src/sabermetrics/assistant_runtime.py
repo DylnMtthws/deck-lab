@@ -20,10 +20,22 @@ from pydantic import Field, ValidationError, field_validator
 from sabermetrics.assistant_answer_review import evidence_sources, review_answer
 from sabermetrics.assistant_card_references import reference_key
 from sabermetrics.assistant_conversation_context import (
+    explicit_preferences,
     merge_preferences,
     preference_context,
 )
 from sabermetrics.assistant_deck_facts import library_composition
+from sabermetrics.assistant_discovery_contract import (
+    DiscoveryAnswer,
+    DiscoveryIssue,
+    DiscoveryLedger,
+    candidate_from_card,
+    derive_discovery_requirements,
+    merge_discovery_ledger,
+    validate_discovery_answer,
+    validate_discovery_prose_counts,
+)
+from sabermetrics.assistant_focused_route import focused_route
 from sabermetrics.assistant_request_planner import (
     RequestPlan,
     planner_system,
@@ -39,6 +51,12 @@ from sabermetrics.assistant_research_task import (
 )
 from sabermetrics.assistant_research_task import (
     progress as research_progress,
+)
+from sabermetrics.assistant_session_state import (
+    load_session_state,
+    protected_session_context,
+    session_state_research,
+    update_session_state,
 )
 from sabermetrics.assistant_tools import (
     TOOL_ADAPTER as ToolCallAdapter,
@@ -69,7 +87,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v24"
+PROMPT_VERSION = "build-conversation.v25"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -384,7 +402,7 @@ class AssistantReplyFields(StrictModel):
     )
     findings: list[Annotated[str, Field(min_length=1, max_length=700)]] = Field(
         default_factory=list,
-        max_length=6,
+        max_length=24,
         description="Concise concrete findings answering ALL requested parts. When asked for commander, land count and two ways to help, include the actual commander, actual full-library land count and two distinct useful help options. Do not dump telemetry.",
     )
     next_action: str = Field(
@@ -395,7 +413,13 @@ class AssistantReplyFields(StrictModel):
     research_hypotheses: list[ResearchHypothesis] = Field(
         default_factory=list, max_length=3
     )
-    card_ids: list[str] = Field(default_factory=list, max_length=12)
+    discovery_answer: DiscoveryAnswer | None = None
+    card_ids: list[str] = Field(default_factory=list, max_length=40)
+
+    @field_validator("next_action")
+    @classmethod
+    def empty_next_action(cls, value: str) -> str:
+        return "" if value.strip().casefold() in {"none", "null", "n/a"} else value
 
 
 class AssistantStep(AssistantReplyFields):
@@ -1080,6 +1104,15 @@ def _evidence_fallback(
                 + ", ".join(feature["examples"][:4])
                 + ". This is incomplete text evidence, not a measured deficiency or upgrade."
             )
+    retained_candidates = (state.get("session_evidence") or {}).get(
+        "discovery_candidates", []
+    )
+    if retained_candidates:
+        lines.append(
+            "Unreviewed catalog candidates retained for follow-up: "
+            + ", ".join(str(row.get("name")) for row in retained_candidates[:12])
+            + ". Retrieval alone does not establish strategic fit."
+        )
     for candidate in (state.get("swap_review") or {}).get("candidates", [])[:2]:
         lines.append(
             (
@@ -1239,9 +1272,26 @@ def _encode_context(
         "conversation_context",
         "answer_obligations",
         "answer_repair_feedback",
+        "prior_conclusions",
+        "prior_selected_candidates",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
+    for key in ("session_evidence", "discovery_requirements", "direct_route"):
+        if state.get(key) and (
+            key != "session_evidence"
+            or state[key].get("discovery_candidates")
+            or state[key].get("session_findings")
+        ):
+            payload["state"][key] = state[key]
+        else:
+            payload["state"].pop(key, None)
+    context = state.get("conversation_context")
+    if isinstance(context, dict):
+        payload["state"]["conversation_context"] = {
+            **_compact({k: v for k, v in context.items() if k != "session_findings"}),
+            "preferences": context.get("preferences", []),
+        }
     workflow = state.get("workflow")
     if isinstance(workflow, dict):
         payload["state"]["workflow"] = _compact(workflow)
@@ -1264,7 +1314,10 @@ def _encode_context(
         encoded = json.dumps(payload, ensure_ascii=False, default=str)
         if len(encoded) <= 16000:
             return encoded
-        if payload["conversation"]:
+        if payload["conversation"] and (
+            len(payload["conversation"]) > 1
+            or payload["conversation"][0].get("role") != "tool"
+        ):
             payload["conversation"].pop(0)
             payload["history_truncated"] = True
             payload["history_note"] = (
@@ -1345,6 +1398,9 @@ def _encode_context(
                         "plan_count": len(plans.get("plans", [])),
                         "note": "Reviewed plan IDs omitted for size; read IDs with inspect_deck. Never pass names as IDs.",
                     }
+                elif payload["conversation"]:
+                    payload["conversation"].pop(0)
+                    payload["history_truncated"] = True
                 elif len(payload["state"].get("consulted_cards", [])) > 2:
                     focused = {
                         reference_key(name)
@@ -1387,7 +1443,17 @@ def _conversation(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
             continue
         content = message.get("content")
         if isinstance(content, str):
-            turns.append({"role": str(message["role"]), "content": content[:4000]})
+            turns.append(
+                {
+                    "role": str(message["role"]),
+                    "content": content[:4000],
+                    **(
+                        {"evidence_status": "prior_assistant_prose_unverified"}
+                        if message["role"] == "assistant"
+                        else {}
+                    ),
+                }
+            )
     return turns[-10:]
 
 
@@ -1406,6 +1472,7 @@ def run_turn(
     answer_review_gateway=None,
     package_research_gateway=None,
     request_planner: bool | None = None,
+    direct_routes: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1431,6 +1498,7 @@ def run_turn(
     partial_draft: dict[str, Any] | None = None
     owns_gateway = gateway is None
     use_request_planner = owns_gateway if request_planner is None else request_planner
+    use_direct_routes = owns_gateway if direct_routes is None else direct_routes
     owned_package_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
@@ -1589,7 +1657,82 @@ def run_turn(
             db_path, state, document, messages, current_request
         )
         known_card_ids.update(source_cards)
+        state["conversation_context"]["preferences"] = merge_preferences(
+            state["conversation_context"]["preferences"],
+            explicit_preferences(current_request),
+            messages,
+        )
+        session = load_session_state(messages)
+        session = update_session_state(
+            session,
+            evidence={},
+            revision=result["revision"],
+            in_deck_ids={
+                str(row.get("card_id") or row.get("id"))
+                for row in document.get("entries", [])
+            },
+        )
+        state["conversation_context"]["session_findings"] = [
+            row.model_dump() for row in session.findings
+        ]
+        previous_requirements = []
+        from sabermetrics.assistant_discovery_contract import DiscoveryRequirement
+
+        for prior_message in reversed(messages):
+            research = (
+                prior_message.get("research")
+                or (prior_message.get("presentation") or {}).get("research")
+                or {}
+            )
+            if (
+                prior_message.get("role") == "assistant"
+                and isinstance(research, dict)
+                and "discovery_requirements" in research
+            ):
+                try:
+                    previous_requirements = [
+                        DiscoveryRequirement.model_validate(row)
+                        for row in research["discovery_requirements"]
+                    ]
+                except (TypeError, ValueError):
+                    previous_requirements = []
+                break
+        discovery_requirements = derive_discovery_requirements(
+            current_request, previous_requirements
+        )
+        state["discovery_requirements"] = [
+            row.model_dump() for row in discovery_requirements
+        ]
+        state["session_evidence"] = protected_session_context(
+            session, [], max_chars=6000
+        )
+        trusted_session_evidence: dict[str, str] = {}
         tools.research_preferences = state["conversation_context"]["preferences"]
+        previous_conclusions = []
+        previous_selection = None
+        for prior_message in reversed(messages):
+            if prior_message.get("role") != "assistant":
+                continue
+            research = (
+                prior_message.get("research")
+                or (prior_message.get("presentation") or {}).get("research")
+                or {}
+            )
+            if isinstance(research, dict):
+                previous_conclusions = research.get("conversation_conclusions", [])
+                previous_selection = research.get("selected_candidates")
+                if previous_conclusions or previous_selection:
+                    break
+        state["prior_conclusions"] = {
+            "items": (
+                previous_conclusions[-4:]
+                if isinstance(previous_conclusions, list)
+                else []
+            ),
+            "scope": "Prior assistant conclusions, not verified card facts. Preserve the reasoning unless new evidence changes it; explain any revision.",
+        }
+        if previous_selection:
+            state["prior_selected_candidates"] = previous_selection
         task = None
         continuation_used = False
         package_research_attempted = False
@@ -1605,18 +1748,108 @@ def run_turn(
                 *[plan for plans in tools.recommendations.values() for plan in plans],
             ]
 
+        direct_plan = (
+            focused_route(
+                current_request,
+                [
+                    *document.get("entries", []),
+                    *[row.get("card", {}) for row in state.get("consulted_cards", [])],
+                ],
+                session_findings=state["conversation_context"].get(
+                    "session_findings", []
+                ),
+            )
+            if use_direct_routes
+            else None
+        )
+        if direct_plan is not None and direct_plan.route != "fallback":
+            use_request_planner = False
+            synthesis_required = True
+            state["direct_route"] = direct_plan.model_dump()
+            state["focused_card_names"] = direct_plan.named_cards
+            for name in direct_plan.named_cards:
+                tools.check()
+                call = ToolCallAdapter.validate_python(
+                    {"name": "card_details", "arguments": {"card_id": name}}
+                )
+                emit(
+                    {
+                        "type": "tool_started",
+                        "name": call.name,
+                        "arguments": call.arguments.model_dump(),
+                        "revision": result["revision"],
+                    }
+                )
+                try:
+                    data = tools.execute(call)
+                except (ValueError, ValidationError):
+                    emit(
+                        {
+                            "type": "tool_result",
+                            "name": call.name,
+                            "ok": False,
+                            "error": "The focused source could not be resolved; ordinary planning is required.",
+                            "revision": result["revision"],
+                        }
+                    )
+                    synthesis_required = False
+                    use_request_planner = True
+                    state.pop("direct_route", None)
+                    break
+                tool_count += 1
+                _retain_card_context(state, data)
+                _collect_resolved_card_ids(call.name, data, known_card_ids)
+                receipt = {
+                    "type": "tool_result",
+                    "name": call.name,
+                    "ok": bool(data.get("card")),
+                    "data": data,
+                    "revision": result["revision"],
+                }
+                emit(receipt)
+                transcript.append({"role": "tool", "result": receipt})
+                card = data.get("card") or {}
+                if card:
+                    direct_candidate = candidate_from_card(
+                        card,
+                        in_deck=str(card.get("id") or "")
+                        in {
+                            str(row.get("card_id") or row.get("id"))
+                            for row in document.get("entries", [])
+                        },
+                    )
+                    trusted_session_evidence["card:" + direct_candidate.card_id] = (
+                        json.dumps(card, ensure_ascii=False)
+                    )
+                    session = update_session_state(
+                        session,
+                        ledger=DiscoveryLedger(candidates=[direct_candidate]),
+                        evidence=trusted_session_evidence,
+                        revision=result["revision"],
+                    )
+                    state["session_evidence"] = protected_session_context(
+                        session, [], max_chars=6000
+                    )
+                    emit(
+                        {
+                            "type": "partial_finding",
+                            "name": "confirmed_finding",
+                            "ok": True,
+                            "revision": result["revision"],
+                            "content": f"{card.get('name')}: {card.get('mana_cost') or 'No mana cost printed'}. {card.get('oracle_text') or ''}",
+                            "data": {"cards": [card], "source_scope": "printed facts"},
+                        }
+                    )
+        model_observations: list[dict[str, Any]] = []
+        discovery_repair_attempted = False
+        planned_lists_executed = False
+        attempted_named_sources: set[str] = set()
+        query_group_ids: dict[str, str] = {}
         for step_index in range(MAX_MODEL_CALLS):
             tools.check()
             state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
             state["conversation_calls_remaining"] = MAX_MODEL_CALLS - step_index
-            latest_request = next(
-                (
-                    item["content"]
-                    for item in reversed(_conversation(messages))
-                    if item["role"] == "user"
-                ),
-                "",
-            )
+            latest_request = current_request
             narrow_planning = step_index == 0 and use_request_planner
             if narrow_planning:
                 try:
@@ -1636,6 +1869,8 @@ def run_turn(
                 if narrow_planning
                 else synthesis_system() if answer_only else SYSTEM
             )
+            if not narrow_planning and state.get("discovery_requirements"):
+                system += "\nFor every discovery_requirements group, return discovery_answer with the matching group_id and retrieved card_ids, and visibly list every selected canonical card name. Meet the requested counts or explicitly identify shortfalls. Use retained session_evidence printed facts for costs and conditions.\n"
             if answer_only:
                 system += "\nThis call is reserved for a final answer. Return a final answer with the required content lead and substantive findings from confirmed receipts, identifying any missing facts. Do not request more tools or return an empty object.\n"
             if task is not None:
@@ -1669,7 +1904,7 @@ def run_turn(
                     if narrow_planning
                     else (
                         AssistantPlanningStep
-                        if step_index == 0
+                        if step_index == 0 and not answer_only
                         else (AssistantAnswerStep if answer_only else AssistantStep)
                     )
                 ),
@@ -1689,7 +1924,27 @@ def run_turn(
                     "The assistant was stopped before its next model call."
                 )
             try:
+                call_started = time.monotonic()
                 generated = gateway.generate(request)
+                model_observations.append(
+                    {
+                        "step": step_index,
+                        "route": (
+                            "planner"
+                            if narrow_planning
+                            else "synthesis" if answer_only else "orchestration"
+                        ),
+                        "elapsed_seconds": round(time.monotonic() - call_started, 3),
+                        "input_chars": len(encoded),
+                        "evidence_hash": request.evidence_hash,
+                        "retained_candidate_ids": [
+                            row.card_id for row in session.ledger.candidates
+                        ],
+                        "preference_count": len(
+                            state["conversation_context"]["preferences"]
+                        ),
+                    }
+                )
             except (
                 ModelValidationError,
                 ModelProviderError,
@@ -1725,7 +1980,11 @@ def run_turn(
                     plan = RequestPlan.model_validate(raw_step)
                     normalized_task = plan.research_task.to_task(current_request)
                     plan_route = plan.route
-                    if normalized_task.requires_empirical_evidence:
+                    if (
+                        normalized_task.requires_empirical_evidence
+                        or normalized_task.evidence_scope == "candidate_discovery"
+                        or normalized_task.kind in {"fill", "swap", "discover"}
+                    ):
                         plan_route = "use_tools"
                     raw_step = {
                         "research_task": normalized_task.model_dump(),
@@ -1806,6 +2065,9 @@ def run_turn(
                     step.research_task, current_request
                 )
                 state["research_brief_disagreements"] = disagreements
+                if task.evidence_scope in {"named_cards_only", "existing_candidates"}:
+                    discovery_requirements = []
+                    state["discovery_requirements"] = []
                 state["focused_card_names"] = [
                     name
                     for name in task.named_cards
@@ -1840,6 +2102,53 @@ def run_turn(
                         )
                     ),
                 }
+            if (
+                task is not None
+                and task.discovery_lists
+                and not planned_lists_executed
+                and not task.requires_empirical_evidence
+            ):
+                planned_lists_executed = True
+                grounded_lists = [
+                    row
+                    for row in task.discovery_lists
+                    if row.request_quote in current_request
+                ]
+                if grounded_lists:
+                    discovery_requirements = [
+                        DiscoveryRequirement(
+                            group_id=f"list_{index}",
+                            label=row.label,
+                            requested_count=row.requested_count,
+                            request_quote=row.request_quote,
+                        )
+                        for index, row in enumerate(grounded_lists, 1)
+                    ]
+                    state["discovery_requirements"] = [
+                        row.model_dump() for row in discovery_requirements
+                    ]
+                    calls = [
+                        ToolCallAdapter.validate_python(
+                            {
+                                "name": "search_card_functions",
+                                "arguments": {
+                                    "query": row.query,
+                                    "function": row.function,
+                                    "limit": min(20, max(8, row.requested_count or 8)),
+                                },
+                            }
+                        )
+                        for row in grounded_lists
+                    ]
+                    query_group_ids.update(
+                        {
+                            json.dumps(
+                                call.model_dump(), sort_keys=True
+                            ): requirement.group_id
+                            for call, requirement in zip(calls, discovery_requirements)
+                        }
+                    )
+                    step = step.model_copy(update={"tool_calls": calls})
             if task is not None and task.named_cards:
                 planned_calls = step.tool_calls
                 sources = [
@@ -1859,7 +2168,12 @@ def run_turn(
                         for c in sources
                     )
                 ]
-                if missing_names and not answer_only:
+                unattempted_names = [
+                    name
+                    for name in missing_names
+                    if reference_key(name) not in attempted_named_sources
+                ]
+                if unattempted_names and not answer_only:
                     step = step.model_copy(
                         update={
                             "tool_calls": [
@@ -1869,7 +2183,7 @@ def run_turn(
                                         "arguments": {"card_id": name},
                                     }
                                 )
-                                for name in missing_names[
+                                for name in unattempted_names[
                                     : min(3, MAX_TOOL_CALLS - tool_count)
                                 ]
                             ]
@@ -1908,7 +2222,20 @@ def run_turn(
                     # If this response still requests discovery, reserve the next
                     # call for an answer using the named card's confirmed text.
                     if step.tool_calls and not answer_only:
-                        continue
+                        safe_reads = [
+                            call
+                            for call in step.tool_calls
+                            if call.name
+                            in {
+                                "retrieve_rules",
+                                "card_details",
+                                "goldfish_card_coverage",
+                            }
+                        ]
+                        if safe_reads:
+                            step = step.model_copy(update={"tool_calls": safe_reads})
+                        else:
+                            continue
             if plan_route == "use_tools" and not step.tool_calls:
                 # Routing is executable: optional planner prose cannot terminate
                 # research. Named facts may already justify the next answer-only
@@ -2177,6 +2504,67 @@ def run_turn(
                             }
                         )
                         continue
+                discovery_issues = validate_discovery_prose_counts(
+                    "\n\n".join([step.content, *step.findings])
+                )
+                if discovery_requirements or step.discovery_answer is not None:
+                    if step.discovery_answer is None:
+                        discovery_issues.append(
+                            DiscoveryIssue(
+                                code="missing_manifest",
+                                detail="Return discovery_answer groups for every requested list using retrieved card IDs.",
+                            )
+                        )
+                    else:
+                        validation = validate_discovery_answer(
+                            discovery_requirements,
+                            session.ledger,
+                            step.discovery_answer,
+                        )
+                        discovery_issues.extend(validation.issues)
+                        # Manifest membership must also be visible in the user's answer.
+                        prose = reference_key(" ".join([step.content, *step.findings]))
+                        indexed = {
+                            row.card_id: row for row in session.ledger.candidates
+                        }
+                        for group in step.discovery_answer.groups:
+                            for card_id in group.card_ids:
+                                if (
+                                    card_id in indexed
+                                    and reference_key(indexed[card_id].name)
+                                    not in prose
+                                ):
+                                    discovery_issues.append(
+                                        DiscoveryIssue(
+                                            code="candidate_not_rendered",
+                                            detail=indexed[card_id].name,
+                                        )
+                                    )
+                    result.setdefault("research", {})["discovery_validation"] = {
+                        "complete": not discovery_issues,
+                        "issues": [
+                            row.model_dump() if hasattr(row, "model_dump") else row
+                            for row in discovery_issues
+                        ],
+                        "scope": "List counts, retrieved identities and explicit fact references; strategic relevance still needs review.",
+                    }
+                if discovery_issues:
+                    if not final_call and not discovery_repair_attempted:
+                        discovery_repair_attempted = True
+                        synthesis_required = True
+                        state["answer_repair_feedback"] = result.get(
+                            "research", {}
+                        ).get("discovery_validation") or {
+                            "issues": [row.model_dump() for row in discovery_issues]
+                        }
+                        transcript.append(
+                            {
+                                "role": "system",
+                                "content": "Finish every requested list using retained candidates. Return discovery_answer and render every chosen canonical card name. Preserve costs and conditions. If insufficient evidence exists, say exactly what is incomplete; never invent candidates.",
+                            }
+                        )
+                        continue
+                    result["reason"] = "discovery_incomplete"
                 grounded = [
                     _ground_blanket_cast_claims(part, state)
                     for part in [step.content, *step.findings, step.next_action]
@@ -2403,6 +2791,61 @@ def run_turn(
                             + " The requested measurements or operational results have not been retrieved or run successfully, so this answer is incomplete."
                         }
                     )
+                # Review patches and grounding may remove a selected card or a
+                # counted list. Validate the actual user-visible final draft too.
+                final_discovery_issues = validate_discovery_prose_counts(
+                    "\n\n".join([step.content, *step.findings])
+                )
+                if discovery_requirements or step.discovery_answer is not None:
+                    if step.discovery_answer is None:
+                        final_discovery_issues.append(
+                            DiscoveryIssue(
+                                code="missing_manifest",
+                                detail="Requested lists lack retrieved candidate membership.",
+                            )
+                        )
+                    else:
+                        final_validation = validate_discovery_answer(
+                            discovery_requirements,
+                            session.ledger,
+                            step.discovery_answer,
+                        )
+                        final_discovery_issues.extend(final_validation.issues)
+                        final_names = reference_key(
+                            " ".join([step.content, *step.findings])
+                        )
+                        candidates_by_id = {
+                            row.card_id: row for row in session.ledger.candidates
+                        }
+                        for group in step.discovery_answer.groups:
+                            for card_id in group.card_ids:
+                                if (
+                                    card_id in candidates_by_id
+                                    and reference_key(candidates_by_id[card_id].name)
+                                    not in final_names
+                                ):
+                                    final_discovery_issues.append(
+                                        DiscoveryIssue(
+                                            code="candidate_not_rendered",
+                                            detail=candidates_by_id[card_id].name,
+                                        )
+                                    )
+                    result.setdefault("research", {})["discovery_validation"] = {
+                        "complete": not final_discovery_issues,
+                        "issues": [
+                            row.model_dump() if hasattr(row, "model_dump") else row
+                            for row in final_discovery_issues
+                        ],
+                        "scope": "Final list counts, retrieved identities and explicit fact references; free-text strategy requires review.",
+                    }
+                if final_discovery_issues:
+                    result["reason"] = "discovery_incomplete"
+                    step = step.model_copy(
+                        update={
+                            "next_action": step.next_action
+                            + " The requested lists are incomplete or contain unsupported entries; retain only the confirmed findings above."
+                        }
+                    )
                 sections = [step.content.strip()] if step.content.strip() else []
                 if step.findings:
                     sections.append(
@@ -2418,6 +2861,37 @@ def run_turn(
                 result["content"] = (
                     answer or "The model returned no answer for this turn."
                 )
+                conclusion_status = (result.get("answer_review") or {}).get(
+                    "status", "not_checked"
+                )
+                current_conclusions = [
+                    {
+                        "claim": finding[:500],
+                        "review_status": conclusion_status,
+                        "source_turn": next(
+                            (
+                                m.get("id")
+                                for m in reversed(messages)
+                                if m.get("role") == "user"
+                            ),
+                            None,
+                        ),
+                        "revision": result["revision"],
+                        "evidence_refs": [
+                            "card:" + row.card_id
+                            for row in session.ledger.candidates
+                            if reference_key(row.name) in reference_key(finding)
+                        ][:6],
+                    }
+                    for finding in step.findings[:12]
+                ]
+                result.setdefault("research", {})["conversation_conclusions"] = (
+                    previous_conclusions + current_conclusions
+                )[-12:]
+                if step.discovery_answer is not None:
+                    result["research"][
+                        "selected_candidates"
+                    ] = step.discovery_answer.model_dump()
                 result["status"] = (
                     "done"
                     if answer
@@ -2427,6 +2901,7 @@ def run_turn(
                         "answer_partially_fulfilled",
                         "answer_repair_unverified",
                         "empirical_evidence_missing",
+                        "discovery_incomplete",
                     }
                     else "incomplete"
                 )
@@ -2483,7 +2958,8 @@ def run_turn(
                 tools.check()
                 if (
                     call.name == "search_card_functions"
-                    and len(successful_functional_queries) >= 2
+                    and len(successful_functional_queries)
+                    >= max(2, min(4, len(discovery_requirements)))
                     and task is not None
                     and (
                         task.kind in {"discover", "compare"}
@@ -2493,7 +2969,7 @@ def run_turn(
                     skipped = {
                         "type": "tool_skipped",
                         "name": call.name,
-                        "reason": "two_successful_functional_queries",
+                        "reason": "functional_query_budget_reached",
                         "revision": result["revision"],
                     }
                     emit(skipped)
@@ -2511,6 +2987,10 @@ def run_turn(
                     }
                 )
                 try:
+                    if call.name == "card_details":
+                        attempted_named_sources.add(
+                            reference_key(call.arguments.card_id)
+                        )
                     cache_key = json.dumps(call.model_dump(), sort_keys=True)
                     if call.name in cacheable and cache_key in read_cache:
                         data = read_cache[cache_key]
@@ -2560,6 +3040,85 @@ def run_turn(
                                 for name in focused_names
                             ):
                                 synthesis_required = True
+                    if call.name in {
+                        "search_cards",
+                        "search_card_functions",
+                        "card_details",
+                    }:
+                        retrieved = (
+                            [data.get("card")]
+                            if call.name == "card_details"
+                            else data.get("cards", [])
+                        )
+                        incoming = []
+                        for rank, card in enumerate(retrieved, 1):
+                            if not isinstance(card, dict):
+                                continue
+                            try:
+                                candidate = candidate_from_card(
+                                    card,
+                                    rank=rank,
+                                    group_ids=[
+                                        query_group_ids.get(
+                                            cache_key,
+                                            "query:"
+                                            + hashlib.sha256(
+                                                cache_key.encode()
+                                            ).hexdigest()[:12],
+                                        )
+                                    ],
+                                    in_deck=str(
+                                        card.get("id") or card.get("card_id") or ""
+                                    )
+                                    in {
+                                        str(row.get("card_id") or row.get("id"))
+                                        for row in document.get("entries", [])
+                                    },
+                                )
+                            except (ValueError, ValidationError):
+                                continue
+                            if candidate is not None:
+                                incoming.append(candidate)
+                                trusted_session_evidence[
+                                    "card:" + candidate.card_id
+                                ] = json.dumps(card, ensure_ascii=False)
+                        if incoming:
+                            ledger = merge_discovery_ledger(
+                                session.ledger,
+                                DiscoveryLedger(candidates=incoming[:40]),
+                            )
+                            session = update_session_state(
+                                session,
+                                ledger=ledger,
+                                evidence=trusted_session_evidence,
+                                revision=result["revision"],
+                                in_deck_ids={
+                                    str(row.get("card_id") or row.get("id"))
+                                    for row in document.get("entries", [])
+                                },
+                            )
+                            state["session_evidence"] = protected_session_context(
+                                session, [], max_chars=6000
+                            )
+                            emit(
+                                {
+                                    "type": "partial_finding",
+                                    "name": "confirmed_finding",
+                                    "ok": True,
+                                    "revision": result["revision"],
+                                    "content": "Retrieved "
+                                    + ", ".join(row.name for row in incoming[:8])
+                                    + ". Their printed facts are available; strategic comparison is still in progress.",
+                                    "data": {
+                                        "cards": retrieved[:8],
+                                        "source_scope": (
+                                            "printed facts"
+                                            if call.name == "card_details"
+                                            else "retrieved candidates"
+                                        ),
+                                    },
+                                }
+                            )
                     if call.name in {"search_cards", "search_card_functions"}:
                         for card in data.get("cards", [])[:4]:
                             _retain_card_context(
@@ -2579,7 +3138,8 @@ def run_turn(
                         if (
                             call.name == "search_card_functions"
                             and data.get("cards")
-                            and len(successful_functional_queries) >= 2
+                            and len(successful_functional_queries)
+                            >= max(2, min(4, len(discovery_requirements)))
                             and task is not None
                             and (
                                 task.kind in {"discover", "compare"}
@@ -2856,6 +3416,22 @@ def run_turn(
         if "state" in locals():
             preferences = state["conversation_context"]["preferences"]
             result.setdefault("research", {})["conversation_preferences"] = preferences
+            result["research"].setdefault(
+                "conversation_conclusions", locals().get("previous_conclusions", [])
+            )
+            if locals().get("previous_selection") is not None:
+                result["research"].setdefault("selected_candidates", previous_selection)
+            result["research"]["discovery_requirements"] = [
+                row.model_dump() for row in locals().get("discovery_requirements", [])
+            ]
+            if "session" in locals():
+                result["research"].update(session_state_research(session))
+            result["research"]["runtime"] = {
+                "model_calls": locals().get("model_observations", []),
+                "tool_calls": locals().get("tool_count", 0),
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+                "prompt_version": PROMPT_VERSION,
+            }
             result["research"]["source_card_ids"] = [
                 row["card"]["id"]
                 for row in state.get("consulted_cards", [])[-8:]
@@ -2868,6 +3444,13 @@ def run_turn(
                 result["presentation"]["research"][
                     "conversation_preferences"
                 ] = preferences
+                result["presentation"]["research"].update(
+                    {
+                        key: result["research"][key]
+                        for key in ("discovery_validation", "selected_candidates")
+                        if key in result["research"]
+                    }
+                )
         if owned_package_gateway is not None and owned_package_gateway is not gateway:
             close = getattr(owned_package_gateway, "close", None)
             if close:

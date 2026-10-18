@@ -409,6 +409,7 @@ const earlier = [{role: 'user'}, start('inspect_deck'), done('inspect_deck'), {r
 // One start plus its result is one finished call, never two steps.
 assert.deepEqual(toolActivity([start('find_replacements'), done('find_replacements')]), {finished: 1, pending: []});
 assert.deepEqual(toolActivity([start('search_cards'), done('search_cards', false), start('card_details')]), {finished: 1, pending: ['card_details']});
+assert.deepEqual(toolActivity([start('card_details'), {role: 'tool', action: {type: 'partial_finding', name: 'confirmed_finding', ok: true}}]), {finished: 0, pending: ['card_details']});
 const now = 10000;
 const live = earlier.concat([{role: 'user'}, start('search_cards'), done('search_cards'), start('find_replacements')]);
 assert.equal(progressText(live, {chatBusy: true, startedAt: now - 30, now}), 'Working · Replacement research · 1 step finished');
@@ -504,6 +505,10 @@ function renderToolStep(message) {
   return step;
 }
 function appendReply(article, message) { article.appendChild(element('p', message.content)); }
+function messageContent(message) { return String(message.content || ''); }
+function knownCards(cards) { return cards; }
+let partialCards;
+function appendMarkdown(body, content, cards) { partialCards = cards; body.appendChild(element('p', content)); }
 function appendStructuredPresentation() {}
 function refreshChartStaleness() {}
 HELPERS
@@ -552,6 +557,52 @@ const a1 = transcript.children.find((node) => node.dataset.messageIds === 'a1');
 assert.equal(a1.getBoundingClientRect().top, anchorOffset);
 assert.equal(activities()[1].open, true);
 assert.equal(activities()[0].open, false);
+
+// Interim findings are visible outside collapsed telemetry while the request is busy.
+const card = {id: 'oracle-1', name: 'Divination'};
+const finding = (id, scope, content) => ({id, role: 'tool', content: 'tool fallback', action: {
+  type: 'partial_finding', name: 'confirmed_finding', ok: true, revision: 1,
+  content, data: {source_scope: scope, cards: [card]}
+}});
+const partial = finding('f1', 'printed facts', 'Divination says: <script>attack()</script>');
+followingLatest = true;
+data = {busy: true, messages: [say('u3', 'user'), start('t6', 'card_details'), partial, partial]};
+renderMessages();
+const findingSections = () => transcript.all().filter(node => node.className === 'dl-assistant-partial-finding');
+let findings = findingSections();
+assert.equal(findings.length, 1); // Duplicate persisted message IDs never repeat content.
+assert.equal(findings[0].parentNode.tagName, 'ARTICLE');
+assert.equal(findings[0].parentNode.dataset.role, 'tool');
+assert.equal(findings[0].dataset.messageIds, 'f1');
+assert.equal(activities()[0].open, false);
+assert.match(findings[0].textContent, /Confirmed findings/);
+assert.match(findings[0].textContent, /Printed card facts; strategic fit is not established/);
+assert.match(findings[0].textContent, /<script>attack\(\)<\/script>/);
+assert.equal(partialCards[0], card);
+assert.equal(steps(activities()[0]).length, 1);
+assert.equal(activities()[0].querySelector('summary').textContent, 'Research activity · now: Card details');
+assert.equal(transcript.children.filter(node => node.dataset.role === 'assistant').length, 0);
+const sameFinding = findings[0];
+renderMessages();
+assert.equal(findingSections()[0], sameFinding);
+data.messages = data.messages.concat([finding('f2', 'retrieved candidates', 'Candidate card text')]);
+renderMessages();
+assert.equal(findingSections().length, 2);
+assert.match(findingSections()[1].textContent, /Retrieved candidates/);
+assert.match(findingSections()[1].textContent, /suitability is not established by retrieval/);
+// A revised persisted record rebuilds its content instead of appending stale or duplicate prose.
+data.messages = data.messages.map(message => message.id === 'f1' ? {...message, action: {...message.action, revision: 2, content: 'Updated printed fact'}} : message);
+renderMessages();
+assert.equal(findingSections().length, 2);
+assert.match(findingSections()[0].textContent, /Updated printed fact/);
+assert.doesNotMatch(findingSections()[0].textContent, /attack/);
+// Normal final prose remains its own assistant reply; tool telemetry stays separate.
+data = {busy: false, messages: data.messages.concat([done('t7', 'card_details'), say('a3', 'assistant', 'Final grounded answer')])};
+renderMessages();
+assert.equal(findingSections().length, 2);
+assert.equal(transcript.lastElementChild.dataset.role, 'assistant');
+assert.equal(transcript.lastElementChild.textContent, 'Final grounded answer');
+assert.equal(activities()[0].querySelector('summary').textContent, 'Research activity · 1 step finished');
 """.replace("HELPERS", helpers).replace("RENDERER", renderer)
     _run_node(harness)
 

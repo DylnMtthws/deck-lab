@@ -79,7 +79,9 @@ def test_fixed_assessment_requires_every_dimension_and_canonical_draw_control():
     from sabermetrics.assistant_conversation_context import PreferenceAssessment
 
     empty = {key: None for key in PreferenceAssessment.model_fields}
-    assert set(PreferenceAssessment.model_json_schema()["required"]) == set(empty)
+    assert set(PreferenceAssessment.model_json_schema()["required"]) == set(empty) - {
+        "scoped_preferences"
+    }
     assert (
         PreferenceAssessment.model_validate(empty).updates("No new preference here.")
         == []
@@ -188,3 +190,201 @@ def test_current_request_quote_has_no_provider_regex_and_checks_meaningful_lengt
         brief.to_task("I want a meaningful comparison of these candidates.")
     short = PlanningResearchTask.model_validate({**base, "current_request_quote": "Hi"})
     assert short.to_task("Hi").current_request_quote == "Hi"
+
+
+def test_explicit_core_and_compound_rule_survive_without_shared_row_cap():
+    from sabermetrics.assistant_conversation_context import explicit_preferences
+
+    request = (
+        "Hard rule: noncreature artifacts or instants only. "
+        "My six core cards are: Winter Orb; Static Orb; Dramatic Reversal; "
+        "Isochron Scepter; Sol Ring; Skullclamp."
+    )
+    turns = [{"role": "user", "id": "u1", "content": request}]
+    memory = merge_preferences([], explicit_preferences(request), turns)
+    assert [r["value"] for r in memory if r["dimension"] == "core_card"] == [
+        "Winter Orb",
+        "Static Orb",
+        "Dramatic Reversal",
+        "Isochron Scepter",
+        "Sol Ring",
+        "Skullclamp",
+    ]
+    assert (
+        next(r for r in memory if r["dimension"] == "constraint")["quote"]
+        == "Hard rule: noncreature artifacts or instants only"
+    )
+    for i in range(12):
+        quote = f"Exclude rejected card {i} from recommendations"
+        turns.append({"role": "user", "id": f"e{i}", "content": quote})
+        memory = merge_preferences(
+            memory,
+            [
+                PreferenceUpdate(
+                    dimension="excluded_card",
+                    value=f"Card {i}",
+                    strength="rejected",
+                    quote=quote,
+                )
+            ],
+            turns,
+        )
+    assert len(memory) == 19
+    messages = turns + [
+        {"role": "assistant", "research": {"conversation_preferences": memory}}
+    ]
+    assert load_preferences(messages) == memory
+
+
+def test_legacy_poison_and_unexpressed_defaults_are_rejected():
+    request = "Hard rule: noncreature artifacts or instants only. My core cards are: Winter Orb; Static Orb. Prefer graveyard value."
+    bad = [
+        PreferenceUpdate(
+            dimension="card_type",
+            value="creature",
+            strength="required",
+            quote="Hard rule: noncreature artifacts or instants only",
+        ),
+        PreferenceUpdate(
+            dimension="excluded_card",
+            value="Winter Orb",
+            strength="required",
+            quote="My core cards are: Winter Orb; Static Orb",
+        ),
+        PreferenceUpdate(
+            dimension="draw_control",
+            value="optional",
+            strength="preferred",
+            quote="Prefer graveyard value",
+        ),
+        PreferenceUpdate(
+            dimension="goal",
+            value="late-game draw density",
+            strength="preferred",
+            quote="Prefer graveyard value",
+        ),
+        PreferenceUpdate(
+            dimension="mana",
+            value="max 2",
+            strength="required",
+            quote="Prefer graveyard value",
+        ),
+    ]
+    turns = [{"role": "user", "id": "u1", "content": request}]
+    assert merge_preferences([], bad, turns) == []
+    turns.append(
+        {
+            "role": "assistant",
+            "research": {
+                "conversation_preferences": [
+                    dict(r.model_dump(), source_turn="u1") for r in bad
+                ]
+            },
+        }
+    )
+    assert load_preferences(turns) == []
+
+
+def test_role_specific_mana_and_narrow_instant_exception_keep_global_rule():
+    from sabermetrics.assistant_conversation_context import explicit_preferences
+
+    request = "Hard rule: permanents only in the 7 slots—no instants or sorceries."
+    turns = [{"role": "user", "id": "u1", "content": request}]
+    memory = merge_preferences([], explicit_preferences(request), turns)
+    change = "Allow one protective instant as an exception. Prefer imprint candidates with mana value 2 or less."
+    turns.append({"role": "user", "id": "u2", "content": change})
+    scoped = PreferenceUpdate(
+        dimension="mana",
+        value="max 2",
+        scope="imprint candidates",
+        strength="preferred",
+        quote="Prefer imprint candidates with mana value 2 or less",
+    )
+    memory = merge_preferences(memory, [*explicit_preferences(change), scoped], turns)
+    assert any(
+        r["quote"] == request[:-1] and r["strength"] == "required" for r in memory
+    )
+    assert any(
+        r["operation"] == "relax" and "one protective instant" in r["quote"]
+        for r in memory
+    )
+    mana = [r for r in memory if r["dimension"] == "mana"]
+    assert len(mana) == 1 and mana[0]["scope"] == "imprint candidates"
+
+
+def test_mana_rejection_does_not_establish_numeric_ceiling():
+    request = "Harvester is too much mana."
+    update = PreferenceUpdate(
+        dimension="mana", value="max 2", strength="required", quote=request
+    )
+    assert merge_preferences([], [update], [{"role": "user", "content": request}]) == []
+
+
+def test_structured_findings_require_exact_source_quotes_and_ignore_assistant_prose():
+    from sabermetrics.assistant_conversation_context import (
+        SessionFinding,
+        load_session_findings,
+        merge_session_findings,
+    )
+
+    source = "Latest goldfish sample: 100 games; turn-five success 23 games."
+    finding = SessionFinding(
+        kind="empirical",
+        claim="The supplied 100-game sample reports 23 turn-five successes.",
+        evidence=[{"reference": "tool:goldfish:1", "quote": source}],
+    )
+    assert merge_session_findings([], [finding], evidence={}) == []
+    assert (
+        merge_session_findings(
+            [], [finding], evidence={"tool:goldfish:1": "No measured result supplied."}
+        )
+        == []
+    )
+    memory = merge_session_findings(
+        [], [finding], evidence={"tool:goldfish:1": source}, source_turn="u7"
+    )
+    messages = [{"role": "assistant", "content": "An invented success rate is 99%."}]
+    assert load_session_findings(messages) == []
+    messages.append({"role": "assistant", "research": {"session_findings": memory}})
+    assert preference_context(messages)["session_findings"] == memory
+    assert memory[0]["source_turn"] == "u7"
+
+
+def test_newer_preference_wins_when_old_quote_is_reintroduced():
+    old = "Prefer draw I can choose to use"
+    new = "Allow any draw; relax my optional draw preference"
+    turns = [
+        {"role": "user", "id": "u1", "content": old},
+        {"role": "user", "id": "u2", "content": new},
+    ]
+    earlier = PreferenceUpdate(
+        dimension="draw_control", value="optional", strength="preferred", quote=old
+    )
+    later = PreferenceUpdate(
+        dimension="draw_control",
+        value="any",
+        strength="preferred",
+        operation="relax",
+        quote=new,
+    )
+    memory = merge_preferences([], [later], turns)
+    assert merge_preferences(memory, [earlier], turns) == memory
+
+
+def test_soft_mana_preference_does_not_silently_replace_hard_ceiling():
+    hard = "All recommendation mana costs must be at most 3."
+    soft = "I prefer mana value 2 or less for draw engines."
+    turns = [
+        {"role": "user", "id": "u1", "content": hard},
+        {"role": "user", "id": "u2", "content": soft},
+    ]
+    updates = [
+        PreferenceUpdate(
+            dimension="mana", value="max 3", strength="required", quote=hard
+        ),
+        PreferenceUpdate(
+            dimension="mana", value="max 2", strength="preferred", quote=soft
+        ),
+    ]
+    memory = merge_preferences([], updates, turns)
+    assert {r["strength"] for r in memory} == {"required", "preferred"}

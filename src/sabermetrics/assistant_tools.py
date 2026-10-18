@@ -32,6 +32,118 @@ from sabermetrics.deck_evidence import (
 from sabermetrics.deck_simulation import simulation_view
 
 
+def _functional_preference_args(
+    args: FunctionalSearchArgs, preferences: list[dict[str, Any]]
+) -> FunctionalSearchArgs:
+    """Apply representable general preferences without narrowing scoped rules.
+
+    Retrieval cannot express disjunctions or a rule with a narrow exception.
+    Those remain in the ledger for evaluation after broad candidate retrieval.
+    Core membership only skips new recommendations; it never becomes rejection.
+    """
+    values = args.model_dump()
+    excluded = list(values["excluded_names"])
+    general_scopes = {"recommendations", "general"}
+    supported_types = {
+        "creature",
+        "artifact",
+        "enchantment",
+        "instant",
+        "sorcery",
+        "land",
+        "planeswalker",
+        "battle",
+        "permanent",
+    }
+    broaden_type = False
+    for row in preferences:
+        dimension = row.get("dimension")
+        value = str(row.get("value") or "").casefold().strip()
+        strength = row.get("strength")
+        operation = row.get("operation", "set")
+        scope = str(row.get("scope", "recommendations")).casefold().strip()
+        general = scope in general_scopes
+        if dimension == "card_type_exception" or (
+            operation == "relax"
+            and dimension in {"constraint", "card_type"}
+            and not (general and value == "any")
+        ):
+            broaden_type = True
+        if not general:
+            continue
+        if dimension in {"constraint", "card_type"} and re.search(
+            r"\bor\b",
+            str(row.get("quote") or "") + " " + value,
+            re.IGNORECASE,
+        ):
+            broaden_type = True
+        if dimension == "card_type":
+            if (
+                row.get("polarity", "include") != "include"
+                or strength == "rejected"
+                or value in {"noncreature", "non-creature"}
+            ):
+                broaden_type = True
+            if value == "any":
+                values["type_line"] = ""
+            elif (
+                operation == "set"
+                and row.get("polarity", "include") == "include"
+                and strength == "required"
+                and not re.search(r"\bor\b", str(row.get("quote") or ""), re.IGNORECASE)
+            ):
+                normalized = {
+                    "creatures": "creature",
+                    "creatures only": "creature",
+                    "creature only": "creature",
+                    "creatures_only": "creature",
+                }.get(value, value)
+                if normalized in supported_types:
+                    values["type_line"] = normalized
+        elif dimension == "draw_control" and args.function == "draw":
+            if value == "any":
+                values["optionality"] = "any"
+            elif (
+                value == "optional"
+                and strength in {"preferred", "required"}
+                and operation == "set"
+                and row.get("polarity", "include") == "include"
+            ):
+                values["optionality"] = strength
+        elif (
+            dimension == "excluded_card"
+            and strength == "rejected"
+            and operation == "set"
+        ) or (
+            dimension == "core_card"
+            and not args.include_existing
+            and operation == "set"
+            and strength in {"preferred", "required"}
+            and row.get("polarity", "include") == "include"
+        ):
+            if value and value not in {name.casefold() for name in excluded}:
+                excluded.append(str(row["value"]))
+        elif (
+            dimension == "goal"
+            and "draw" in value
+            and args.function == "draw"
+            and strength in {"preferred", "required"}
+            and operation == "set"
+        ):
+            values["prefer_recurring"] = True
+        elif dimension == "multifunctionality" and strength in {
+            "preferred",
+            "required",
+        }:
+            values["prefer_multifunctional"] = operation != "relax"
+    if broaden_type:
+        values["type_line"] = ""
+    checked = FunctionalSearchArgs.model_validate(values)
+    # The public tool caps model-supplied names at eight. The already validated
+    # session ledger may contain more distinct exclusions and core members.
+    return checked.model_copy(update={"excluded_names": excluded})
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -941,53 +1053,17 @@ class AssistantTools:
                 "role_note": "Stored roles and text tags are heuristic classifications, not simulated performance.",
             }
         if call.name == "search_card_functions":
-            values = args.model_dump()
-            for preference in self.research_preferences:
-                if (
-                    preference["dimension"] == "card_type"
-                    and preference["strength"] == "required"
-                    and preference["value"].casefold()
-                    in {
-                        "creature",
-                        "creatures",
-                        "creatures only",
-                        "creature only",
-                        "creatures_only",
-                    }
-                ):
-                    values["type_line"] = "Creature"
-                if (
-                    preference["dimension"] == "draw_control"
-                    and preference["strength"] in {"preferred", "required"}
-                    and preference["value"].casefold() == "optional"
-                ):
-                    values["optionality"] = preference["strength"]
-                elif (
-                    preference["dimension"] == "draw_control"
-                    and preference["value"].casefold() == "any"
-                ):
-                    values["optionality"] = "any"
-                if (
-                    preference["dimension"] == "excluded_card"
-                    and preference["strength"] == "rejected"
-                ):
-                    values["excluded_names"] = [
-                        *values["excluded_names"],
-                        preference["value"],
-                    ][:8]
-                if (
-                    preference["dimension"] == "goal"
-                    and "draw" in preference["value"].casefold()
-                ):
-                    values["prefer_recurring"] = True
-                if preference["dimension"] == "multifunctionality" and preference[
-                    "strength"
-                ] in {"preferred", "required"}:
-                    values["prefer_multifunctional"] = True
             result = functional_search(
-                self.path, document, FunctionalSearchArgs.model_validate(values)
+                self.path,
+                document,
+                _functional_preference_args(args, self.research_preferences),
             )
-            return {**result, "filter_corrections": search_corrections}
+            return {
+                **result,
+                "filter_corrections": search_corrections,
+                "research_preferences": self.research_preferences,
+                "preference_scope": "General representable filters only; scoped rules and exceptions remain for candidate evaluation. Core cards are retained membership, not rejected recommendations.",
+            }
         if call.name == "search_cards":
             colors: set[str] = set()
             for entry in document.get("entries", []):
