@@ -229,6 +229,10 @@ def derive_discovery_requirements(
 
 def revises_discovered_candidates(request: str) -> bool:
     """Recognize explicit reuse of a preceding candidate set without adding picks."""
+    if re.search(
+        r"\b(?:do not|don't|avoid)\s+repeat(?:ing)?\b", request, re.IGNORECASE
+    ):
+        return False
     return bool(
         re.search(
             r"\b(?:re[- ]?rank|re[- ]?order|revise|revisit|reconsider|rank|compare|prioritize|choose|pick)\b.{0,100}\b(?:those|these|previous|earlier|existing|discovered|your picks|your recommendations|the candidates)\b|\b(?:those|these|previous|earlier)\b.{0,60}\b(?:candidates|picks|recommendations|options)\b.{0,60}\b(?:rank|priority|order)\b",

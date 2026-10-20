@@ -215,3 +215,9 @@ span/quote, protected measurement, number and card-name checks. Review failure n
 promotes a claim. Ordinary answers and coordinated/empirical workflows retain their
 existing synthesis/review path. Tests can explicitly enable `selection_first` with
 injected gateways; production enables it by default for eligible discovery turns.
+The claim-review schema requires exactly the number of supplied claim units;
+duplicate/unknown IDs and missing coverage still fail closed in application code.
+Focused review has a separate 4096-token output allowance with no transport or
+schema retries; the ordinary reviewer keeps its previous budget. Selection
+assessments target short complete sentences. Explicit no-repeat instructions take
+precedence over ranking language, and quota-satisfied shortfalls are not rendered.

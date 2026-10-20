@@ -148,6 +148,23 @@ def test_selection_receives_literal_commander_and_support_records():
     assert supplied == {c["name"]: c["oracle_text"] for c in entries}
 
 
+def test_ranking_new_choices_does_not_override_explicit_no_repeats():
+    from sabermetrics.assistant_discovery_contract import revises_discovered_candidates
+
+    assert not revises_discovered_candidates(
+        "Give me seven more creatures. Rank them best fit first and do not repeat earlier recommendations."
+    )
+    assert revises_discovered_candidates("Re-rank those previous recommendations.")
+
+
+def test_redundant_shortfall_is_not_rendered_when_count_is_met():
+    requirements, _, ledger = setup()
+    selected = selection(shortfall=True)
+    answer, issues = validate_selection(selected, requirements, ledger)
+    assert not issues
+    assert selection_reply(selected, answer, requirements)["next_action"] == ""
+
+
 class Reviewer:
     def __init__(self, transform=None):
         self.requests = []
@@ -345,6 +362,8 @@ def test_selection_runtime_uses_focused_review_once(prepared, monkeypatch):
         selection_first=True,
     )
     assert len(reviewer.requests) == 1
-    assert reviewer.requests[0].schema is ClaimReviewDecision
+    assert issubclass(reviewer.requests[0].schema, ClaimReviewDecision)
+    bounds = reviewer.requests[0].schema.model_json_schema()["properties"]["judgments"]
+    assert bounds["minItems"] == bounds["maxItems"] == 2
     assert result["answer_review"]["status"] == "unverified"
     assert result["answer_review"]["claim_count"] == 2

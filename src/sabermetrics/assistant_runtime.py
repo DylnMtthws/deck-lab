@@ -1725,6 +1725,7 @@ def run_turn(
     use_selection = owns_gateway if selection_first is None else selection_first
     owned_package_gateway: ModelGateway | None = None
     owned_answer_review_gateway: ModelGateway | None = None
+    owned_claim_review_gateway: ModelGateway | None = None
     owned_concise_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
@@ -2580,7 +2581,7 @@ def run_turn(
                     "shortfalls": [s.model_dump() for s in selection.shortfalls],
                     "scope": "Identity, membership, grouping and counts validated before prose; strategic judgments require claim review.",
                 }
-                raw_step = selection_reply(selection, manifest)
+                raw_step = selection_reply(selection, manifest, discovery_requirements)
             plan_route = None
             if isinstance(raw_step, dict) and "route" in raw_step:
                 try:
@@ -3261,6 +3262,34 @@ def run_turn(
                 # The injected conversational gateway is isolated from the review
                 # seam in offline tests; production reuses the pinned costed gateway.
                 checker = answer_review_gateway or (gateway if owns_gateway else None)
+                if (
+                    selected_before_prose
+                    and owns_gateway
+                    and owned_answer_review_gateway is not None
+                ):
+                    if owned_claim_review_gateway is None:
+                        claim_model = settings.model.model_copy(
+                            update={
+                                "timeout_seconds": 45.0,
+                                "max_retries": 0,
+                                "max_validation_retries": 0,
+                                "modes": {
+                                    **settings.model.modes,
+                                    ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
+                                        ReasoningMode.EXPLAIN
+                                    ).model_copy(
+                                        update={"max_output_tokens": 4096}
+                                    ),
+                                },
+                            }
+                        )
+                        owned_claim_review_gateway = build_gateway(
+                            settings.model_copy(update={"model": claim_model}),
+                            db_path=str(db_path),
+                            user_id=owner_id,
+                            deck_id=deck_id,
+                        )
+                    checker = owned_claim_review_gateway
                 if (
                     checker is not None
                     and not checker_review_attempted
@@ -4266,6 +4295,7 @@ def run_turn(
                 )
         closed_gateways: set[int] = set()
         for owned in (
+            owned_claim_review_gateway,
             owned_concise_gateway,
             owned_answer_review_gateway,
             owned_package_gateway,

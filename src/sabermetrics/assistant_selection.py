@@ -21,13 +21,15 @@ from sabermetrics.assistant_suitability import render_fit_reason
 
 class Assessment(DiscoveryModel):
     card_id: str = Field(min_length=1, max_length=160)
-    fit: str = Field(min_length=8, max_length=180)
-    conditions_and_tradeoff: str = Field(min_length=8, max_length=180)
+    fit: str = Field(min_length=8, max_length=180, pattern=r"[.!?]$")
+    conditions_and_tradeoff: str = Field(
+        min_length=8, max_length=180, pattern=r"[.!?]$"
+    )
 
 
 class Shortfall(DiscoveryModel):
     group_id: str = Field(min_length=1, max_length=160)
-    reason: str = Field(min_length=8, max_length=72)
+    reason: str = Field(min_length=8, max_length=72, pattern=r"[.!?]$")
 
 
 class CandidateSelection(DiscoveryModel):
@@ -44,7 +46,9 @@ Respect current request, preferences, group_ids, novelty exclusions, type and co
 constraints. Rank by actual deck support and tradeoffs; do not force weak matches
 to meet a quota. Meet each requested count when supported, otherwise disclose a
 shortfall. Do not claim insufficient records when eligible records are supplied.
-Keep fit and conditions_and_tradeoff concise but substantive. Give complete
+Write fit as ONE complete sentence, target50–100 characters. Write
+conditions_and_tradeoff as ONE complete sentence, target80–140 characters.
+Never end mid-sentence or pad to a field limit. Give complete
 activation costs/conditions, distinguish casting from activation, draw from
 filtering, optional from forced draw, and hand gain from sacrificed resources.
 Explain actual supported roles and awkwardness. Recursion alone proves neither
@@ -227,13 +231,23 @@ def validate_selection(
 
 
 def selection_reply(
-    selection: CandidateSelection, answer: DiscoveryAnswer
+    selection: CandidateSelection,
+    answer: DiscoveryAnswer,
+    requirements: list[DiscoveryRequirement] | None = None,
 ) -> dict[str, Any]:
     """Only called after selection validation; normal renderer supplies card facts."""
+    requested = {r.group_id: r.requested_count for r in requirements or []}
+    observed = {g.group_id: len(set(g.card_ids)) for g in answer.groups}
+    shortfalls = [
+        s
+        for s in selection.shortfalls
+        if not requested
+        or observed.get(s.group_id, 0) < (requested.get(s.group_id) or 0)
+    ]
     return {
         "content": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.",
         "findings": [],
-        "next_action": " ".join("Shortfall: " + s.reason for s in selection.shortfalls),
+        "next_action": " ".join("Shortfall: " + s.reason for s in shortfalls),
         "discovery_answer": answer.model_dump(),
         "card_ids": list(
             dict.fromkeys(cid for g in answer.groups for cid in g.card_ids)

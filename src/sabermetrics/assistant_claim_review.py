@@ -7,7 +7,7 @@ import json
 import re
 from typing import Any, Literal
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, create_model
 
 from sabermetrics.assistant_answer_review import (
     AnswerPatch,
@@ -28,7 +28,7 @@ class ClaimJudgment(StrictModel):
         "printed_fact", "deck_fact", "rules_interaction", "strategic_judgment"
     ]
     verdict: Literal["supported", "contradicted", "unverified"]
-    reason: str = Field(min_length=8, max_length=240)
+    reason: str = Field(default="", max_length=120)
     replacement: str | None = Field(default=None, max_length=1800)
     citations: list[Citation] = Field(default_factory=list, max_length=4)
 
@@ -59,6 +59,10 @@ unit, preserving its valid content, plus exact source quotes (>=12 characters).
 For supported or unverified judgments replacement=null. No invented cards or
 numerals. Never patch protected units. Do not make new recommendations or tools.
 Be concise; an empty/missing judgment never means the claim was verified.
+Include EVERY claim ID exactly once. Use one short reason (target30–80 chars),
+not a paragraph. Supported claims need exact quotes; target20–160 characters per
+quote, retaining all relevant conditions. Allocate space for every claim before
+adding detail. Never clip a sentence to a field limit.
 """
 
 
@@ -134,14 +138,22 @@ def review_claims(
             "reason": "claim_context_limit",
             "fulfillment": "unknown",
         }
+    batch_schema = create_model(
+        "ClaimReviewBatch",
+        __base__=ClaimReviewDecision,
+        judgments=(
+            list[ClaimJudgment],
+            Field(min_length=len(units), max_length=len(units)),
+        ),
+    )
     request = StructuredRequest(
         prompt_version="assistant-claim-review.v1",
         system=SYSTEM,
         user=payload,
-        schema=ClaimReviewDecision,
+        schema=batch_schema,
         mode=ReasoningMode.EXPLAIN,
         call_type="build:answer-review",
-        max_output_tokens=3072,
+        max_output_tokens=4096,
         evidence_hash=hashlib.sha256(payload.encode()).hexdigest(),
     )
     try:
