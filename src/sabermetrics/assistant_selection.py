@@ -21,15 +21,15 @@ from sabermetrics.assistant_suitability import render_fit_reason
 
 class Assessment(DiscoveryModel):
     card_id: str = Field(min_length=1, max_length=160)
-    fit: str = Field(min_length=8, max_length=180, pattern=r"[.!?]$")
+    fit: str = Field(min_length=8, max_length=180, pattern=r"^.{7,179}[.!?]$")
     conditions_and_tradeoff: str = Field(
-        min_length=8, max_length=180, pattern=r"[.!?]$"
+        min_length=8, max_length=180, pattern=r"^.{7,179}[.!?]$"
     )
 
 
 class Shortfall(DiscoveryModel):
     group_id: str = Field(min_length=1, max_length=160)
-    reason: str = Field(min_length=8, max_length=72, pattern=r"[.!?]$")
+    reason: str = Field(min_length=8, max_length=72, pattern=r"^.{7,71}[.!?]$")
 
 
 class CandidateSelection(DiscoveryModel):

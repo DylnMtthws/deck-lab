@@ -165,6 +165,22 @@ def test_redundant_shortfall_is_not_rendered_when_count_is_met():
     assert selection_reply(selected, answer, requirements)["next_action"] == ""
 
 
+def test_sentence_schema_works_as_full_match_and_rejects_punctuation_only():
+    import re
+
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_selection import Assessment
+
+    schema = Assessment.model_json_schema()["properties"]["fit"]
+    assert re.fullmatch(schema["pattern"], "A potential draw engine.")
+    assert not re.fullmatch(schema["pattern"], ".")
+    with pytest.raises(ValidationError):
+        Assessment(
+            card_id="c0", fit=".", conditions_and_tradeoff="Tap costs need setup."
+        )
+
+
 class Reviewer:
     def __init__(self, transform=None):
         self.requests = []
