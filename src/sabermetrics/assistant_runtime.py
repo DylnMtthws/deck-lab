@@ -2486,7 +2486,7 @@ def run_turn(
                     selection_repair_attempted = True
                     selection_feedback = {
                         "reason": "invalid_selection_schema",
-                        "instruction": "Return complete selection JSON, not an answer. No tools.",
+                        "instruction": "Return complete selection JSON, not an answer. Fit: one complete sentence, 50–100 characters. Conditions: one complete sentence, 80–140 characters. End sentences in punctuation. Do not pad or clip at field limits. No tools.",
                     }
                     synthesis_required = True
                     continue

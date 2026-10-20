@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from sabermetrics.assistant_discovery_contract import (
     DiscoveryAnswer,
@@ -19,17 +19,34 @@ from sabermetrics.assistant_discovery_contract import (
 from sabermetrics.assistant_suitability import render_fit_reason
 
 
+def complete_sentence(value: str) -> str:
+    if not value.rstrip().endswith((".", "!", "?")) or not any(
+        c.isalnum() for c in value
+    ):
+        raise ValueError("Use a short complete sentence ending in punctuation")
+    return value
+
+
 class Assessment(DiscoveryModel):
     card_id: str = Field(min_length=1, max_length=160)
-    fit: str = Field(min_length=8, max_length=180, pattern=r"^.{7,179}[.!?]$")
-    conditions_and_tradeoff: str = Field(
-        min_length=8, max_length=180, pattern=r"^.{7,179}[.!?]$"
-    )
+    fit: str = Field(min_length=8, max_length=180)
+    conditions_and_tradeoff: str = Field(min_length=8, max_length=180)
+
+    # Keep this check local: the live provider rejects the bounded regex grammar.
+    @field_validator("fit", "conditions_and_tradeoff")
+    @classmethod
+    def sentence(cls, value: str) -> str:
+        return complete_sentence(value)
 
 
 class Shortfall(DiscoveryModel):
     group_id: str = Field(min_length=1, max_length=160)
-    reason: str = Field(min_length=8, max_length=72, pattern=r"^.{7,71}[.!?]$")
+    reason: str = Field(min_length=8, max_length=72)
+
+    @field_validator("reason")
+    @classmethod
+    def sentence(cls, value: str) -> str:
+        return complete_sentence(value)
 
 
 class CandidateSelection(DiscoveryModel):
