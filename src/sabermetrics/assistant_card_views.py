@@ -153,6 +153,12 @@ def retrieve_card_views(
             import math
 
             for name, view in views["views"].items():
+                # Empty generated projections contain no retrieval information.
+                # Embedding "[]" must not nominate an unrelated card.
+                if name == "functional_role" and not view["roles"]:
+                    continue
+                if name == "prerequisite" and not view["draw_routes"]:
+                    continue
                 row = vector_rows.get((views["source_hash"], name), {})
                 vector = row.get("vector")
                 text_hash = hashlib.sha256(_view_text(views, name).encode()).hexdigest()
@@ -172,7 +178,9 @@ def retrieve_card_views(
                 )
                 semantic_used = True
         semantic = max(similarities.values(), default=0.0)
-        if lexical or role or semantic >= 0.65:
+        # Cosine is a ranking signal, not a calibrated probability. Callers
+        # bound nominations globally after combining the independent batches.
+        if lexical or role or semantic > 0:
             ranked.append(
                 (
                     0.5 * (lexical + role) / (1 + lexical + role) + 0.5 * semantic,
@@ -191,7 +199,7 @@ def retrieve_card_views(
                         + [
                             "semantic:" + name
                             for name, score in similarities.items()
-                            if score >= 0.65
+                            if score > 0
                         ],
                     },
                 )

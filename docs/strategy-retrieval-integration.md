@@ -80,7 +80,10 @@ returns per-view cosine/matched-channel evidence. Missing, stale or unavailable
 vectors preserve lexical retrieval. The shared local encoder caches query vectors;
 caller should load the JSON artifact once per session. Production recall batches
 the current eligible catalog before shortlist limits and uses all semantic matches
-from each batch; the final union owns nomination quotas. Results describe discovery
+from each batch, then retains the top 24 positive scores across the complete union,
+with deterministic identity tie breaks. Cosines are uncalibrated ranking signals;
+there is no universal relevance threshold. Empty generated projections cannot
+nominate candidates. Results describe discovery
 relevance, never strategic quality. Runner passes the optional artifact through.
 
 ## Corpus and offline import

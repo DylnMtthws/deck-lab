@@ -11,6 +11,7 @@ from typing import Any
 from sabermetrics.assistant_card_views import retrieve_card_views
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+MAX_VIEW_NOMINATIONS = 24
 
 
 @lru_cache(maxsize=1)
@@ -98,6 +99,8 @@ def recall_view_scores(
         "eligible_cards": len(cards),
         "indexed_eligible_cards": 0,
         "scored_cards": 0,
+        "maximum_nominations": MAX_VIEW_NOMINATIONS,
+        "ranking_method": "Top positive view cosines across the complete eligible indexed pool; no calibrated relevance or quality probability.",
         "scope": "Optional semantic discovery prior; exact current eligibility and source/view/model hashes still apply.",
     }
     if not configured:
@@ -132,11 +135,19 @@ def recall_view_scores(
                     or ""
                 )
                 score = max(row["view_cosines"].values(), default=0)
-                if score >= 0.65:
+                if score > 0:
                     scores[oid] = max(scores.get(oid, 0), score)
+        compatible = len(scores)
+        scores = dict(
+            sorted(scores.items(), key=lambda item: (-item[1], item[0]))[
+                :MAX_VIEW_NOMINATIONS
+            ]
+        )
         receipt.update(
             status="available" if scores else "no_compatible_semantic_matches",
             scored_cards=len(scores),
+            positive_scored_cards=compatible,
+            omitted_nominations=max(0, compatible - len(scores)),
         )
         return scores, receipt
     except (OSError, ValueError, TypeError, KeyError):

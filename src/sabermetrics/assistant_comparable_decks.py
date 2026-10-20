@@ -42,9 +42,10 @@ def _profile(
     ids: set[str], facts: dict[str, dict[str, Any]], role_cache: dict[str, list[str]]
 ) -> dict[str, Any]:
     covered = {
-        oid for oid in ids if str(facts.get(oid, {}).get("oracle_text") or "").strip()
+        oid
+        for oid in ids
+        if oid in role_cache or str(facts.get(oid, {}).get("oracle_text") or "").strip()
     }
-    roles: Counter[str] = Counter()
     for oid in covered:
         if oid not in role_cache:
             text = str(facts[oid]["oracle_text"])
@@ -53,7 +54,7 @@ def _profile(
                 for role, patterns in ROLE_PATTERNS.items()
                 if any(pattern.search(text) for pattern in patterns)
             ]
-        roles.update(role_cache[oid])
+    roles = Counter(role for oid in covered for role in role_cache[oid])
     return {
         "status": (
             "available"
@@ -151,10 +152,11 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                 partner=len(commanders) == 2,
                 event_column=event_column if floor is not None else None,
             )
-            n = conn.execute(
-                cte + " SELECT COUNT(*) FROM (SELECT deck_id FROM cohort LIMIT ?)",
+            cohort = conn.execute(
+                cte + " SELECT deck_id FROM cohort LIMIT ?",
                 [*params, MAX_COHORT + 1],
-            ).fetchone()[0]
+            ).fetchall()
+            n = len(cohort)
             result["cohort_lists"] = n
             if n > MAX_COHORT:
                 result.update(
@@ -163,10 +165,14 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                 return result
             columns = {row[1] for row in conn.execute("PRAGMA table_info(cards)")}
             text_column = "c.oracle_text" if "oracle_text" in columns else "NULL"
-            # Choose a deterministic canonical printing; never use document text
-            # or stored user role labels as canonical role-profile evidence.
+            # Group only the requested identities once, rather than repeating
+            # MIN(id) for every printing. Keep the same canonical minimum id;
+            # document text and user role labels are never profile evidence.
             canonical = f"""SELECT c.id AS card_id,c.oracle_id,c.name,c.type_line,{text_column} AS oracle_text
-                FROM cards c WHERE c.id=(SELECT MIN(p.id) FROM cards p WHERE p.oracle_id=c.oracle_id)"""
+                FROM cards c WHERE c.id IN (
+                    SELECT MIN(id) FROM cards WHERE oracle_id IN ({{marks}})
+                    GROUP BY oracle_id
+                )"""
             current = {
                 str(c.get("oracle_id")): c
                 for c in _library_entries(document)
@@ -181,7 +187,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                 facts.update(
                     (row["oracle_id"], dict(row))
                     for row in conn.execute(
-                        canonical + f" AND c.oracle_id IN ({marks})", list(current)
+                        canonical.format(marks=marks), list(current)
                     )
                 )
             commander_ids = {c["oracle_id"] for c in commanders if c["oracle_id"]}
@@ -200,25 +206,45 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             if not target:
                 result["status"] = "empty_comparable_library"
                 return result
-            rows = conn.execute(
-                cte + """
-                SELECT DISTINCT cohort.deck_id, c.oracle_id FROM cohort
-                JOIN deck_cards dc ON dc.deck_id=cohort.deck_id
-                JOIN cards c ON c.id=dc.card_id
-                WHERE dc.is_commander=0 AND dc.quantity>0
-                  AND c.oracle_id IS NOT NULL AND c.oracle_id!=''
-                  AND lower(COALESCE(c.type_line,'')) NOT LIKE '%basic%land%'
-                ORDER BY cohort.deck_id,c.oracle_id LIMIT ?
-            """,
-                [*params, MAX_MEMBERSHIPS + 1],
-            ).fetchall()
-            if len(rows) > MAX_MEMBERSHIPS:
-                result["status"] = "composition_too_large"
-                return result
+            # Reuse the bounded cohort and resolve each public printing once.
+            # Streaming memberships avoids repeating large cards-row lookups
+            # and sorting every deck/card pair in SQLite. Count distinct pairs
+            # before commander exclusion, exactly as the former DISTINCT query.
+            cohort_marks = ",".join("?" for _ in cohort) or "NULL"
+            deck_ids = [row["deck_id"] for row in cohort]
+            public_cards = dict(
+                conn.execute(
+                    f"""SELECT c.id,c.oracle_id FROM cards c
+                    WHERE c.id IN (
+                        SELECT dc.card_id FROM deck_cards dc
+                        WHERE dc.deck_id IN ({cohort_marks})
+                          AND dc.is_commander=0 AND dc.quantity>0
+                    )
+                      AND c.oracle_id IS NOT NULL AND c.oracle_id!=''
+                      AND lower(COALESCE(c.type_line,'')) NOT LIKE '%basic%land%'
+                    """,
+                    deck_ids,
+                )
+            )
+            memberships: dict[Any, set[str]] = defaultdict(set)
+            membership_count = 0
+            for row in conn.execute(
+                f"""SELECT deck_id,card_id FROM deck_cards
+                    WHERE deck_id IN ({cohort_marks})
+                      AND is_commander=0 AND quantity>0""",
+                deck_ids,
+            ):
+                oid = public_cards.get(row["card_id"])
+                if oid is None or oid in memberships[row["deck_id"]]:
+                    continue
+                memberships[row["deck_id"]].add(oid)
+                membership_count += 1
+                if membership_count > MAX_MEMBERSHIPS:
+                    result["status"] = "composition_too_large"
+                    return result
             decks: dict[str, set[str]] = defaultdict(set)
-            for row in rows:
-                if row["oracle_id"] not in commander_ids:
-                    decks[str(row["deck_id"])].add(row["oracle_id"])
+            for deck_id, ids in memberships.items():
+                decks[str(deck_id)].update(ids - commander_ids)
             if any(len(ids) > MAX_LIST_CARDS for ids in decks.values()):
                 result["status"] = "composition_too_large"
                 return result
@@ -230,9 +256,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                 marks = ",".join("?" for _ in batch)
                 facts.update(
                     (row["oracle_id"], dict(row))
-                    for row in conn.execute(
-                        canonical + f" AND c.oracle_id IN ({marks})", batch
-                    )
+                    for row in conn.execute(canonical.format(marks=marks), batch)
                 )
             role_cache: dict[str, list[str]] = {}
             target_profile = _profile(target, facts, role_cache)
@@ -302,6 +326,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                 candidates.remove(chosen)
             for item in selected:
                 item.pop("_ids")
+            check_deadline()
             result["comparable_decks"] = selected
             result["status"] = "available" if selected else "no_comparable_decks"
     except sqlite3.Error as exc:

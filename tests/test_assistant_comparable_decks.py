@@ -203,3 +203,125 @@ def test_diversity_penalty_can_select_distinct_neighbor_over_near_duplicate(corp
     result = comparable_decks(path, document, limit=2)
     assert [d["deck_id"] for d in result["comparable_decks"]] == ["best", "diverse"]
     assert result["comparable_decks"][1]["maximum_overlap_with_prior_neighbors"] > 0
+
+
+def test_many_printings_keep_canonical_facts_with_bounded_sql_work(corpus, monkeypatch):
+    import sabermetrics.assistant_comparable_decks as module
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        # Match the catalog's indexes without relying on elapsed wall time.
+        conn.executescript(
+            "CREATE UNIQUE INDEX cards_id ON cards(id);"
+            "CREATE INDEX cards_oracle ON cards(oracle_id);"
+            "ALTER TABLE cards ADD COLUMN oracle_text TEXT;"
+        )
+        conn.execute("UPDATE cards SET oracle_text='Draw a card.'")
+    expected = comparable_decks(path, document)
+    with sqlite3.connect(path) as conn:
+        # Later printings disagree deliberately: the minimum id still wins.
+        conn.executemany(
+            "INSERT INTO cards VALUES(?, 'oa', 'Later printing', 'Creature', 'Flying')",
+            [(f"z-printing-{i:04}",) for i in range(600)],
+        )
+    connect = sqlite3.connect
+    steps = 0
+
+    class WorkBoundedConnection(sqlite3.Connection):
+        def set_progress_handler(self, callback, interval):
+            def bounded():
+                nonlocal steps
+                steps += interval
+                return 1 if steps > 100_000 else callback()
+
+            super().set_progress_handler(bounded, interval)
+
+    monkeypatch.setattr(
+        module.sqlite3,
+        "connect",
+        lambda *args, **kwargs: connect(*args, **kwargs, factory=WorkBoundedConnection),
+    )
+    result = comparable_decks(path, document)
+    assert expected["status"] == result["status"] == "available"
+    assert result == expected
+    assert 0 < steps <= 100_000
+
+
+def test_empty_public_cohort_does_not_include_unscoped_memberships(corpus):
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        conn.execute("DELETE FROM research_results")
+    result = comparable_decks(path, document)
+    assert result["status"] == "no_comparable_decks"
+    assert result["cohort_lists"] == 0
+    assert result["comparable_decks"] == []
+
+
+def test_public_printing_resolution_does_not_repeat_for_every_membership(
+    corpus, monkeypatch
+):
+    import sabermetrics.assistant_comparable_decks as module
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        for i in range(100):
+            deck = f"repeated-{i}"
+            conn.execute(
+                "INSERT INTO research_results VALUES(?,?, 'cmd',date('now','localtime'))",
+                (deck, deck),
+            )
+            conn.execute("INSERT INTO tournament_results VALUES(?,100)", (deck,))
+            conn.execute(
+                "INSERT INTO deck_cards SELECT ?,card_id,quantity,is_commander "
+                "FROM deck_cards WHERE deck_id='0'",
+                (deck,),
+            )
+    expected = comparable_decks(path, document)
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            "ALTER TABLE cards RENAME TO card_catalog;"
+            "CREATE VIEW cards AS SELECT id,oracle_identity(oracle_id) AS oracle_id,"
+            "name,type_line FROM card_catalog;"
+        )
+    connect = sqlite3.connect
+    reads = 0
+
+    def oracle_identity(value):
+        nonlocal reads
+        reads += 1
+        return value
+
+    def counted_connect(*args, **kwargs):
+        conn = connect(*args, **kwargs)
+        conn.create_function("oracle_identity", 1, oracle_identity)
+        return conn
+
+    monkeypatch.setattr(module.sqlite3, "connect", counted_connect)
+    assert comparable_decks(path, document) == expected
+    # A shared printing is resolved once, independent of the 120 public lists.
+    assert reads < 500
+
+
+def test_membership_bound_counts_distinct_pairs_before_commander_exclusion(
+    corpus, monkeypatch
+):
+    import sabermetrics.assistant_comparable_decks as module
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        # Commander identity in a library slot still counts toward the SQL
+        # membership bound, although excluded from comparable compositions.
+        conn.execute("INSERT INTO deck_cards VALUES('0','cmd',1,0)")
+        count = conn.execute(
+            "SELECT COUNT(*) FROM (SELECT DISTINCT dc.deck_id,c.oracle_id "
+            "FROM deck_cards dc JOIN cards c ON c.id=dc.card_id "
+            "WHERE dc.is_commander=0 AND dc.quantity>0 "
+            "AND c.oracle_id IS NOT NULL AND c.oracle_id!='' "
+            "AND lower(COALESCE(c.type_line,'')) NOT LIKE '%basic%land%')"
+        ).fetchone()[0]
+    monkeypatch.setattr(module, "MAX_MEMBERSHIPS", count)
+    assert comparable_decks(path, document)["status"] == "available"
+    monkeypatch.setattr(module, "MAX_MEMBERSHIPS", count - 1)
+    result = comparable_decks(path, document)
+    assert result["status"] == "composition_too_large"
+    assert result["comparable_decks"] == []

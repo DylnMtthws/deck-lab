@@ -2,6 +2,7 @@ import json
 
 from sabermetrics.assistant_card_views import prepare_card_view_vectors
 from sabermetrics.assistant_retrieval_context import (
+    MAX_VIEW_NOMINATIONS,
     enrich_shortlist,
     recall_view_scores,
 )
@@ -85,5 +86,62 @@ def test_semantic_nomination_is_independent_of_sixty_four_card_batches(
     second, _ = recall_view_scores(
         dict(reversed(list(cards.items()))), "resource conversion"
     )
-    assert len(first) == 100
+    assert len(first) == MAX_VIEW_NOMINATIONS
     assert first == second
+
+
+def test_positive_cosines_below_uncalibrated_threshold_can_nominate(
+    monkeypatch, tmp_path
+):
+    import math
+
+    import sabermetrics.reference_layer.strategy_corpus as corpus
+
+    class ModerateEncoder:
+        _model_name = "moderate-test@v1"
+
+        def embed(self, text):
+            return (
+                [1.0, 0.0] if text == "resource conversion" else [0.4, math.sqrt(0.84)]
+            )
+
+    cards = {
+        "id": {
+            "oracle_id": "id",
+            "name": "Example",
+            "type_line": "Creature",
+            "oracle_text": "Sacrifice a creature: Draw a card.",
+        }
+    }
+    encoder = ModerateEncoder()
+    artifact = prepare_card_view_vectors(list(cards.values()), encoder=encoder)
+    file = tmp_path / "moderate.json"
+    file.write_text(json.dumps(artifact))
+    monkeypatch.setenv("SABER_ASSISTANT_CARD_VIEW_VECTORS", str(file))
+    monkeypatch.setattr(corpus, "local_embedding_service", lambda: encoder)
+    scores, receipt = recall_view_scores(cards, "resource conversion")
+    assert 0.39 < scores["id"] < 0.41
+    assert receipt["status"] == "available"
+    assert receipt["positive_scored_cards"] == 1
+
+
+def test_empty_generated_views_cannot_nominate_from_placeholder_vectors(
+    monkeypatch, tmp_path
+):
+    import sabermetrics.reference_layer.strategy_corpus as corpus
+
+    class EmptyEncoder:
+        _model_name = "empty-test@v1"
+
+        def embed(self, text):
+            return [1.0, 0.0] if text in {"[]", "", "unrelated"} else [0.0, 1.0]
+
+    cards = {"id": {"oracle_id": "id", "name": "Example", "oracle_text": "Flying"}}
+    encoder = EmptyEncoder()
+    file = tmp_path / "empty.json"
+    file.write_text(
+        json.dumps(prepare_card_view_vectors(list(cards.values()), encoder=encoder))
+    )
+    monkeypatch.setenv("SABER_ASSISTANT_CARD_VIEW_VECTORS", str(file))
+    monkeypatch.setattr(corpus, "local_embedding_service", lambda: encoder)
+    assert recall_view_scores(cards, "unrelated")[0] == {}

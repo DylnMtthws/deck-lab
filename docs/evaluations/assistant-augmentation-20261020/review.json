@@ -25,6 +25,22 @@
         "high": 0,
         "medium": 2
       }
+    },
+    {
+      "id": "mtg-augmentation-20261020-operational-adversarial-r4",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "No proven consequential defect; canonical freshness, global top24 view nomination across eight permutations, and comparable SQL output equivalence across48 synthetic differential cases. 38 focused tests plus12 comparable tests. Codex fallback, not Opus."
+    },
+    {
+      "id": "mtg-augmentation-20261020-operational-adversarial-r5",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "Independent final SQL delta review:108 in-memory complete-result comparisons covering duplicates/types/scope/caps/limits; final deadline repro abstains. Blob c15e9d48beacec91c2ee92b534bf6e7ba5e4ff1a. Cooperative deadline, no separate printing-map size cap."
     }
   ],
   "corrections": [
@@ -79,11 +95,21 @@
         "tests/test_assistant_card_views.py::test_completeness_layout_and_power_are_bound_into_every_view",
         "tests/test_assistant_retrieval_context.py::test_semantic_nomination_is_independent_of_sixty_four_card_batches"
       ]
+    },
+    {
+      "finding": "Live compatible MiniLM views never reached the uncalibrated0.65 cutoff.",
+      "resolution": "Global deterministic top24 positive viewcosines after source/model/current eligibility guards; empty generated projections cannot nominate.",
+      "regression": "tests/test_assistant_retrieval_context.py"
+    },
+    {
+      "finding": "Kinnan public comparable-deck retrieval exceeded2second budget at453lists.",
+      "resolution": "Materialize bounded cohort once; resolve requested canonical identities once and public printing metadata once for membership joins; preserve2second deadline and full ranking semantics.",
+      "regression": "tests/test_assistant_comparable_decks.py"
     }
   ],
   "limits": [
     "Reviews and synthetic regressions are not independent MTG expert qualification.",
-    "Last two memory findings were corrected with regression tests after round 3; do not describe the review as an Opus approval.",
+    "Memory and operational changes received fourth and fifth Codex reviews; neither is an Opus approval or MTG expert qualification.",
     "Corpus adds 48 original AI-authored passages and 3 attributed short AI synopses, not permissioned external primer reproductions or externally reviewed recommendations.",
     "Optional view vectors require explicit offline preparation; missing/stale indexes retain lexical fallback.",
     "Local 100-card CPU benchmark is not end-to-end latency or broad recommendation quality.",
