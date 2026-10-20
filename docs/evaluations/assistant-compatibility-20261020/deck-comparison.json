@@ -1,0 +1,582 @@
+{
+  "version": "assistant-compatibility-comparison.v1",
+  "baseline_source_sha": "824b174e7f681954ba2b6b266582a67998ca895d",
+  "baseline_source_tree_sha256": "f340d9563ca66faebadab8de82b4729622b61b03844c377f7f0a89c23a1094ff",
+  "candidate_base_sha": "824b174e7f681954ba2b6b266582a67998ca895d",
+  "candidate_source_tree_sha256": "d8c938a46f0f217b0cd244836b72bd2048b6e326b9e0fe938fa50fb348275e8b",
+  "pilot_sha256": "37d198186f7548b88d0ca397ef99db11928485d9e0c10133307f40965e5bf688",
+  "cases": 24,
+  "families": [
+    "artifact_control",
+    "creature_toolbox",
+    "death_recursion",
+    "lands_graveyard",
+    "mana_combo",
+    "spell_engine"
+  ],
+  "ranked_lists_changed": 23,
+  "rows": [
+    {
+      "id": "marchesa-draw",
+      "baseline_ids": [
+        "9b18bbf3-3b1c-4010-bc6f-e7eacb2ffb70",
+        "fa8ddc13-5108-4fe9-b3aa-dc28df476f7b",
+        "0c43e9b4-013a-47ee-9805-f41afb0a3bde",
+        "63c04040-e109-494e-baa6-c639a6c9a996",
+        "365548fb-5acc-4a8a-b20b-26d28b7d029f",
+        "df54b79d-f31d-4582-86c0-1d34ec77be0f"
+      ],
+      "candidate_ids": [
+        "9b18bbf3-3b1c-4010-bc6f-e7eacb2ffb70",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "22a23706-a5fe-46f3-b845-6f58d558c723"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.035423167049884796,
+      "candidate_seconds": 0.041022708639502525,
+      "candidate_count": 6
+    },
+    {
+      "id": "marchesa-sacrifice",
+      "baseline_ids": [
+        "f82a4e85-526d-4456-b700-7760043a31be",
+        "a7dc2e62-1c50-4ed7-b71f-2d782a447a5e"
+      ],
+      "candidate_ids": [
+        "f82a4e85-526d-4456-b700-7760043a31be",
+        "a7dc2e62-1c50-4ed7-b71f-2d782a447a5e"
+      ],
+      "changed": false,
+      "baseline_seconds": 0.009959125891327858,
+      "candidate_seconds": 0.011441582813858986,
+      "candidate_count": 2
+    },
+    {
+      "id": "meren-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "a1e232c0-dc38-47be-a5a0-f68bc1d86a29",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "12080ea9-0800-4601-b553-6711dd9f9806",
+        "98005890-d566-4a27-906f-625513171e85"
+      ],
+      "candidate_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "96a4e515-2b4e-4c2d-aa1a-963597484723",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "49136bdc-bc50-49a2-999a-1ef9c16ea130"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.013768373057246208,
+      "candidate_seconds": 0.017270833253860474,
+      "candidate_count": 6
+    },
+    {
+      "id": "meren-recursion",
+      "baseline_ids": [
+        "374e54d8-8e73-4268-9dde-c28c77bbbf32",
+        "aefea339-8a0d-4531-8a62-afaecc88d078",
+        "5829ac8e-bd1c-4065-b30a-5307ab11ae79",
+        "018107d1-ebf7-4657-bc91-c8374af55cc5",
+        "7973820b-fdaf-46ec-9e3e-d4c0e77b5067",
+        "8a83ecee-092b-456c-803f-a9aaa17c4da9"
+      ],
+      "candidate_ids": [
+        "374e54d8-8e73-4268-9dde-c28c77bbbf32",
+        "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "899387c5-6781-485b-b8bc-aa89d3b97413",
+        "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+        "c45423ad-1920-46f7-bcc1-ecade5880821",
+        "aefea339-8a0d-4531-8a62-afaecc88d078"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.010927414521574974,
+      "candidate_seconds": 0.01426629163324833,
+      "candidate_count": 6
+    },
+    {
+      "id": "vivi-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "fa8ddc13-5108-4fe9-b3aa-dc28df476f7b",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "f4bd26d5-4448-451f-9909-b6dea1551af7"
+      ],
+      "candidate_ids": [
+        "22a23706-a5fe-46f3-b845-6f58d558c723",
+        "e83b8830-fa97-4e60-b042-005e552a3ceb",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "fbfd7f38-be9a-49bf-8769-79e1e7e8dfdc",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "41c15160-ee8c-42e3-bc6c-593b8c8ae335"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.020297417417168617,
+      "candidate_seconds": 0.023793837055563927,
+      "candidate_count": 6
+    },
+    {
+      "id": "vivi-protection",
+      "baseline_ids": [
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1",
+        "2eb16535-718f-4b88-92bc-96429d796327",
+        "71b178bd-3b37-4de9-97a3-96e23d5444a4",
+        "97febf6b-302c-4c41-8838-eef7c7353bdc"
+      ],
+      "candidate_ids": [
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1",
+        "97febf6b-302c-4c41-8838-eef7c7353bdc",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "4fdbbec2-e921-4b63-958d-f9ba1e417197",
+        "2eb16535-718f-4b88-92bc-96429d796327"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.011936584487557411,
+      "candidate_seconds": 0.013827832415699959,
+      "candidate_count": 6
+    },
+    {
+      "id": "niv-draw",
+      "baseline_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "8e7ac64d-42c3-4e3b-9a20-9f09ee9d8a7a",
+        "63c04040-e109-494e-baa6-c639a6c9a996",
+        "98005890-d566-4a27-906f-625513171e85"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "baf80db7-2ca8-4bfc-b5b6-25ed51878dd7",
+        "96a4e515-2b4e-4c2d-aa1a-963597484723",
+        "8e7ac64d-42c3-4e3b-9a20-9f09ee9d8a7a"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.01468762569129467,
+      "candidate_seconds": 0.01688729040324688,
+      "candidate_count": 6
+    },
+    {
+      "id": "niv-interaction",
+      "baseline_ids": [
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "82a6fa6f-13c2-4ea3-bec2-c51b56b2783b",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "11c7662f-e688-40a6-98fd-6ae89d231b44",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1"
+      ],
+      "candidate_ids": [
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "97febf6b-302c-4c41-8838-eef7c7353bdc",
+        "82a6fa6f-13c2-4ea3-bec2-c51b56b2783b"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.008982999250292778,
+      "candidate_seconds": 0.010369246825575829,
+      "candidate_count": 6
+    },
+    {
+      "id": "kinnan-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "12080ea9-0800-4601-b553-6711dd9f9806",
+        "19910a90-d334-4d99-89f2-cd81cea3c824"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "4228dd75-1fdd-48dc-9259-b841b2e46c64",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.02254275232553482,
+      "candidate_seconds": 0.02569320797920227,
+      "candidate_count": 6
+    },
+    {
+      "id": "kinnan-mana",
+      "baseline_ids": [
+        "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+        "229d6627-1292-4ae1-8849-b0f956fa6540",
+        "7973820b-fdaf-46ec-9e3e-d4c0e77b5067",
+        "94f01534-7bb3-4b1e-8f77-e84156408686",
+        "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+        "5f6aa548-0ab3-451f-b291-10cac3f3ea1a"
+      ],
+      "candidate_ids": [
+        "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+        "736892cb-a34b-4bb9-b56c-e26e3db207a2",
+        "667c5676-7a18-4fa9-b965-b26797538e23",
+        "7973820b-fdaf-46ec-9e3e-d4c0e77b5067",
+        "116eea43-4235-4608-8c6a-599e860ae2f1",
+        "3a198a16-17b9-481e-b516-5bc945c7e247"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.019875543192029,
+      "candidate_seconds": 0.028478166088461876,
+      "candidate_count": 6
+    },
+    {
+      "id": "selvala-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "12080ea9-0800-4601-b553-6711dd9f9806",
+        "63c04040-e109-494e-baa6-c639a6c9a996",
+        "98005890-d566-4a27-906f-625513171e85"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "96a4e515-2b4e-4c2d-aa1a-963597484723",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "49136bdc-bc50-49a2-999a-1ef9c16ea130"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.01122724823653698,
+      "candidate_seconds": 0.012740250676870346,
+      "candidate_count": 6
+    },
+    {
+      "id": "selvala-mana",
+      "baseline_ids": [
+        "e2ad4b4d-d5fe-4a64-9b40-296c8fc8bcce",
+        "94f01534-7bb3-4b1e-8f77-e84156408686",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "5f6aa548-0ab3-451f-b291-10cac3f3ea1a",
+        "12080ea9-0800-4601-b553-6711dd9f9806",
+        "1bc42024-52da-4d93-8b47-544f0a4a72a1"
+      ],
+      "candidate_ids": [
+        "1bc42024-52da-4d93-8b47-544f0a4a72a1",
+        "de2440de-e948-4811-903c-0bbe376ff64d",
+        "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+        "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+        "ec3d4466-547c-4e02-b1b5-a156ec4637e9",
+        "f3c5978a-70fa-431f-933b-b954bd0db0ea"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.016755875200033188,
+      "candidate_seconds": 0.02991887368261814,
+      "candidate_count": 6
+    },
+    {
+      "id": "chulane-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "9b18bbf3-3b1c-4010-bc6f-e7eacb2ffb70",
+        "19910a90-d334-4d99-89f2-cd81cea3c824",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "16414460-11ce-481d-ab54-6f0e0ea7d83d"
+      ],
+      "candidate_ids": [
+        "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "784c039d-a9b2-4b22-a937-c8f7b475e96a",
+        "19910a90-d334-4d99-89f2-cd81cea3c824",
+        "baf80db7-2ca8-4bfc-b5b6-25ed51878dd7",
+        "c6a3a882-a127-4590-93d7-679ef4313efe"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.01948849856853485,
+      "candidate_seconds": 0.022818583995103836,
+      "candidate_count": 6
+    },
+    {
+      "id": "chulane-protection",
+      "baseline_ids": [
+        "2eb16535-718f-4b88-92bc-96429d796327",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "605f719d-01f8-406c-9d4c-3f4992c6a69f",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "561af57d-d43d-4d98-9ef6-18a0843f22ae",
+        "59154c04-6bc5-4b95-af1f-6de5fed05649"
+      ],
+      "candidate_ids": [
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "605f719d-01f8-406c-9d4c-3f4992c6a69f",
+        "561af57d-d43d-4d98-9ef6-18a0843f22ae",
+        "59154c04-6bc5-4b95-af1f-6de5fed05649",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.01433500088751316,
+      "candidate_seconds": 0.016028542071580887,
+      "candidate_count": 6
+    },
+    {
+      "id": "animar-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "16414460-11ce-481d-ab54-6f0e0ea7d83d",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "1d725121-e50c-42f0-9128-56802f07c89e"
+      ],
+      "candidate_ids": [
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "784c039d-a9b2-4b22-a937-c8f7b475e96a",
+        "baf80db7-2ca8-4bfc-b5b6-25ed51878dd7",
+        "c6a3a882-a127-4590-93d7-679ef4313efe",
+        "ef4d5fb3-70a3-433d-a9d3-18b2beb8d79f",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.02902708388864994,
+      "candidate_seconds": 0.027381084859371185,
+      "candidate_count": 6
+    },
+    {
+      "id": "animar-protection",
+      "baseline_ids": [
+        "2eb16535-718f-4b88-92bc-96429d796327",
+        "97febf6b-302c-4c41-8838-eef7c7353bdc",
+        "725880b2-1675-414f-b61b-cf6533797dbf",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "605f719d-01f8-406c-9d4c-3f4992c6a69f",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590"
+      ],
+      "candidate_ids": [
+        "97febf6b-302c-4c41-8838-eef7c7353bdc",
+        "725880b2-1675-414f-b61b-cf6533797dbf",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "605f719d-01f8-406c-9d4c-3f4992c6a69f",
+        "561af57d-d43d-4d98-9ef6-18a0843f22ae",
+        "59154c04-6bc5-4b95-af1f-6de5fed05649"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.014768499881029129,
+      "candidate_seconds": 0.016291752457618713,
+      "candidate_count": 6
+    },
+    {
+      "id": "aesi-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "9b18bbf3-3b1c-4010-bc6f-e7eacb2ffb70",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "22a23706-a5fe-46f3-b845-6f58d558c723"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.019041331484913826,
+      "candidate_seconds": 0.022053789347410202,
+      "candidate_count": 6
+    },
+    {
+      "id": "aesi-selection",
+      "baseline_ids": [
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "8d11aa49-d4cd-48b1-aa0f-8548fa733416",
+        "d1586808-efc2-469a-8384-ba4acf231e69",
+        "2eb16535-718f-4b88-92bc-96429d796327",
+        "cd68cc31-12fd-48ff-b37b-bccfe4172974",
+        "aa1d8bfa-729a-4e10-8069-57a1d4f4392b"
+      ],
+      "candidate_ids": [
+        "aa1d8bfa-729a-4e10-8069-57a1d4f4392b",
+        "8d11aa49-d4cd-48b1-aa0f-8548fa733416",
+        "d1586808-efc2-469a-8384-ba4acf231e69",
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "2eb16535-718f-4b88-92bc-96429d796327",
+        "cd68cc31-12fd-48ff-b37b-bccfe4172974"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.008305290713906288,
+      "candidate_seconds": 0.009039750322699547,
+      "candidate_count": 6
+    },
+    {
+      "id": "muldrotha-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "19910a90-d334-4d99-89f2-cd81cea3c824"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "22a23706-a5fe-46f3-b845-6f58d558c723"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.02110716700553894,
+      "candidate_seconds": 0.024638375267386436,
+      "candidate_count": 6
+    },
+    {
+      "id": "muldrotha-recursion",
+      "baseline_ids": [
+        "82a6fa6f-13c2-4ea3-bec2-c51b56b2783b",
+        "63c04040-e109-494e-baa6-c639a6c9a996",
+        "abfa5753-8c02-4e2f-8f98-b0636907293a",
+        "ef7b11ab-24e7-4e7c-91a7-920bade6e60b",
+        "0c43e9b4-013a-47ee-9805-f41afb0a3bde",
+        "7ac433a7-c107-46de-b36b-d7419c9ec565"
+      ],
+      "candidate_ids": [
+        "8a83ecee-092b-456c-803f-a9aaa17c4da9",
+        "c45423ad-1920-46f7-bcc1-ecade5880821",
+        "cc965557-f69e-4689-8791-d3618e4ffbfa",
+        "a38ebf4a-064c-4517-a553-15f0a252c159",
+        "f0435065-a8ca-4b4d-a7da-0ef41749118f",
+        "a7dc2e62-1c50-4ed7-b71f-2d782a447a5e"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.013534747064113617,
+      "candidate_seconds": 0.02044537663459778,
+      "candidate_count": 6
+    },
+    {
+      "id": "urza-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "25c83d45-581f-48ba-b6bb-feb66e8a65c7",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "8e7ac64d-42c3-4e3b-9a20-9f09ee9d8a7a"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "22a23706-a5fe-46f3-b845-6f58d558c723"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.016347207129001617,
+      "candidate_seconds": 0.01853795535862446,
+      "candidate_count": 6
+    },
+    {
+      "id": "urza-mana",
+      "baseline_ids": [
+        "e2ad4b4d-d5fe-4a64-9b40-296c8fc8bcce",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "de2440de-e948-4811-903c-0bbe376ff64d",
+        "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+        "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
+        "ec3d4466-547c-4e02-b1b5-a156ec4637e9"
+      ],
+      "candidate_ids": [
+        "de2440de-e948-4811-903c-0bbe376ff64d",
+        "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+        "ec3d4466-547c-4e02-b1b5-a156ec4637e9",
+        "f3c5978a-70fa-431f-933b-b954bd0db0ea",
+        "c3e5d355-fbfb-4489-aeea-8b0ea5de6fcd",
+        "eb1c4f0a-b993-4aa1-8b13-1695b5f63653"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.010231250897049904,
+      "candidate_seconds": 0.01190229132771492,
+      "candidate_count": 6
+    },
+    {
+      "id": "shorikai-draw",
+      "baseline_ids": [
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "a4b66fb3-16ea-4bf1-bce3-6df872e8883b",
+        "ec463bde-dadf-4044-8e41-71338fd4d62f",
+        "63c04040-e109-494e-baa6-c639a6c9a996",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1"
+      ],
+      "candidate_ids": [
+        "3e5ac76b-08bd-4232-9290-49742b0ff603",
+        "0405e0a9-6d02-4691-bdb8-59c72b824dab",
+        "223fa044-d387-4884-bf4e-75f1b61c6a46",
+        "9148f2cb-5594-463c-a21b-a67706ec46d1",
+        "328834f6-1f49-417a-a2d6-d430b8dca177",
+        "22a23706-a5fe-46f3-b845-6f58d558c723"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.014655832201242447,
+      "candidate_seconds": 0.01682816445827484,
+      "candidate_count": 6
+    },
+    {
+      "id": "shorikai-interaction",
+      "baseline_ids": [
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "82a6fa6f-13c2-4ea3-bec2-c51b56b2783b",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "11c7662f-e688-40a6-98fd-6ae89d231b44",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1"
+      ],
+      "candidate_ids": [
+        "282dfeaa-6243-4f92-838a-5cb54fa85184",
+        "4ca3306b-06f7-4a09-b904-f5540d11ddf1",
+        "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+        "34c65c7f-33ab-4f91-84ce-d0c8f4fc5832",
+        "97febf6b-302c-4c41-8838-eef7c7353bdc",
+        "82a6fa6f-13c2-4ea3-bec2-c51b56b2783b"
+      ],
+      "changed": true,
+      "baseline_seconds": 0.008238665759563446,
+      "candidate_seconds": 0.009038461372256279,
+      "candidate_count": 6
+    }
+  ],
+  "latency": {
+    "baseline_retrieval_p50_seconds": 0.014671728946268559,
+    "candidate_retrieval_p50_seconds": 0.017079061828553677,
+    "baseline_retrieval_max_seconds": 0.035423167049884796,
+    "candidate_retrieval_max_seconds": 0.041022708639502525,
+    "end_to_end_answer_seconds": null
+  },
+  "cost": {
+    "model_calls": 0,
+    "configured_model_cost_usd": 0
+  },
+  "quality": {
+    "expert_preference": null,
+    "factual_error_rate": null,
+    "full_catalog_candidate_recall": null
+  },
+  "scope": "Frozen 2026-10-20 from existing synthetic public-catalog QA diagnostic shells. Not player decks, current Oracle certification, independent expert labels or blind qualification. This bounded catalog measures candidate retrieval/profile delivery, not full-catalog recall or model answer quality.",
+  "qualification": "Rank movement and retrieval timing only. No direction of strategic improvement inferred without independently reviewed answers."
+}

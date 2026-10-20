@@ -96,7 +96,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v30"
+PROMPT_VERSION = "build-conversation.v31"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -3324,6 +3324,37 @@ def run_turn(
                         ],
                         [row.model_dump() for row in session.ledger.candidates],
                     )
+                    review_rules = state.get("rules_evidence") or {}
+                    if selected_before_prose and step.discovery_answer is not None:
+                        from sabermetrics.assistant_targeted_evidence import (
+                            finalist_evidence,
+                        )
+
+                        selected_ids = list(
+                            dict.fromkeys(
+                                cid
+                                for group in step.discovery_answer.groups
+                                for cid in group.card_ids
+                            )
+                        )
+                        finalists = [
+                            source_cards[cid]
+                            for cid in selected_ids
+                            if cid in source_cards
+                        ]
+                        tools.check()
+                        review_rules, targeted_receipt = finalist_evidence(
+                            Path(db_path),
+                            finalists,
+                            review_rules,
+                            [
+                                c
+                                for c in document.get("entries", [])
+                                if c.get("is_commander")
+                            ],
+                        )
+                        tools.check()
+                        stage_timings.append(targeted_receipt)
                     stage_timings.append(
                         {
                             "stage": "review_evidence",
@@ -3347,7 +3378,7 @@ def run_turn(
                             document,
                             actions,
                             parts,
-                            state.get("rules_evidence"),
+                            review_rules,
                             review_cards,
                         ),
                         current_request,

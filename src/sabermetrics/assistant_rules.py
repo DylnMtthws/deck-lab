@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlite3
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Any, Literal
@@ -619,7 +620,12 @@ def _ruling_rows(
 
 
 def retrieve_rules(
-    db_path: Path, query: str, *, cards: Any = (), limit: int = 4
+    db_path: Path,
+    query: str,
+    *,
+    cards: Any = (),
+    limit: int = 4,
+    deadline_seconds: float | None = None,
 ) -> RulesEvidence:
     """Retrieve local rules, their parents/references and scoped stored rulings.
 
@@ -642,10 +648,21 @@ def retrieve_rules(
     """
     if not query.strip() or len(query) > MAX_QUERY_CHARS or not 1 <= limit <= MAX_HITS:
         raise ValueError("Rules query must contain 1–300 characters; limit 1–6")
+    if deadline_seconds is not None and not 0.01 <= deadline_seconds <= 1.0:
+        raise ValueError("Rules deadline must be 0.01–1 second")
+    deadline = (
+        time.monotonic() + deadline_seconds if deadline_seconds is not None else None
+    )
     scoped = _scope_cards(cards)
     result = RulesEvidence(status="unavailable", query=query)
     try:
-        conn = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
+        conn = sqlite3.connect(
+            Path(db_path).resolve().as_uri() + "?mode=ro",
+            uri=True,
+            timeout=min(0.1, deadline_seconds) if deadline_seconds is not None else 5.0,
+        )
+        if deadline is not None:
+            conn.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
     except sqlite3.Error:
         return result
     conn.row_factory = sqlite3.Row

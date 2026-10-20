@@ -645,6 +645,9 @@ def functional_search(
     # against one shared deck scan before applying the result limit.
     for oid in ordered[: args.limit]:
         cards[oid]["suitability"] = suitability[oid]
+    from sabermetrics.assistant_compatibility import compare_candidates
+
+    compare_candidates([cards[oid] for oid in ordered[: args.limit]])
     from sabermetrics.assistant_jev import shadow_candidates
 
     jev_trial = shadow_candidates(
@@ -663,7 +666,7 @@ def functional_search(
             "association": association_status,
         },
         "stale_vectors_rejected": rejected,
-        "ranking_version": "assistant-suitability.v1",
+        "ranking_version": "assistant-suitability.v2",
         "jev_trial": jev_trial,
         "elapsed_seconds": round(time.monotonic() - started, 4),
         "limitations": [

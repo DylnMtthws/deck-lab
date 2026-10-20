@@ -17,7 +17,7 @@ from sabermetrics.assistant_strategy import draw_routes, strategy_capabilities
 from sabermetrics.card_economy import card_economy_profile
 from sabermetrics.deck_evidence import _library_entries
 
-VERSION = "assistant-suitability.v1"
+VERSION = "assistant-suitability.v2"
 _NUM = {"a": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _COUNT = r"(a|one|two|three|four|five|[1-5])"
 
@@ -107,6 +107,7 @@ def deck_support_index(document: dict[str, Any]) -> dict[str, Any]:
         ),
         "groups": groups,
         "commanders": commanders,
+        "entries": [*commanders, *library],
         "mana": {
             "land_quantity": land_quantity,
             "detected_potential_color_sources": color_sources,
@@ -196,79 +197,7 @@ def candidate_suitability(
             activations.append(
                 {"cost": cost.strip(), "effect_and_conditions": effect.strip()}
             )
-    needs: set[str] = set()
-    if re.search(r"sacrifice (?:another |a |an )creature", text):
-        needs.update({"fodder", "recursion"})
-    if re.search(r"\bdie(?:s)?\b", text):
-        needs.update({"sacrifice", "fodder", "recursion"})
-    if re.search(r"remove [^.\n:]*counter|with a \+1/\+1 counter", text):
-        needs.add("counters")
-    if re.search(r"from your graveyard", text):
-        needs.add("sacrifice")
-    if activations and any(
-        re.search(r"\{[1-9WUBRGCX]", row["cost"]) for row in activations
-    ):
-        needs.add("mana")
-    support = []
     gaps = []
-    death_type = re.search(
-        r"\b(?:another|an?|one or more) ([a-z]+) you control die(?:s)?\b", text
-    )
-    required_type = death_type[1] if death_type else None
-    if required_type:
-        required_type = {"elves": "elf"}.get(required_type, required_type.rstrip("s"))
-    for group in sorted(needs):
-        providers = [
-            c
-            for c in index["groups"][group]
-            if not (c.get("oracle_id") and c.get("oracle_id") == card.get("oracle_id"))
-            and c.get("name") != card.get("name")
-        ]
-        if group == "fodder" and "nontoken" in text:
-            providers = []
-        if group == "fodder" and required_type not in {None, "creature", "permanent"}:
-            # A Zombie token producer cannot establish Elf-death support. Keep
-            # only printed matching subtypes or explicitly matching token text;
-            # unsupported qualifiers abstain rather than credit generic fodder.
-            providers = [
-                c
-                for c in providers
-                if re.search(
-                    r"\b" + re.escape(str(required_type)) + r"s?\b",
-                    str(c.get("type_line") or "")
-                    + " "
-                    + str(c.get("oracle_text") or ""),
-                    re.IGNORECASE,
-                )
-            ]
-        if group == "counters" and not re.search(
-            r"(?:remove [^:\n.]*|with a )\+1/\+1 counters?", text
-        ):
-            # The index only detects +1/+1 providers; charge, oil and other
-            # counter costs require different evidence and stay unresolved.
-            providers = []
-        if group == "recursion":
-            providers = [
-                c
-                for c in providers
-                if re.search(
-                    r"creature|return that card",
-                    str(c.get("oracle_text") or ""),
-                    re.IGNORECASE,
-                )
-            ]
-        support.append(
-            {
-                "dimension": group,
-                "detected_sources": len(providers),
-                "cards": providers[:3],
-                "sources_omitted": max(0, len(providers) - 3),
-            }
-        )
-        if not providers:
-            gaps.append(
-                f"No {group} support detected by bounded patterns; inspect remaining deck text."
-            )
     awkward = []
     if "{t}" in text:
         awkward.append(
@@ -314,12 +243,52 @@ def candidate_suitability(
     )
     # Transparent bounded signals. Support never compensates for hard filters;
     # callers apply legality/type/exclusion rules before computing this profile.
-    support_score = min(6, sum(bool(row["detected_sources"]) for row in support) * 2)
+    from sabermetrics.assistant_compatibility import ability_compatibility
+
+    compatibility = ability_compatibility(card, index.get("entries", []))
+    requirements = compatibility["requirements"]
+    # Category detection nominates sources; only ability-matched providers earn
+    # credit. Requiring more ingredients must not itself produce a higher score.
+    support_score = (
+        2 if requirements and all(r["providers"] for r in requirements) else 0
+    )
+    engine_bonus = min(4, len(links) * 2) if not requirements or support_score else 0
+    support = [
+        {
+            "dimension": r["dimension"],
+            "detected_sources": len(r["providers"]) + r["providers_omitted"],
+            "cards": r["providers"],
+            "sources_omitted": r["providers_omitted"],
+            "status": r["status"],
+        }
+        for r in requirements
+    ]
+    if any(
+        re.search(r"\{(?:[1-9][0-9]*|[WUBRGC])\}", a["cost"], re.IGNORECASE)
+        for a in activations
+    ):
+        # Source counts are not availability; preserve the existing unknown row.
+        support.append(
+            {
+                "dimension": "mana",
+                "detected_sources": 0,
+                "cards": [],
+                "sources_omitted": 0,
+            }
+        )
+    gaps.extend(
+        "Compatible "
+        + r["dimension"]
+        + " support is unconfirmed for "
+        + r["required"]
+        + "."
+        for r in requirements
+        if not r["providers"]
+    )
     friction = min(
         4,
-        sum(
-            not row["detected_sources"] for row in support if row["dimension"] != "mana"
-        ),
+        sum(not r["providers"] for r in requirements)
+        + int(any("{t}" in a["cost"].lower() for a in activations)),
     )
     filtering_penalty = (
         3
@@ -361,6 +330,7 @@ def candidate_suitability(
             "scope": "Printed source detection, not untapped availability, casting probability or simulation. Conditional and restricted sources require individual inspection.",
         },
         "resource_accounting": accounting,
+        "ability_compatibility": compatibility,
         "strategic_judgment": {
             "status": "heuristic_ingredients" if complete else "unverified",
             "support": support,
@@ -369,13 +339,14 @@ def candidate_suitability(
             "signals": {
                 "support": support_score,
                 "setup_friction": friction,
+                "engine_fit": engine_bonus,
                 "filtering_penalty": filtering_penalty,
                 "casting_penalty": casting_penalty,
                 "permanent_consumption_penalty": consumption_penalty,
             },
             "engine_relationships": [link.model_dump() for link in links],
             "priority": support_score
-            + min(4, len(links) * 2)
+            + engine_bonus
             - friction
             - filtering_penalty
             - casting_penalty
@@ -442,8 +413,12 @@ def render_fit_reason(profile: dict[str, Any]) -> str:
         if support
         else "Relevant deck support remains unconfirmed."
     )
-    # Exact costs remain in the generated note and the retained printed text.
-    # This adds one concrete friction point even when a model omits fit prose.
+    # Costs are rendered from supplied text as well as retained for the model.
+    abilities = profile.get("ability_compatibility", {}).get("abilities", [])
+    for ability in abilities[:2]:
+        text += " Activation cost: " + ability["activation_cost"] + "."
+    if len(abilities) > 2:
+        text += " Additional activation costs are in the full card text."
     if judgment["awkwardness"]:
         text += " " + judgment["awkwardness"][0]
     elif judgment["setup_gaps"]:

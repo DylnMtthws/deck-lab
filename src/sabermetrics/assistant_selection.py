@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import Field, field_validator
 
+from sabermetrics.assistant_compatibility import compatibility_summary
 from sabermetrics.assistant_discovery_contract import (
     DiscoveryAnswer,
     DiscoveryAnswerGroup,
@@ -71,6 +72,11 @@ filtering, optional from forced draw, and hand gain from sacrificed resources.
 Explain actual supported roles and awkwardness. Recursion alone proves neither
 counter replenishment nor a repeatable loop. Missing rules remain unverified.
 For ranked groups, explain a pairwise tradeoff that determines relative order.
+Use ability_compatibility to distinguish matching printed ingredients from unknown
+prerequisites. Do not award synergy for unrelated source abilities. Check first
+use versus further uses; returning a source to hand requires recasting it.
+functional_comparison compares printed activation mana only, never overall quality.
+Give the strongest concrete drawback of each selection; preserve role tradeoffs.
 Only select supplied IDs; no duplicates, existing deck cards or excluded IDs.
 Do not duplicate card names/casting costs: code renders those printed fields.
 When repairing, change only invalid selections/assessments, preserving valid ones.
@@ -103,7 +109,7 @@ def selection_payload(
             .get("strategic_judgment", {})
             .get("support", [])
         )
-        for support_card in support.get("cards", [])[:1]
+        for support_card in support.get("cards", [])[:3]
         if support.get("dimension") != "mana"
     }
     deck_sources: list[dict[str, Any]] = []
@@ -166,6 +172,10 @@ def selection_payload(
                 if card.get("oracle_text")
                 else [f.model_dump() for f in candidate.source_facts]
             ),
+            "ability_compatibility": compatibility_summary(
+                card.get("suitability", {}).get("ability_compatibility", {})
+            ),
+            "functional_comparison": card.get("functional_comparison"),
             "heuristic_support_unverified": (
                 render_fit_reason(card["suitability"])
                 if card.get("suitability")

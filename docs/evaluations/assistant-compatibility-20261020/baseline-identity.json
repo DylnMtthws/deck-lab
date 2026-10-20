@@ -1,0 +1,8 @@
+{
+  "source_sha": "824b174e7f681954ba2b6b266582a67998ca895d",
+  "qualification": "Internal authored calibration only; independent expert pilot pending.",
+  "cases_file_sha256": "dc300cfd76147c93b81a126d652057f2015f981723752902e3aec877c7a64f5d",
+  "deck_pilot_sha256": "37d198186f7548b88d0ca397ef99db11928485d9e0c10133307f40965e5bf688",
+  "baseline_source_tree_sha256": "f340d9563ca66faebadab8de82b4729622b61b03844c377f7f0a89c23a1094ff",
+  "candidate_source_tree_sha256": "d8c938a46f0f217b0cd244836b72bd2048b6e326b9e0fe938fa50fb348275e8b"
+}

@@ -239,3 +239,63 @@ The v3 contract separates a known factual correction from any unverified remaind
 in the same recommendation. A supported Oracle correction can be applied while
 unknown rules or fit assertions keep the unit unverified. An invalid evidence ID
 quarantines its claim without discarding other independent valid corrections.
+
+### Ability compatibility and bounded finalist evidence
+
+The next increment uses `assistant-suitability.v2` and conversation prompt v31.
+`assistant_compatibility.py` replaces broad ingredient-category support credit
+with bounded matches between the candidate's requirement and the provider's
+actual source clause. Supported shapes include creature/artifact token costs,
+a small explicit tribe vocabulary, external matching counter sources, self-death
+versus other-creature death, and unrestricted creature return to the battlefield.
+Compound sacrifice restrictions, nontoken supply, mismatched counters/targets,
+unresolved if/unless conditions, incomplete text and multiface cards remain unknown. A source
+must be in the current library or command zone. Matching ingredients never prove
+availability, sustainable supply, a loop or measured improvement.
+
+Each record preserves casting and activation costs separately, printed initial
+resource clauses, and the need to repay costs/replenish resources for further
+uses. Matching more dependencies cannot accumulate extra support bonuses.
+Existing commander relationships remain bounded contextual preferences; they
+cannot supply missing prerequisite evidence. One fixed-mana comparison is attached
+for up to eight shortlisted cards, retaining both full ability quotes and casting
+costs. It does not claim equivalent effects or strict superiority. Selection sees
+these comparisons and exact support-card records; deterministic rendering also
+includes activation costs so a short model note cannot silently omit them.
+
+After selection, the existing reviewer receives at most two additional local
+rules/rulings lookups for the first three finalists. Each lookup has a 350 ms SQL
+progress deadline and a short lock timeout. These are database-query bounds, not
+a hard wall-clock guarantee for Python processing or the overall answer. Six
+distinct rule/ruling hits are retained, including original source identities,
+versions, hashes and excerpt flags in the stage receipt. Existing evidence is
+reused, fresh complete text takes precedence over prior excerpts, and omitted
+queries/finalists/hits are disclosed. There is no additional model round, remote
+retrieval, or Jev dependency. Missing evidence remains unverified.
+
+The frozen calibration artifacts live in
+`docs/evaluations/assistant-compatibility-20261020/`. `cases.json` contains 24
+supplied-text mechanical scenarios (16 development, eight initially reserved).
+The development ordering checks improved from 7/8 to 8/8; the reserved ordering
+checks remained 4/4. Expected candidate retrieval remained 48/48 across the two
+splits; the 24 declared profile checks remained correct. These are authored
+regressions, not independent expert labels; the reserved split is now consumed.
+
+`deck-pilot.json` separately freezes 24 retrieval requests across 12 diagnostic
+commander shells, six strategy families and a 367-card public snapshot subset.
+These shells are not optimized player decks; quantities are normalized to one.
+The capture script records literal results and source-tree/corpus hashes without
+model calls. `deck-comparison.json` records rank movement and retrieval timings,
+while expert preference, broad factual accuracy, full-catalog recall and
+end-to-end answer latency stay null. Rank movement does not establish a quality
+gain. The original baseline code was exported from commit
+`824b174e7f681954ba2b6b266582a67998ca895d`; no baseline was fabricated from the
+candidate implementation. Full captures are retained in the operator's private
+`assistant-compatibility-20261020` artifact directory.
+
+This increment has not been deployed to QA or production. Live paired answer
+collection and independent expert calibration remain separate release evidence.
+
+Validation: 3,464 full-suite tests passed, 34 optional tests skipped; 200 source
+files passed type checking. The final evidence metadata also passed 32 targeted
+checks. Existing sklearn convergence warnings remain unchanged.
