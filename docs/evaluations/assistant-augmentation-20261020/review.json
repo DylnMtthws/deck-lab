@@ -41,6 +41,22 @@
         "medium": 0
       },
       "scope": "Independent final SQL delta review:108 in-memory complete-result comparisons covering duplicates/types/scope/caps/limits; final deadline repro abstains. Blob c15e9d48beacec91c2ee92b534bf6e7ba5e4ff1a. Cooperative deadline, no separate printing-map size cap."
+    },
+    {
+      "id": "mtg-augmentation-20261020-memory-adversarial-r6",
+      "findings": {
+        "high": 0,
+        "medium": 1
+      },
+      "scope": "Reviewed compaction and v2 compatibility; found empty receipts crowding useful investigations.32 focused tests passed otherwise."
+    },
+    {
+      "id": "mtg-augmentation-20261020-memory-adversarial-r7",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "Accepted removal of empty-narrative fallback, minimum180claim/60detailbudget thenabstain.5 focused tests including100UUID regression; bindings/correctionidentity/legacytruncatedclaimdowngrade preserved. Source SHA256 da8ca33f77520a02332b81f7cb028f71f270d76461ac72d6b6260bc9101ddccd."
     }
   ],
   "corrections": [
@@ -105,14 +121,24 @@
       "finding": "Kinnan public comparable-deck retrieval exceeded2second budget at453lists.",
       "resolution": "Materialize bounded cohort once; resolve requested canonical identities once and public printing metadata once for membership joins; preserve2second deadline and full ranking semantics.",
       "regression": "tests/test_assistant_comparable_decks.py"
+    },
+    {
+      "finding": "Long reviewed prose could discard a whole investigation at12000chars; empty compaction receipts could then crowd out useful memories.",
+      "resolution": "Bounded plan attention metadata, fullclaim/replacement hashes, deterministic narrative compaction with explicit truncation and unverified verdicts. Preserve useful minimum narrative or abstain. Keep dependency/evidence identities and v2 history; downgrade legacy truncated claims.",
+      "regressions": [
+        "tests/test_assistant_episodes.py::test_long_reviewed_claims_and_compiled_plan_fit_without_losing_receipts",
+        "tests/test_assistant_episodes.py::test_same_prefix_opposite_full_claims_survive_recall_dedup",
+        "tests/test_assistant_episodes.py::test_capture_abstains_when_only_an_empty_receipt_would_fit"
+      ]
     }
   ],
   "limits": [
     "Reviews and synthetic regressions are not independent MTG expert qualification.",
-    "Memory and operational changes received fourth and fifth Codex reviews; neither is an Opus approval or MTG expert qualification.",
+    "Memory and operational changes received independent Codex reviews through round7; this is not Opus approval or MTG expert qualification.",
     "Corpus adds 48 original AI-authored passages and 3 attributed short AI synopses, not permissioned external primer reproductions or externally reviewed recommendations.",
     "Optional view vectors require explicit offline preparation; missing/stale indexes retain lexical fallback.",
     "Local 100-card CPU benchmark is not end-to-end latency or broad recommendation quality.",
-    "No model weights were trained; no new paid service or dependency was introduced."
+    "No model weights were trained; no new paid service or dependency was introduced.",
+    "Long-prose rejection was reproduced synthetically; the exact cause of the original live Marchesa memory omissions remains unestablished."
   ]
 }

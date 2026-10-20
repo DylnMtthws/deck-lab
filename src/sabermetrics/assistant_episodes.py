@@ -119,6 +119,57 @@ def _catalog_identities(
     return {cid: cache[cid] for cid in ids}
 
 
+def _plan_attention(plan: dict[str, Any]) -> dict[str, Any]:
+    """Keep bounded attention metadata, never repeated queries or evidence prose."""
+    if not plan:
+        return {}
+    return {
+        "summary_only": True,
+        "plan_sha256": _hash(plan),
+        **{
+            key: str(plan.get(key) or "")[:80]
+            for key in ("version", "plan_hash", "request_sha256")
+        },
+        "tasks": [
+            {
+                "id": str(task.get("id") or task.get("task_id") or "")[:80],
+                "coverage": str(task.get("coverage") or "not_recorded")[:80],
+                **{
+                    key: str(task.get(key) or "")[:80]
+                    for key in ("kind", "evidence_class")
+                },
+            }
+            for task in (plan.get("tasks") or plan.get("results") or [])[:5]
+        ],
+    }
+
+
+def _trim_narrative(
+    episode: dict[str, Any], claim_limit: int, detail_limit: int
+) -> None:
+    """Only narrative is expendable; receipts and dependency guards are fixed."""
+    fields = [(episode, "objective", min(500, claim_limit))]
+    for hypothesis in episode["hypotheses"]:
+        fields.extend(
+            (hypothesis, key, limit)
+            for key, limit in (
+                ("claim", claim_limit),
+                ("reason", min(240, detail_limit)),
+                ("replacement", min(500, detail_limit)),
+            )
+        )
+    for item, key, limit in fields:
+        if len(item[key]) > limit:
+            item[key] = item[key][:limit]
+            item[f"{key}_truncated"] = True
+            episode["narrative_compacted"] = True
+    for hypothesis in episode["hypotheses"]:
+        if hypothesis["claim_truncated"]:
+            # The original review is a receipt, not a verdict on an excerpt.
+            hypothesis["verdict"] = "unverified"
+            hypothesis["unverified_remainder"] = True
+
+
 def capture_episode(
     document: dict[str, Any],
     request: str,
@@ -184,8 +235,9 @@ def capture_episode(
         hypotheses.append(
             {
                 "claim_id": claim_id,
-                "claim": claim[:1800],
-                "claim_truncated": len(claim) > 1800,
+                "claim": claim,
+                "claim_sha256": hashlib.sha256(claim.encode()).hexdigest(),
+                "claim_truncated": False,
                 "card_ids": bindings,
                 "category": judgment.get("category", "unknown"),
                 "verdict": (
@@ -195,11 +247,17 @@ def capture_episode(
                     in {"supported", "contradicted", "unverified"}
                     else "unverified"
                 ),
+                "reviewed_verdict": judgment.get("verdict", "unverified"),
                 "unverified_remainder": bool(judgment.get("unverified_remainder"))
                 or not claim,
-                "reason": str(judgment.get("reason", ""))[:240],
+                "reason": str(judgment.get("reason", "")),
+                "reason_truncated": False,
                 "correction_applied": judgment.get("correction_applied") is True,
-                "replacement": str(judgment.get("replacement") or "")[:500],
+                "replacement": str(judgment.get("replacement") or ""),
+                "replacement_sha256": hashlib.sha256(
+                    str(judgment.get("replacement") or "").encode()
+                ).hexdigest(),
+                "replacement_truncated": False,
                 "evidence": [
                     {
                         "source_index": c.get("source_index"),
@@ -222,8 +280,10 @@ def capture_episode(
         "created_at": datetime.now(UTC).isoformat(),
         "prompt_version": prompt_version,
         "deck_evidence_sha256": deck_evidence_hash(document),
-        "objective": request[:500],
-        "retrieval_plan": retrieval_plan or {},
+        "objective": request,
+        "objective_truncated": False,
+        "narrative_compacted": bool(retrieval_plan),
+        "retrieval_plan": _plan_attention(retrieval_plan or {}),
         "card_fingerprints": [
             {
                 "card_id": i,
@@ -243,12 +303,23 @@ def capture_episode(
     episode["investigation_sha256"] = _hash(
         {
             "deck": episode["deck_evidence_sha256"],
-            "objective": episode["objective"],
+            "objective": request,
             "cards": episode["card_fingerprints"],
-            "claims": [h["claim"] for h in hypotheses],
+            "claims": [h["claim_sha256"] for h in hypotheses],
         }
     )
-    return episode if len(json.dumps(episode)) <= MAX_EPISODE_CHARS else None
+    # Keep useful narrative even at the smallest budget. A hash-only receipt
+    # must not consume recall slots ahead of substantive investigations.
+    for claim_limit, detail_limit in (
+        (1800, 500),
+        (900, 240),
+        (450, 120),
+        (180, 60),
+    ):
+        _trim_narrative(episode, claim_limit, detail_limit)
+        if len(json.dumps(episode)) <= MAX_EPISODE_CHARS:
+            return episode
+    return None
 
 
 def recall_episodes(
@@ -339,6 +410,16 @@ def recall_episodes(
                     if not current:
                         result["skipped_stale"] += 1
                         continue
+                    for hypothesis in ep.get("hypotheses", []):
+                        if hypothesis.get("claim_truncated"):
+                            # Older v2 receipts lack a full-claim hash. Keep the
+                            # history, but never present their prefix as reviewed.
+                            hypothesis.setdefault(
+                                "reviewed_verdict",
+                                hypothesis.get("verdict", "unverified"),
+                            )
+                            hypothesis["verdict"] = "unverified"
+                            hypothesis["unverified_remainder"] = True
                     signature = ep.get("investigation_sha256")
                     if not signature or signature in seen:
                         continue
