@@ -17,6 +17,7 @@ from sabermetrics.assistant_discovery_contract import (
     DiscoveryRequirement,
     validate_discovery_answer,
 )
+from sabermetrics.assistant_search_goal import compile_search_goal, meets_goal
 from sabermetrics.assistant_suitability import render_fit_reason
 
 
@@ -42,7 +43,7 @@ class Assessment(DiscoveryModel):
 
 class Shortfall(DiscoveryModel):
     group_id: str = Field(min_length=1, max_length=160)
-    reason: str = Field(min_length=8, max_length=72)
+    reason: str = Field(min_length=8, max_length=180)
 
     @field_validator("reason")
     @classmethod
@@ -77,6 +78,11 @@ prerequisites. Do not award synergy for unrelated source abilities. Check first
 use versus further uses; returning a source to hand requires recasting it.
 functional_comparison compares printed activation mana only, never overall quality.
 Give the strongest concrete drawback of each selection; preserve role tradeoffs.
+Do not assert that a returning permanent retains or regains counters. State
+counter renewal as a separate prerequisite when relevant. If a proposed repeatable
+engine lacks prerequisite evidence, describe it as conditional, not established.
+An empty group with a shortfall is valid when no supplied candidate meets its
+search_contract; never select unrelated records to fill a quota.
 Only select supplied IDs; no duplicates, existing deck cards or excluded IDs.
 Do not duplicate card names/casting costs: code renders those printed fields.
 When repairing, change only invalid selections/assessments, preserving valid ones.
@@ -95,10 +101,29 @@ def selection_payload(
     deck_entries: list[dict[str, Any]] | None = None,
 ) -> tuple[str, DiscoveryLedger]:
     """Whole-record bound; never present a truncated Oracle record as complete."""
+    goals = {
+        r.group_id: compile_search_goal(r.request_quote, request) for r in requirements
+    }
     order = {cid: i for i, cid in enumerate(priority_ids)}
     candidates = sorted(
         (c for c in ledger.candidates if c.card_id not in excluded and not c.in_deck),
         key=lambda c: (order.get(c.card_id, len(order)), c.rank),
+    )
+    # Filter older/restored and search_cards receipts as well as fresh functional
+    # results. Canonical identity/count validation cannot establish role/type fit.
+    before_filter = {c.card_id for c in candidates}
+    candidates = (
+        [
+            c
+            for c in candidates
+            if any(
+                meets_goal(sources.get(c.card_id, {}), goal)
+                for gid, goal in goals.items()
+                if not (set(c.group_ids) & set(goals)) or gid in c.group_ids
+            )
+        ]
+        if goals
+        else candidates
     )
     support_names = {
         str(support_card.get("name") or "")
@@ -141,10 +166,14 @@ def selection_payload(
         "request": request,
         "requirements": [r.model_dump() for r in requirements],
         "preferences": preferences,
+        "search_contracts": {gid: goal.model_dump() for gid, goal in goals.items()},
         "deck_sources": deck_sources,
         "omitted_deck_sources": omitted_deck_sources,
         "candidates": [],
         "omitted_candidate_ids": [],
+        "ineligible_candidate_ids": sorted(
+            before_filter - {c.card_id for c in candidates}
+        ),
         "repair": feedback,
     }
     retained = []
@@ -198,6 +227,8 @@ def validate_selection(
     selection: CandidateSelection,
     requirements: list[DiscoveryRequirement],
     ledger: DiscoveryLedger,
+    sources: dict[str, dict[str, Any]] | None = None,
+    request: str = "",
 ) -> tuple[DiscoveryAnswer, list[dict[str, Any]]]:
     answer = DiscoveryAnswer(
         groups=selection.groups,
@@ -212,6 +243,22 @@ def validate_selection(
         i.model_dump()
         for i in validate_discovery_answer(requirements, ledger, answer).issues
     ]
+    if sources is not None:
+        goals = {
+            r.group_id: compile_search_goal(r.request_quote, request)
+            for r in requirements
+        }
+        for group in selection.groups:
+            goal = goals.get(group.group_id)
+            for cid in group.card_ids:
+                if goal and not meets_goal(sources.get(cid, {}), goal):
+                    issues.append(
+                        {
+                            "code": "search_contract_mismatch",
+                            "card_id": cid,
+                            "group_id": group.group_id,
+                        }
+                    )
     requested = {r.group_id for r in requirements}
     grouped = {g.group_id for g in selection.groups}
     selected = {cid for g in selection.groups for cid in g.card_ids}
@@ -248,10 +295,18 @@ def validate_selection(
         i
         for i in issues
         if not (
-            i["code"] == "requested_count_mismatch"
-            and i.get("group_id") in shortfalls
-            and observed.get(str(i.get("group_id")), 0)
-            < (counts.get(str(i.get("group_id"))) or 0)
+            i.get("group_id") in shortfalls
+            and (
+                (
+                    i["code"] == "empty_group"
+                    and observed.get(str(i.get("group_id")), 0) == 0
+                )
+                or (
+                    i["code"] == "requested_count_mismatch"
+                    and observed.get(str(i.get("group_id")), 0)
+                    < (counts.get(str(i.get("group_id"))) or 0)
+                )
+            )
         )
     ]
     return answer, repairable
@@ -280,3 +335,15 @@ def selection_reply(
             dict.fromkeys(cid for g in answer.groups for cid in g.card_ids)
         ),
     }
+
+
+def selection_error_summary(exc: Exception) -> list[str]:
+    """Safe shape/validator hints only; never echo generated or private values."""
+    import re
+
+    text = str(exc)
+    fields = re.findall(
+        r"(?m)^((?:groups|assessments|shortfalls)(?:\.[a-z_0-9]+)*)\s*$", text
+    )
+    kinds = re.findall(r"\[type=([a-z_]+)", text)
+    return [*dict.fromkeys(fields)][:4] + [*dict.fromkeys(kinds)][:4]

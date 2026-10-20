@@ -97,7 +97,7 @@ def test_selection_accepts_honest_shortfall_but_not_excess():
 
 def test_selection_payload_excludes_novelty_and_whole_record_omissions():
     requirements, cards, ledger = setup()
-    cards[2]["oracle_text"] = "Very long Oracle record. " * 2000
+    cards[2]["oracle_text"] = "{T}: Draw a card.\n" + "Very long Oracle record. " * 2000
     payload, retained = selection_payload(
         "Two cards", requirements, ledger, {c["id"]: c for c in cards}, [], {"c0"}, []
     )

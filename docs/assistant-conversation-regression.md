@@ -299,3 +299,54 @@ collection and independent expert calibration remain separate release evidence.
 Validation: 3,464 full-suite tests passed, 34 optional tests skipped; 200 source
 files passed type checking. The final evidence metadata also passed 32 targeted
 checks. Existing sklearn convergence warnings remain unchanged.
+
+### Grounded search contracts and verification follow-through
+
+Conversation v32, selection v2 and focused review v4 address the two live QA
+failures captured on `2437930`. A conservative literal request compiler derives
+supported positive function/type constraints from the user's own request or a
+grounded list quote, independently of a planner's generated labels. For example,
+“mana-producing creatures” requires the mana function, creature type and a
+printed own mana-production effect. Cost reduction and granted abilities do not
+satisfy that last bounded check. Explicit low casting cost sets a preference;
+it does not invent a numeric ceiling or confuse the number of requested cards
+with a mana bound. Existing required numeric preferences are preserved.
+Ambiguous multiple objectives, type alternatives and exceptions stay with the
+existing broader preference/review machinery rather than being guessed.
+
+Both planned list execution and the functional tool enforce these contracts.
+Selection also filters older/restored and ordinary-search records with the same
+role/type checks before showing them to the model, discloses filtered identities,
+and rechecks selected IDs against the contract. A completely empty eligible pool
+returns an explicit incomplete response without spending a selection model call.
+Empty groups with a specific shortfall are valid structured selections; final
+list completeness remains a separate check. One selection repair remains the
+limit, with structural validation hints but no raw provider response in feedback.
+
+For loop/return/counter claims, finalist evidence prioritizes the loaded rule
+snapshot's counter/zone-change definitions. Numbered anchors must match their
+expected defining phrase, or resolve uniquely by that phrase in the loaded
+edition; numbering alone never establishes evidence. The phrases were checked
+against the official [Comprehensive Rules linked by Wizards](https://magic.wizards.com/en/rules).
+This changes retrieval attention, not rules execution or source freshness.
+There are still at most two local lookups and one answer reviewer call. Bare card
+and rule headers cannot be selected as proof IDs for a mechanical claim.
+
+Exact-span/source/number/name/protected-part correction guards still apply.
+Corrections are validated independently so a rejected edit cannot discard a valid
+edit on another claim. Claim-level uncertainty and rejected corrections remain
+explicit. After review, canonical discovery rows with missing or unresolved
+judgments are narrowed to the actual card identity/cost, complete bounded Oracle
+text when available, and an application-owned uncertainty statement. An unsupported
+model assertion is not left visible beneath a generic warning. Narrowed notes
+also replace the original disputed manifest notes, preventing their reuse as
+recommendation rationale. Supported rows and protected measurements remain intact.
+This fallback intentionally returns less advice when the evidence cannot support
+it; it is not a substitute for expert-rated strategic quality.
+
+Adversarial cases include the exact Kinnan request shape, planner function drift,
+soft versus numeric limits, card counts, multi-role/disjunctive/negative requests,
+context-only type mentions, restored unsuitable records, empty pools, competing
+valid/invalid corrections, and opposing-creature deaths versus own sacrifice
+outlets. The implementation remains bounded and does not claim a complete natural
+language parser, comprehensive ability grammar or MTG rules engine.

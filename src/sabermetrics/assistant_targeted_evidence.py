@@ -15,6 +15,7 @@ def finalist_evidence(
     cards: list[dict[str, Any]],
     existing: dict[str, Any],
     support_cards: list[dict[str, Any]] | None = None,
+    claims: list[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """At most two local lookups, three finalists, six retained distinct hits.
 
@@ -25,6 +26,18 @@ def finalist_evidence(
     finalists = cards[:3]
     text = "\n".join(str(c.get("oracle_text") or "") for c in finalists).lower()
     queries = []
+    claim_text = " ".join(claims or []).lower()
+    if re.search(
+        r"repeat|loop|retain|renew|return.*counter|counter.*return", claim_text
+    ) and re.search(
+        r"return|graveyard|dies",
+        text
+        + " "
+        + " ".join(str(c.get("oracle_text") or "") for c in support_cards or []),
+    ):
+        queries.append(
+            "zone change new object counters retained return counter renewal"
+        )
     for pattern, query in (
         (
             r"sacrifice|\bdies\b|return.*graveyard|return that card",
@@ -48,7 +61,11 @@ def finalist_evidence(
     scoped = [*finalists, *(support_cards or [])][:16]
     for query in queries[:2]:
         result = retrieve_rules(
-            db_path, query, cards=scoped, limit=3, deadline_seconds=0.35
+            db_path,
+            query,
+            cards=scoped,
+            limit=4 if "zone change" in query else 3,
+            deadline_seconds=0.35,
         ).model_dump()
         fresh.extend(result["hits"])
         receipts.append(

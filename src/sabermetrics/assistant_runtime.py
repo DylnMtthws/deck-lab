@@ -19,6 +19,7 @@ from typing import Annotated, Any
 from pydantic import Field, ValidationError, field_validator, model_validator
 
 from sabermetrics.assistant_answer_review import (
+    _mentions_card_name,
     evidence_sources,
     resolve_review_cards,
     review_answer,
@@ -96,7 +97,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v31"
+PROMPT_VERSION = "build-conversation.v32"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -2271,7 +2272,6 @@ def run_turn(
                 and answer_only
                 and not narrow_planning
                 and discovery_requirements
-                and session.ledger.candidates
                 and (
                     task is None
                     or not (
@@ -2353,6 +2353,25 @@ def run_turn(
                         "Selection evidence exceeds the context limit."
                     ) from exc
                 output_budget = 4096
+                if not selection_ledger.candidates:
+                    tools.check()
+                    result.update(
+                        status="incomplete",
+                        reason="no_eligible_candidates",
+                        content="No retrieved additional candidates satisfy the requested function and card type under the supported checks. This request remains incomplete; more evidence is needed.",
+                    )
+                    result.setdefault("research", {})["selection_validation"] = {
+                        "complete": False,
+                        "reason": "no_eligible_candidates",
+                        "shortfalls": [
+                            {
+                                "group_id": r.group_id,
+                                "reason": "No eligible retrieved records; unknown coverage does not establish absence.",
+                            }
+                            for r in discovery_requirements
+                        ],
+                    }
+                    return result
             request_gateway = gateway
             if owns_gateway and concise_answer:
                 if owned_concise_gateway is None:
@@ -2377,7 +2396,7 @@ def run_turn(
                 request_gateway = owned_concise_gateway
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v1" if selecting else PROMPT_VERSION
+                    "assistant-selection.v2" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,
@@ -2484,8 +2503,11 @@ def run_turn(
                 ):
                     tools.check()
                     selection_repair_attempted = True
+                    from sabermetrics.assistant_selection import selection_error_summary
+
                     selection_feedback = {
                         "reason": "invalid_selection_schema",
+                        "schema_error": selection_error_summary(exc),
                         "instruction": "Return complete selection JSON, not an answer. Fit: one complete sentence, 50–100 characters. Conditions: one complete sentence, 80–140 characters. End sentences in punctuation. Do not pad or clip at field limits. No tools.",
                     }
                     synthesis_required = True
@@ -2548,7 +2570,11 @@ def run_turn(
 
                 selection = CandidateSelection.model_validate(raw_step)
                 manifest, selection_issues = validate_selection(
-                    selection, discovery_requirements, selection_ledger
+                    selection,
+                    discovery_requirements,
+                    selection_ledger,
+                    source_cards,
+                    current_request,
                 )
                 if selection_issues:
                     if not selection_repair_attempted and not final_call:
@@ -2774,6 +2800,27 @@ def run_turn(
                             }
                         )
                         for row in grounded_lists
+                    ]
+                    from sabermetrics.assistant_search_goal import (
+                        compile_search_goal,
+                        enforce_search_goal,
+                    )
+
+                    calls = [
+                        ToolCallAdapter.validate_python(
+                            {
+                                "name": call.name,
+                                "arguments": enforce_search_goal(
+                                    call.arguments.model_dump(),
+                                    compile_search_goal(
+                                        row.request_quote, current_request
+                                    ),
+                                    current_request,
+                                    tools.research_preferences,
+                                ),
+                            }
+                        )
+                        for call, row in zip(calls, grounded_lists)
                     ]
                     query_group_ids.update(
                         {
@@ -3313,7 +3360,7 @@ def run_turn(
                     review_cards = resolve_review_cards(
                         db_path,
                         document,
-                        parts,
+                        [*parts, current_request],
                         [
                             *source_cards.values(),
                             *[
@@ -3352,6 +3399,7 @@ def run_turn(
                                 for c in document.get("entries", [])
                                 if c.get("is_commander")
                             ],
+                            claims=parts,
                         )
                         tools.check()
                         stage_timings.append(targeted_receipt)
@@ -3371,20 +3419,18 @@ def run_turn(
                         review_function = review_claims
                     else:
                         review_function = review_answer
+                    review_sources = evidence_sources(
+                        document, actions, parts, review_rules, review_cards
+                    )
                     corrected, receipt = review_function(
                         checker,
                         parts,
-                        evidence_sources(
-                            document,
-                            actions,
-                            parts,
-                            review_rules,
-                            review_cards,
-                        ),
+                        review_sources,
                         current_request,
                         research_context={
                             "preferences": state["conversation_context"]["preferences"],
                             "task": state.get("answer_obligations", {}),
+                            "narrow_unverified": selected_before_prose,
                             "empirical_receipts": _empirical_receipts(
                                 actions, result["revision"]
                             ),
@@ -3424,6 +3470,14 @@ def run_turn(
                             raise RevisionConflict(int(current["revision"]))
                     else:
                         tools.check()
+                    if selected_before_prose:
+                        from sabermetrics.assistant_review_followthrough import (
+                            narrow_unverified_findings,
+                        )
+
+                        corrected, receipt = narrow_unverified_findings(
+                            parts, corrected, review_sources, receipt
+                        )
                     if (
                         len(" ".join(part.strip() for part in corrected[:-1]).strip())
                         < 12
@@ -3485,6 +3539,22 @@ def run_turn(
                     corrected = [
                         _ground_blanket_cast_claims(part, state) for part in corrected
                     ]
+                    if selected_before_prose and step.discovery_answer is not None:
+                        # Do not persist the original disputed model notes after
+                        # the visible discovery row has been corrected/narrowed.
+                        for note in step.discovery_answer.notes:
+                            card_name = str(
+                                source_cards.get(note.card_id, {}).get("name") or ""
+                            )
+                            for before, after in zip(parts[1:-1], corrected[1:-1]):
+                                if (
+                                    before != after
+                                    and card_name
+                                    and _mentions_card_name(
+                                        before.split(" — ", 1)[0], card_name
+                                    )
+                                ):
+                                    note.note = after.split(" — ", 1)[-1]
                     step = step.model_copy(
                         update={
                             "content": corrected[0],

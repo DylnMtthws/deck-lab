@@ -216,7 +216,7 @@ def test_runtime_finalist_evidence_reaches_reviewer_without_new_model_round(
     monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
     observed = []
 
-    def retrieve(db_path, cards, existing, support_cards=None):
+    def retrieve(db_path, cards, existing, support_cards=None, claims=None):
         observed.extend(cards)
         return {
             "hits": [

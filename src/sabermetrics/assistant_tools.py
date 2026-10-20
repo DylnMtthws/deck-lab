@@ -1201,7 +1201,32 @@ class AssistantTools:
                 "role_note": "Stored roles and text tags are heuristic classifications, not simulated performance.",
             }
         if call.name == "search_card_functions":
-            effective = _functional_preference_args(args, self.research_preferences)
+            from sabermetrics.assistant_search_goal import (
+                compile_search_goal,
+                enforce_search_goal,
+            )
+
+            goal = compile_search_goal(self.research_request or "")
+            role_args = (
+                args.model_copy(update={"function": goal.function})
+                if goal.function
+                else args
+            )
+            effective = _functional_preference_args(
+                role_args, self.research_preferences
+            )
+            projected = enforce_search_goal(
+                effective.model_dump(),
+                goal,
+                self.research_request or "",
+                self.research_preferences,
+            )
+            # This ledger was validated before projection. Its server-derived
+            # core/exclusion list may exceed the public tool's eight-name cap.
+            ledger_exclusions = projected["excluded_names"]
+            effective = FunctionalSearchArgs.model_validate(
+                {**projected, "excluded_names": []}
+            ).model_copy(update={"excluded_names": ledger_exclusions})
             if self.recommendation_exclusions:
                 # These names are server-derived, current-request exclusions,
                 # not rejected cards or a permanent preference. Lookups remain available.
@@ -1221,6 +1246,8 @@ class AssistantTools:
             return {
                 **result,
                 "filter_corrections": search_corrections,
+                "search_goal": goal.model_dump(),
+                "effective_search": effective.model_dump(),
                 "research_preferences": self.research_preferences,
                 "preference_scope": "General representable filters only; scoped rules and exceptions remain for candidate evaluation. Core cards are retained membership, not rejected recommendations.",
             }

@@ -139,9 +139,14 @@ def ability_compatibility(
             if counter:
                 demands.append(("counters", counter[1].lower()))
         # Self-death does not consume some other creature; token production is irrelevant.
-        if re.search(r"\bdies\b", effect, re.IGNORECASE):
-            demands.append(("sacrifice", "creature"))
-            if not re.search(
+        if re.search(r"\bwhen(?:ever)?\b[^.\n]*\bdie(?:s)?\b", effect, re.IGNORECASE):
+            opposing_event = bool(
+                re.search(r"\bopponents?\b[^.\n]*\bdie(?:s)?\b", effect, re.IGNORECASE)
+            )
+            demands.append(
+                ("opponent_death" if opposing_event else "sacrifice", "creature")
+            )
+            if not opposing_event and not re.search(
                 r"\bwhen (?:this creature|"
                 + re.escape(str(card.get("name") or "__unknown__"))
                 + r") dies\b",

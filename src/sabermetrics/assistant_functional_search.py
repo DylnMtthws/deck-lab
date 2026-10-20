@@ -44,6 +44,7 @@ class FunctionalTypeGroup(BaseModel):
 
 class FunctionalSearchArgs(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
+    mana_production_required: bool = False
     query: str = Field(
         default="", max_length=500, description="Research goal, not a card-name filter."
     )
@@ -388,6 +389,11 @@ def functional_search(
         for row in _catalog_faces(conn, str(Path(path).resolve())):
             if str(row.get("name") or "").casefold() in excluded_names:
                 continue
+            if args.mana_production_required:
+                from sabermetrics.assistant_search_goal import produces_mana
+
+                if not produces_mana(row):
+                    continue
             oracle_text = str(row.get("oracle_text") or "")
             folded_text = oracle_text.casefold()
             # Necessary lexical cues only: this avoids expensive route/profile

@@ -69,7 +69,9 @@ judgments separately. A known printed/deck contradiction takes precedence over
 unknown interactions. When correcting it, k describes the correction's category
 and u=true flags any remaining unverified assertions. Otherwise classify the most
 uncertain portion. Do not let an unproven loop hide a clear printed-fact error.
-Supported requires exact evidence citations. Printed synergy ingredients alone
+Supported requires exact evidence citations. Cite the actual ability/rule clause,
+not a card name, type or mana cost as evidence for an interaction. A valid factual
+correction may coexist with other unresolved assertions (u=true). Printed synergy ingredients alone
 do not establish timing, counter renewal, token recursion or a repeatable loop.
 Rules interactions require applicable rules evidence; otherwise unverified.
 Strategic judgments can be supported as qualified heuristic assessments with
@@ -156,7 +158,11 @@ def evidence_catalog(
         lines = []
         for line in source.split("\n"):
             eid = None
-            if 12 <= len(line) <= 1200:
+            if (
+                12 <= len(line) <= 1200
+                and not line.startswith(("Card: ", "Rule source:"))
+                and not line.endswith(":")
+            ):
                 eid = f"e{len(quotes)}"
                 quotes[eid] = (index, line)
             lines.append({"id": eid, "text": line})
@@ -227,7 +233,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v3",
+        prompt_version="assistant-claim-review.v4",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -287,6 +293,7 @@ def review_claims(
         patches = []
         unresolved = list(review.unresolved)
         judgments = []
+        corrected = parts[:]
         for judgment in review.judgments:
             if judgment.claim_id not in indexed or judgment.claim_id in seen:
                 raise ValueError("Unknown or duplicate claim judgment")
@@ -329,14 +336,27 @@ def review_claims(
                 and judgment.replacement
                 and not unit["protected"]
             ):
-                patches.append(
-                    AnswerPatch(
-                        part_index=unit["part_index"],
-                        claim=judgment.correction_span or unit["claim"],
-                        replacement=judgment.replacement,
-                        citations=judgment.citations,
-                    )
+                patch = AnswerPatch(
+                    part_index=unit["part_index"],
+                    claim=judgment.correction_span or unit["claim"],
+                    replacement=judgment.replacement,
+                    citations=judgment.citations,
                 )
+                try:
+                    corrected = apply_patches(
+                        corrected,
+                        sources,
+                        AnswerReview(patches=[patch]),
+                        protected,
+                        known_names,
+                    )
+                    patches.append(patch)
+                except ValueError:
+                    verdict = "unverified"
+                    unresolved.append(
+                        judgment.claim_id
+                        + ": correction failed exact-span/evidence guards; edit not applied."
+                    )
             elif verdict != "supported":
                 unresolved.append(judgment.claim_id + ": " + judgment.reason)
             judgments.append(
@@ -345,17 +365,13 @@ def review_claims(
                     "verdict": verdict,
                     "correction_applied": bool(
                         verdict == "contradicted"
-                        and judgment.replacement
-                        and not unit["protected"]
+                        and any(p.part_index == unit["part_index"] for p in patches)
                     ),
                 }
             )
         missing = sorted(set(indexed) - seen)
         unresolved.extend(cid + ": no judgment supplied" for cid in missing)
         unresolved = list(dict.fromkeys(unresolved))
-        corrected = apply_patches(
-            parts, sources, AnswerReview(patches=patches), protected, known_names
-        )
     except LLMCostCeilingExceeded:
         return parts, {"status": "not_checked", "reason": "cost_ceiling"}
     except (

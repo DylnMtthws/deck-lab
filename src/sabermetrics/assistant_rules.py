@@ -166,6 +166,8 @@ _EXPANSIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (r"\bamass|\barmy", ("amass", "army")),
     (r"\bsacrific|\bdies\b", ("sacrifice", "dies")),
 )
+_ZONE_COUNTERS = ("122.2", "counters on an object are not retained")
+_ZONE_OBJECT = ("400.7", "becomes a new object with no memory of")
 _SICKNESS_ANCHORS = ("302.6", "602.5a", "107.5")
 # Mana-ability anchors as (expected rule ID, defining phrase from that rule's
 # text). Numbering moves between editions, so the ID is only trusted when its
@@ -529,6 +531,13 @@ def _rule_rows(
             )
         else:
             primary += snap.expand(row)
+
+    if re.search(r"zone chang|new object|counters? retain|counter renewal", lowered):
+        # Prioritize actual loaded definitions, never trust numbering alone.
+        for anchor in (_ZONE_COUNTERS, _ZONE_OBJECT):
+            row = snap.anchor(anchor)
+            if row is not None:
+                primary.append(row)
 
     mana_rows = [
         row
