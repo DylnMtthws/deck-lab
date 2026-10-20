@@ -2715,7 +2715,7 @@ def run_turn(
                 }
             if (
                 task is not None
-                and task.kind == "discover"
+                and task.kind in {"discover", "compare"}
                 and task.evidence_scope == "candidate_discovery"
                 and re.search(
                     r"\b(?:additional|more|other|different|further|another)\b",

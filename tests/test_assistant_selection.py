@@ -383,3 +383,62 @@ def test_selection_runtime_uses_focused_review_once(prepared, monkeypatch):
     assert bounds["minItems"] == bounds["maxItems"] == 2
     assert result["answer_review"]["status"] == "unverified"
     assert result["answer_review"]["claim_count"] == 2
+
+
+def test_comparing_additional_candidates_still_excludes_prior_picks(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_runtime import AssistantStep, run_turn
+    from tests.test_assistant_runtime import Gateway, call
+
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
+    prior_manifest = {"groups": [{"group_id": "list_1", "card_ids": ["incoming-0"]}]}
+    prior_ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(
+                {"id": "incoming-0", "name": "Incoming 0", "type_line": "Artifact"}
+            )
+        ]
+    )
+    request = "Give me two additional cards and compare their fit."
+    gateway = Gateway(
+        [
+            AssistantStep.model_validate(
+                {
+                    "research_task": {
+                        "kind": "compare",
+                        "evidence_scope": "candidate_discovery",
+                        "current_request_quote": request,
+                    },
+                    "tool_calls": [call("search_cards", {"query": "Incoming"})],
+                }
+            ),
+            selection(("incoming-1", "incoming-2")).model_dump(),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [
+            {"role": "user", "content": "One candidate."},
+            {
+                "role": "assistant",
+                "research": {
+                    "selected_candidates": prior_manifest,
+                    "discovery_ledger": prior_ledger.model_dump(),
+                },
+            },
+            {"role": "user", "content": request},
+        ],
+        gateway=gateway,
+        experiment_service=service,
+        selection_first=True,
+    )
+    assert result["status"] == "done", [
+        (r.schema.__name__, json.loads(r.user).get("repair")) for r in gateway.requests
+    ]
+    assert "incoming-0" not in {
+        c["card_id"] for c in json.loads(gateway.requests[-1].user)["candidates"]
+    }
