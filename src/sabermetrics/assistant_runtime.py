@@ -96,7 +96,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v29"
+PROMPT_VERSION = "build-conversation.v30"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -628,10 +628,8 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
                 for key in ("relationship", "status", "conditions")
             }
             item["recall_channels"] = card.get("recall_channels", [])
-            if card.get("suitability"):
-                from sabermetrics.assistant_suitability import compact_suitability
-
-                item["suitability"] = compact_suitability(card["suitability"])
+            # Fit is pinned once in state.candidate_fit. Rich support sources
+            # remain in the persisted receipt and refresh independently for review.
             selected.append(item)
         data["cards"] = selected
         while len(json.dumps(data, ensure_ascii=False)) > 10500 and len(selected) > 2:
@@ -1542,6 +1540,16 @@ def _encode_context(
                 payload["state_evidence_note"] = (
                     "Supplemental retrieval omitted for size; not evidence of absence. "
                     "Consulted card facts remain available. Narrow follow-up retrieval if needed."
+                )
+            elif len(encoded) > 24000 and (
+                fit_rows := payload["state"].get("candidate_fit", {}).get("cards", [])
+            ):
+                # Fit is already used in server-side ranking and rendering.
+                # Omit optional summaries before losing literal sources or
+                # refusing a follow-up at the bounded extended context limit.
+                fit_rows.pop()
+                payload["state"]["candidate_fit"]["omitted"] = (
+                    payload["state"]["candidate_fit"].get("omitted", 0) + 1
                 )
             elif isinstance(
                 payload["state"].get("workflow", {}).get("reviewed_plans"), dict

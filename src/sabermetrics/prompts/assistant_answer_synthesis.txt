@@ -16,12 +16,14 @@ Give full relevant activation costs, restrictions and fit. Meet counts or disclo
 shortfalls. claims=[] unless validating an exact full printed fact. Array limits
 are maxima; do not pad or return placeholders.
 
-Use candidate_fit/suitability evidence to identify actual named deck support and
-setup gaps. Do not invent support when detection is incomplete. Compare casting
+Use candidate_fit to avoid unsupported fit claims. The renderer adds sourced
+support and awkwardness; use notes for costs, conditions and tradeoffs. Compare casting
 versus activation costs, setup, recurrence, secondary roles and resource costs.
 Draw-discard is filtering; hand delta excludes sacrificed permanents and does not
 establish total card advantage. A recursion ingredient does not prove survival,
 counter renewal or a loop. Unknown rules interactions remain unverified.
+For ranked lists explain a pairwise tradeoff determining the order; naming the
+same support cards for every candidate does not justify their relative ranking.
 
 Keep requested lists distinct. Draw candidates must draw; distinguish selection,
 support and existing cards. Voluntary activation differs from forced triggers;

@@ -123,6 +123,22 @@ def _card_source(card: dict[str, Any]) -> str:
         + (" (excerpt; omissions unknown)" if card.get("oracle_text_truncated") else "")
         + ":\n"
         + str(card.get("oracle_text") or "unavailable")
+        + "\nPrinted characteristics: "
+        + json.dumps(
+            {
+                key: card.get(key)
+                for key in (
+                    "cmc",
+                    "mana_value",
+                    "power",
+                    "toughness",
+                    "loyalty",
+                    "defense",
+                    "color_identity",
+                )
+            },
+            ensure_ascii=False,
+        )
         + (
             "\nCard faces (printed fields): "
             + "\n".join(
@@ -134,6 +150,20 @@ def _card_source(card: dict[str, Any]) -> str:
                 + str(face.get("type_line") or "unknown")
                 + "\nOracle text:\n"
                 + str(face.get("oracle_text") or "unavailable")
+                + "\nPrinted characteristics: "
+                + json.dumps(
+                    {
+                        key: face.get(key)
+                        for key in (
+                            "power",
+                            "toughness",
+                            "loyalty",
+                            "defense",
+                            "colors",
+                        )
+                    },
+                    ensure_ascii=False,
+                )
                 for face in card["card_faces"]
                 if isinstance(face, dict)
             )
@@ -505,7 +535,7 @@ def review_answer(
     if len(payload.encode()) > 32768 or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v5",
+        prompt_version="assistant-answer-review.v6",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),

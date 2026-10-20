@@ -311,3 +311,93 @@ def test_support_explanation_and_pinned_summary_survive_history_eviction():
     assert packed["state"]["candidate_fit"]["cards"][0]["support"]["fodder"] == [
         "Soldier Maker"
     ]
+
+
+def test_optional_fit_summaries_cannot_break_followup_context_budget():
+    from sabermetrics.assistant_runtime import _encode_context
+
+    source_text = "Complete Oracle source " * 360
+    state = {
+        "session_evidence": {
+            "discovery_candidates": [
+                {"card_id": "source", "printed_fields": {"oracle_text": source_text}}
+            ]
+        },
+        "conversation_context": {
+            "preferences": [
+                {"dimension": "rule", "quote": str(i) * 1800, "source_turn": i}
+                for i in range(3)
+            ]
+        },
+        "prior_conclusions": ["Important conclusion " * 55 for _ in range(7)],
+        "candidate_fit": {
+            "cards": [
+                {"card_id": str(i), "support": "Optional support " * 30}
+                for i in range(8)
+            ],
+            "omitted": 0,
+        },
+    }
+    packed = json.loads(_encode_context(state, "Seven additional draw creatures", []))
+    assert len(json.dumps(packed, separators=(",", ":"))) <= 24000
+    assert (
+        packed["state"]["session_evidence"]["discovery_candidates"][0][
+            "printed_fields"
+        ]["oracle_text"]
+        == source_text
+    )
+    assert packed["state"]["candidate_fit"]["omitted"] > 0
+
+
+def test_review_preserves_printed_body_and_literal_face_text():
+    text = "{T}: Draw a card.\nActivate only once each turn."
+    sources = evidence_sources(
+        {
+            "entries": [
+                {
+                    "name": "Body",
+                    "type_line": "Creature",
+                    "power": "0",
+                    "toughness": "0",
+                    "oracle_text": "Body enters with X +1/+1 counters.",
+                    "card_faces": [{"name": "Body", "oracle_text": text}],
+                }
+            ]
+        },
+        [],
+        ["Body survives after returning."],
+    )
+    source = next(s for s in sources if s.startswith("Card: Body"))
+    assert '"power": "0"' in source and '"toughness": "0"' in source
+    assert text in source
+
+
+def test_artifact_tap_warning_does_not_impose_creature_control_requirement():
+    result = profile("{T}: Draw a card.", type_line="Artifact")
+    assert "continuous control" not in " ".join(
+        result["strategic_judgment"]["awkwardness"]
+    )
+    assert "untapped source" in " ".join(result["strategic_judgment"]["awkwardness"])
+
+
+def test_one_token_provider_does_not_promote_resource_consumption_over_independent_draw(
+    prepared,
+):
+    path, document = prepared
+    next(c for c in document["entries"] if c.get("is_commander"))[
+        "oracle_text"
+    ] = "When this creature enters, create a 1/1 Construct artifact creature token."
+    insert(
+        path,
+        "consume",
+        "AAA Sacrifice Draw",
+        "Artifact",
+        "{1}, Sacrifice a creature: Draw a card.",
+    )
+    insert(path, "independent", "ZZZ Independent Draw", "Artifact", "{1}: Draw a card.")
+    result = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(query="repeatable draw", type_line="Artifact", limit=1),
+    )
+    assert result["cards"][0]["id"] == "independent"

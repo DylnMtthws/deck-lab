@@ -249,11 +249,13 @@ def candidate_suitability(
                 f"No {group} support detected by bounded patterns; inspect remaining deck text."
             )
     awkward = []
+    if "{t}" in text:
+        awkward.append(
+            "Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed."
+            if "creature" in str(card.get("type_line") or "").lower().split("—")[0]
+            else "Tap cost requires an untapped source; further activations need an untap."
+        )
     for pattern, condition in (
-        (
-            r"\{t\}",
-            "Tap-symbol cost: creature needs continuous control or haste; untapping is not assumed.",
-        ),
         (
             r"\bdiscard\b",
             "Discard consumes hand cards; filtering is not net card advantage.",
@@ -304,6 +306,9 @@ def candidate_suitability(
         and re.search(r"draw|advantage", focus, re.IGNORECASE)
         else 0
     )
+    # A card does not become preferable simply by needing more ingredients.
+    # A token-producing ETB is not an unlimited supply of expendable permanents.
+    consumption_penalty = 3 if accounting.get("permanent_sacrifice_cost") else 0
     value = card.get("mana_value", card.get("cmc"))
     cheap_requested = bool(
         re.search(r"cheap|cheaper|low.cost|low.mana|efficient", focus, re.IGNORECASE)
@@ -345,13 +350,15 @@ def candidate_suitability(
                 "setup_friction": friction,
                 "filtering_penalty": filtering_penalty,
                 "casting_penalty": casting_penalty,
+                "permanent_consumption_penalty": consumption_penalty,
             },
             "engine_relationships": [link.model_dump() for link in links],
             "priority": support_score
             + min(4, len(links) * 2)
             - friction
             - filtering_penalty
-            - casting_penalty,
+            - casting_penalty
+            - consumption_penalty,
         },
         "rules_interactions": {
             "status": "unverified",
@@ -363,38 +370,8 @@ def candidate_suitability(
     }
 
 
-def compact_suitability(profile: dict[str, Any]) -> dict[str, Any]:
-    """Share small synthesis signals; full literal sources stay in tool receipts."""
-    judgment = profile["strategic_judgment"]
-    return {
-        "resource_accounting": profile["resource_accounting"],
-        "support": [
-            {
-                "dimension": row["dimension"],
-                "detected_sources": row["detected_sources"],
-                "cards": [c["name"] for c in row["cards"]],
-            }
-            for row in judgment["support"]
-        ],
-        "setup_gaps": judgment["setup_gaps"],
-        "awkwardness": judgment["awkwardness"],
-        "priority": judgment["priority"],
-        "status": judgment["status"],
-        "rules_status": "unverified",
-        "engine_relationships": [
-            {
-                "provider": row["provider"],
-                "commander": row["commander"],
-                "relationship": row["relationship"],
-                "conditions": row["conditions"],
-            }
-            for row in judgment["engine_relationships"][:2]
-        ],
-    }
-
-
 def synthesis_fit_context(
-    cards: list[dict[str, Any]], max_chars: int = 3200
+    cards: list[dict[str, Any]], max_chars: int = 1800
 ) -> dict[str, Any]:
     """Preserve named support when older tool receipts leave the prompt.
 
@@ -411,13 +388,12 @@ def synthesis_fit_context(
         row = {
             "card_id": card["id"],
             "support": {
-                r["dimension"]: [c["name"] for c in r["cards"][:2]]
+                r["dimension"]: [c["name"] for c in r["cards"][:1]]
                 for r in judgment["support"]
+                if r["dimension"] != "mana"
             },
             "hand_delta": accounting.get("net_hand_delta_per_activation"),
             "accounting_kind": accounting["kind"],
-            "setup": judgment["setup_gaps"][:1],
-            "rules": "unverified",
         }
         if len(json.dumps([*rows, row], ensure_ascii=False)) > max_chars:
             break
@@ -425,7 +401,7 @@ def synthesis_fit_context(
     return {
         "cards": rows,
         "omitted": len(cards) - len(rows),
-        "scope": "Heuristic ingredients; full printed costs and restrictions are in the matching card's retained Oracle facts. Empty support is incomplete detection, not proven absence.",
+        "scope": "Heuristic ingredients, rules unverified. Full costs/restrictions are in retained Oracle facts. Empty support is incomplete detection, not absence. The renderer appends support and awkwardness to selected notes.",
     }
 
 

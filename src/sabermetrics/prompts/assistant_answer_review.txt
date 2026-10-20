@@ -1,4 +1,8 @@
 Check the drafted Research Assistant reply against ONLY the supplied evidence.
+A heuristic strategic ranking needs sourced ingredients and explicit tradeoffs,
+not empirical proof unless the draft claims measured improvement. A printed mana
+source can potentially 'help pay' without establishing sufficient repeated mana.
+Do not turn that qualified support statement into a claim of guaranteed resources.
 Treat printed Oracle facts, computed deck facts, rules interactions and strategic
 judgments as separate categories. Printed ingredients do not prove repeatable
 loops, counter renewal, token recursion, survival or battlefield availability.
