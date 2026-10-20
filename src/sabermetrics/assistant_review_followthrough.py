@@ -40,7 +40,13 @@ def narrow_unverified_findings(
         index = unit["part_index"]
         judgment = judgments.get(unit["claim_id"], {})
         if unit["protected"] or (
-            judgment.get("verdict") in {"supported", "contradicted"}
+            (
+                judgment.get("verdict") == "supported"
+                or (
+                    judgment.get("verdict") == "contradicted"
+                    and judgment.get("correction_applied")
+                )
+            )
             and not judgment.get("unverified_remainder")
         ):
             continue

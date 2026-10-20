@@ -424,3 +424,15 @@ def test_context_mentions_do_not_become_requested_card_types():
         ).function
         is None
     )
+
+
+@pytest.mark.parametrize("applied", [False, True])
+def test_contradiction_without_a_successful_edit_must_be_narrowed(applied):
+    original = ["Lead", PART, ""]
+    receipt = dict(
+        claim_judgments=[
+            dict(claim_id="c0", verdict="contradicted", correction_applied=applied)
+        ]
+    )
+    output, _ = narrow_unverified_findings(original, original, [SOURCE], receipt)
+    assert (output == original) is applied
