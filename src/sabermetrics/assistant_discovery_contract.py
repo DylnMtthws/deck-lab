@@ -613,6 +613,7 @@ def render_discovery_groups(
     answer: DiscoveryAnswer,
     *,
     fit_reasons: dict[str, str] | None = None,
+    ranked: bool = False,
 ) -> list[str]:
     """Render one complete candidate per line with retrieved names and mana costs.
 
@@ -642,6 +643,8 @@ def render_discovery_groups(
                 None,
             )
             row = f"{label}: {card.name}"
+            if ranked:
+                row = f"Rank {len(seen)} — " + row
             row += (
                 f" ({mana_cost})"
                 if mana_cost is not None

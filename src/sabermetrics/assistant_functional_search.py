@@ -98,6 +98,7 @@ class FunctionalSearchArgs(BaseModel):
     limit: int = Field(default=12, ge=1, le=20)
     excluded_names: list[str] = Field(default_factory=list, max_length=8)
     prefer_recurring: bool = False
+    prefer_low_mana: bool = False
     prefer_multifunctional: bool = False
     allowed_type_groups: list[FunctionalTypeGroup] = Field(
         default_factory=list, max_length=4
@@ -503,7 +504,11 @@ def functional_search(
                     associations[str(row["oracle_id"])] = row
 
     suitability = {
-        oid: candidate_suitability(card, support_index, args.query or args.function)
+        oid: candidate_suitability(
+            card,
+            support_index,
+            (args.query or args.function) + (" cheap" if args.prefer_low_mana else ""),
+        )
         for oid, card in cards.items()
     }
 

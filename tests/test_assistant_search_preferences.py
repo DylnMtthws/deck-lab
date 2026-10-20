@@ -37,6 +37,26 @@ def test_role_scoped_preferences_do_not_constrain_general_retrieval():
     assert args.optionality == "any"
 
 
+def test_soft_cheaper_preference_changes_ranking_without_inventing_mana_ceiling():
+    result = _functional_preference_args(
+        FunctionalSearchArgs(),
+        [
+            preference(
+                "mana",
+                "cheaper than Harvester of Souls for this role",
+                strength="preferred",
+            )
+        ],
+    )
+    assert result.prefer_low_mana is True
+    assert result.mana_max is None
+    scoped = _functional_preference_args(
+        FunctionalSearchArgs(),
+        [preference("mana", "cheaper", scope="imprint candidates")],
+    )
+    assert scoped.prefer_low_mana is False
+
+
 @pytest.mark.parametrize("scope", ["recommendations", "general"])
 def test_explicit_global_any_clears_inherited_type(scope):
     rows = [

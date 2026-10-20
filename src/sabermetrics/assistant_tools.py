@@ -152,6 +152,17 @@ def _functional_preference_args(
             type_exception = True
         if not general:
             continue
+        if (
+            dimension == "mana"
+            and operation == "set"
+            and strength in {"preferred", "required"}
+            and row.get("polarity", "include") == "include"
+            and re.search(r"\bcheap(?:er)?\b|\blow(?:er)?[- ](?:mana|cost)\b", value)
+            and not re.search(r"\bnot\b|don't|avoid", value)
+        ):
+            # Soft ranking signal only. Rejecting one expensive card does not
+            # authorize a numeric ceiling or remove higher-cost candidates.
+            values["prefer_low_mana"] = True
         quote = str(row.get("quote") or "")
         disjunctive_or = bool(
             re.search(

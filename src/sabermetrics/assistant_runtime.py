@@ -3004,9 +3004,29 @@ def run_turn(
                                     for cid, card in source_cards.items()
                                     if card.get("suitability")
                                 },
+                                ranked=bool(
+                                    re.search(
+                                        r"\brank(?:ed|ing)?\b",
+                                        current_request,
+                                        re.IGNORECASE,
+                                    )
+                                )
+                                and not bool(
+                                    re.search(
+                                        r"do not rank|don't rank|unranked|no ranking|without ranking",
+                                        current_request,
+                                        re.IGNORECASE,
+                                    )
+                                ),
                             )
                         }
                     )
+                    if re.search(r"\bplaceholder\b", step.content, re.IGNORECASE):
+                        step = step.model_copy(
+                            update={
+                                "content": "Retrieved candidates follow with printed costs, conditions and potential deck support. Strategic fit remains unverified."
+                            }
+                        )
                 discovery_issues = validate_discovery_prose_counts(
                     "\n\n".join([step.content, *step.findings])
                 )
