@@ -302,7 +302,7 @@ checks. Existing sklearn convergence warnings remain unchanged.
 
 ### Grounded search contracts and verification follow-through
 
-Conversation v32, selection v2 and focused review v5 address the two live QA
+Conversation v32, selection v3 and focused review v5 address the two live QA
 failures captured on `2437930`. A conservative literal request compiler derives
 supported positive function/type constraints from the user's own request or a
 grounded list quote, independently of a planner's generated labels. For example,
@@ -356,3 +356,11 @@ when needed to meet the citation minimum. The evidence packet exposes the full
 resolved citation text; headers alone remain ineligible, and the quote-length
 and exact-source guards are unchanged. This avoids treating a supplied short
 printed fact as uncitable.
+
+The selection wire draft now validates structure separately from canonical prose.
+Canonical sentence validators remain strict. If a complete structured selection
+contains an unfinished assessment, that text is discarded and replaced with an
+application-owned unknown, never completed or accepted as model advice. All ID,
+function/type, group, novelty and quota checks still run. Fallback fields are
+recorded and fulfillment stays partial. This avoids a paid full selection retry
+solely for punctuation while retaining uncertainty about the missing explanation.

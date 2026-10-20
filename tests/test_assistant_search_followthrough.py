@@ -452,3 +452,74 @@ def test_short_oracle_facts_get_exact_context_without_relaxing_quote_guard():
         assert Citation(source_index=index, quote=quote)
     with pytest.raises(ValidationError):
         Citation(source_index=0, quote="Flying")
+
+
+def test_structured_draft_discards_unfinished_prose_without_accepting_bad_ids():
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_selection import (
+        CandidateSelectionDraft,
+        finalize_selection_draft,
+        validate_selection,
+    )
+
+    raw = selection().model_dump()
+    raw["assessments"][1][
+        "conditions_and_tradeoff"
+    ] = "Unfinished text with a clipped restric"
+    parsed = CandidateSelectionDraft.model_validate(raw)
+    canonical, fallbacks = finalize_selection_draft(parsed)
+    assert fallbacks[0]["card_id"] == "c1"
+    assert "clipped restric" not in canonical.model_dump_json()
+    assert canonical.assessments[0].fit == raw["assessments"][0]["fit"]
+    requirements, _, ledger = setup()
+    assert not validate_selection(canonical, requirements, ledger)[1]
+    raw["groups"][0]["card_ids"] = ["invented", "c1"]
+    assert validate_selection(finalize_selection_draft(raw)[0], requirements, ledger)[1]
+    with pytest.raises(ValidationError):
+        from sabermetrics.assistant_selection import CandidateSelection
+
+        CandidateSelection.model_validate(
+            {
+                **raw,
+                "assessments": [
+                    dict(
+                        card_id="c0",
+                        fit="Still incomplete",
+                        conditions_and_tradeoff="Costs require setup.",
+                    )
+                ],
+            }
+        )
+
+
+def test_runtime_keeps_validated_cards_but_discards_unfinished_prose(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_runtime import run_turn
+    from tests.test_assistant_runtime import Gateway, call, step
+
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
+    raw = selection(("incoming-0", "incoming-1")).model_dump()
+    clipped = "Clipped explanatory text ending mid condit"
+    raw["assessments"][1]["conditions_and_tradeoff"] = clipped
+    gateway = Gateway([step(call("search_cards", dict(query="Incoming"))), raw])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [dict(role="user", content="Give me two additional cards.")],
+        gateway=gateway,
+        experiment_service=service,
+        selection_first=True,
+    )
+    assert len(gateway.requests) == 2
+    assert (
+        result["status"] == "incomplete"
+        and result["reason"] == "selection_explanation_incomplete"
+    )
+    assert clipped not in result["content"]
+    assert result["research"]["selection_validation"]["complete"]
+    assert not result["research"]["selection_validation"]["explanations_complete"]
+    assert "Incoming 0" in result["content"] and "Incoming 1" in result["content"]

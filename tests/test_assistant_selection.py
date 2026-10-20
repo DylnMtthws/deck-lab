@@ -11,6 +11,7 @@ from sabermetrics.assistant_discovery_contract import (
 )
 from sabermetrics.assistant_selection import (
     CandidateSelection,
+    CandidateSelectionDraft,
     selection_payload,
     selection_reply,
     validate_selection,
@@ -461,7 +462,7 @@ def test_runtime_selection_does_not_generate_prose_or_retry_whole_answer(
     )
     assert result["status"] == "done", result
     assert len(gateway.requests) == 2
-    assert gateway.requests[1].schema is CandidateSelection
+    assert gateway.requests[1].schema is CandidateSelectionDraft
     assert "Incoming" in result["content"]
     assert result["research"]["selection_validation"]["complete"]
     assert result["research"]["runtime"]["model_calls"][1]["route"] == "selection"
@@ -496,8 +497,8 @@ def test_invalid_selection_repairs_only_selection_and_never_renders_bad_ids(
     )
     assert result["status"] == "done"
     assert [r.schema for r in gateway.requests[1:]] == [
-        CandidateSelection,
-        CandidateSelection,
+        CandidateSelectionDraft,
+        CandidateSelectionDraft,
     ]
     assert "unknown_card" in gateway.requests[2].user
     assert "invented" not in result["content"]

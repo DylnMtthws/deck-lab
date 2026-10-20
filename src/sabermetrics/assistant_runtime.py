@@ -2331,7 +2331,7 @@ def run_turn(
                     SYSTEM as SELECTION_SYSTEM,
                 )
                 from sabermetrics.assistant_selection import (
-                    CandidateSelection,
+                    CandidateSelectionDraft,
                     selection_payload,
                 )
 
@@ -2396,12 +2396,12 @@ def run_turn(
                 request_gateway = owned_concise_gateway
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v2" if selecting else PROMPT_VERSION
+                    "assistant-selection.v3" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,
                 schema=(
-                    CandidateSelection
+                    CandidateSelectionDraft
                     if selecting
                     else (
                         RequestPlan
@@ -2563,12 +2563,12 @@ def run_turn(
             raw_step = value.model_dump() if hasattr(value, "model_dump") else value
             if selecting:
                 from sabermetrics.assistant_selection import (
-                    CandidateSelection,
+                    finalize_selection_draft,
                     selection_reply,
                     validate_selection,
                 )
 
-                selection = CandidateSelection.model_validate(raw_step)
+                selection, prose_fallbacks = finalize_selection_draft(raw_step)
                 manifest, selection_issues = validate_selection(
                     selection,
                     discovery_requirements,
@@ -2604,9 +2604,13 @@ def run_turn(
                 state["selection_validation"] = {
                     "complete": True,
                     "repair_attempted": selection_repair_attempted,
+                    "prose_fallbacks": prose_fallbacks,
+                    "explanations_complete": not prose_fallbacks,
                     "shortfalls": [s.model_dump() for s in selection.shortfalls],
                     "scope": "Identity, membership, grouping and counts validated before prose; strategic judgments require claim review.",
                 }
+                if prose_fallbacks:
+                    result["reason"] = "selection_explanation_incomplete"
                 raw_step = selection_reply(selection, manifest, discovery_requirements)
             plan_route = None
             if isinstance(raw_step, dict) and "route" in raw_step:
@@ -3490,6 +3494,16 @@ def run_turn(
                             "status": "unverified",
                             "reason": "empty_correction",
                         }
+                    if selected_before_prose and state.get(
+                        "selection_validation", {}
+                    ).get("prose_fallbacks"):
+                        receipt = {
+                            **receipt,
+                            "fulfillment": "partial",
+                            "selection_prose_fallbacks": state["selection_validation"][
+                                "prose_fallbacks"
+                            ],
+                        }
                     result["answer_review"] = receipt
                     emit(
                         {
@@ -3739,6 +3753,7 @@ def run_turn(
                         "answer_repair_unverified",
                         "empirical_evidence_missing",
                         "discovery_incomplete",
+                        "selection_explanation_incomplete",
                     }
                     else "incomplete"
                 )
