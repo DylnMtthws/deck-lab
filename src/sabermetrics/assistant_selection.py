@@ -65,6 +65,7 @@ def selection_payload(
     excluded: set[str],
     priority_ids: list[str],
     feedback: dict[str, Any] | None = None,
+    deck_entries: list[dict[str, Any]] | None = None,
 ) -> tuple[str, DiscoveryLedger]:
     """Whole-record bound; never present a truncated Oracle record as complete."""
     order = {cid: i for i, cid in enumerate(priority_ids)}
@@ -72,10 +73,49 @@ def selection_payload(
         (c for c in ledger.candidates if c.card_id not in excluded and not c.in_deck),
         key=lambda c: (order.get(c.card_id, len(order)), c.rank),
     )
+    support_names = {
+        str(support_card.get("name") or "")
+        for candidate in candidates
+        for support in (
+            sources.get(candidate.card_id, {})
+            .get("suitability", {})
+            .get("strategic_judgment", {})
+            .get("support", [])
+        )
+        for support_card in support.get("cards", [])[:1]
+        if support.get("dimension") != "mana"
+    }
+    deck_sources: list[dict[str, Any]] = []
+    omitted_deck_sources = []
+    for card in sorted(deck_entries or [], key=lambda c: not c.get("is_commander")):
+        if not card.get("is_commander") and card.get("name") not in support_names:
+            continue
+        record: dict[str, Any] = {
+            key: card[key]
+            for key in (
+                "card_id",
+                "name",
+                "is_commander",
+                "zone_name",
+                "quantity",
+                "mana_cost",
+                "type_line",
+                "oracle_text",
+                "oracle_text_truncated",
+                "card_faces",
+            )
+            if key in card
+        }
+        if len(json.dumps([*deck_sources, record], ensure_ascii=False).encode()) > 8000:
+            omitted_deck_sources.append(card.get("name"))
+        else:
+            deck_sources.append(record)
     payload: dict[str, Any] = {
         "request": request,
         "requirements": [r.model_dump() for r in requirements],
         "preferences": preferences,
+        "deck_sources": deck_sources,
+        "omitted_deck_sources": omitted_deck_sources,
         "candidates": [],
         "omitted_candidate_ids": [],
         "repair": feedback,

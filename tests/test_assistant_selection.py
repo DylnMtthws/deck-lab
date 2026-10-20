@@ -108,6 +108,46 @@ def test_selection_payload_excludes_novelty_and_whole_record_omissions():
     assert not any(c["card_id"] == "c0" for c in data["candidates"])
 
 
+def test_selection_receives_literal_commander_and_support_records():
+    from sabermetrics.assistant_suitability import (
+        candidate_suitability,
+        deck_support_index,
+    )
+
+    requirements, cards, ledger = setup()
+    entries = [
+        {
+            "name": "Commander",
+            "is_commander": True,
+            "oracle_text": "Whenever a creature you control dies, return that card to the battlefield.",
+        },
+        {
+            "name": "Fodder",
+            "zone_name": "Library",
+            "type_line": "Creature",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+        },
+    ]
+    cards[0]["oracle_text"] = "Sacrifice another creature: Draw a card."
+    cards[0]["suitability"] = candidate_suitability(
+        cards[0], deck_support_index({"entries": entries})
+    )
+    payload, _ = selection_payload(
+        "Find draw",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+        deck_entries=entries,
+    )
+    supplied = {
+        c["name"]: c["oracle_text"] for c in json.loads(payload)["deck_sources"]
+    }
+    assert supplied == {c["name"]: c["oracle_text"] for c in entries}
+
+
 class Reviewer:
     def __init__(self, transform=None):
         self.requests = []

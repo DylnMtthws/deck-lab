@@ -2345,6 +2345,7 @@ def run_turn(
                         excluded_prior_ids,
                         context_priority_ids(),
                         selection_feedback,
+                        document.get("entries", []),
                     )
                 except ValueError as exc:
                     raise AssistantBudgetExceeded(
