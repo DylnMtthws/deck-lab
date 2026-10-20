@@ -3270,7 +3270,7 @@ def run_turn(
                     if owned_claim_review_gateway is None:
                         claim_model = settings.model.model_copy(
                             update={
-                                "timeout_seconds": 45.0,
+                                "timeout_seconds": 75.0,
                                 "max_retries": 0,
                                 "max_validation_retries": 0,
                                 "modes": {

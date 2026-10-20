@@ -221,3 +221,6 @@ Focused review has a separate 4096-token output allowance with no transport or
 schema retries; the ordinary reviewer keeps its previous budget. Selection
 assessments target short complete sentences. Explicit no-repeat instructions take
 precedence over ranking language, and quota-satisfied shortfalls are not rendered.
+The focused reviewer uses a bounded 75-second request deadline to accommodate its
+complete claim batch. This prevents the old 45-second deadline from abandoning
+larger reviews; it adds no retries and does not change the ordinary reviewer.
