@@ -115,7 +115,7 @@ def test_previous_card_receipt_and_preferences_survive_tool_noise(prepared):
     payload = json.loads(gateway.requests[0].user)
     assert payload["state"]["consulted_cards"][0]["card"]["oracle_text"] == ELEGY
     assert result["research"]["conversation_preferences"][0]["value"] == "optional"
-    assert not result["actions"]
+    assert all(event["name"] == "research_progress" for event in result["actions"])
 
 
 def test_budget_refusal_preserves_sources_and_reserves_final_answer(
@@ -748,7 +748,7 @@ def test_current_planning_quote_mismatch_executes_no_tools(prepared):
     )
     assert result["status"] == "provider_error"
     assert result["reason"] == "planning_evidence_invalid"
-    assert not result["actions"]
+    assert all(event["name"] == "research_progress" for event in result["actions"])
 
 
 def test_named_card_sources_stay_pinned_through_shortlist_growth_and_compaction():

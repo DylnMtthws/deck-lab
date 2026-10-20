@@ -59,6 +59,25 @@ def test_sacrifice_draw_does_not_claim_net_card_advantage():
     assert any("Life payment" in s for s in result["strategic_judgment"]["awkwardness"])
 
 
+def test_interim_fit_is_bounded_and_does_not_promote_missing_evidence():
+    from sabermetrics.assistant_progress import fit_preview
+
+    cards = [{"name": "No profile"}] + [
+        {
+            "name": f"Outlet {i}",
+            "mana_cost": "{1}{B}",
+            "suitability": profile("Sacrifice another creature: Draw a card."),
+        }
+        for i in range(8)
+    ]
+    preview = fit_preview(cards)
+    assert len(preview.splitlines()) == 3
+    assert "No profile" not in preview
+    assert "{1}{B}" in preview
+    assert "support remains unconfirmed" in preview
+    assert "Sacrifice consumes" in preview
+
+
 def test_source_coverage_and_sideboard_cannot_manufacture_support():
     document = {
         "entries": [

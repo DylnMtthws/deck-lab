@@ -182,3 +182,14 @@ It cannot reorder candidates or replace the factual reviewer. Requests have an
 Optional `TYPESAFE_INPUT_USD_PER_MILLION` is a configured input-price estimate,
 not an invoice. The experimental usage is reported in its receipt separately
 from the existing model gateway ledger.
+
+### Interim research updates
+
+Long turns publish stage updates before provider calls: request/deck checking,
+comparison, then evidence review. Functional search also publishes up to three
+source-derived cost/support/friction summaries. These are heuristic samples,
+not final rankings or verified rules. Updates remain visible outside collapsed
+research activity and use the existing session polling, without additional model
+calls. After 30 seconds in one stage, the status explicitly says there are no new
+findings yet; it does not manufacture timed discoveries or imply a completion
+percentage. Stop remains available and the final answer retains its review status.

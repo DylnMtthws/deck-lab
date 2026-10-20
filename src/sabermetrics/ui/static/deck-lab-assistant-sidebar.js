@@ -668,13 +668,14 @@
     var action = message.action || {};
     var scope = action.data && action.data.source_scope;
     var content = typeof action.content === "string" ? action.content : messageContent(message);
-    if (action.ok !== true || ["printed facts", "retrieved candidates"].indexOf(scope) < 0 || typeof content !== "string" || !content.trim()) return;
+    if (action.ok !== true || ["printed facts", "retrieved candidates", "preliminary fit", "research progress"].indexOf(scope) < 0 || typeof content !== "string" || !content.trim()) return;
     var finding = element("section", null, "dl-assistant-partial-finding");
     finding.dataset.messageIds = message.id || "";
-    var title = scope === "retrieved candidates" ? "Retrieved candidates" : "Confirmed findings";
+    var title = {"retrieved candidates": "Retrieved candidates", "printed facts": "Confirmed findings", "preliminary fit": "Preliminary deck fit", "research progress": "Research update"}[scope];
     finding.setAttribute("aria-label", title);
     finding.appendChild(element("h3", title));
-    finding.appendChild(element("small", scope === "retrieved candidates" ? "Retrieved cards; suitability is not established by retrieval." : "Printed card facts; strategic fit is not established by this finding."));
+    var labels = {"retrieved candidates": "Retrieved cards; suitability is not established by retrieval.", "printed facts": "Printed card facts; strategic fit is not established by this finding.", "preliminary fit": "Heuristic sample, not a ranked recommendation. Rules and strategic fit remain unverified.", "research progress": "Current research stage; the final answer may change after verification."};
+    finding.appendChild(element("small", labels[scope]));
     var body = element("div", null, "dl-assistant-prose");
     appendMarkdown(body, content, knownCards(action.data.cards || []));
     finding.appendChild(body);
@@ -701,11 +702,25 @@
     options = options || {};
     if (!options.chatBusy) return options.experimentsRunning ? "Automated research is running…" : "";
     if (options.stopping) return "Stopping after the current step…";
-    var activity = toolActivity(currentTurn(messages));
+    var turn = currentTurn(messages);
+    var activity = toolActivity(turn);
+    var latestStage = turn.filter(function (message) {
+      return isPartialFinding(message) && message.action.ok === true && message.action.data && message.action.data.source_scope === "research progress";
+    }).pop();
     var parts = ["Working"];
     if (activity.pending.length) parts.push(toolLabel({ name: activity.pending[activity.pending.length - 1] }));
     else if (!activity.finished) parts = ["Working on your request…"];
     if (activity.finished) parts.push(stepCount(activity.finished));
+    if (latestStage && (!activity.pending.length || (latestStage.action.data.stage === "verification" && activity.pending[activity.pending.length - 1] === "check_answer"))) {
+      var stage = latestStage.action.data.stage;
+      var stages = {planning: "Checking your request and deck", comparison: "Comparing costs, support and tradeoffs", verification: "Checking claims against card text"};
+      if (stages[stage]) {
+        parts = [stages[stage]];
+        if (activity.finished) parts.push(stepCount(activity.finished));
+        var stageSeconds = Number(options.now) - Number(latestStage.action.data.started_at);
+        if (stageSeconds >= 30) parts.push("Still working on this stage; no new findings yet");
+      }
+    }
     var minutes = Math.floor((Number(options.now) - Number(options.startedAt)) / 60);
     // Minute granularity keeps the polite live region from announcing every poll.
     if (Number.isFinite(minutes) && minutes >= 1) parts.push(minutes + " min so far");

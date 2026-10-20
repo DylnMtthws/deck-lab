@@ -240,6 +240,33 @@ def test_complete_deck_evidence_tool_is_owner_scoped_and_revision_checked(prepar
         AssistantTools(path, "different-owner", deck_id, "suggest", {}, lambda: False)
 
 
+def test_progress_is_published_before_provider_wait_without_extra_model_calls(prepared):
+    service, path, owner, deck_id, document, _ = prepared
+    events = []
+
+    class ObservingGateway(Gateway):
+        def generate(self, request):
+            assert events[-1]["data"]["stage"] == "planning"
+            assert events[-1]["data"]["started_at"] > 0
+            return super().generate(request)
+
+    gateway = ObservingGateway([step(content="No changes requested.")])
+    result = run_turn(
+        path,
+        owner,
+        deck_id,
+        [{"role": "user", "content": "Explain my deck."}],
+        gateway=gateway,
+        experiment_service=service,
+        on_event=events.append,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 1
+    assert len(events) == 1
+    assert events[0]["data"]["source_scope"] == "research progress"
+    assert DeckDocumentRepo(path).get(owner, deck_id) == document
+
+
 def test_multi_turn_search_inspect_propose_is_validated_and_source_unchanged(prepared):
     service, path, owner, deck_id, document, alternatives = prepared
     gateway = Gateway(
@@ -395,7 +422,7 @@ def test_mode_switch_stops_before_tool_mutation(prepared):
         should_stop=lambda: bool(gateway.requests),
     )
     assert result["status"] == "stopped"
-    assert not result["actions"]
+    assert all(event["name"] == "research_progress" for event in result["actions"])
     assert service.list_for_deck(owner, deck_id) == []
     assert DeckDocumentRepo(path).get(owner, deck_id) == document
 
@@ -1004,7 +1031,8 @@ def test_transient_provider_overload_has_three_bounded_attempts(
         assert result["reason"] == "provider_busy"
         assert "retry your message" in result["content"]
         assert "sensitive-provider-detail-token" not in json.dumps(result)
-        assert not result["actions"] and not result["proposals"]
+        assert all(event["name"] == "research_progress" for event in result["actions"])
+        assert not result["proposals"]
 
 
 def test_inspection_counts_and_commanders_are_global_despite_query_pagination(

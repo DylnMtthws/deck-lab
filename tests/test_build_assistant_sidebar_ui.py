@@ -419,6 +419,13 @@ assert.equal(progressText(earlier.concat([{role: 'user'}]), {chatBusy: true, now
 assert.equal(progressText(live, {chatBusy: true, stopping: true, now}), 'Stopping after the current step…');
 assert.equal(progressText(live, {chatBusy: false, now}), '');
 assert.equal(progressText([], {chatBusy: false, experimentsRunning: true}), 'Automated research is running…');
+const milestone = {role: 'tool', action: {type: 'partial_finding', ok: true, data: {source_scope: 'research progress', stage: 'comparison', started_at: now - 31}}};
+assert.deepEqual(toolActivity([milestone]), {finished: 0, pending: []});
+assert.match(progressText([{role: 'user'}, milestone], {chatBusy: true, now}), /Comparing costs, support and tradeoffs.*no new findings yet/);
+assert.doesNotMatch(progressText([{role: 'user'}, milestone], {chatBusy: true, now: now - 25}), /no new findings/);
+assert.equal(progressText([{role: 'user'}, milestone, start('card_details')], {chatBusy: true, now}), 'Working · Card details');
+const checking = {...milestone, action: {...milestone.action, data: {...milestone.action.data, stage: 'verification'}}};
+assert.match(progressText([{role: 'user'}, checking, start('check_answer')], {chatBusy: true, now}), /Checking claims against card text.*no new findings yet/);
 // Elapsed time changes at minute granularity, so a polite live region is not re-announced every poll.
 assert.equal(progressText(live, {chatBusy: true, startedAt: now - 61, now}), progressText(live, {chatBusy: true, startedAt: now - 119, now}));
 const unknown = progressText([{role: 'user'}, start('internal_lookup_v2')], {chatBusy: true, now});
@@ -603,6 +610,12 @@ assert.equal(findingSections().length, 2);
 assert.equal(transcript.lastElementChild.dataset.role, 'assistant');
 assert.equal(transcript.lastElementChild.textContent, 'Final grounded answer');
 assert.equal(activities()[0].querySelector('summary').textContent, 'Research activity · 1 step finished');
+data = {busy: true, messages: [say('u4', 'user'), finding('f3', 'research progress', 'Comparing retrieved evidence'), finding('f4', 'preliminary fit', 'Potential support remains unconfirmed.')]};
+renderMessages();
+assert.equal(findingSections().length, 2);
+assert.match(findingSections()[0].textContent, /Research update.*Comparing retrieved evidence/);
+assert.match(findingSections()[1].textContent, /Preliminary deck fit.*not a ranked recommendation/);
+assert.equal(steps(activities()[0]).length, 0);
 """.replace("HELPERS", helpers).replace("RENDERER", renderer)
     _run_node(harness)
 

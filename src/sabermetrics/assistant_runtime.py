@@ -1740,6 +1740,27 @@ def run_turn(
         if on_event:
             on_event(event)
 
+    progress_stage = ""
+
+    def announce(stage: str, content: str) -> None:
+        nonlocal progress_stage
+        if progress_stage == stage:
+            return
+        progress_stage = stage
+        emit(
+            {
+                "type": "partial_finding",
+                "name": "research_progress",
+                "ok": True,
+                "content": content,
+                "data": {
+                    "source_scope": "research progress",
+                    "stage": stage,
+                    "started_at": time.time(),
+                },
+            }
+        )
+
     try:
         if stopped():
             raise ToolStopped("The assistant was stopped before this turn began.")
@@ -2336,6 +2357,14 @@ def run_turn(
                     "The assistant was stopped before its next model call."
                 )
             try:
+                announce(
+                    "comparison" if answer_only else "planning",
+                    (
+                        "Comparing the retrieved evidence with your request and deck. Costs, setup requirements and tradeoffs are being assembled; recommendations are not final."
+                        if answer_only
+                        else "Checking your request and deck context to choose the next research steps."
+                    ),
+                )
                 call_started = time.monotonic()
                 generated = request_gateway.generate(request)
                 model_observations.append(
@@ -3115,6 +3144,10 @@ def run_turn(
                 ):
                     tools.check()
                     checker_review_attempted = True
+                    announce(
+                        "verification",
+                        "The draft is ready. Checking its claims against the supplied card text and deck facts; unsupported claims will remain unverified.",
+                    )
                     emit(
                         {
                             "type": "tool_started",
@@ -3689,6 +3722,29 @@ def run_turn(
                                     },
                                 }
                             )
+                            if call.name == "search_card_functions":
+                                from sabermetrics.assistant_progress import fit_preview
+
+                                preview = fit_preview(
+                                    [
+                                        card
+                                        for card in retrieved
+                                        if isinstance(card, dict)
+                                    ]
+                                )
+                                if preview:
+                                    emit(
+                                        {
+                                            "type": "partial_finding",
+                                            "name": "candidate_fit_preview",
+                                            "ok": True,
+                                            "content": preview,
+                                            "data": {
+                                                "cards": retrieved[:3],
+                                                "source_scope": "preliminary fit",
+                                            },
+                                        }
+                                    )
                     if call.name in {"search_cards", "search_card_functions"}:
                         for card in data.get("cards", [])[:4]:
                             _retain_card_context(

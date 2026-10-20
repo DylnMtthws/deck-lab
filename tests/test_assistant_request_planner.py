@@ -329,7 +329,7 @@ def test_plan_routing_preserves_call_budget_and_cancellation(prepared, monkeypat
     )
     assert len(gateway.requests) == 2
     assert result["status"] == "budget_exhausted"
-    assert not result["actions"]
+    assert all(event["name"] == "research_progress" for event in result["actions"])
     stopped = []
 
     class StoppingGateway(Gateway):
@@ -350,7 +350,7 @@ def test_plan_routing_preserves_call_budget_and_cancellation(prepared, monkeypat
         experiment_service=service,
     )
     assert result["status"] == "stopped" and len(gateway.requests) == 1
-    assert not result["actions"]
+    assert all(event["name"] == "research_progress" for event in result["actions"])
 
 
 @pytest.mark.parametrize("tool_name", [None, "card_details", "latest_goldfish"])
