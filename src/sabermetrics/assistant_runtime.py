@@ -1693,6 +1693,7 @@ def run_turn(
     request_planner: bool | None = None,
     direct_routes: bool | None = None,
     schema_repair: bool | None = None,
+    selection_first: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1721,6 +1722,7 @@ def run_turn(
     use_request_planner = owns_gateway if request_planner is None else request_planner
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
     use_schema_repair = owns_gateway if schema_repair is None else schema_repair
+    use_selection = owns_gateway if selection_first is None else selection_first
     owned_package_gateway: ModelGateway | None = None
     owned_answer_review_gateway: ModelGateway | None = None
     owned_concise_gateway: ModelGateway | None = None
@@ -2241,6 +2243,9 @@ def run_turn(
         planned_lists_executed = False
         attempted_named_sources: set[str] = set()
         query_group_ids: dict[str, str] = {}
+        selection_feedback: dict[str, Any] | None = None
+        selection_repair_attempted = False
+        selected_before_prose = False
         for step_index in range(MAX_MODEL_CALLS):
             tools.check()
             state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
@@ -2259,6 +2264,22 @@ def run_turn(
             final_call = step_index == MAX_MODEL_CALLS - 1
             answer_only = (
                 tool_count == MAX_TOOL_CALLS or final_call or synthesis_required
+            )
+            selecting = bool(
+                use_selection
+                and answer_only
+                and not narrow_planning
+                and discovery_requirements
+                and session.ledger.candidates
+                and (
+                    task is None
+                    or not (
+                        task.additions
+                        or task.cuts
+                        or task.coordinated
+                        or task.requires_empirical_evidence
+                    )
+                )
             )
             system = (
                 planner_system()
@@ -2304,6 +2325,32 @@ def run_turn(
             output_budget = (
                 2048 if narrow_planning else (4096 if concise_answer else 6144)
             )
+            if selecting:
+                from sabermetrics.assistant_selection import (
+                    SYSTEM as SELECTION_SYSTEM,
+                )
+                from sabermetrics.assistant_selection import (
+                    CandidateSelection,
+                    selection_payload,
+                )
+
+                system = SELECTION_SYSTEM
+                try:
+                    encoded, selection_ledger = selection_payload(
+                        current_request,
+                        discovery_requirements,
+                        session.ledger,
+                        source_cards,
+                        state["conversation_context"]["preferences"],
+                        excluded_prior_ids,
+                        context_priority_ids(),
+                        selection_feedback,
+                    )
+                except ValueError as exc:
+                    raise AssistantBudgetExceeded(
+                        "Selection evidence exceeds the context limit."
+                    ) from exc
+                output_budget = 4096
             request_gateway = gateway
             if owns_gateway and concise_answer:
                 if owned_concise_gateway is None:
@@ -2327,16 +2374,22 @@ def run_turn(
                     )
                 request_gateway = owned_concise_gateway
             request = StructuredRequest(
-                prompt_version=PROMPT_VERSION,
+                prompt_version=(
+                    "assistant-selection.v1" if selecting else PROMPT_VERSION
+                ),
                 system=system,
                 user=encoded,
                 schema=(
-                    RequestPlan
-                    if narrow_planning
+                    CandidateSelection
+                    if selecting
                     else (
-                        AssistantPlanningStep
-                        if step_index == 0 and not answer_only
-                        else (AssistantAnswerStep if answer_only else AssistantStep)
+                        RequestPlan
+                        if narrow_planning
+                        else (
+                            AssistantPlanningStep
+                            if step_index == 0 and not answer_only
+                            else (AssistantAnswerStep if answer_only else AssistantStep)
+                        )
                     )
                 ),
                 mode=(
@@ -2371,9 +2424,13 @@ def run_turn(
                     {
                         "step": step_index,
                         "route": (
-                            "planner"
-                            if narrow_planning
-                            else "synthesis" if answer_only else "orchestration"
+                            "selection"
+                            if selecting
+                            else (
+                                "planner"
+                                if narrow_planning
+                                else "synthesis" if answer_only else "orchestration"
+                            )
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
                         "input_chars": len(encoded),
@@ -2398,9 +2455,13 @@ def run_turn(
                     {
                         "step": step_index,
                         "route": (
-                            "planner"
-                            if narrow_planning
-                            else "synthesis" if answer_only else "orchestration"
+                            "selection"
+                            if selecting
+                            else (
+                                "planner"
+                                if narrow_planning
+                                else "synthesis" if answer_only else "orchestration"
+                            )
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
                         "input_chars": len(encoded),
@@ -2414,7 +2475,22 @@ def run_turn(
                     }
                 )
                 if (
+                    selecting
+                    and isinstance(exc, ModelValidationError)
+                    and not selection_repair_attempted
+                    and not final_call
+                ):
+                    tools.check()
+                    selection_repair_attempted = True
+                    selection_feedback = {
+                        "reason": "invalid_selection_schema",
+                        "instruction": "Return complete selection JSON, not an answer. No tools.",
+                    }
+                    synthesis_required = True
+                    continue
+                if (
                     isinstance(exc, ModelValidationError)
+                    and not selecting
                     and use_schema_repair
                     and answer_only
                     and not schema_repair_attempted
@@ -2461,6 +2537,49 @@ def run_turn(
                 return result
             value = generated.value
             raw_step = value.model_dump() if hasattr(value, "model_dump") else value
+            if selecting:
+                from sabermetrics.assistant_selection import (
+                    CandidateSelection,
+                    selection_reply,
+                    validate_selection,
+                )
+
+                selection = CandidateSelection.model_validate(raw_step)
+                manifest, selection_issues = validate_selection(
+                    selection, discovery_requirements, selection_ledger
+                )
+                if selection_issues:
+                    if not selection_repair_attempted and not final_call:
+                        selection_repair_attempted = True
+                        selection_feedback = {
+                            "issues": selection_issues,
+                            "previous_selection": selection.model_dump(),
+                        }
+                        synthesis_required = True
+                        continue
+                    result.update(
+                        status="incomplete",
+                        reason="selection_invalid",
+                        content=_evidence_fallback(
+                            state,
+                            tools.experiments_started,
+                            headline="The candidate selection could not be validated. Retrieved sources remain available; no recommendations were inferred to fill the gaps.",
+                        ),
+                    )
+                    result.setdefault("research", {})["selection_validation"] = {
+                        "complete": False,
+                        "issues": selection_issues,
+                    }
+                    return result
+                tools.check()
+                selected_before_prose = True
+                state["selection_validation"] = {
+                    "complete": True,
+                    "repair_attempted": selection_repair_attempted,
+                    "shortfalls": [s.model_dump() for s in selection.shortfalls],
+                    "scope": "Identity, membership, grouping and counts validated before prose; strategic judgments require claim review.",
+                }
+                raw_step = selection_reply(selection, manifest)
             plan_route = None
             if isinstance(raw_step, dict) and "route" in raw_step:
                 try:
@@ -3102,7 +3221,11 @@ def run_turn(
                         "scope": "List counts, retrieved identities and explicit fact references; strategic relevance still needs review.",
                     }
                 if discovery_issues:
-                    if not final_call and not discovery_repair_attempted:
+                    if (
+                        not selected_before_prose
+                        and not final_call
+                        and not discovery_repair_attempted
+                    ):
                         discovery_repair_attempted = True
                         synthesis_required = True
                         state["answer_repair_feedback"] = result.get(
@@ -3181,7 +3304,13 @@ def run_turn(
                         }
                     )
                     review_started = time.monotonic()
-                    corrected, receipt = review_answer(
+                    if selected_before_prose:
+                        from sabermetrics.assistant_claim_review import review_claims
+
+                        review_function = review_claims
+                    else:
+                        review_function = review_answer
+                    corrected, receipt = review_function(
                         checker,
                         parts,
                         evidence_sources(
@@ -4080,6 +4209,10 @@ def run_turn(
         if tools is not None:
             result["proposals"] = tools.proposals
         if "state" in locals():
+            if state.get("selection_validation"):
+                result.setdefault("research", {})["selection_validation"] = state[
+                    "selection_validation"
+                ]
             preferences = state["conversation_context"]["preferences"]
             result.setdefault("research", {})["conversation_preferences"] = preferences
             result["research"].setdefault(

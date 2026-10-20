@@ -193,3 +193,25 @@ research activity and use the existing session polling, without additional model
 calls. After 30 seconds in one stage, the status explicitly says there are no new
 findings yet; it does not manufacture timed discoveries or imply a completion
 percentage. Stop remains available and the final answer retains its review status.
+
+### Selection before prose and focused claim review
+
+Production discovery turns now request `CandidateSelection` instead of a full
+answer. It contains retrieved IDs, bounded fit/conditions assessments and explicit
+shortfalls. Code validates identity, novelty, deck membership, group membership,
+counts and assessment coverage before rendering names and mana costs. One bounded
+repair can return only another selection; it cannot rewrite an answer or run tools.
+An honest shortfall is rendered as incomplete rather than padded with weak cards.
+Evidence is bounded by whole records and omitted candidate IDs are disclosed.
+
+The selected discovery answer receives one batched `ClaimReviewDecision` call.
+Each recommendation is a claim unit retaining its costs, fit, support and conditions
+together, so pronouns and caveats cannot be detached. Related evidence indices guide
+attention; exact complete source records remain shared once. Every unit requires a
+judgment and exact citations; absent judgments/citations or missing rules evidence
+remain unverified. Supported strategy means a qualified heuristic assessment, not
+expert certification or measured improvement. Corrections use the existing exact
+span/quote, protected measurement, number and card-name checks. Review failure never
+promotes a claim. Ordinary answers and coordinated/empirical workflows retain their
+existing synthesis/review path. Tests can explicitly enable `selection_first` with
+injected gateways; production enables it by default for eligible discovery turns.
