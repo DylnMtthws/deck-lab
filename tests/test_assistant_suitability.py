@@ -125,6 +125,33 @@ def test_counter_types_are_not_interchangeable():
     assert counters["detected_sources"] == 0
 
 
+def test_zombie_fodder_does_not_establish_elf_death_support():
+    index = deck_support_index(
+        {
+            "entries": [
+                {
+                    "name": "Zombie Maker",
+                    "zone_name": "Library",
+                    "type_line": "Creature — Human",
+                    "oracle_text": "Create a 2/2 Zombie creature token.",
+                }
+            ]
+        }
+    )
+    result = candidate_suitability(
+        {
+            "name": "Elf draw",
+            "oracle_text": "Whenever this creature or another Elf you control dies, you may pay 1 life. If you do, draw a card.",
+        },
+        index,
+    )
+    fodder = next(
+        r for r in result["strategic_judgment"]["support"] if r["dimension"] == "fodder"
+    )
+    assert fodder["cards"] == []
+    assert "Zombie Maker" not in render_fit_reason(result)
+
+
 def test_truncated_or_multiface_card_never_has_certified_fit():
     for fields in ({"oracle_text_truncated": True}, {"card_faces": [{"name": "Back"}]}):
         result = profile("{T}: Draw a card.", **fields)

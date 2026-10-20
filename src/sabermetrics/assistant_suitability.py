@@ -211,6 +211,12 @@ def candidate_suitability(
         needs.add("mana")
     support = []
     gaps = []
+    death_type = re.search(
+        r"\b(?:another|an?|one or more) ([a-z]+) you control die(?:s)?\b", text
+    )
+    required_type = death_type[1] if death_type else None
+    if required_type:
+        required_type = {"elves": "elf"}.get(required_type, required_type.rstrip("s"))
     for group in sorted(needs):
         providers = [
             c
@@ -220,6 +226,21 @@ def candidate_suitability(
         ]
         if group == "fodder" and "nontoken" in text:
             providers = []
+        if group == "fodder" and required_type not in {None, "creature", "permanent"}:
+            # A Zombie token producer cannot establish Elf-death support. Keep
+            # only printed matching subtypes or explicitly matching token text;
+            # unsupported qualifiers abstain rather than credit generic fodder.
+            providers = [
+                c
+                for c in providers
+                if re.search(
+                    r"\b" + re.escape(str(required_type)) + r"s?\b",
+                    str(c.get("type_line") or "")
+                    + " "
+                    + str(c.get("oracle_text") or ""),
+                    re.IGNORECASE,
+                )
+            ]
         if group == "counters" and not re.search(
             r"(?:remove [^:\n.]*|with a )\+1/\+1 counters?", text
         ):
