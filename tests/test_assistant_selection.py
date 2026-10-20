@@ -360,6 +360,86 @@ def test_compact_correction_changes_only_the_cited_claim_span():
     assert receipt["patches"][0]["claim"] == "three cards"
 
 
+def test_printed_correction_preserves_unverified_remainder():
+    class MixedReviewer:
+        def generate(self, request):
+            data = json.loads(request.user)
+            eid = next(
+                line["id"]
+                for source in data["source_records"]
+                for line in source["lines"]
+                if "Draw a card." in line["text"]
+            )
+            return SimpleNamespace(
+                value=request.schema.model_validate(
+                    {
+                        "f": "partial",
+                        "c0": {
+                            "k": "printed",
+                            "v": "contradicted",
+                            "e": [eid],
+                            "fix": {"span": "three cards", "text": "a card"},
+                            "why": "Loop remains unsupported.",
+                            "u": True,
+                        },
+                    }
+                )
+            )
+
+    parts = ["Lead", "Draw three cards; the loop repeats indefinitely.", ""]
+    corrected, receipt = review_claims(
+        MixedReviewer(), parts, ["Oracle text: {T}: Draw a card."], "Check this claim"
+    )
+    assert corrected[1] == "Draw a card; the loop repeats indefinitely."
+    assert receipt["patches"]
+    assert receipt["status"] == "unverified"
+    assert receipt["claim_judgments"][0]["unverified_remainder"] is True
+
+
+def test_one_bad_evidence_id_does_not_discard_an_independent_valid_correction():
+    class ReviewerWithBadID:
+        def generate(self, request):
+            data = json.loads(request.user)
+            eid = next(
+                line["id"]
+                for record in data["source_records"]
+                for line in record["lines"]
+                if "Draw a card." in line["text"]
+            )
+            return SimpleNamespace(
+                value=request.schema.model_validate(
+                    {
+                        "f": "partial",
+                        "c0": {
+                            "k": "printed",
+                            "v": "contradicted",
+                            "e": [eid],
+                            "fix": {"span": "three cards", "text": "a card"},
+                            "why": "Wrong printed amount.",
+                        },
+                        "c1": {
+                            "k": "printed",
+                            "v": "supported",
+                            "e": ["invented"],
+                            "fix": None,
+                            "why": "",
+                        },
+                    }
+                )
+            )
+
+    corrected, receipt = review_claims(
+        ReviewerWithBadID(),
+        ["Lead", "Draw three cards.", "Another supplied claim.", ""],
+        ["Oracle text: {T}: Draw a card."],
+        "Check these claims",
+    )
+    assert corrected[1] == "Draw a card."
+    assert receipt["status"] == "unverified"
+    assert len(receipt["patches"]) == 1
+    assert receipt["claim_judgments"][1]["invalid_evidence_ids"] == ["invented"]
+
+
 def test_runtime_selection_does_not_generate_prose_or_retry_whole_answer(
     prepared, monkeypatch
 ):

@@ -235,3 +235,7 @@ rows with omissions disclosed; global inventory/ranking assertions remain
 unverified. This reduces generated JSON and prevents long quote copying from
 exhausting the output budget. Canonical receipts retain readable categories,
 exact quotes, per-claim coverage and uncertainty.
+The v3 contract separates a known factual correction from any unverified remainder
+in the same recommendation. A supported Oracle correction can be applied while
+unknown rules or fit assertions keep the unit unverified. An invalid evidence ID
+quarantines its claim without discarding other independent valid corrections.

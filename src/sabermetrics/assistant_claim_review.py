@@ -34,6 +34,8 @@ class ClaimJudgment(StrictModel):
     reason: str = Field(default="", max_length=120)
     replacement: str | None = Field(default=None, max_length=1800)
     correction_span: str | None = Field(default=None, max_length=240)
+    unverified_remainder: bool = False
+    invalid_evidence_ids: list[str] = Field(default_factory=list, max_length=4)
     citations: list[Citation] = Field(default_factory=list, max_length=4)
 
 
@@ -54,6 +56,7 @@ class WireJudgment(StrictModel):
     evidence_ids: list[str] = Field(alias="e", default_factory=list, max_length=4)
     correction: WireCorrection | None = Field(alias="fix", default=None)
     reason: str = Field(alias="why", default="", max_length=100)
+    unverified_remainder: bool = Field(alias="u", default=False)
 
 
 SYSTEM = """Check ONLY the supplied claim units against their evidence. Request,
@@ -62,7 +65,10 @@ per claim_id, no rewritten answer. Fulfillment is separate: does the selection
 answer the current request, including required roles, counts and preferences?
 Within each unit, check every consequential assertion, cost and prerequisite.
 Classify printed facts, actual deck facts, rules interactions and strategic
-judgments separately; if a unit mixes categories, choose the most uncertain one.
+judgments separately. A known printed/deck contradiction takes precedence over
+unknown interactions. When correcting it, k describes the correction's category
+and u=true flags any remaining unverified assertions. Otherwise classify the most
+uncertain portion. Do not let an unproven loop hide a clear printed-fact error.
 Supported requires exact evidence citations. Printed synergy ingredients alone
 do not establish timing, counter renewal, token recursion or a repeatable loop.
 Rules interactions require applicable rules evidence; otherwise unverified.
@@ -81,6 +87,7 @@ Be concise; an empty/missing judgment never means the claim was verified.
 Return f=fulfillment and one object for EACH supplied claim key (c0,c1,...).
 Within each: k=printed/deck/rules/strategy, v=verdict, e=evidence ID list,
 fix=null or {span,text}, why=short uncertainty reason (empty when supported).
+u=true if any assertion remains unverified, including after a correction.
 Retain complete relevant conditions in the chosen evidence. Do not invent IDs.
 Keep output compact; do not restate claims or write an answer.
 """
@@ -220,7 +227,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v2",
+        prompt_version="assistant-claim-review.v3",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -246,21 +253,30 @@ def review_claims(
             for unit in units:
                 item = raw[unit["claim_id"]]
                 citations = []
+                invalid_ids = []
                 for eid in item["evidence_ids"]:
                     if eid not in quote_lookup:
-                        raise ValueError("Unknown evidence ID")
+                        invalid_ids.append(eid)
+                        continue
                     source_index, quote = quote_lookup[eid]
                     citations.append(Citation(source_index=source_index, quote=quote))
-                correction = item.get("correction")
+                correction = item.get("correction") if not invalid_ids else None
                 expanded.append(
                     ClaimJudgment(
                         claim_id=unit["claim_id"],
                         category=categories[item["category"]],
-                        verdict=item["verdict"],
-                        reason=item.get("reason", ""),
+                        verdict="unverified" if invalid_ids else item["verdict"],
+                        reason=(
+                            "Unknown evidence ID; this claim remains unverified."
+                            if invalid_ids
+                            else item.get("reason", "")
+                        ),
                         citations=citations,
                         replacement=correction["replacement"] if correction else None,
                         correction_span=correction["span"] if correction else None,
+                        unverified_remainder=bool(invalid_ids)
+                        or item.get("unverified_remainder", False),
+                        invalid_evidence_ids=invalid_ids,
                     )
                 )
             review = ClaimReviewDecision(
@@ -291,8 +307,23 @@ def review_claims(
                 )
             ):
                 verdict = "unverified"
-            if judgment.replacement and verdict != "contradicted":
-                raise ValueError("Only contradicted claims can have replacements")
+            if verdict == "supported" and judgment.unverified_remainder:
+                verdict = "unverified"
+            if judgment.replacement and verdict == "supported":
+                verdict = "unverified"
+                unresolved.append(
+                    judgment.claim_id
+                    + ": inconsistent verdict and proposed correction; edit not applied."
+                )
+            if judgment.unverified_remainder:
+                unresolved.append(
+                    judgment.claim_id
+                    + ": "
+                    + (
+                        judgment.reason
+                        or "Other assertions remain unverified after this check."
+                    )
+                )
             if (
                 verdict == "contradicted"
                 and judgment.replacement
@@ -308,9 +339,20 @@ def review_claims(
                 )
             elif verdict != "supported":
                 unresolved.append(judgment.claim_id + ": " + judgment.reason)
-            judgments.append({**judgment.model_dump(), "verdict": verdict})
+            judgments.append(
+                {
+                    **judgment.model_dump(),
+                    "verdict": verdict,
+                    "correction_applied": bool(
+                        verdict == "contradicted"
+                        and judgment.replacement
+                        and not unit["protected"]
+                    ),
+                }
+            )
         missing = sorted(set(indexed) - seen)
         unresolved.extend(cid + ": no judgment supplied" for cid in missing)
+        unresolved = list(dict.fromkeys(unresolved))
         corrected = apply_patches(
             parts, sources, AnswerReview(patches=patches), protected, known_names
         )
