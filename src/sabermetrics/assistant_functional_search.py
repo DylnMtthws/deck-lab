@@ -487,6 +487,13 @@ def functional_search(
             conn, cards, args.query or args.function
         )
     semantic_scores = dict(semantic)
+    from sabermetrics.assistant_retrieval_context import recall_view_scores
+
+    view_scores, view_receipt = recall_view_scores(
+        cards, args.query or args.function, db_path=path
+    )
+    for oid, score in view_scores.items():
+        semantic_scores[oid] = max(score, semantic_scores.get(oid, 0))
     prefer_cheap_sacrifice = args.function == "sacrifice" and bool(
         re.search(
             r"\b(?:free|cheap|low[- ]mana|no[- ]mana|zero[- ]mana|mana[- ]free)\b",
@@ -514,6 +521,7 @@ def functional_search(
             card,
             support_index,
             (args.query or args.function) + (" cheap" if args.prefer_low_mana else ""),
+            include_packet=False,
         )
         for oid, card in cards.items()
     }
@@ -650,7 +658,18 @@ def functional_search(
     # Attach rich evidence only to the shortlist; the full pool was evaluated
     # against one shared deck scan before applying the result limit.
     for oid in ordered[: args.limit]:
+        from sabermetrics.assistant_evidence_packet import (
+            build_recommendation_packet,
+            compact_recommendation_packet,
+        )
+
         cards[oid]["suitability"] = suitability[oid]
+        packet = build_recommendation_packet(
+            document, cards[oid], focus=args.query or args.function
+        )
+        cards[oid]["suitability"]["recommendation_packet"] = (
+            compact_recommendation_packet(packet)
+        )
     from sabermetrics.assistant_compatibility import compare_candidates
 
     compare_candidates([cards[oid] for oid in ordered[: args.limit]])
@@ -672,6 +691,7 @@ def functional_search(
             "association": association_status,
         },
         "stale_vectors_rejected": rejected,
+        "view_recall": view_receipt,
         "ranking_version": "assistant-suitability.v2",
         "jev_trial": jev_trial,
         "elapsed_seconds": round(time.monotonic() - started, 4),

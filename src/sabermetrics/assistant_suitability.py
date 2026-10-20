@@ -98,6 +98,7 @@ def deck_support_index(document: dict[str, Any]) -> dict[str, Any]:
         ):
             groups["recursion"].append(_source(card))
     return {
+        "document": document,
         "revision": document.get("revision"),
         "library_entries_scanned": len(library),
         "missing_text_cards": sum(
@@ -180,7 +181,11 @@ def _draw_accounting(card: dict[str, Any]) -> dict[str, Any]:
 
 
 def candidate_suitability(
-    card: dict[str, Any], index: dict[str, Any], focus: str = ""
+    card: dict[str, Any],
+    index: dict[str, Any],
+    focus: str = "",
+    *,
+    include_packet: bool = True,
 ) -> dict[str, Any]:
     """Describe costs and relevant current-deck ingredients without invented fits."""
     raw = str(card.get("oracle_text") or "")
@@ -243,9 +248,9 @@ def candidate_suitability(
     )
     # Transparent bounded signals. Support never compensates for hard filters;
     # callers apply legality/type/exclusion rules before computing this profile.
-    from sabermetrics.assistant_compatibility import ability_compatibility
+    from sabermetrics.assistant_ability_clauses import bounded_compatibility
 
-    compatibility = ability_compatibility(card, index.get("entries", []))
+    compatibility = bounded_compatibility(card, index.get("entries", []))
     requirements = compatibility["requirements"]
     # Category detection nominates sources; only ability-matched providers earn
     # credit. Requiring more ingredients must not itself produce a higher score.
@@ -311,7 +316,7 @@ def candidate_suitability(
         and value >= 0
         else 0
     )
-    return {
+    result = {
         "version": VERSION,
         "deck_revision": index["revision"],
         "printed_facts": {
@@ -360,6 +365,23 @@ def candidate_suitability(
             key: index[key] for key in ("library_entries_scanned", "missing_text_cards")
         },
     }
+
+    if include_packet:
+        from sabermetrics.assistant_evidence_packet import (
+            build_recommendation_packet,
+            compact_recommendation_packet,
+        )
+
+        packet = build_recommendation_packet(
+            index.get(
+                "document",
+                {"revision": index["revision"], "entries": index.get("entries", [])},
+            ),
+            card,
+            focus=focus,
+        )
+        result["recommendation_packet"] = compact_recommendation_packet(packet)
+    return result
 
 
 def synthesis_fit_context(

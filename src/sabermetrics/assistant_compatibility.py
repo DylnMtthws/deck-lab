@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 VERSION = "assistant-compatibility.v1"
@@ -32,6 +33,7 @@ def _clauses(card: dict[str, Any]) -> list[str]:
     return str(card.get("oracle_text") or "").splitlines() if _complete(card) else []
 
 
+@lru_cache(maxsize=8192)
 def _tokens(clause: str, required: str) -> bool:
     # Only single supported nouns are matched. Compound type/state restrictions
     # remain unknown instead of treating "artifact creature" as "artifact".
@@ -74,6 +76,7 @@ def _tokens(clause: str, required: str) -> bool:
     return False
 
 
+@lru_cache(maxsize=2048)
 def fixed_mana(cost: str) -> int | None:
     """Only fixed ordinary mana symbols; variable, hybrid and special costs abstain."""
     symbols = [
@@ -84,6 +87,53 @@ def fixed_mana(cost: str) -> int | None:
     if re.search(r"\bmana\b", cost, re.IGNORECASE):
         return None
     return sum(int(s) if s.isdigit() else 1 for s in symbols)
+
+
+@lru_cache(maxsize=16384)
+def _provider_matches(
+    quote: str, dimension: str, required: str, type_line: str
+) -> bool:
+    """Cache literal source judgments only; no card/owner/revision state is retained."""
+    lower = quote.lower()
+    compatible = False
+    if dimension == "fodder":
+        compatible = not required.startswith("nontoken ") and _tokens(quote, required)
+    elif dimension == "counters":
+        if not re.search(
+            r"\bcreature\b|\bartifact\b",
+            type_line,
+            re.IGNORECASE,
+        ):
+            return False
+        target_type = "artifact" if "artifact" in type_line.lower() else "creature"
+        compatible = bool(
+            re.search(
+                r"\bput (?:a|one|\d+) "
+                + re.escape(required)
+                + r" counters? on (?:target|each|another) "
+                + target_type
+                + r"(?:[.,]|$| you control)",
+                lower,
+            )
+        )
+        # Additional targeting qualifiers require a richer matcher.
+        compatible = compatible and not re.search(
+            r"opponent|another target|other than|with |without |that |except|and/or",
+            lower,
+        )
+    elif dimension == "sacrifice":
+        compatible = bool(re.search(r"\bsacrifice (?:a|another) creature\s*:", lower))
+    elif dimension == "recursion":
+        compatible = (
+            bool(
+                re.search(
+                    r"return target creature card from your graveyard to the battlefield[.,]?$",
+                    lower,
+                )
+            )
+            and "creature" in type_line.lower()
+        )
+    return bool(compatible)
 
 
 def ability_compatibility(
@@ -171,53 +221,9 @@ def ability_compatibility(
             unresolved = []
             for provider in providers:
                 for quote in _clauses(provider):
-                    lower = quote.lower()
-                    compatible = False
-                    if dimension == "fodder":
-                        compatible = not required.startswith("nontoken ") and _tokens(
-                            quote, required
-                        )
-                    elif dimension == "counters":
-                        if not re.search(
-                            r"\bcreature\b|\bartifact\b",
-                            str(card.get("type_line") or ""),
-                            re.IGNORECASE,
-                        ):
-                            continue
-                        target_type = (
-                            "artifact"
-                            if "artifact" in str(card.get("type_line") or "").lower()
-                            else "creature"
-                        )
-                        compatible = bool(
-                            re.search(
-                                r"\bput (?:a|one|\d+) "
-                                + re.escape(required)
-                                + r" counters? on (?:target|each|another) "
-                                + target_type
-                                + r"(?:[.,]|$| you control)",
-                                lower,
-                            )
-                        )
-                        # Additional targeting qualifiers require a richer matcher.
-                        compatible = compatible and not re.search(
-                            r"opponent|another target|other than|with |without |that |except|and/or",
-                            lower,
-                        )
-                    elif dimension == "sacrifice":
-                        compatible = bool(
-                            re.search(r"\bsacrifice (?:a|another) creature\s*:", lower)
-                        )
-                    elif dimension == "recursion":
-                        compatible = (
-                            bool(
-                                re.search(
-                                    r"return target creature card from your graveyard to the battlefield[.,]?$",
-                                    lower,
-                                )
-                            )
-                            and "creature" in str(card.get("type_line") or "").lower()
-                        )
+                    compatible = _provider_matches(
+                        quote, dimension, required, str(card.get("type_line") or "")
+                    )
                     if not compatible:
                         continue
                     record = {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Literal
 
@@ -31,24 +32,46 @@ class EngineGraph(BaseModel):
     version: Literal["assistant-engine-graph.v1"] = "assistant-engine-graph.v1"
     revision: int
     links: list[EngineLink]
+    local_edges: list[dict[str, Any]] = Field(default_factory=list)
+    local_edges_omitted: int = Field(default=0, ge=0)
+    # None identifies older graphs whose display edges were also scoring input.
+    # Counts include each incident edge once, before any display truncation.
+    local_retention_counts: dict[str, int] | None = None
     scope: str = (
         "Bounded printed relationships, not a rules interpreter, complete synergy "
         "graph, battlefield observation or measured quality. Retention weights "
         "only order candidate cuts; they do not prohibit a strategic tradeoff."
     )
 
+    @property
+    def local_retention_status(self) -> str:
+        if self.local_retention_counts is not None:
+            return "complete_aggregates"
+        if self.local_edges_omitted:
+            return "incomplete_conservative_fallback"
+        return "complete_legacy_edges"
+
 
 def card_engine_links(
     document: dict[str, Any], card: dict[str, Any]
 ) -> list[EngineLink]:
     """Recognize high-value relationship shapes using both printed endpoints."""
-    if card.get("card_faces") or "//" in str(card.get("type_line") or ""):
+    if (
+        card.get("card_faces")
+        or card.get("oracle_text_truncated")
+        or "//" in str(card.get("type_line") or "")
+    ):
         return []
     raw = str(card.get("oracle_text") or "")
     text = raw.lower()
     links = []
     for commander in document.get("entries", []):
-        if not commander.get("is_commander") or commander.get("card_faces"):
+        if (
+            not commander.get("is_commander")
+            or commander.get("card_faces")
+            or commander.get("oracle_text_truncated")
+            or "//" in str(commander.get("type_line") or "")
+        ):
             continue
         cmd = str(commander.get("oracle_text") or "")
         cmd_text = cmd.lower()
@@ -287,7 +310,36 @@ def card_engine_links(
 
 def build_engine_graph(document: dict[str, Any]) -> EngineGraph:
     """Build links from every library card using current canonical text only."""
+    from sabermetrics.assistant_ability_clauses import ability_clauses
+
+    entries = [
+        *list(_library_entries(document)),
+        *[c for c in document.get("entries", []) if c.get("is_commander")],
+    ]
+    # Build-local reuse only: no cross-owner/revision cache or retained input refs.
+    parsed_entries = [(card, ability_clauses(card)) for card in entries]
+    edges = [
+        edge
+        for card, parsed in parsed_entries
+        for edge in _local_support_edges(card, entries, None, parsed, parsed_entries)
+    ]
+    counts: dict[str, int] = {}
+    for edge in edges:
+        for identity in {edge["provider_id"], edge["recipient_id"]}:
+            if identity:
+                counts[identity] = counts.get(identity, 0) + 1
+    # A total content order makes the displayed subset stable even on ties.
+    edges.sort(
+        key=lambda edge: (
+            edge["recipient_id"],
+            edge["provider_id"],
+            json.dumps(edge, sort_keys=True),
+        )
+    )
     return EngineGraph(
+        local_edges=edges[:128],
+        local_edges_omitted=max(0, len(edges) - 128),
+        local_retention_counts=dict(sorted(counts.items())),
         revision=int(document.get("revision", 0)),
         links=sorted(
             [
@@ -309,9 +361,9 @@ def engine_loss_score(
     graph: EngineGraph, outgoing: dict[str, Any], incoming: dict[str, Any] | None = None
 ) -> int:
     """Rank loss conservatively; replacement fit still requires strategic review."""
-    identity = str(
-        outgoing.get("oracle_id") or outgoing.get("card_id") or outgoing.get("id") or ""
-    )
+    from sabermetrics.assistant_ability_clauses import card_identity
+
+    identity = card_identity(outgoing)
     # Do not infer equivalent output merely from a matching broad role. The
     # semantic reviewer can justify trading a known relationship for a benefit.
     incoming_text = str((incoming or {}).get("oracle_text") or "")
@@ -320,12 +372,27 @@ def engine_loss_score(
         and incoming_text == str(outgoing.get("oracle_text") or "")
         and (incoming or {}).get("type_line") == outgoing.get("type_line")
     )
-    return sum(
+    if identical_source:
+        return 0
+    if graph.local_retention_counts is not None:
+        local_loss = min(4, graph.local_retention_counts.get(identity, 0))
+    elif graph.local_edges_omitted:
+        # Unknown endpoints may include this identity. Preserve the existing
+        # local cap rather than treating absence from a truncated display as zero.
+        local_loss = 4
+    else:
+        local_loss = min(
+            4,
+            sum(
+                e.get("provider_id") == identity or e.get("recipient_id") == identity
+                for e in graph.local_edges
+            ),
+        )
+    return local_loss + sum(
         link.retention_weight
         for link in graph.links
         if link.provider_oracle_id == identity
         and link.relationship != "cast_trigger_ingredient"
-        and not identical_source
     )
 
 
@@ -344,5 +411,130 @@ def summarize_engine_graph(graph: EngineGraph) -> dict[str, Any]:
             for link in graph.links[:8]
         ],
         "links_omitted": max(0, len(graph.links) - 8),
+        "local_edges": [
+            {
+                key: edge[key]
+                for key in (
+                    "provider_id",
+                    "provider",
+                    "recipient_id",
+                    "recipient",
+                    "relationship",
+                    "status",
+                )
+            }
+            for edge in graph.local_edges[:8]
+        ],
+        "local_edges_omitted": graph.local_edges_omitted
+        + max(0, len(graph.local_edges) - 8),
+        "local_retention_status": graph.local_retention_status,
         "scope": graph.scope,
     }
+
+
+def local_support_edges(
+    card: dict[str, Any],
+    entries: list[dict[str, Any]],
+    compatibility: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Directed printed support, with exact endpoints; no transitive/loop inference."""
+    from sabermetrics.assistant_ability_clauses import ability_clauses
+
+    parsed = ability_clauses(card)
+    if parsed["coverage"] == "unknown":
+        return []
+    return _local_support_edges(
+        card,
+        entries,
+        compatibility,
+        parsed,
+        [(provider, ability_clauses(provider)) for provider in entries],
+    )
+
+
+def _local_support_edges(
+    card: dict[str, Any],
+    entries: list[dict[str, Any]],
+    compatibility: dict[str, Any] | None,
+    parsed: dict[str, Any],
+    parsed_entries: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    from sabermetrics.assistant_ability_clauses import (
+        bounded_compatibility,
+        card_identity,
+    )
+
+    if parsed["coverage"] == "unknown":
+        return []
+    compatibility = (
+        compatibility
+        if compatibility is not None
+        else bounded_compatibility(card, entries)
+    )
+    edges = []
+    for demand in compatibility["requirements"]:
+        for provider in demand["providers"]:
+            edges.append(
+                {
+                    "provider_oracle_id": provider.get("oracle_id"),
+                    "provider_id": next(
+                        (
+                            card_identity(p)
+                            for p in entries
+                            if p.get("name") == provider.get("name")
+                            and p.get("oracle_id") == provider.get("oracle_id")
+                        ),
+                        "",
+                    ),
+                    "provider": provider["name"],
+                    "recipient_id": card_identity(card),
+                    "recipient": card.get("name"),
+                    "relationship": demand["dimension"],
+                    "required": demand["required"],
+                    "source_quote": provider["source_quote"],
+                    "recipient_quote": demand["candidate_quote"],
+                    "status": "compatible_printed_ingredient",
+                    "conditions": [demand["conditions"]],
+                }
+            )
+    # Protection is a potential defensive link, never evidence of actual survival.
+    types = str(card.get("type_line") or "").lower().split("—")[0]
+    for provider, source in parsed_entries:
+        if card_identity(provider) == card_identity(card):
+            continue
+        if source["coverage"] == "unknown":
+            continue
+        for clause in source["clauses"]:
+            if clause["coverage"] == "unknown" or clause["triggers"]:
+                continue
+            effect = clause["effects"][0]
+            protection = re.search(
+                r"\btarget (creature|artifact)(?: you control)? gains? (hexproof|indestructible) until end of turn\.",
+                effect,
+                re.IGNORECASE,
+            )
+            if not protection or protection[1].lower() not in types:
+                continue
+            # Full effect must be the recognized shape: qualifiers and opponent
+            # targets are not silently stripped by a substring match.
+            if effect.strip() != protection[0]:
+                continue
+            edges.append(
+                {
+                    "provider_oracle_id": provider.get("oracle_id"),
+                    "provider_id": card_identity(provider),
+                    "provider": provider.get("name"),
+                    "recipient_id": card_identity(card),
+                    "recipient": card.get("name"),
+                    "relationship": "potential_protection",
+                    "required": protection[2].lower(),
+                    "source_quote": clause["source_quote"],
+                    "recipient_quote": str(card.get("type_line") or ""),
+                    "status": "compatible_printed_ingredient",
+                    "conditions": [
+                        "Legal target and provider availability required; pay all printed costs.",
+                        "Timing, response windows and actual survival remain unverified.",
+                    ],
+                }
+            )
+    return edges

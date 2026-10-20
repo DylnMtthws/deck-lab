@@ -7,6 +7,8 @@ from itertools import combinations
 from typing import Any
 
 from sabermetrics.assistant_candidate_recall import RecallResult, card_content
+from sabermetrics.assistant_evidence_packet import build_recommendation_packet
+from sabermetrics.assistant_package_analysis import analyze_package
 from sabermetrics.assistant_strategy import (
     StrategyContext,
     assess_strategy_transition,
@@ -203,6 +205,9 @@ def recommend_packages(
                     "incoming_oracle_facts": oracle_facts(row[0].card),
                     "outgoing_oracle_facts": oracle_facts(old),
                     "recall": row[0].model_dump(exclude={"card"}),
+                    "recommendation_packet": build_recommendation_packet(
+                        document, row[0].card, old, focus
+                    ),
                     "draw_routes": {
                         "incoming": [r.model_dump() for r in draw_routes(row[0].card)],
                         "outgoing": [r.model_dump() for r in draw_routes(old)],
@@ -210,6 +215,13 @@ def recommend_packages(
                 }
                 for old, row in zip(cuts, incoming)
             ]
+            package_analysis = analyze_package(
+                document, [row[0].card for row in incoming], list(cuts), focus
+            )
+            for pair, packet in zip(
+                replacement_pairs, package_analysis["replacement_packets"]
+            ):
+                pair["recommendation_packet"] = packet
             alternatives.append(
                 {
                     "name": "Test coordinated "
@@ -223,6 +235,7 @@ def recommend_packages(
             evidence.append(
                 {
                     "recommendation_type": "coordinated_package",
+                    "package_analysis": package_analysis,
                     "review_required": True,
                     "replacement_pairs": replacement_pairs,
                     "incoming_oracle_facts": replacement_pairs[0][

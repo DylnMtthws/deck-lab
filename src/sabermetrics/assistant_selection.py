@@ -203,6 +203,14 @@ def selection_payload(
         if support.get("dimension") != "mana"
     }
     deck_sources: list[dict[str, Any]] = []
+    support_names.update(
+        str(s.get("provider") or "")
+        for candidate in candidates
+        for s in sources.get(candidate.card_id, {})
+        .get("suitability", {})
+        .get("recommendation_packet", {})
+        .get("support", [])
+    )
     omitted_deck_sources = []
     for card in sorted(deck_entries or [], key=lambda c: not c.get("is_commander")):
         if not card.get("is_commander") and card.get("name") not in support_names:
@@ -270,6 +278,10 @@ def selection_payload(
                 card.get("suitability", {}).get("ability_compatibility", {})
             ),
             "functional_comparison": card.get("functional_comparison"),
+            "retrieval_views": card.get("retrieval_views"),
+            "recommendation_packet": card.get("suitability", {}).get(
+                "recommendation_packet"
+            ),
             "heuristic_support_unverified": (
                 render_fit_reason(card["suitability"])
                 if card.get("suitability")

@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sabermetrics.assistant_evidence_packet import compact_recommendation_packet
 from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
 
 
@@ -177,6 +178,11 @@ def review_candidates(
                     "outgoing": outgoing,
                     "draw_routes": facts.get("draw_routes"),
                     "recall": facts.get("recall"),
+                    "recommendation_packet": (
+                        compact_recommendation_packet(facts["recommendation_packet"])
+                        if facts.get("recommendation_packet")
+                        else None
+                    ),
                 }
             )
         incoming, outgoing = (
@@ -206,6 +212,24 @@ def review_candidates(
                 "rationale_note": "Proposer rationale omitted to reduce anchoring; judge card facts and deck context.",
                 "context": {
                     "commander_resource_tradeoffs": resource_tradeoffs,
+                    "recommendation_packet": (
+                        compact_recommendation_packet(evidence["recommendation_packet"])
+                        if evidence.get("recommendation_packet")
+                        else None
+                    ),
+                    "package_analysis": (
+                        {
+                            key: evidence.get("package_analysis", {}).get(key)
+                            for key in (
+                                "shared_ingredient_links",
+                                "missing_member_analysis",
+                                "engine_execution",
+                                "scope",
+                            )
+                        }
+                        if evidence.get("package_analysis")
+                        else None
+                    ),
                     **{
                         key: evidence.get(key)
                         for key in (

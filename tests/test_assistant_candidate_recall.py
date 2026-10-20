@@ -141,8 +141,23 @@ def test_associations_feed_discovery_with_cohort_and_window(prepared, monkeypatc
             "window_start": "2026-07-18",
             "window_end_exclusive": "2026-10-17",
             "source": "fixture cohort",
+            "temporal_diagnostics": {"state": "available", "split_date": "2026-09-01"},
             "associations": [
-                {"oracle_id": "protect", "adjusted_lift": 1.5, "pair_lists": 10}
+                {
+                    "oracle_id": "protect",
+                    "adjusted_lift": 1.5,
+                    "pair_lists": 10,
+                    "temporal_stability": {
+                        "state": "insufficient",
+                        "periods": [
+                            {
+                                "period": "recent",
+                                "cohort_lists": 0,
+                                "adjusted_lift": None,
+                            }
+                        ],
+                    },
+                }
             ],
         }
 
@@ -154,6 +169,8 @@ def test_associations_feed_discovery_with_cohort_and_window(prepared, monkeypatc
     evidence = next(e for e in candidate.evidence if e["channel"] == "association")
     assert evidence["cohort_lists"] == 100
     assert evidence["window_start"] == "2026-07-18"
+    assert evidence["temporal_diagnostics"]["split_date"] == "2026-09-01"
+    assert evidence["temporal_stability"]["state"] == "insufficient"
     assert calls == ["anchor"]
 
 
@@ -217,3 +234,38 @@ def test_semantic_vectors_require_current_facts_and_exact_encoder(
     assert ("semantic" in candidate.channels) is (mutation in (None, "low_similarity"))
     if mutation not in (None, "low_similarity"):
         assert any("Rejected 1" in note for note in result.limitations)
+
+
+def test_later_anchor_cannot_overwrite_stable_association_evidence(
+    prepared, monkeypatch
+):
+    _, document = prepared
+    for oid in ("a-anchor", "b-anchor"):
+        document["entries"].append(
+            {"oracle_id": oid, "type_line": "Artifact", "quantity": 1}
+        )
+
+    def associations(path, document, oracle_id, **kwargs):
+        return {
+            "status": "available",
+            "anchor_oracle_id": oracle_id,
+            "associations": [
+                {
+                    "oracle_id": "protect",
+                    "adjusted_lift": 1.2 if oracle_id == "a-anchor" else 2.5,
+                    "temporal_stability": {
+                        "state": "stable" if oracle_id == "a-anchor" else "unstable",
+                        "periods": [],
+                    },
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "sabermetrics.assistant_associations.research_card_associations", associations
+    )
+    result = recall(prepared)
+    candidate = next(c for c in result.candidates if c.card["id"] == "protect")
+    evidence = next(e for e in candidate.evidence if e["channel"] == "association")
+    assert evidence["anchor_oracle_id"] == "a-anchor"
+    assert evidence["temporal_stability"]["state"] == "stable"

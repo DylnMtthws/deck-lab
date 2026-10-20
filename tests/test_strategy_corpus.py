@@ -342,3 +342,103 @@ def test_source_version_content_is_immutable_but_identical_reembedding_is_allowe
         retrieve_strategy_evidence(db, "original creature")["retrieval_mode"]
         == "hybrid_bm25_semantic"
     )
+
+
+def test_precise_bounds_parent_context_and_document_dominance(tmp_path):
+    db = tmp_path / "db"
+    text = "intro " * 38 + "draw cards sacrifice prerequisites. " * 45
+    ingest(db, text, chunk_chars=200)
+    module.ingest_text(
+        db,
+        "Draw cards independently.",
+        document="Other strategy",
+        source_url=None,
+        version="v1",
+        permission="original",
+    )
+    result = retrieve_strategy_evidence(db, "draw cards")
+    assert (
+        len(
+            [
+                e
+                for e in result["excerpts"]
+                if e["citation"]["document"] == "Licensed primer"
+            ]
+        )
+        <= 2
+    )
+    assert any(
+        e["citation"]["document"] == "Other strategy" for e in result["excerpts"]
+    )
+    for evidence in result["excerpts"]:
+        original = (
+            text
+            if evidence["citation"]["document"] == "Licensed primer"
+            else "Draw cards independently."
+        )
+        bounds = evidence["passage_bounds"]
+        assert (
+            original[bounds["char_start"] : bounds["char_end"]] == evidence["excerpt"]
+        )
+        parent = evidence["parent_context"]
+        assert original[parent["char_start"] : parent["char_end"]] == parent["text"]
+        assert len(parent["text"]) <= 1000
+        assert parent["version"] == "v1"
+
+
+def test_secondary_revision_metadata_and_original_seed_attribution(tmp_path):
+    db = tmp_path / "db"
+    with pytest.raises(ValueError, match="revision"):
+        module.ingest_text(
+            db,
+            "draw",
+            document="wiki",
+            source_url="https://example.test/wiki",
+            version="revision-1",
+            permission="operator confirmed license",
+            source_kind="wiki_secondary",
+        )
+    module.ingest_text(
+        db,
+        "Draw cards.",
+        document="wiki",
+        source_url="https://example.test/wiki?oldid=1",
+        version="revision-1",
+        source_date="2026-10-20",
+        source_kind="wiki_secondary",
+        author="Attributed contributors",
+        permission="operator confirmed license",
+    )
+    evidence = retrieve_strategy_evidence(db, "draw")["excerpts"][0]
+    assert evidence["source_attribution"]["source_class"] == "wiki_secondary"
+    assert evidence["source_attribution"]["source_date"] == "2026-10-20"
+    import sabermetrics
+
+    bundle = json.loads(
+        (
+            Path(sabermetrics.__file__).parent / "config_data/strategy_source_seed.json"
+        ).read_text()
+    )
+    original = [
+        s for s in bundle["sources"] if s.get("source_class") == "original_strategy"
+    ]
+    assert len(original) == 48
+    assert len({s["archetype"] for s in original}) == 24
+    assert all(
+        s["author"]
+        and s["source_date"]
+        and s["limitations"]
+        and s["primary_links"][0]["version"]
+        for s in original
+    )
+
+
+def test_duplicate_passage_across_sections_of_one_source_version_is_suppressed(
+    tmp_path,
+):
+    db = tmp_path / "db"
+    for section in ("setup", "summary"):
+        ingest(db, "Draw cards with sacrifice prerequisites.", section=section)
+    result = retrieve_strategy_evidence(db, "draw sacrifice")
+    assert result["corpus_chunks"] == 2
+    assert len(result["excerpts"]) == 1

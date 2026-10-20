@@ -10,6 +10,7 @@ import json
 import re
 import sqlite3
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -368,6 +369,11 @@ class AssociationArgs(StrictModel):
     limit: int = Field(default=6, ge=1, le=8)
 
 
+class ComparableDeckArgs(StrictModel):
+    window_days: Literal[0, 7, 30, 90, 365] = 90
+    limit: int = Field(default=3, ge=1, le=3)
+
+
 class RecommendArgs(StrictModel):
     focus: str = Field(default="", max_length=300)
 
@@ -511,6 +517,11 @@ class AssociationCall(StrictModel):
     arguments: AssociationArgs
 
 
+class ComparableDeckCall(StrictModel):
+    name: Literal["research_comparable_decks"]
+    arguments: ComparableDeckArgs
+
+
 class RequirementsCall(StrictModel):
     name: Literal["assess_deck_requirements"]
     arguments: EmptyArgs
@@ -575,6 +586,7 @@ ToolCall = Annotated[
     | DeckFactsCall
     | RulesCall
     | AssociationCall
+    | ComparableDeckCall
     | RequirementsCall
     | MemoryCall
     | CombinationsCall
@@ -613,6 +625,7 @@ class AssistantTools:
         self.research_request: str | None = None
         self.package_gateway: ModelGateway | None = None
         self.package_results: dict[str, dict[str, Any]] = {}
+        self.retrieval_results: dict[str, dict[str, Any]] = {}
         self.reviewed_proposals: set[str] = set()
         self.path = Path(db_path)
         self.owner = owner_id
@@ -709,7 +722,13 @@ class AssistantTools:
                     raise ValueError(
                         "Joint changes reduce a modeled requirement already at or below its starter target."
                     )
+            from sabermetrics.assistant_evidence_packet import (
+                build_recommendation_packet,
+            )
+            from sabermetrics.assistant_package_analysis import analyze_package
+
             pairs = []
+            package_incoming, package_outgoing = [], []
             for replacement in replacements:
                 old = next(
                     e
@@ -721,21 +740,40 @@ class AssistantTools:
                     for e in preview["document"]["entries"]
                     if e.get("card_id") == replacement["incoming_card_id"]
                 )
+                package_incoming.append(new)
+                package_outgoing.append(old)
                 pairs.append(
                     {
                         "incoming_oracle_facts": oracle_facts(new),
                         "outgoing_oracle_facts": oracle_facts(old),
+                        "recommendation_packet": build_recommendation_packet(
+                            document, new, old, self.research_request or ""
+                        ),
                         "draw_routes": {
                             "incoming": [r.model_dump() for r in draw_routes(new)],
                             "outgoing": [r.model_dump() for r in draw_routes(old)],
                         },
                     }
                 )
+            package_analysis = (
+                analyze_package(
+                    document,
+                    package_incoming,
+                    package_outgoing,
+                    self.research_request or "",
+                )
+                if len(pairs) > 1
+                else None
+            )
+            if package_analysis:
+                for pair, packet in zip(pairs, package_analysis["replacement_packets"]):
+                    pair["recommendation_packet"] = packet
             evidence.append(
                 {
                     **pairs[0],
                     "replacement_pairs": pairs,
                     "strategy_transition": transition,
+                    "package_analysis": package_analysis,
                 }
             )
         self.check()
@@ -799,6 +837,14 @@ class AssistantTools:
         document = self.check()
         args = call.arguments
         search_corrections = []
+        if call.name == "research_comparable_decks":
+            from sabermetrics.assistant_comparable_decks import comparable_decks
+
+            result = comparable_decks(
+                self.path, document, window_days=args.window_days, limit=args.limit
+            )
+            self.check()
+            return result
         if (
             call.name in {"search_cards", "search_card_functions"}
             and args.mana_max == 0
@@ -927,9 +973,31 @@ class AssistantTools:
                 "original_changed": False,
             }
         if call.name == "research_memory":
+            from sabermetrics.assistant_episodes import recall_episodes
             from sabermetrics.assistant_memory import research_memory
 
-            return research_memory(self.path, self.owner, self.deck_id, limit=3)
+            view = simulation_view(self.path, self.deck_id)
+            current_report = (
+                (view.get("result") or {}).get("diagnostics")
+                if view.get("status") == "done" and view.get("freshness") == "current"
+                else None
+            )
+            memory = research_memory(
+                self.path,
+                self.owner,
+                self.deck_id,
+                limit=3,
+                current_report=current_report,
+            )
+            memory["investigations"] = recall_episodes(
+                self.path,
+                self.owner,
+                self.deck_id,
+                document,
+                query=self.research_request or "",
+                limit=2,
+            )
+            return memory
         if call.name == "prepare_improvement":
             from sabermetrics.assistant_deck_facts import (
                 build_deck_facts,
@@ -1006,8 +1074,9 @@ class AssistantTools:
                 limit=args.limit,
             ).model_dump()
         if call.name == "retrieve_strategy_evidence":
-            from sabermetrics.assistant_strategy_evidence import (
-                retrieve_strategy_evidence,
+            from sabermetrics.assistant_retrieval_plan import (
+                compile_retrieval_plan,
+                run_retrieval_plan,
             )
 
             commanders = ", ".join(
@@ -1015,9 +1084,40 @@ class AssistantTools:
                 for entry in document.get("entries", [])
                 if entry.get("is_commander")
             )
-            self.strategy_evidence = retrieve_strategy_evidence(
-                self.path, args.query, commander=commanders, limit=args.limit
+            plan = compile_retrieval_plan(args.query)
+            key = plan["plan_hash"] + ":" + str(args.limit)
+            if key in self.retrieval_results:
+                self.strategy_evidence = deepcopy(self.retrieval_results[key])
+                return {**deepcopy(self.strategy_evidence), "cache_hit": True}
+            planned = run_retrieval_plan(
+                self.path,
+                plan,
+                commander=commanders,
+                check_current=self.check,
+                limit=args.limit,
             )
+            self.strategy_evidence = planned["shared_evidence"]["strategy"]
+            self.strategy_evidence = {
+                **self.strategy_evidence,
+                "retrieval_plan": plan,
+                "planned_evidence": [
+                    {
+                        key: row[key]
+                        for key in (
+                            "task_id",
+                            "kind",
+                            "evidence_class",
+                            "coverage",
+                            "source_indices",
+                        )
+                    }
+                    for row in planned["results"]
+                ],
+                "plan_rules": planned["shared_evidence"].get("official_rules"),
+                "retrieval_reads": planned["retrieval_reads"],
+                "cache_hit": False,
+            }
+            self.retrieval_results[key] = deepcopy(self.strategy_evidence)
             return self.strategy_evidence
         if call.name == "assess_deck_requirements":
             from sabermetrics.assistant_deck_intelligence import (
@@ -1243,6 +1343,13 @@ class AssistantTools:
                     }
                 )
             result = functional_search(self.path, document, effective)
+            from sabermetrics.assistant_retrieval_context import enrich_shortlist
+
+            result["card_view_retrieval"] = enrich_shortlist(
+                result.get("cards", []),
+                effective.query or effective.function,
+                db_path=self.path,
+            )
             return {
                 **result,
                 "filter_corrections": search_corrections,

@@ -200,3 +200,76 @@ def test_requested_draw_event_beats_irrelevant_secondary_roles(prepared):
         ),
     )
     assert result["cards"][0]["id"] == "tax"
+
+
+def test_shortlist_adopts_compact_packet_without_duplicate_oracle_corpus(prepared):
+    import json
+
+    path, document = prepared
+    insert(
+        path,
+        "packet-draw",
+        "Packet Draw",
+        "Creature",
+        "{1}, Sacrifice another creature: Draw a card.",
+    )
+    result = functional_search(
+        path, document, FunctionalSearchArgs(query="draw", limit=8)
+    )
+    card = next(c for c in result["cards"] if c["id"] == "packet-draw")
+    packet = card["suitability"]["recommendation_packet"]
+    assert packet["version"] == "assistant-recommendation-packet.v1"
+    assert packet["activation_costs"] == ["{1}, Sacrifice another creature"]
+    assert "oracle_text" not in json.dumps(packet)
+    assert card["oracle_text"] == "{1}, Sacrifice another creature: Draw a card."
+
+
+def test_semantic_view_candidate_can_enter_before_final_limit(
+    prepared, monkeypatch, tmp_path
+):
+    import json
+    import sqlite3
+
+    import sabermetrics.reference_layer.strategy_corpus as corpus
+    from sabermetrics.assistant_card_views import prepare_card_view_vectors
+    from sabermetrics.card_search import _catalog_faces
+    from tests.test_assistant_card_views import Encoder
+
+    path, document = prepared
+    for i in range(12):
+        insert(
+            path,
+            f"view-decoy-{i}",
+            f"AAA View {i}",
+            "Creature",
+            "Sacrifice a creature: Draw a card.",
+        )
+    insert(
+        path,
+        "view-target",
+        "ZZZ View Target",
+        "Creature",
+        "Sacrifice a creature: Draw a card.",
+    )
+    args = FunctionalSearchArgs(
+        query="resource conversion", type_line="creature", limit=2
+    )
+    monkeypatch.delenv("SABER_ASSISTANT_CARD_VIEW_VECTORS", raising=False)
+    baseline = functional_search(path, document, args)
+    assert "view-target" not in [c["id"] for c in baseline["cards"]]
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        target = next(
+            c
+            for c in _catalog_faces(conn, str(path.resolve()))
+            if c["id"] == "view-target"
+        )
+    encoder = Encoder()
+    artifact = prepare_card_view_vectors([target], encoder=encoder)
+    file = tmp_path / "views.json"
+    file.write_text(json.dumps(artifact))
+    monkeypatch.setenv("SABER_ASSISTANT_CARD_VIEW_VECTORS", str(file))
+    monkeypatch.setattr(corpus, "local_embedding_service", lambda: encoder)
+    result = functional_search(path, document, args)
+    assert result["cards"][0]["id"] == "view-target"
+    assert result["view_recall"]["status"] == "available"

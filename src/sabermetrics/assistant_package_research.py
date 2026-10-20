@@ -10,6 +10,11 @@ from typing import Annotated, Any
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
+from sabermetrics.assistant_evidence_packet import (
+    build_recommendation_packet,
+    compact_recommendation_packet,
+)
+from sabermetrics.assistant_package_analysis import analyze_package
 from sabermetrics.assistant_research_task import ResearchHypothesis, validate_hypotheses
 from sabermetrics.assistant_tools import StrictModel
 from sabermetrics.cedh.errors import ModelProviderError, ModelValidationError
@@ -118,10 +123,20 @@ def compose_package(
             "The bounded catalog or cut pool has fewer cards than requested."
         )
 
+    packet_views = {
+        c["id"]: compact_recommendation_packet(
+            build_recommendation_packet(document, c, focus=focus)
+        )
+        for c in incoming
+    }
+
     def printed(card):
-        return {
+        result = {
             k: card.get(k) for k in ("name", "mana_cost", "type_line", "oracle_text")
         }
+        if card.get("id") in packet_views:
+            result["recommendation_packet"] = packet_views[card["id"]]
+        return result
 
     supports = [
         c
@@ -266,6 +281,12 @@ def compose_package(
         }
         for c in plan.choices
     ]
+    hypotheses[0]["package_analysis"] = analyze_package(
+        document,
+        [incoming[c.incoming_index] for c in plan.choices],
+        [outgoing[c.outgoing_index] for c in plan.choices],
+        focus,
+    )
     return {
         "status": "research_hypothesis",
         "hypotheses": hypotheses,

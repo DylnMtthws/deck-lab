@@ -114,6 +114,11 @@ def ingest_text(
     embed: bool = False,
     source_key: str = "",
     activate: bool = True,
+    author: str = "",
+    source_date: str = "",
+    source_class: str = "",
+    primary_links: list[dict[str, str]] | None = None,
+    limitations: str = "",
 ) -> int:
     """Store exact contiguous chunks and provenance, replacing this source version.
 
@@ -133,6 +138,7 @@ def ingest_text(
         "official_rules",
         "strategy_excerpt",
         "authored_guidance",
+        "wiki_secondary",
     }:
         raise ValueError("unsupported source kind")
     if source_url:
@@ -145,6 +151,18 @@ def ingest_text(
             raise ValueError("source URL must be HTTP(S), at most 500 characters")
     if not 200 <= chunk_chars <= 8000:
         raise ValueError("chunk_chars must be between 200 and 8000")
+    if source_kind == "wiki_secondary" and not (source_url and source_date and version):
+        raise ValueError("wiki secondary sources require URL, revision and source_date")
+    provenance_json = json.dumps(
+        {
+            "author": author,
+            "source_date": source_date,
+            "source_class": source_class or source_kind,
+            "primary_links": primary_links or [],
+            "limitations": limitations,
+        },
+        sort_keys=True,
+    )
     service = local_embedding_service() if embed else None
     if embed and service is None:
         raise ValueError(
@@ -175,6 +193,7 @@ def ingest_text(
                     f"ALTER TABLE reference_chunk_metadata ADD COLUMN {field} TEXT"
                 )
         for field, kind in (
+            ("provenance_json", "TEXT"),
             ("source_key", "TEXT"),
             ("is_current", "INTEGER NOT NULL DEFAULT 1"),
         ):
@@ -237,7 +256,7 @@ def ingest_text(
                 (chunk_id, document, section, tier, chunk),
             )
             conn.execute(
-                "INSERT INTO reference_chunk_metadata(chunk_id,source_id,source_url,version,permission,source_kind,ingested_at,content_hash,embedding_model,embedding_json,char_start,char_end,commander,archetype,source_key,is_current) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO reference_chunk_metadata(chunk_id,source_id,source_url,version,permission,source_kind,ingested_at,content_hash,embedding_model,embedding_json,char_start,char_end,commander,archetype,source_key,is_current,provenance_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     chunk_id,
                     source_id,
@@ -255,6 +274,7 @@ def ingest_text(
                     archetype[:100],
                     lineage,
                     int(activate),
+                    provenance_json,
                 ),
             )
     return len(chunks)
@@ -338,7 +358,7 @@ def rank_scores(
                 semantic_used = True
             except (ValueError, TypeError, json.JSONDecodeError):
                 rejected += 1
-        coverage = len(terms & counts_row.keys()) / len(terms)
+        coverage = len(terms & counts_row.keys()) / max(1, len(terms))
         # Semantic-only results require a conservative similarity floor.
         if bm25 > 0 or semantic >= 0.65:
             scores[str(row["id"])] = {
@@ -349,6 +369,30 @@ def rank_scores(
                     0.35 * bm25 / (1 + bm25) + 0.55 * semantic + 0.10 * coverage, 4
                 ),
             }
+    lexical_order = sorted(
+        (key for key in scores if scores[key]["bm25"] > 0),
+        key=lambda key: (-scores[key]["bm25"], key),
+    )
+    semantic_order = sorted(
+        (key for key in scores if scores[key]["semantic_cosine"] >= 0.65),
+        key=lambda key: (-scores[key]["semantic_cosine"], key),
+    )
+    for order, channel in (
+        (lexical_order, "lexical_rank"),
+        (semantic_order, "semantic_rank"),
+    ):
+        for position, key in enumerate(order, 1):
+            scores[key][channel] = position
+    for score in scores.values():
+        score["channel_fusion"] = round(
+            sum(
+                1 / (60 + score[channel])
+                for channel in ("lexical_rank", "semantic_rank")
+                if channel in score
+            ),
+            6,
+        )
+        score["rerank"] = round(score["rerank"] + score["channel_fusion"], 6)
     if rejected:
         limitations.append(
             f"Rejected {rejected} stale or invalid embeddings; lexical evidence remains usable."
@@ -357,7 +401,8 @@ def rank_scores(
         for score in scores.values():
             score["rerank"] = round(
                 0.8 * score["bm25"] / (1 + score["bm25"])
-                + 0.2 * score["query_coverage"],
+                + 0.2 * score["query_coverage"]
+                + score["channel_fusion"],
                 4,
             )
         limitations.append(

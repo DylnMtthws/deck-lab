@@ -69,6 +69,7 @@ def retrieve_strategy_evidence(
     *,
     commander: str = "",
     limit: int = MAX_RESULTS,
+    source_kinds: set[str] | None = None,
 ) -> dict[str, Any]:
     """Read real reference chunks with stable ranking and bounded output.
 
@@ -119,12 +120,18 @@ def retrieve_strategy_evidence(
                         "PRAGMA table_info(reference_chunk_metadata)"
                     )
                 }
+                for field in ("source_id", "source_key", "provenance_json"):
+                    if field in metadata_columns:
+                        sql = sql.replace("SELECT r.*,", f"SELECT r.*, m.{field},", 1)
                 if "is_current" in metadata_columns:
                     sql += " AND (m.chunk_id IS NULL OR m.is_current=1)"
                     result["version_policy"] = (
                         "Only explicitly activated source versions; archived snapshots excluded."
                     )
             rows = [dict(row) for row in conn.execute(sql)]
+            if source_kinds is not None:
+                result["unfiltered_corpus_chunks"] = len(rows)
+                rows = [row for row in rows if row.get("source_kind") in source_kinds]
             _rank_rows(
                 rows, result, terms, commander_terms, limit, "reference_corpus", query
             )
@@ -136,9 +143,11 @@ def retrieve_strategy_evidence(
         )
         return result
     result["reference_corpus_status"] = (
-        "populated" if result["corpus_chunks"] else "empty"
+        "populated"
+        if result.get("unfiltered_corpus_chunks", result["corpus_chunks"])
+        else "empty"
     )
-    if not result["corpus_chunks"]:
+    if not result["corpus_chunks"] and source_kinds is None:
         bundle = json.loads(
             (
                 Path(__file__).parent
@@ -165,6 +174,11 @@ def retrieve_strategy_evidence(
         if not result["corpus_chunks"]
         else "available" if result["excerpts"] else "no_matches"
     )
+    if source_kinds is not None and not result["excerpts"]:
+        result["status"] = "no_matches"
+        result["limitations"].append(
+            "No evidence matched the requested source classes and query."
+        )
     if result["status"] == "empty_corpus":
         result["limitations"].append("No strategy reference text has been indexed.")
     return result
@@ -190,7 +204,13 @@ def _rank_rows(
     )
     result["limitations"].extend(limitations)
     result["retrieval_mode"] = "hybrid_bm25_semantic" if semantic_used else "lexical"
-    result["ranking_method"] = "BM25 + cosine + query coverage + commander affinity"
+    result["ranking_method"] = (
+        "BM25 + cosine channel fusion + query coverage + commander affinity; at most two passages per source"
+    )
+    parents: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if row.get("source_id"):
+            parents.setdefault(row["source_id"], []).append(row)
     candidates: list[tuple[tuple[float, str], dict[str, Any]]] = []
     for row in rows:
         result["corpus_chunks"] += 1
@@ -227,11 +247,11 @@ def _rank_rows(
             "source_kind": row.get("source_kind") or source_kind,
             "citation": {
                 "chunk_id": chunk_id[:160],
-                "document": document[:380],
+                "document": document[:320],
                 "section": section[:150] or None,
                 "source_url": source_url,
                 "metadata_truncated": len(chunk_id) > 160
-                or len(document) > 380
+                or len(document) > 320
                 or len(section) > 150,
             },
             "excerpt": excerpt,
@@ -240,6 +260,49 @@ def _rank_rows(
             "tier": row["tier"],
             "score_components": scores[chunk_id],
         }
+        if row.get("source_id"):
+            start = content.find(excerpt)
+            base = int(row.get("char_start") or 0)
+            evidence["passage_bounds"] = {
+                "char_start": base + start,
+                "char_end": base + start + len(excerpt),
+            }
+            family = sorted(
+                parents[row["source_id"]], key=lambda r: r.get("char_start") or 0
+            )
+            position = next(i for i, r in enumerate(family) if r["id"] == row["id"])
+            # Exact adjacent source text, bounded to 1000 chars. Never cross source/version.
+            before = str(family[position - 1]["content"])[-200:] if position else ""
+            after = (
+                str(family[position + 1]["content"])[:200]
+                if position + 1 < len(family)
+                else ""
+            )
+            context = (
+                (before + content[:600] + after)
+                if len(content) <= 600
+                else content[max(0, start - 200) : start + len(excerpt) + 200]
+            )
+            context_start = (
+                base - len(before)
+                if len(content) <= 600
+                else base + max(0, start - 200)
+            )
+            evidence["parent_context"] = {
+                "source_id": row["source_id"],
+                "version": row.get("version"),
+                "text": context,
+                "char_start": context_start,
+                "char_end": context_start + len(context),
+                "bounded": True,
+            }
+            if row.get("provenance_json"):
+                try:
+                    evidence["source_attribution"] = json.loads(row["provenance_json"])
+                except (ValueError, TypeError):
+                    evidence["source_attribution"] = {
+                        "limitations": "Stored attribution metadata is malformed; attribution unverified."
+                    }
         if row.get("version"):
             evidence["citation"]["provenance"] = {
                 "version": str(row["version"])[:120],
@@ -265,6 +328,33 @@ def _rank_rows(
         )
         key = (scores[chunk_id]["rerank"], chunk_id)
         candidates.append((key, evidence))
-    result["excerpts"] = [
-        evidence for _, evidence in sorted(candidates, reverse=True)[:limit]
-    ]
+    row_by_id = {str(row["id"]): row for row in rows}
+    chunk_id_by_evidence = {id(evidence): key[1] for key, evidence in candidates}
+    selected = []
+    seen = set()
+    dominance: dict[str, int] = {}
+    for _, evidence in sorted(candidates, key=lambda pair: pair[0], reverse=True):
+        citation = evidence["citation"]
+        parent = evidence.get("parent_context", {})
+        identity = (
+            citation.get("source_url") or citation["document"],
+            parent.get("version"),
+            evidence["excerpt"],
+        )
+        # Metadata-backed sources have stable lineage; legacy rows retain old behavior.
+        row = row_by_id[chunk_id_by_evidence[id(evidence)]]
+        lineage = str(
+            (row.get("source_url") or row.get("document"))
+            if row.get("source_id")
+            else ""
+        )
+        if (lineage and identity in seen) or (
+            lineage and dominance.get(lineage, 0) >= 2
+        ):
+            continue
+        seen.add(identity)
+        dominance[lineage] = dominance.get(lineage, 0) + 1
+        selected.append(evidence)
+        if len(selected) == limit:
+            break
+    result["excerpts"] = selected

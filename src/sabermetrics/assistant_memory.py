@@ -61,6 +61,10 @@ SELECT e.id, e.created_at, e.state,
        json_extract(e.payload_json,'$.constraints.budget') AS budget,
        json_array_length(e.payload_json,'$.constraints.protected_cards') AS protected_count,
        json_extract(e.payload_json,'$.settings.games') AS games,
+       CASE WHEN length(json_extract(e.payload_json,'$.baseline.training_report.settings')) <= 8192
+            THEN json_extract(e.payload_json,'$.baseline.training_report.settings') END AS report_settings,
+       CASE WHEN length(json_extract(e.payload_json,'$.baseline.training_report.coverage')) <= 65536
+            THEN json_extract(e.payload_json,'$.baseline.training_report.coverage') END AS report_coverage,
        json_array_length(e.payload_json,'$.alternatives') AS alternative_count,
        length(e.payload_json) AS payload_chars
 FROM assistant_experiments e
@@ -520,6 +524,7 @@ def _experiment(
         "freshness": freshness,
         "freshness_scope": "deck_content_only",
         "measurement_freshness": "not_revalidated",
+        "measurement_identity": _measurement_identity(row),
         "measurement_note": (
             "Memory compares deck content only. Current simulator version, rules coverage "
             "and run settings have not been revalidated; retrieve a current Goldfish report "
@@ -556,6 +561,20 @@ def _shrink(result: dict[str, Any]) -> None:
     result["experiments"]["returned"] = len(result["experiments"]["items"])
 
 
+def _measurement_identity(row: sqlite3.Row) -> dict[str, str] | None:
+    from sabermetrics.assistant_experiment_reuse import measurement_identity
+
+    try:
+        return measurement_identity(
+            {
+                "settings": json.loads(row["report_settings"] or "null"),
+                "coverage": json.loads(row["report_coverage"] or "null"),
+            }
+        )
+    except (ValueError, TypeError):
+        return None
+
+
 def research_memory(
     db_path: str | Path,
     owner_id: str,
@@ -563,6 +582,7 @@ def research_memory(
     limit: int = 3,
     *,
     now: datetime | None = None,
+    current_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Recall saved preferences and recent experiments for one owned deck.
 
@@ -638,6 +658,21 @@ def research_memory(
     finally:
         conn.close()
     warnings: list[str] = []
+    from sabermetrics.assistant_experiment_reuse import (
+        measurement_identity,
+        reuse_decision,
+    )
+
+    current_identity = measurement_identity(current_report)
+    for item in experiments["items"]:
+        item["reuse"] = reuse_decision(
+            item["measurement_identity"],
+            current_identity,
+            same_deck=item["applies_to_current_deck"],
+            completed=item["status"] == "done",
+        )
+        if item["reuse"]["eligible"]:
+            item["measurement_freshness"] = "exact_provenance_match"
     if deck["deck_sha256"] is None:
         warnings.append(
             "The current list cannot be hashed, so no experiment can be confirmed current."

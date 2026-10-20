@@ -364,3 +364,62 @@ application-owned unknown, never completed or accepted as model advice. All ID,
 function/type, group, novelty and quota checks still run. Fallback fields are
 recorded and fulfillment stays partial. This avoids a paid full selection retry
 solely for punctuation while retaining uncertainty about the missing explanation.
+
+### Shared augmentation architecture (conversation v33)
+
+Discovery, replacement proposals and coordinated package research now share
+`assistant-recommendation-packet.v1`. Full records preserve exact incoming,
+outgoing and supporting Oracle text; selection and review use bounded views with
+explicit omissions. Clause decomposition separates casting/activation costs,
+triggers, effects, targets, restrictions and timing. Matching resources, counters
+and protection remain potential printed ingredients; no battlefield availability,
+resource sustainability, legal loop, or strength claim follows.
+
+Package suitability uses the complete prospective composition after all cuts and
+additions. Original loss records remain attached to each actual cut. Missing-member
+analysis reports disappearing support links; functional dimensions preserve costs,
+restrictions and timing without declaring equivalent effects. Complete graph
+retention counts precede display truncation, so omitted edges cannot become zero
+cut cost. Pure bounded parsing caches reuse exact source strings and preserve
+mutation isolation; local benchmark results do not establish end-to-end latency.
+
+Compiled retrieval plans separate discovery, setup, drawbacks, comparisons and
+rules attention. A shared bounded strategy pool selects aspect-relevant passages;
+uncovered aspects remain explicit. Source references avoid repeated evidence in
+tool payloads; official-rule reads are separate. Current eligible catalog pools
+can receive printed-effect, functional-role and prerequisite vector nominations
+before shortlist limits. Every view retains source/model/projection hashes;
+incomplete or unsupported layouts abstain from generated projections. Missing or
+stale indexes preserve lexical retrieval. Optional artifacts are loaded once per
+mtime with a 16 MiB/10,000-record bound from
+`SABER_ASSISTANT_CARD_VIEW_VECTORS` or `assistant-card-view-vectors.json` beside
+the selected database. Offline preparation is explicit; no runtime downloads or
+corpus embedding occur.
+
+The source bundle adds 48 original AI-authored passages across 24 strategy themes,
+plus three brief attributed AI synopses of historical Reid Duke articles. These
+are labeled original guidance/synopses, not permissioned primer reproductions or
+independent expert reviews. Wiki/permissioned-source imports retain authorship,
+source class, URL, revision/date, permissions assertion and limitations. Exact
+passages and bounded parent context stay on one source/version lineage.
+
+Public comparable-deck retrieval and association period diagnostics use the exact
+commander/partner, date and event-floor cohort. Oracle/list deduplication, support
+floors, read-only snapshots and query deadlines remain in force. Temporal stability
+and composition/role similarity are discovery leads, not statistical significance,
+causal synergy, legal validation or deck quality. `research_comparable_decks` is a
+read-only typed tool; private saved decks never become its comparison corpus.
+
+Reviewed investigation memory retains bounded claim text, canonical card bindings,
+correction outcomes and evidence identities. Reuse rehashes deck quantities,
+mechanic-bearing facts, selected candidates and supporting catalog dependencies;
+rules and strategic fit always require a new check. Repeated investigations are
+content-deduplicated. An automated supported judgment is not expert certification;
+failed/unknown hypotheses stay labeled and adoption is not evidence of strength.
+Historical experiments expose an exact deck/settings/engine/modeled-coverage gate;
+missing provenance cannot match itself. Eligible measurements remain descriptive
+and do not establish multiplayer performance or superiority.
+
+Opus 5.5 reviews were requested but Claude Code authentication remained unavailable;
+the Cursor fallback was disabled. Independent Codex adversarial reviews therefore
+supply the actual review evidence. Do not relabel them as Opus reviews.

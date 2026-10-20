@@ -12,6 +12,7 @@ import json
 import sqlite3
 import time
 from contextlib import closing
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,123 @@ MAX_COHORT = 2000
 MIN_COHORT = 10
 MIN_SUPPORT = 5
 PRIOR_LISTS = 5
+
+
+def _observed_cohort_cte(*, partner: bool, event_column: str | None) -> str:
+    """Keep the exact Research predicates, retaining eligible observation dates.
+
+    MIN chooses one date per recorded list *after* date/event/commander filters.
+    Repeated observations and partner result rows therefore cannot cross bands.
+    """
+    return (
+        _cohort_cte(partner=partner, event_column=event_column)
+        .replace(
+            "SELECT DISTINCT tr.deck_id AS deck_id",
+            "SELECT tr.deck_id AS deck_id, MIN(tr.tournament_date) AS observed_date",
+        )
+        .replace(
+            "SELECT 1 FROM deck_cards present WHERE present.deck_id = tr.deck_id\n              )",
+            "SELECT 1 FROM deck_cards present WHERE present.deck_id = tr.deck_id\n              )\n            GROUP BY tr.deck_id",
+        )
+    )
+
+
+def _temporal_diagnostics(
+    conn: sqlite3.Connection,
+    *,
+    cte: str,
+    params: list[Any],
+    start: str,
+    end: str,
+    anchor: str,
+    candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Descriptive replication of positive enrichment, never a probability."""
+    dated = conn.execute(
+        cte + " SELECT deck_id, observed_date FROM cohort", params
+    ).fetchall()
+    try:
+        for row in dated:
+            date.fromisoformat(str(row["observed_date"])[:10])
+    except ValueError:
+        for item in candidates:
+            item["temporal_stability"] = {"state": "insufficient", "periods": []}
+        return {"state": "unavailable", "reason": "invalid_observation_date"}
+    # For all-time Research use the observed span rather than year one.
+    first = min((str(row["observed_date"])[:10] for row in dated), default=start)
+    left = date.fromisoformat(first if start == date.min.isoformat() else start)
+    right = date.fromisoformat(end)
+    split = (left + timedelta(days=max(1, (right - left).days // 2))).isoformat()
+    periods: list[dict[str, Any]] = [
+        {"period": "earlier", "start": start, "end_exclusive": split},
+        {"period": "recent", "start": split, "end_exclusive": end},
+    ]
+    deck_period = {r["deck_id"]: int(r["observed_date"] >= split) for r in dated}
+    memberships = conn.execute(
+        cte + """
+        SELECT DISTINCT cohort.deck_id, c.oracle_id FROM cohort
+        JOIN deck_cards dc ON dc.deck_id=cohort.deck_id
+        JOIN cards c ON c.id=dc.card_id
+        WHERE dc.is_commander=0 AND dc.quantity>0
+          AND c.oracle_id IS NOT NULL AND c.oracle_id!=''
+          AND lower(COALESCE(c.type_line,'')) NOT LIKE '%basic%land%'
+    """,
+        params,
+    ).fetchall()
+    by_card: dict[str, set] = {}
+    for row in memberships:
+        by_card.setdefault(row["oracle_id"], set()).add(row["deck_id"])
+    bands = [{d for d, p in deck_period.items() if p == i} for i in range(2)]
+    for i, period in enumerate(periods):
+        period["cohort_lists"] = len(bands[i])
+        period["anchor_lists"] = len(bands[i] & by_card.get(anchor, set()))
+    for item in candidates:
+        counts = []
+        for band, period in zip(bands, periods):
+            n, a = period["cohort_lists"], period["anchor_lists"]
+            c = len(band & by_card.get(item["oracle_id"], set()))
+            pair = len(
+                band
+                & by_card.get(anchor, set())
+                & by_card.get(item["oracle_id"], set())
+            )
+            baseline = c / n if n else None
+            lift = (
+                ((pair + PRIOR_LISTS * baseline) / (a + PRIOR_LISTS) / baseline)
+                if baseline
+                else None
+            )
+            sufficient = (
+                n >= MIN_COHORT and a >= MIN_SUPPORT and pair >= MIN_SUPPORT and a < n
+            )
+            counts.append(
+                {
+                    **period,
+                    "baseline_lists": c,
+                    "pair_lists": pair,
+                    "cohort_denominator": n,
+                    "conditional_denominator": a,
+                    "baseline_rate": baseline,
+                    "conditional_rate": pair / a if a else None,
+                    "adjusted_lift": lift,
+                    "sufficient_support": sufficient,
+                    "positive_enrichment": bool(n and a and pair * n > a * c),
+                }
+            )
+        sufficient = all(p["sufficient_support"] for p in counts)
+        state = (
+            ("stable" if all(p["positive_enrichment"] for p in counts) else "unstable")
+            if sufficient
+            else "insufficient"
+        )
+        item["temporal_stability"] = {"state": state, "periods": counts}
+    return {
+        "state": "available",
+        "date_assignment": "earliest observation passing the exact cohort scope per deck_id",
+        "split_date": split,
+        "periods": periods,
+        "interpretation": "Stable means positive baseline-adjusted enrichment with fixed support floors in both disjoint periods; it is descriptive, not significance, probability or certified synergy.",
+    }
 
 
 def research_card_associations(
@@ -65,6 +183,7 @@ def research_card_associations(
         "prior_lists": PRIOR_LISTS,
         "source": "local research_results and deck_cards snapshot",
         "source_freshness": "unknown",
+        "temporal_diagnostics": {"state": "unavailable"},
         "limitations": [
             "Recorded co-inclusion is association, not mechanical synergy, causality, a combo or measured improvement.",
             "Submitted lists are a selected sample; repeated pilots, archetypes and historical bans can confound associations.",
@@ -75,7 +194,7 @@ def research_card_associations(
     deadline = time.monotonic() + 2
     try:
         with closing(
-            sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1)
         ) as conn:
             conn.row_factory = sqlite3.Row
             # Keep the count and membership reads on one consistent snapshot.
@@ -203,6 +322,29 @@ def research_card_associations(
             ranked.sort(
                 key=lambda r: (-r["adjusted_lift"], -r["pair_lists"], r["oracle_id"])
             )
+            result["temporal_diagnostics"] = _temporal_diagnostics(
+                conn,
+                cte=_observed_cohort_cte(
+                    partner=len(commanders) == 2,
+                    event_column=event_column if floor is not None else None,
+                ),
+                params=params,
+                start=start,
+                end=end,
+                anchor=oracle_id,
+                candidates=ranked,
+            )
+            # Replicated leads first; sparse/empty recent periods retain leads.
+            # Contradictory adequately supported periods are demoted, not hidden.
+            state_order = {"stable": 0, "insufficient": 1, "unstable": 2}
+            ranked.sort(
+                key=lambda r: (
+                    state_order[r["temporal_stability"]["state"]],
+                    -r["adjusted_lift"],
+                    -r["pair_lists"],
+                    r["oracle_id"],
+                )
+            )
             result["matched_associations"] = len(ranked)
             result["associations_truncated"] = len(ranked) > limit
             for item in ranked[:limit]:
@@ -226,6 +368,7 @@ def research_card_associations(
             "query_budget_exceeded" if "interrupted" in str(exc) else "unavailable"
         )
         result["associations"] = []
+        result["temporal_diagnostics"] = {"state": "unavailable"}
         result["limitations"].append(
             "No complete association query was available; do not infer an empty metagame."
         )

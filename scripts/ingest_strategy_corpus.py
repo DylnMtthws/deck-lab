@@ -30,9 +30,14 @@ def main() -> None:
             "official_rules",
             "strategy_excerpt",
             "authored_guidance",
+            "wiki_secondary",
         ],
         default="user_supplied",
     )
+    parser.add_argument("--author", default="")
+    parser.add_argument("--source-date", default="")
+    parser.add_argument("--source-class", default="")
+    parser.add_argument("--limitations", default="")
     parser.add_argument("--section", default="")
     parser.add_argument(
         "--source-key",

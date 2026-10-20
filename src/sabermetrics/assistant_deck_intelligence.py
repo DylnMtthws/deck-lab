@@ -12,6 +12,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from sabermetrics.assistant_evidence_packet import build_recommendation_packet
 from sabermetrics.assistant_experiments import ExperimentService
 from sabermetrics.assistant_strategy import (
     StrategyContext,
@@ -771,6 +772,9 @@ def recommend_replacements(
                             )
                         ),
                         "review_required": True,
+                        "recommendation_packet": build_recommendation_packet(
+                            document, card, old, focus
+                        ),
                         "recall": recall_evidence[card["oracle_id"]],
                         "strategy_transition": transition,
                         "commander_support_gained": sorted(engine_gains),

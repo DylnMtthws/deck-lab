@@ -297,3 +297,65 @@ def test_initial_counters_do_not_establish_replenishment():
     )
     assert result["requirements"][0]["status"] == "unknown"
     assert result["abilities"][0]["activation_cost"].startswith("Remove")
+
+
+def test_warmed_matches_follow_exact_source_requirement_type_and_completeness():
+    source = card("Source", "Create a 1/1 Elf creature token.")
+    creature = card("Candidate", "Sacrifice another creature: Draw a card.")
+    assert ability_compatibility(creature, [source])["requirements"][0]["providers"]
+    artifact = {**creature, "oracle_text": "Sacrifice an artifact: Draw a card."}
+    assert not ability_compatibility(artifact, [source])["requirements"][0]["providers"]
+    source["oracle_text"] = (
+        "If you control an artifact, create a 1/1 Elf creature token."
+    )
+    conditional = ability_compatibility(creature, [source])["requirements"][0]
+    assert not conditional["providers"] and conditional["conditional_leads"]
+    source["oracle_text"] = "Create a Treasure token."
+    assert ability_compatibility(artifact, [source])["requirements"][0]["providers"]
+    source["oracle_text_truncated"] = True
+    assert not ability_compatibility(artifact, [source])["requirements"][0]["providers"]
+    counter = card(
+        "Counter", "Remove a charge counter from this creature: Draw a card."
+    )
+    donor = card("Donor", "Put a charge counter on target creature.")
+    assert ability_compatibility(counter, [donor])["requirements"][0]["providers"]
+    counter["type_line"] = "Artifact"
+    assert not ability_compatibility(counter, [donor])["requirements"][0]["providers"]
+
+
+def test_matching_cache_cannot_leak_mutable_provider_records_or_identity():
+    candidate = card("Candidate", "Sacrifice another creature: Draw a card.")
+    source = card("Source", "Create a 1/1 Elf creature token.")
+    first = ability_compatibility(candidate, [source])
+    first["requirements"][0]["providers"][0]["source_quote"] = "invented text"
+    source.update(name="Renamed", oracle_id="new-identity")
+    second = ability_compatibility(candidate, [source])["requirements"][0]["providers"][
+        0
+    ]
+    assert second == {
+        "name": "Renamed",
+        "oracle_id": "new-identity",
+        "source_quote": source["oracle_text"],
+    }
+
+
+def test_pure_matching_caches_are_bounded_and_match_uncached_judgments():
+    from sabermetrics.assistant_compatibility import _provider_matches, _tokens
+
+    for helper, args, bound in (
+        (_tokens, ("Create a 1/1 Elf creature token.", "elf"), 8192),
+        (
+            _provider_matches,
+            (
+                "Put a charge counter on target creature.",
+                "counters",
+                "charge",
+                "Creature",
+            ),
+            16384,
+        ),
+        (fixed_mana, ("{X}{U}",), 2048),
+    ):
+        assert helper(*args) == helper.__wrapped__(*args)
+        assert helper(*args) == helper.__wrapped__(*args)
+        assert helper.cache_info().maxsize == bound

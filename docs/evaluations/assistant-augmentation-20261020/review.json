@@ -1,0 +1,92 @@
+{
+  "version": "assistant-augmentation-adversarial-review.v1",
+  "baseline_sha": "339afb9960b98b13f42aa9c9dbab5a3dd2d2364b",
+  "requested_architect": "Claude Code Opus 5.5",
+  "requested_architect_status": "Unavailable: T3 and local CLI reported unauthenticated after user login; Cursor fallback provider disabled. No Opus review occurred.",
+  "actual_review_model": "Codex GPT-6.1-Sol, independent T3 child tasks",
+  "rounds": [
+    {
+      "id": "mtg-augmentation-20261020-codex-adversarial-r1",
+      "findings": {
+        "high": 2,
+        "medium": 5
+      }
+    },
+    {
+      "id": "mtg-augmentation-20261020-adversarial-r2",
+      "findings": {
+        "high": 0,
+        "medium": 2
+      }
+    },
+    {
+      "id": "mtg-augmentation-20261020-adversarial-r3",
+      "findings": {
+        "high": 0,
+        "medium": 2
+      }
+    }
+  ],
+  "corrections": [
+    {
+      "finding": "Package packets credited support removed by another cut.",
+      "resolution": "All packet suitability/interruption views use complete prospective package; original cut loss sources stay separate.",
+      "regression": "tests/test_assistant_package_analysis.py::test_every_package_evidence_view_uses_all_cuts_regardless_of_pairing"
+    },
+    {
+      "finding": "Memory deduplicated physical copies and omitted mechanical fields.",
+      "resolution": "Multiset deck identity plus mechanic-bearing fields, separate canonical catalog/enriched lineage captured and recalled by one read-only function.",
+      "regression": "tests/test_assistant_episodes.py"
+    },
+    {
+      "finding": "Supporting catalog changes did not invalidate memory; snapshots could mask catalog drift; saved entries lacked catalog fields.",
+      "resolution": "All catalog dependencies are captured using the same projection as recall; catalog and enriched snapshot fingerprints remain independent. Unknown/missing sources abstain.",
+      "regressions": [
+        "test_supporting_catalog_change_invalidates_saved_entry_evidence",
+        "test_saved_entry_missing_stats_does_not_make_unchanged_catalog_episode_stale",
+        "test_unchanged_enriched_snapshot_cannot_mask_catalog_provider_changes"
+      ]
+    },
+    {
+      "finding": "Cache A/B/A returned A but reviewed B.",
+      "resolution": "Cache hits restore deep-copied active review evidence.",
+      "regression": "tests/test_assistant_augmentation_integration.py"
+    },
+    {
+      "finding": "Episode verdicts discarded the judged claim.",
+      "resolution": "Retain bounded claim text, card bindings, category, corrections and evidence identities; deduplicate investigation content.",
+      "regression": "tests/test_assistant_episodes.py::test_claim_bindings_distinguish_opposite_hypotheses_and_deduplicate"
+    },
+    {
+      "finding": "Graph display truncation changed cut scores under entry permutation.",
+      "resolution": "Complete incident retention counts precede deterministic display truncation; legacy incomplete graphs use a conservative fallback.",
+      "regression": "tests/test_assistant_engine_graph.py"
+    },
+    {
+      "finding": "Nominal retrieval aspects duplicated the same serialized evidence.",
+      "resolution": "Shared bounded strategy pool selects aspect-relevant passages, reports uncovered aspects, and serializes references once. Requested limit is passed through.",
+      "regression": "tests/test_assistant_retrieval_plan.py::test_aspects_use_distinct_passages_from_one_shared_read"
+    },
+    {
+      "finding": "Semantic views enriched only an existing shortlist.",
+      "resolution": "Validated view nominations enter both functional and general eligible pools before final shortlist bounds.",
+      "regression": "tests/test_assistant_functional_search.py::test_semantic_view_candidate_can_enter_before_final_limit"
+    },
+    {
+      "finding": "View identity omitted completeness/layout; batch nomination could drop viable matches.",
+      "resolution": "Mechanical/completeness/layout facts bind view hashes; incomplete/unsupported projections abstain; all batch matches reach the union.",
+      "regressions": [
+        "tests/test_assistant_card_views.py::test_completeness_layout_and_power_are_bound_into_every_view",
+        "tests/test_assistant_retrieval_context.py::test_semantic_nomination_is_independent_of_sixty_four_card_batches"
+      ]
+    }
+  ],
+  "limits": [
+    "Reviews and synthetic regressions are not independent MTG expert qualification.",
+    "Last two memory findings were corrected with regression tests after round 3; do not describe the review as an Opus approval.",
+    "Corpus adds 48 original AI-authored passages and 3 attributed short AI synopses, not permissioned external primer reproductions or externally reviewed recommendations.",
+    "Optional view vectors require explicit offline preparation; missing/stale indexes retain lexical fallback.",
+    "Local 100-card CPU benchmark is not end-to-end latency or broad recommendation quality.",
+    "No model weights were trained; no new paid service or dependency was introduced."
+  ]
+}

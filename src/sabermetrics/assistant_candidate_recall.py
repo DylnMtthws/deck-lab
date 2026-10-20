@@ -395,6 +395,15 @@ def recall_candidates(
             {oid: {"bm25": round(score, 4)} for oid, score in lexical.items()},
         )
         semantic, statuses["semantic"], rejected = _semantic(conn, by_oid, query)
+        from sabermetrics.assistant_retrieval_context import recall_view_scores
+
+        view_scores, view_receipt = recall_view_scores(by_oid, query, db_path=path)
+        statuses["semantic_views"] = view_receipt["status"]
+        keep(
+            "semantic_views",
+            sorted(view_scores, key=lambda oid: (-view_scores[oid], oid)),
+            {oid: {"view_cosine": score} for oid, score in view_scores.items()},
+        )
         keep(
             "semantic",
             [oid for oid, _ in semantic],
@@ -438,15 +447,29 @@ def recall_candidates(
         library,
         key=lambda c: (str(c["oracle_id"]) not in supported, str(c["oracle_id"])),
     )[:MAX_ASSOCIATION_ANCHORS]
-    association_evidence = {}
+    association_evidence: dict[str, dict[str, Any]] = {}
     association_status = []
+
+    def association_order(evidence: dict[str, Any]) -> tuple[int, float]:
+        return (
+            {"stable": 0, "insufficient": 1, "unstable": 2}.get(
+                evidence.get("temporal_stability", {}).get("state"), 1
+            ),
+            -float(evidence["adjusted_lift"]),
+        )
+
     for anchor in anchors:
         result = research_card_associations(
             Path(path), document, str(anchor["oracle_id"]), limit=8
         )
         association_status.append(result["status"])
         for item in result["associations"]:
-            association_evidence[str(item["oracle_id"])] = {
+            oid = str(item["oracle_id"])
+            if oid in association_evidence and association_order(
+                association_evidence[oid]
+            ) <= association_order(item):
+                continue
+            association_evidence[oid] = {
                 key: result.get(key)
                 for key in (
                     "anchor_oracle_id",
@@ -457,6 +480,7 @@ def recall_candidates(
                     "anchor_lists",
                     "source",
                     "source_freshness",
+                    "temporal_diagnostics",
                 )
             } | item
     statuses["association"] = (
@@ -466,7 +490,10 @@ def recall_candidates(
         "association",
         sorted(
             association_evidence,
-            key=lambda oid: (-association_evidence[oid]["adjusted_lift"], oid),
+            key=lambda oid: (
+                *association_order(association_evidence[oid]),
+                oid,
+            ),
         ),
         association_evidence,
     )

@@ -226,3 +226,136 @@ def test_ubiquitous_anchor_never_creates_rounding_associations(corpus):
         "\n", " "
     )
     assert result["associations"] == []
+
+
+def _two_periods(path, *, reversed_recent=False):
+    from datetime import timedelta
+
+    earlier = (date.today() - timedelta(days=60)).isoformat()
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE research_results SET tournament_date=?", (earlier,))
+        for i in range(20):
+            deck = f"recent-{i}"
+            conn.execute(
+                "INSERT INTO research_results VALUES(?,?,?,?)",
+                (deck, deck, "cmd", date.today().isoformat()),
+            )
+            conn.execute("INSERT INTO tournament_results VALUES(?,100)", (deck,))
+            conn.execute("INSERT INTO deck_cards VALUES(?,'cmd',1,1)", (deck,))
+            cards = ["s"] + (["a"] if i < 10 else [])
+            if (i < 5 or 10 <= i < 17) if reversed_recent else i < 8:
+                cards += ["b"]
+            conn.executemany(
+                "INSERT INTO deck_cards VALUES(?,?,1,0)",
+                [(deck, card) for card in cards],
+            )
+
+
+def test_temporal_stability_counts_disjoint_lists_and_not_repeat_observations(corpus):
+    path, document = corpus
+    _two_periods(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO research_results VALUES('cross-band','0','cmd',?)",
+            (date.today().isoformat(),),
+        )
+        conn.execute("INSERT INTO tournament_results VALUES('cross-band',100)")
+    result = research_card_associations(path, document, "oa")
+    temporal = result["associations"][0]["temporal_stability"]
+    assert temporal["state"] == "stable"
+    assert result["cohort_lists"] == 40
+    assert [p["cohort_lists"] for p in temporal["periods"]] == [20, 20]
+    assert [p["anchor_lists"] for p in temporal["periods"]] == [10, 10]
+    assert [p["pair_lists"] for p in temporal["periods"]] == [8, 8]
+    assert all(p["adjusted_lift"] == pytest.approx(5 / 3) for p in temporal["periods"])
+
+
+def test_supported_period_reversal_is_unstable_without_hiding_global_lead(corpus):
+    path, document = corpus
+    _two_periods(path, reversed_recent=True)
+    result = research_card_associations(path, document, "oa")
+    item = result["associations"][0]
+    assert item["adjusted_lift"] > 1
+    assert item["temporal_stability"]["state"] == "unstable"
+    assert item["temporal_stability"]["periods"][1]["adjusted_lift"] < 1
+
+
+def test_empty_recent_band_retains_lead_with_insufficient_stability(corpus):
+    from datetime import timedelta
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE research_results SET tournament_date=?",
+            ((date.today() - timedelta(days=60)).isoformat(),),
+        )
+    item = research_card_associations(path, document, "oa")["associations"][0]
+    assert item["temporal_stability"]["state"] == "insufficient"
+    recent = item["temporal_stability"]["periods"][1]
+    assert recent["cohort_lists"] == recent["pair_lists"] == 0
+    assert recent["adjusted_lift"] is None
+
+
+def test_partner_repeat_rows_do_not_double_count_periods(corpus):
+    path, document = corpus
+    _two_periods(path)
+    document["entries"].append(
+        {"card_id": "partner", "oracle_id": "opartner", "is_commander": True}
+    )
+    with sqlite3.connect(path) as conn:
+        decks = [
+            r[0] for r in conn.execute("SELECT DISTINCT deck_id FROM research_results")
+        ]
+        conn.executemany(
+            "INSERT INTO deck_cards VALUES(?,'partner',1,1)", [(d,) for d in decks]
+        )
+        for i, deck in enumerate(decks):
+            observed = conn.execute(
+                "SELECT MIN(tournament_date) FROM research_results WHERE deck_id=?",
+                (deck,),
+            ).fetchone()[0]
+            rid = f"partner-result-{i}"
+            conn.execute(
+                "INSERT INTO research_results VALUES(?,?,?,?)",
+                (rid, deck, "partner", observed),
+            )
+            conn.execute("INSERT INTO tournament_results VALUES(?,100)", (rid,))
+    result = research_card_associations(path, document, "oa")
+    periods = result["associations"][0]["temporal_stability"]["periods"]
+    assert result["cohort_lists"] == sum(p["cohort_lists"] for p in periods) == 40
+    assert [p["pair_lists"] for p in periods] == [8, 8]
+
+
+def test_temporal_observation_date_obeys_event_floor(corpus):
+    from datetime import timedelta
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        for i in range(20):
+            rid = f"small-event-{i}"
+            conn.execute(
+                "INSERT INTO research_results VALUES(?,?,?,?)",
+                (rid, str(i), "cmd", (date.today() - timedelta(days=60)).isoformat()),
+            )
+            conn.execute("INSERT INTO tournament_results VALUES(?,1)", (rid,))
+    result = research_card_associations(path, document, "oa")
+    assert [p["cohort_lists"] for p in result["temporal_diagnostics"]["periods"]] == [
+        0,
+        20,
+    ]
+
+
+def test_invalid_observation_dates_do_not_fabricate_stability(corpus):
+    path, document = corpus
+    # Preserve the lexical Research window while making one calendar date invalid.
+    result = research_card_associations(path, document, "oa")
+    month = result["window_end_exclusive"][:7]
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE research_results SET tournament_date=? WHERE deck_id='0'",
+            (month + "-00",),
+        )
+    result = research_card_associations(path, document, "oa")
+    assert result["status"] == "available"
+    assert result["temporal_diagnostics"]["reason"] == "invalid_observation_date"
+    assert result["associations"][0]["temporal_stability"]["state"] == "insufficient"

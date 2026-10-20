@@ -97,7 +97,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v32"
+PROMPT_VERSION = "build-conversation.v33"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -173,7 +173,8 @@ card_details for printed facts; research_evidence for tournament-list use;
 latest_goldfish or run_goldfish for measured native observations;
 goldfish_card_coverage for bounded per-card supported effects and limitations;
 generator_intelligence for stored candidate explanations and heuristic roles.
-Use research_card_associations for cards co-included
+Use research_comparable_decks for public commander-cohort composition neighbors;
+similarity is not deck strength. Use research_card_associations for cards co-included
 with one actual library card in recorded lists for this exact commander cohort.
 Report pair/anchor and baseline/cohort counts with the returned window and event
 floor. Adjusted lift corrects for baseline popularity and shrinks small samples;
@@ -1318,6 +1319,8 @@ def _encode_context(
         "prior_selected_candidates",
         "recommendation_novelty",
         "candidate_fit",
+        "reviewed_investigations",
+        "retrieval_plan",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1719,6 +1722,7 @@ def run_turn(
     measured_presentation: dict[str, Any] | None = None
     strategy_presentation: dict[str, Any] | None = None
     partial_draft: dict[str, Any] | None = None
+    reviewed_claim_parts: list[str] | None = None
     owns_gateway = gateway is None
     use_request_planner = owns_gateway if request_planner is None else request_planner
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
@@ -2032,6 +2036,23 @@ def run_turn(
             session, [], max_chars=9000, priority_card_ids=context_priority_ids()
         )
         task = None
+        from sabermetrics.assistant_retrieval_plan import compile_retrieval_plan
+
+        if current_request.strip() and len(current_request) <= 4000:
+            state["retrieval_plan"] = compile_retrieval_plan(current_request)
+        from sabermetrics.assistant_episodes import recall_episodes
+
+        investigations = recall_episodes(
+            db_path,
+            owner_id,
+            deck_id,
+            document,
+            query=current_request,
+            prompt_version=PROMPT_VERSION,
+            limit=2,
+        )
+        if investigations["items"]:
+            state["reviewed_investigations"] = investigations
         continuation_used = False
         package_research_attempted = False
         package_research_blocker = None
@@ -3360,6 +3381,7 @@ def run_turn(
                         }
                     )
                     parts = [step.content, *step.findings, step.next_action]
+                    reviewed_claim_parts = parts[:]
                     evidence_started = time.monotonic()
                     review_cards = resolve_review_cards(
                         db_path,
@@ -3393,6 +3415,24 @@ def run_turn(
                             for cid in selected_ids
                             if cid in source_cards
                         ]
+                        from sabermetrics.assistant_evidence_packet import (
+                            build_recommendation_packet,
+                        )
+
+                        packets = [
+                            build_recommendation_packet(
+                                document, card, focus=current_request
+                            )
+                            for card in finalists[:3]
+                        ]
+                        result.setdefault("research", {})[
+                            "recommendation_packets"
+                        ] = packets
+                        review_cards.extend(
+                            card
+                            for packet in packets
+                            for card in packet["deck_sources"]
+                        )
                         tools.check()
                         review_rules, targeted_receipt = finalist_evidence(
                             Path(db_path),
@@ -3435,6 +3475,20 @@ def run_turn(
                             "preferences": state["conversation_context"]["preferences"],
                             "task": state.get("answer_obligations", {}),
                             "narrow_unverified": selected_before_prose,
+                            "recommendation_packets": [
+                                {
+                                    "incoming": p["incoming"].get("name"),
+                                    "prerequisites": p["prerequisites"][:6],
+                                    "counterevidence": p["counterevidence"][:3],
+                                    "unresolved_questions": p["unresolved_questions"][
+                                        :4
+                                    ],
+                                    "coverage": p["coverage"],
+                                }
+                                for p in result.get("research", {}).get(
+                                    "recommendation_packets", []
+                                )
+                            ],
                             "empirical_receipts": _empirical_receipts(
                                 actions, result["revision"]
                             ),
@@ -3743,6 +3797,21 @@ def run_turn(
                     result["research"][
                         "selected_candidates"
                     ] = step.discovery_answer.model_dump()
+                    from sabermetrics.assistant_episodes import capture_episode
+
+                    episode = capture_episode(
+                        document,
+                        current_request,
+                        source_cards,
+                        step.discovery_answer.model_dump(),
+                        result.get("answer_review"),
+                        PROMPT_VERSION,
+                        state.get("retrieval_plan"),
+                        claim_parts=reviewed_claim_parts,
+                        db_path=db_path,
+                    )
+                    if episode is not None:
+                        result["research"]["reviewed_episode"] = episode
                 result["status"] = (
                     "done"
                     if answer
