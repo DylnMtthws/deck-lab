@@ -302,7 +302,7 @@ checks. Existing sklearn convergence warnings remain unchanged.
 
 ### Grounded search contracts and verification follow-through
 
-Conversation v32, selection v2 and focused review v4 address the two live QA
+Conversation v32, selection v2 and focused review v5 address the two live QA
 failures captured on `2437930`. A conservative literal request compiler derives
 supported positive function/type constraints from the user's own request or a
 grounded list quote, independently of a planner's generated labels. For example,
@@ -350,3 +350,9 @@ context-only type mentions, restored unsuitable records, empty pools, competing
 valid/invalid corrections, and opposing-creature deaths versus own sacrifice
 outlets. The implementation remains bounded and does not claim a complete natural
 language parser, comprehensive ability grammar or MTG rules engine.
+
+Short Oracle facts such as keyword lines receive exact adjacent source context
+when needed to meet the citation minimum. The evidence packet exposes the full
+resolved citation text; headers alone remain ineligible, and the quote-length
+and exact-source guards are unchanged. This avoids treating a supplied short
+printed fact as uncitable.

@@ -156,16 +156,29 @@ def evidence_catalog(
     quotes: dict[str, tuple[int, str]] = {}
     for index, source in enumerate(sources):
         lines = []
-        for line in source.split("\n"):
+        source_lines = source.split("\n")
+        for position, line in enumerate(source_lines):
             eid = None
-            if (
-                12 <= len(line) <= 1200
+            quote = line
+            fact_line = (
+                bool(line.strip())
                 and not line.startswith(("Card: ", "Rule source:"))
                 and not line.endswith(":")
-            ):
+            )
+            if fact_line and len(quote) < 12:
+                # Include exact adjacent context for short Oracle facts such as
+                # Flying. Do not weaken Citation's minimum or accept headers alone.
+                for previous in range(position - 1, -1, -1):
+                    quote = source_lines[previous] + "\n" + quote
+                    if len(quote) >= 12:
+                        break
+            if fact_line and 12 <= len(quote) <= 1200:
                 eid = f"e{len(quotes)}"
-                quotes[eid] = (index, line)
-            lines.append({"id": eid, "text": line})
+                quotes[eid] = (index, quote)
+            row = {"id": eid, "text": line}
+            if eid and quote != line:
+                row["citation_quote"] = quote
+            lines.append(row)
         records.append({"source_index": index, "lines": lines})
     return records, quotes
 
@@ -233,7 +246,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v4",
+        prompt_version="assistant-claim-review.v5",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,

@@ -436,3 +436,19 @@ def test_contradiction_without_a_successful_edit_must_be_narrowed(applied):
     )
     output, _ = narrow_unverified_findings(original, original, [SOURCE], receipt)
     assert (output == original) is applied
+
+
+def test_short_oracle_facts_get_exact_context_without_relaxing_quote_guard():
+    from pydantic import ValidationError
+
+    from sabermetrics.assistant_answer_review import Citation
+
+    source = "Card: Faerie\nMana cost: {U}\nType: Creature\nOracle text:\nFlying\nHaste"
+    records, lookup = evidence_catalog([source])
+    for keyword in ["Flying", "Haste"]:
+        row = next(r for r in records[0]["lines"] if r["text"] == keyword)
+        index, quote = lookup[row["id"]]
+        assert keyword in quote and quote in source and len(quote) >= 12
+        assert Citation(source_index=index, quote=quote)
+    with pytest.raises(ValidationError):
+        Citation(source_index=0, quote="Flying")
