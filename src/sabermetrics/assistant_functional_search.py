@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import re
 import sqlite3
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Any, Literal
@@ -349,6 +350,13 @@ def functional_profile(card: dict[str, Any]) -> dict[str, Any]:
 def functional_search(
     path: str | Path, document: dict[str, Any], args: FunctionalSearchArgs
 ) -> dict[str, Any]:
+    started = time.monotonic()
+    from sabermetrics.assistant_suitability import (
+        candidate_suitability,
+        deck_support_index,
+    )
+
+    support_index = deck_support_index(document)
     commanders = [c for c in document.get("entries", []) if c.get("is_commander")]
     identities = [_colors(c.get("color_identity")) for c in commanders]
     if not commanders or any(value is None for value in identities):
@@ -494,6 +502,11 @@ def functional_search(
                 if str(row.get("oracle_id")) in cards:
                     associations[str(row["oracle_id"])] = row
 
+    suitability = {
+        oid: candidate_suitability(card, support_index, args.query or args.function)
+        for oid, card in cards.items()
+    }
+
     def rank(oid: str) -> tuple:
         profile = profiles[oid]
         routes = profile["draw_routes"]
@@ -608,6 +621,7 @@ def functional_search(
                 and args.optionality == "preferred"
                 and controllable
             ),
+            -suitability[oid]["strategic_judgment"]["priority"],
             -int(args.prefer_recurring and recurring),
             -int(args.prefer_multifunctional and multifunctional),
             -int(engine_link and creature),
@@ -622,6 +636,15 @@ def functional_search(
         )
 
     ordered = sorted(cards, key=rank)
+    # Attach rich evidence only to the shortlist; the full pool was evaluated
+    # against one shared deck scan before applying the result limit.
+    for oid in ordered[: args.limit]:
+        cards[oid]["suitability"] = suitability[oid]
+    from sabermetrics.assistant_jev import shadow_candidates
+
+    jev_trial = shadow_candidates(
+        args.query or args.function, [cards[oid] for oid in ordered[: args.limit]]
+    )
     return {
         "status": "available",
         "cards": [cards[oid] for oid in ordered[: args.limit]],
@@ -635,6 +658,9 @@ def functional_search(
             "association": association_status,
         },
         "stale_vectors_rejected": rejected,
+        "ranking_version": "assistant-suitability.v1",
+        "jev_trial": jev_trial,
+        "elapsed_seconds": round(time.monotonic() - started, 4),
         "limitations": [
             "Scores rank discovery relevance, not strategic quality or measured performance.",
             "Clause coverage is incomplete; empty matches do not establish absence from all Magic cards.",

@@ -127,3 +127,58 @@ continues to use the separate blinded expertise evaluation policy.
 
 CI runs hermetic scorer/runtime tests and exports the input schemas. It does
 not spend model tokens or claim that a release passed live expert review.
+
+## Deck support and strategic regression splits
+
+Functional search now builds one current-library/commander support index per
+query. Before the shortlist limit, candidates receive sourced sacrifice-fodder,
+counter, recursion, potential mana and commander-engine ingredient signals.
+Sideboards, self-only counter sources and tokens for nontoken requirements do
+not establish support. Exact casting costs and activation clauses remain
+separate from hand-card accounting. Fixed draw-discard activations are filtering;
+sacrificing a permanent is a separate resource cost. Unsupported, conditional,
+variable or multiface accounting abstains. Ingredient links never prove a loop.
+Compact named support survives tool-history eviction; the renderer adds a
+support/awkwardness explanation, which still passes through the source reviewer.
+
+Review refreshes discussed ledger identities locally, retains source provenance
+and faces, and includes the document's actual validation fields. A missing,
+truncated, budget-omitted or unresolved source leaves the review unverified.
+Printed facts, computed deck facts, rules interactions and strategic judgments
+remain distinct. The runtime records review-evidence, review and tool timings
+separately from existing planner/synthesis observations.
+
+`tests/fixtures/assistant_strategic_eval.json` freezes development and held-out
+synthetic mechanical scenarios. The held-out split was consumed for the October
+20 release; it is a regression suite after that point. Future tuning requires a
+new untouched split. Run either split without model/network calls:
+
+```sh
+python scripts/evaluate_assistant_strategy.py --split development --report evaluation/strategy-dev.json
+python scripts/evaluate_assistant_strategy.py --split heldout --report evaluation/strategy-heldout.json
+```
+
+Reports separate candidate recall, labeled pairwise recommendation ordering,
+factual-profile errors, retrieval/ranking latency and model usage/cost. These are
+controlled-corpus metrics; end-to-end answer latency and independent prose/rules
+quality remain unmeasured unless a live capture/review supplies them.
+
+The optional Jev experiment follows the official [System One API](https://docs.typesafe.ai/api/system-one),
+[Score semantics](https://docs.typesafe.ai/primitives/score) and
+[citation cookbook](https://docs.typesafe.ai/cookbooks/citation_check).
+It batches fit/setup scores and evidence-bound claim Choices without sending
+expected labels. Raw distributions, selected model, usage and timing are retained.
+Scores are ordered level positions, not probabilities. No score certifies rules
+or permits a deck edit. Unavailable credentials/providers/schema, omitted inputs
+and unknown price are reported explicitly; absent cost estimates are never zero.
+
+An operator can run the paid comparison with `--live-jev` and a server-side
+`TYPESAFE_API_KEY`, or `--key-file ~/.config/jev/typesafe-api-key` after local
+`~/.local/bin/jev-setup`. Never put a key in arguments or source. The application
+shadow is disabled by default; explicit `SABER_ASSISTANT_JEV_SHADOW=1` enables one
+bounded request per functional query using the server environment credential.
+It cannot reorder candidates or replace the factual reviewer. Requests have an
+8-second IO timeout, no retries, at most 64 questions and a 28 KB payload cap.
+Optional `TYPESAFE_INPUT_USD_PER_MILLION` is a configured input-price estimate,
+not an invoice. The experimental usage is reported in its receipt separately
+from the existing model gateway ledger.

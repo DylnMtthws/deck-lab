@@ -69,6 +69,11 @@ jobs:
       - name: Export Marchesa conversation capture and review schemas
         run: python scripts/evaluate_assistant_conversation.py --schema evaluation/assistant-conversation-input-schema.json
 
+      - name: Measure strategic retrieval regressions on frozen splits
+        run: |
+          python scripts/evaluate_assistant_strategy.py --split development --report evaluation/assistant-strategy-development.json
+          python scripts/evaluate_assistant_strategy.py --split heldout --report evaluation/assistant-strategy-heldout.json
+
       - name: Retain assistant regression measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -77,6 +82,8 @@ jobs:
           path: |
             evaluation/assistant-regression.json
             evaluation/assistant-conversation-input-schema.json
+            evaluation/assistant-strategy-development.json
+            evaluation/assistant-strategy-heldout.json
           if-no-files-found: warn
           retention-days: 14
 

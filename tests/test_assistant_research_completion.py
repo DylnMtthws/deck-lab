@@ -557,8 +557,14 @@ def test_final_source_check_updates_text_and_presentation_without_actions(
     if cancel:
         assert result["status"] == "stopped"
     else:
-        assert result["answer_review"]["status"] == "corrected"
+        # The local deadline correction is supported, while this fixture's
+        # mandatory commander source has no Oracle text. Whole-answer review
+        # must remain unverified rather than hide that missing evidence.
+        assert result["answer_review"]["status"] == "unverified"
+        assert result["answer_review"]["patches"]
+        assert result["answer_review"]["omitted_sources"] > 0
         assert "until the end of your next turn" in result["content"]
-        assert result["presentation"]["reply"]["lead"] == result["content"]
+        assert result["content"].startswith(result["presentation"]["reply"]["lead"])
+        assert "remain unverified" in result["content"]
     assert result["proposals"] == []
     assert DeckDocumentRepo(path).get(owner, deck) == document

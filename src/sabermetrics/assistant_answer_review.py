@@ -123,7 +123,83 @@ def _card_source(card: dict[str, Any]) -> str:
         + (" (excerpt; omissions unknown)" if card.get("oracle_text_truncated") else "")
         + ":\n"
         + str(card.get("oracle_text") or "unavailable")
+        + (
+            "\nCard faces (printed fields): "
+            + "\n".join(
+                "Face: "
+                + str(face.get("name") or "unknown")
+                + "\nMana cost: "
+                + str(face.get("mana_cost") or "unknown")
+                + "\nType: "
+                + str(face.get("type_line") or "unknown")
+                + "\nOracle text:\n"
+                + str(face.get("oracle_text") or "unavailable")
+                for face in card["card_faces"]
+                if isinstance(face, dict)
+            )
+            if card.get("card_faces")
+            else ""
+        )
+        + "\nSource identity/provenance: "
+        + json.dumps(
+            {
+                key: card.get(key)
+                for key in ("id", "oracle_id", "provenance")
+                if card.get(key)
+            },
+            ensure_ascii=False,
+        )
     )
+
+
+def resolve_review_cards(
+    db_path: str | Path,
+    document: dict[str, Any],
+    parts: list[str],
+    known_cards: list[dict[str, Any]],
+    candidate_rows: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Refresh discussed identities locally, without an LLM/tool round trip.
+
+    Candidate-ledger rows preserve identities even when synthesis context or
+    prior tool receipts were compacted. Do not look up model-invented names.
+    """
+    from sabermetrics.assistant_card_facts import card_facts
+
+    text = " ".join(parts)
+    selected: dict[str, dict[str, Any]] = {}
+    for card in [*document.get("entries", []), *known_cards, *(candidate_rows or [])]:
+        if not card.get("is_commander") and not _mentions_card_name(
+            text, _card_name(card)
+        ):
+            continue
+        cid = card.get("card_id") or card.get("id")
+        if not cid or cid in selected:
+            continue
+        selected[cid] = card
+    refreshed = []
+    for cid, previous in selected.items():
+        data = card_facts(db_path, cid)
+        card = data.get("card")
+        if not card:
+            refreshed.append(previous)
+            continue
+        # Preserve deck metadata separately; source text comes from the local
+        # versioned fact reader, whose provenance remains attached for review.
+        refreshed.append(
+            {
+                **previous,
+                **card,
+                "provenance": data.get("provenance"),
+                "oracle_text_truncated": bool(
+                    any(
+                        (data.get("truncation") or {}).get(k, 0)
+                        for k in ("characters", "items")
+                    )
+                ),
+            }
+        )
+    return refreshed
 
 
 def evidence_sources(
@@ -160,7 +236,8 @@ def evidence_sources(
     for card in document.get("entries", []):
         if card.get("is_commander") or named(card):
             cards.append(card)
-    cards.extend(additional_cards or [])
+    # A locally refreshed complete record takes precedence over receipt excerpts.
+    cards = [*(additional_cards or []), *cards]
     for action in actions:
         if action.get("type") != "tool_result" or not action.get("ok"):
             continue
@@ -209,6 +286,16 @@ def evidence_sources(
                 ),
             )
         )
+        if document.get("validation") is not None:
+            candidates.append(
+                (
+                    "Current deck validation",
+                    "Computed current deck validation at revision "
+                    + str(document.get("revision", "unknown"))
+                    + ": "
+                    + json.dumps(document["validation"], ensure_ascii=False),
+                )
+            )
         from sabermetrics.assistant_deck_facts import library_composition
 
         candidates.append(
@@ -220,6 +307,19 @@ def evidence_sources(
         )
     # Preserve priority rules/cost comparisons while preventing unrelated card
     # paragraphs from displacing the commander's text.
+    # Deduplicate identities, preferring untruncated records with actual text.
+    preferred: dict[str, dict[str, Any]] = {}
+    for card in cards:
+        key = _normalized_name_text(_card_name(card)) or str(card.get("oracle_id"))
+        old = preferred.get(key)
+        quality = lambda c: (
+            not bool(c.get("oracle_text_truncated")),
+            bool(c.get("oracle_text")),
+            bool(c.get("provenance")),
+        )
+        if old is None or quality(card) > quality(old):
+            preferred[key] = card
+    cards = list(preferred.values())
     candidates = [
         *candidates[:1],
         *(
@@ -265,6 +365,13 @@ def evidence_sources(
                 )
             )
     result = SourceEvidence()
+    for card in cards:
+        if card.get("oracle_text_truncated") or not card.get("oracle_text"):
+            # Basic lands may legitimately have empty Oracle text. A named
+            # card without text still cannot establish an ability claim.
+            result.omitted.append(
+                str(card.get("name") or "Card") + " complete Oracle text"
+            )
     result.card_names = [
         _card_name(c) for c in [*document.get("entries", []), *cards] if c.get("name")
     ]
@@ -398,7 +505,7 @@ def review_answer(
     if len(payload.encode()) > 32768 or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v4",
+        prompt_version="assistant-answer-review.v5",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),
@@ -434,14 +541,20 @@ def review_answer(
     return corrected, {
         "fulfillment": review.fulfillment,
         "status": (
-            "partially_checked"
-            if initially_omitted or omitted_sources
+            "unverified"
+            if review.unresolved or initially_omitted or omitted_sources
             else "corrected" if review.patches else "no_supported_correction"
         ),
         "patches": [p.model_dump() for p in review.patches],
         "unresolved": review.unresolved,
         "omitted_sources": len(initially_omitted) + omitted_sources,
         "omitted_source_labels": initially_omitted[:24],
+        "evidence_categories": {
+            "printed_facts": "Supplied literal Oracle records; omissions disclosed.",
+            "deck_facts": "Computed current document composition and supplied validation.",
+            "rules_interactions": "Only supported by supplied rules; otherwise unverified.",
+            "strategic_judgments": "Heuristic fit, not printed fact or measured improvement.",
+        },
         "source_sha256": [hashlib.sha256(s.encode()).hexdigest() for s in sources],
         "scope": "Bounded model cross-check against supplied sources; not an independent rules proof.",
     }

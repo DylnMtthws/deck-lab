@@ -611,6 +611,8 @@ def render_discovery_groups(
     requirements: list[DiscoveryRequirement],
     ledger: DiscoveryLedger,
     answer: DiscoveryAnswer,
+    *,
+    fit_reasons: dict[str, str] | None = None,
 ) -> list[str]:
     """Render one complete candidate per line with retrieved names and mana costs.
 
@@ -647,5 +649,7 @@ def render_discovery_groups(
             )
             if card_id in notes and card_id not in repeated:
                 row += f" — {notes[card_id]}"
+            if fit_reasons and card_id in fit_reasons:
+                row += " " + fit_reasons[card_id]
             rendered.append(row)
     return rendered

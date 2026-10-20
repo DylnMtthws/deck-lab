@@ -18,7 +18,11 @@ from typing import Annotated, Any
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
-from sabermetrics.assistant_answer_review import evidence_sources, review_answer
+from sabermetrics.assistant_answer_review import (
+    evidence_sources,
+    resolve_review_cards,
+    review_answer,
+)
 from sabermetrics.assistant_card_references import reference_key
 from sabermetrics.assistant_conversation_context import (
     explicit_preferences,
@@ -92,7 +96,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v28"
+PROMPT_VERSION = "build-conversation.v29"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -624,6 +628,10 @@ def _model_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
                 for key in ("relationship", "status", "conditions")
             }
             item["recall_channels"] = card.get("recall_channels", [])
+            if card.get("suitability"):
+                from sabermetrics.assistant_suitability import compact_suitability
+
+                item["suitability"] = compact_suitability(card["suitability"])
             selected.append(item)
         data["cards"] = selected
         while len(json.dumps(data, ensure_ascii=False)) > 10500 and len(selected) > 2:
@@ -887,7 +895,7 @@ def _retain_card_context(state: dict[str, Any], data: dict[str, Any]) -> None:
 def _restore_card_sources(
     path, state, document, messages, request
 ) -> dict[str, dict[str, Any]]:
-    """Reuse at most eight identities, refreshing text and deck-specific facts locally."""
+    """Reuse at most forty identities, refreshing text and deck-specific facts locally."""
     from sabermetrics.assistant_card_facts import card_facts
     from sabermetrics.cast_trigger_evidence import document_cast_trigger_evidence
 
@@ -897,7 +905,7 @@ def _restore_card_sources(
             # Pinned in-deck facts are local reads, so they have no tool event.
             # Persist identities only; refresh text against the current catalog.
             research = message.get("research") or {}
-            for cid in research.get("source_card_ids", [])[-8:]:
+            for cid in research.get("source_card_ids", [])[-40:]:
                 if isinstance(cid, str):
                     identities.pop(cid, None)
                     identities[cid] = None
@@ -922,7 +930,7 @@ def _restore_card_sources(
                 identities.pop(card["id"], None)
                 identities[card["id"]] = None
     restored = {}
-    for cid in list(identities)[-8:]:
+    for cid in list(identities)[-40:]:
         data = card_facts(path, cid)
         if data.get("card"):
             data["commander_cast_interactions"] = document_cast_trigger_evidence(
@@ -932,7 +940,7 @@ def _restore_card_sources(
             restored[cid] = data["card"]
     state["card_source_reuse"] = {
         "locally_refreshed": len(restored),
-        "unavailable": min(8, len(identities)) - len(restored),
+        "unavailable": min(40, len(identities)) - len(restored),
     }
     return restored
 
@@ -1310,6 +1318,7 @@ def _encode_context(
         "prior_conclusions",
         "prior_selected_candidates",
         "recommendation_novelty",
+        "candidate_fit",
     ):
         if key in state:
             payload["state"][key] = _compact(state[key])
@@ -1873,6 +1882,7 @@ def run_turn(
         tool_count = 0
         synthesis_required = False
         checker_review_attempted = False
+        stage_timings: list[dict[str, Any]] = []
         answer_repair_pending = False
         read_cache: dict[str, dict[str, Any]] = {}
         successful_functional_queries: set[str] = set()
@@ -2973,12 +2983,19 @@ def run_turn(
                         )
                         continue
                 if step.discovery_answer is not None and step.discovery_answer.notes:
+                    from sabermetrics.assistant_suitability import render_fit_reason
+
                     step = step.model_copy(
                         update={
                             "findings": render_discovery_groups(
                                 discovery_requirements,
                                 session.ledger,
                                 step.discovery_answer,
+                                fit_reasons={
+                                    cid: render_fit_reason(card["suitability"])
+                                    for cid, card in source_cards.items()
+                                    if card.get("suitability")
+                                },
                             )
                         }
                     )
@@ -3078,6 +3095,31 @@ def run_turn(
                         }
                     )
                     parts = [step.content, *step.findings, step.next_action]
+                    evidence_started = time.monotonic()
+                    review_cards = resolve_review_cards(
+                        db_path,
+                        document,
+                        parts,
+                        [
+                            *source_cards.values(),
+                            *[
+                                c
+                                for h in hypotheses
+                                for c in h.get("printed_sources", [])
+                            ],
+                        ],
+                        [row.model_dump() for row in session.ledger.candidates],
+                    )
+                    stage_timings.append(
+                        {
+                            "stage": "review_evidence",
+                            "elapsed_seconds": round(
+                                time.monotonic() - evidence_started, 3
+                            ),
+                            "refreshed_cards": len(review_cards),
+                        }
+                    )
+                    review_started = time.monotonic()
                     corrected, receipt = review_answer(
                         checker,
                         parts,
@@ -3086,22 +3128,7 @@ def run_turn(
                             actions,
                             parts,
                             state.get("rules_evidence"),
-                            [
-                                *[
-                                    card
-                                    for cid, card in source_cards.items()
-                                    if cid in step.card_ids
-                                    or reference_key(str(card.get("name") or ""))
-                                    in reference_key(
-                                        " ".join([*parts, current_request])
-                                    )
-                                ][-12:],
-                                *[
-                                    c
-                                    for h in hypotheses
-                                    for c in h.get("printed_sources", [])
-                                ],
-                            ],
+                            review_cards,
                         ),
                         current_request,
                         research_context={
@@ -3121,6 +3148,15 @@ def run_turn(
                             or state["workflow"].get("experiment_status")
                             else set()
                         ),
+                    )
+                    stage_timings.append(
+                        {
+                            "stage": "answer_review",
+                            "elapsed_seconds": round(
+                                time.monotonic() - review_started, 3
+                            ),
+                            "status": receipt.get("status"),
+                        }
                     )
                     if externally_stopped():
                         raise ToolStopped(
@@ -3458,6 +3494,7 @@ def run_turn(
                     )
                     continue
                 tool_count += 1
+                tool_started = time.monotonic()
                 emit(
                     {
                         "type": "tool_started",
@@ -3525,6 +3562,14 @@ def run_turn(
                         "search_card_functions",
                         "card_details",
                     }:
+                        if call.name == "search_card_functions":
+                            from sabermetrics.assistant_suitability import (
+                                synthesis_fit_context,
+                            )
+
+                            state["candidate_fit"] = synthesis_fit_context(
+                                data.get("cards", [])
+                            )
                         retrieved = (
                             [data.get("card")]
                             if call.name == "card_details"
@@ -3761,6 +3806,16 @@ def run_turn(
                         for card in data.get("cards", [])[:12]:
                             source_cards[card["id"]] = card
                     _collect_resolved_card_ids(call.name, data, known_card_ids)
+                    stage_timings.append(
+                        {
+                            "stage": "tool",
+                            "name": call.name,
+                            "elapsed_seconds": round(
+                                time.monotonic() - tool_started, 3
+                            ),
+                            "cache_hit": cache_key in cached_before_batch,
+                        }
+                    )
                     if (
                         call.name in {"latest_goldfish", "run_goldfish"}
                         and data.get("report_status") == "done"
@@ -3818,6 +3873,16 @@ def run_turn(
                         "error": message[:1000],
                         "revision": result["revision"],
                     }
+                    stage_timings.append(
+                        {
+                            "stage": "tool",
+                            "name": call.name,
+                            "elapsed_seconds": round(
+                                time.monotonic() - tool_started, 3
+                            ),
+                            "status": "failed",
+                        }
+                    )
                 emit(receipt)
                 transcript.append(
                     {"role": "tool", "name": call.name, "result": receipt}
@@ -3948,12 +4013,25 @@ def run_turn(
                 "tool_calls": locals().get("tool_count", 0),
                 "elapsed_seconds": round(time.monotonic() - started, 3),
                 "prompt_version": PROMPT_VERSION,
+                "stages": locals().get("stage_timings", []),
             }
-            result["research"]["source_card_ids"] = [
-                row["card"]["id"]
-                for row in state.get("consulted_cards", [])[-8:]
-                if (row.get("card") or {}).get("id")
-            ]
+            result["research"]["source_card_ids"] = list(
+                dict.fromkeys(
+                    [
+                        *[
+                            row["card"]["id"]
+                            for row in state.get("consulted_cards", [])
+                            if (row.get("card") or {}).get("id")
+                        ],
+                        *[
+                            cid
+                            for cid, card in locals().get("source_cards", {}).items()
+                            if reference_key(str(card.get("name") or ""))
+                            in reference_key(str(result.get("content") or ""))
+                        ],
+                    ]
+                )
+            )[-40:]
             if isinstance(result.get("presentation"), dict):
                 result["presentation"]["research"] = (
                     result["presentation"].get("research") or {}
