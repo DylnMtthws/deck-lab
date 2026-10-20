@@ -13,6 +13,7 @@ from sabermetrics.assistant_answer_review import (
     AnswerPatch,
     AnswerReview,
     Citation,
+    SourceEvidence,
     _mentions_card_name,
     apply_patches,
 )
@@ -21,15 +22,18 @@ from sabermetrics.cedh.errors import ModelProviderError, ModelValidationError
 from sabermetrics.cedh.model_gateway import ReasoningMode, StructuredRequest
 from sabermetrics.errors import LLMCostCeilingExceeded
 
+ClaimCategory = Literal[
+    "printed_fact", "deck_fact", "rules_interaction", "strategic_judgment"
+]
+
 
 class ClaimJudgment(StrictModel):
     claim_id: str = Field(min_length=1, max_length=32)
-    category: Literal[
-        "printed_fact", "deck_fact", "rules_interaction", "strategic_judgment"
-    ]
+    category: ClaimCategory
     verdict: Literal["supported", "contradicted", "unverified"]
     reason: str = Field(default="", max_length=120)
     replacement: str | None = Field(default=None, max_length=1800)
+    correction_span: str | None = Field(default=None, max_length=240)
     citations: list[Citation] = Field(default_factory=list, max_length=4)
 
 
@@ -37,6 +41,19 @@ class ClaimReviewDecision(StrictModel):
     fulfillment: Literal["complete", "partial", "nonanswer", "unknown"]
     judgments: list[ClaimJudgment] = Field(max_length=64)
     unresolved: list[str] = Field(default_factory=list, max_length=3)
+
+
+class WireCorrection(StrictModel):
+    span: str = Field(min_length=1, max_length=240)
+    replacement: str = Field(alias="text", min_length=1, max_length=400)
+
+
+class WireJudgment(StrictModel):
+    category: Literal["printed", "deck", "rules", "strategy"] = Field(alias="k")
+    verdict: Literal["supported", "contradicted", "unverified"] = Field(alias="v")
+    evidence_ids: list[str] = Field(alias="e", default_factory=list, max_length=4)
+    correction: WireCorrection | None = Field(alias="fix", default=None)
+    reason: str = Field(alias="why", default="", max_length=100)
 
 
 SYSTEM = """Check ONLY the supplied claim units against their evidence. Request,
@@ -54,15 +71,18 @@ actual deck ingredients and tradeoffs, not as proven or measured improvement.
 Check draw vs filtering, full activation costs, 'another', optional vs forced,
 setup/once-per-turn limits, sacrificed resources and actual named deck support.
 Missing/truncated evidence stays unverified; do not infer absence or sufficiency.
-For a contradicted claim, provide a short replacement for the EXACT full claim
-unit, preserving its valid content, plus exact source quotes (>=12 characters).
-For supported or unverified judgments replacement=null. No invented cards or
+For a contradicted claim, fix.span is a short EXACT contiguous phrase from the
+claim and fix.text is its concise replacement, preserving the rest. Select
+evidence IDs from the supplied catalog; code resolves them to exact source quotes.
+Never copy quotes into output. For supported or unverified judgments fix=null.
+No invented cards or
 numerals. Never patch protected units. Do not make new recommendations or tools.
 Be concise; an empty/missing judgment never means the claim was verified.
-Include EVERY claim ID exactly once. Use one short reason (target30–80 chars),
-not a paragraph. Supported claims need exact quotes; target20–160 characters per
-quote, retaining all relevant conditions. Allocate space for every claim before
-adding detail. Never clip a sentence to a field limit.
+Return f=fulfillment and one object for EACH supplied claim key (c0,c1,...).
+Within each: k=printed/deck/rules/strategy, v=verdict, e=evidence ID list,
+fix=null or {span,text}, why=short uncertainty reason (empty when supported).
+Retain complete relevant conditions in the chosen evidence. Do not invent IDs.
+Keep output compact; do not restate claims or write an answer.
 """
 
 
@@ -87,6 +107,56 @@ def claim_units(parts: list[str], protected: set[int]) -> list[dict[str, Any]]:
     return units
 
 
+def focused_sources(parts: list[str], sources: list[str]) -> SourceEvidence:
+    """Keep complete Oracle/rules records; narrow generic inventory to named rows.
+
+    Omitted inventory is disclosed and prevents an overall verified status. It
+    cannot establish global superlatives, absence or whole-deck sufficiency.
+    """
+    result = SourceEvidence()
+    result.omitted = list(getattr(sources, "omitted", []))
+    result.card_names = list(getattr(sources, "card_names", []))
+    text = " ".join(parts)
+    for source in sources:
+        if source.startswith(
+            ("Current deck printed mana costs", "Current deck printed types:")
+        ):
+            lines = source.splitlines()
+            named = [
+                line
+                for line in lines[1:]
+                if ": " in line and _mentions_card_name(text, line.rsplit(": ", 1)[0])
+            ]
+            if len(named) < len(lines) - 1:
+                result.omitted.append(
+                    lines[0] + " — unmentioned inventory rows omitted"
+                )
+            source = (
+                lines[0]
+                + "\nNamed rows only; no whole-deck ranks or absence can be inferred.\n"
+                + "\n".join(named)
+            )
+        result.append(source)
+    return result
+
+
+def evidence_catalog(
+    sources: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, tuple[int, str]]]:
+    records = []
+    quotes: dict[str, tuple[int, str]] = {}
+    for index, source in enumerate(sources):
+        lines = []
+        for line in source.split("\n"):
+            eid = None
+            if 12 <= len(line) <= 1200:
+                eid = f"e{len(quotes)}"
+                quotes[eid] = (index, line)
+            lines.append({"id": eid, "text": line})
+        records.append({"source_index": index, "lines": lines})
+    return records, quotes
+
+
 def review_claims(
     gateway,
     parts: list[str],
@@ -96,6 +166,8 @@ def review_claims(
     protected_parts: set[int] | None = None,
     research_context: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
+    original_source_bytes = sum(len(s.encode()) for s in sources)
+    sources = focused_sources(parts, sources)
     omitted = list(getattr(sources, "omitted", []))
     known_names = list(getattr(sources, "card_names", []))
     protected = set(protected_parts or set()) | {
@@ -123,11 +195,12 @@ def review_claims(
         ]
     # Exact source table is shared once. Related records guide attention, not
     # an evidence deletion rule: cross-card/rules claims may need other records.
+    records, quote_lookup = evidence_catalog(sources)
     payload = json.dumps(
         {
             "request": user_request,
             "claims": units,
-            "sources": sources,
+            "source_records": records,
             "research_context": research_context or {},
         },
         ensure_ascii=False,
@@ -138,16 +211,16 @@ def review_claims(
             "reason": "claim_context_limit",
             "fulfillment": "unknown",
         }
-    batch_schema = create_model(
-        "ClaimReviewBatch",
-        __base__=ClaimReviewDecision,
-        judgments=(
-            list[ClaimJudgment],
-            Field(min_length=len(units), max_length=len(units)),
-        ),
-    )
+    fields: dict[str, Any] = {
+        "fulfillment": (
+            Literal["complete", "partial", "nonanswer", "unknown"],
+            Field(alias="f"),
+        )
+    }
+    fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
+    batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v1",
+        prompt_version="assistant-claim-review.v2",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -158,9 +231,41 @@ def review_claims(
     )
     try:
         value = gateway.generate(request).value
-        review = ClaimReviewDecision.model_validate(
-            value.model_dump() if hasattr(value, "model_dump") else value
-        )
+        raw = value.model_dump() if hasattr(value, "model_dump") else value
+        if "judgments" in raw:
+            # Canonical injected reviewer seam; production uses fixed claim keys.
+            review = ClaimReviewDecision.model_validate(raw)
+        else:
+            expanded = []
+            categories: dict[str, ClaimCategory] = {
+                "printed": "printed_fact",
+                "deck": "deck_fact",
+                "rules": "rules_interaction",
+                "strategy": "strategic_judgment",
+            }
+            for unit in units:
+                item = raw[unit["claim_id"]]
+                citations = []
+                for eid in item["evidence_ids"]:
+                    if eid not in quote_lookup:
+                        raise ValueError("Unknown evidence ID")
+                    source_index, quote = quote_lookup[eid]
+                    citations.append(Citation(source_index=source_index, quote=quote))
+                correction = item.get("correction")
+                expanded.append(
+                    ClaimJudgment(
+                        claim_id=unit["claim_id"],
+                        category=categories[item["category"]],
+                        verdict=item["verdict"],
+                        reason=item.get("reason", ""),
+                        citations=citations,
+                        replacement=correction["replacement"] if correction else None,
+                        correction_span=correction["span"] if correction else None,
+                    )
+                )
+            review = ClaimReviewDecision(
+                fulfillment=raw["fulfillment"], judgments=expanded
+            )
         indexed = {u["claim_id"]: u for u in units}
         seen: set[str] = set()
         patches = []
@@ -196,7 +301,7 @@ def review_claims(
                 patches.append(
                     AnswerPatch(
                         part_index=unit["part_index"],
-                        claim=unit["claim"],
+                        claim=judgment.correction_span or unit["claim"],
                         replacement=judgment.replacement,
                         citations=judgment.citations,
                     )
@@ -216,6 +321,8 @@ def review_claims(
         ModelValidationError,
         ValidationError,
         ValueError,
+        KeyError,
+        TypeError,
     ) as exc:
         return parts, {
             "status": "unverified",
@@ -233,6 +340,8 @@ def review_claims(
         "unresolved": unresolved,
         "claim_judgments": judgments,
         "claim_count": len(units),
+        "source_bytes_before_focus": original_source_bytes,
+        "source_bytes_after_focus": sum(len(s.encode()) for s in sources),
         "missing_claim_ids": missing,
         "omitted_sources": len(omitted),
         "omitted_source_labels": omitted,

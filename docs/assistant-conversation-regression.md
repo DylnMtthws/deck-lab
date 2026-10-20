@@ -224,3 +224,14 @@ precedence over ranking language, and quota-satisfied shortfalls are not rendere
 The focused reviewer uses a bounded 75-second request deadline to accommodate its
 complete claim batch. This prevents the old 45-second deadline from abandoning
 larger reviews; it adds no retries and does not change the ordinary reviewer.
+
+The focused review wire contract (`assistant-claim-review.v2`) uses one required
+property per claim and compact typed judgments. The model selects evidence IDs
+instead of copying source quotes; code resolves IDs to exact complete source
+lines and applies the existing citation/span guards. Corrections name a short
+exact claim span, so valid surrounding prose is preserved. Full Oracle/rules
+records remain in the input catalog. Generic deck inventory is narrowed to named
+rows with omissions disclosed; global inventory/ranking assertions remain
+unverified. This reduces generated JSON and prevents long quote copying from
+exhausting the output budget. Canonical receipts retain readable categories,
+exact quotes, per-claim coverage and uncertainty.

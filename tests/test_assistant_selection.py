@@ -222,8 +222,28 @@ def test_claim_review_records_every_claim_and_preserves_exact_evidence():
     assert receipt["claim_count"] == 1
     payload = json.loads(gateway.requests[0].user)
     assert "reply_parts" not in payload
-    assert payload["sources"] == sources
+    assert [
+        "\n".join(line["text"] for line in record["lines"])
+        for record in payload["source_records"]
+    ] == sources
     assert payload["claims"][0]["source_indices"] == [0]
+
+
+def test_focused_evidence_keeps_oracle_and_named_deck_rows_without_global_certification():
+    from sabermetrics.assistant_claim_review import focused_sources
+
+    parts = ["Lead", "Candidate 0 draws a card.", ""]
+    oracle = "Card: Candidate 0\nOracle text: {T}: Draw a card."
+    inventory = "Current deck printed mana costs (not alternate or effective costs):\nCandidate 0: {1}{B}\nUnmentioned: {0}"
+    sources = focused_sources(parts, [oracle, inventory])
+    assert sources[0] == oracle
+    assert "Candidate 0: {1}{B}" in sources[1]
+    assert "Unmentioned: {0}" not in sources[1]
+    assert sources.omitted
+    gateway = Reviewer()
+    _, receipt = review_claims(gateway, parts, [oracle, inventory], "Find draw")
+    assert receipt["status"] == "unverified"
+    assert receipt["omitted_sources"] == 1
 
 
 @pytest.mark.parametrize(
@@ -262,6 +282,82 @@ def test_invalid_replacement_quote_cannot_change_the_answer():
     )
     assert corrected == parts
     assert receipt["status"] == "unverified"
+
+
+@pytest.mark.parametrize("invalid", [False, True])
+def test_compact_evidence_ids_resolve_only_to_exact_supplied_quotes(invalid):
+    class CompactReviewer:
+        def generate(self, request):
+            payload = json.loads(request.user)
+            eid = next(
+                line["id"]
+                for record in payload["source_records"]
+                for line in record["lines"]
+                if "{T}: Draw a card." in line["text"]
+            )
+            return SimpleNamespace(
+                value=request.schema.model_validate(
+                    {
+                        "f": "complete",
+                        "c0": {
+                            "k": "printed",
+                            "v": "supported",
+                            "e": ["invented"] if invalid else [eid],
+                            "fix": None,
+                            "why": "",
+                        },
+                    }
+                )
+            )
+
+    parts = ["Lead", "Candidate 0 draws a card.", ""]
+    source = "Card: Candidate 0\nOracle text: {T}: Draw a card."
+    corrected, receipt = review_claims(CompactReviewer(), parts, [source], "Find draw")
+    assert corrected == parts
+    if invalid:
+        assert receipt["status"] == "unverified"
+    else:
+        assert receipt["status"] == "no_supported_correction"
+        assert receipt["claim_judgments"][0]["citations"] == [
+            {"source_index": 0, "quote": "Oracle text: {T}: Draw a card."}
+        ]
+
+
+def test_compact_correction_changes_only_the_cited_claim_span():
+    class CompactReviewer:
+        def generate(self, request):
+            data = json.loads(request.user)
+            eid = next(
+                line["id"]
+                for source in data["source_records"]
+                for line in source["lines"]
+                if "Draw a card." in line["text"]
+            )
+            return SimpleNamespace(
+                value=request.schema.model_validate(
+                    {
+                        "f": "complete",
+                        "c0": {
+                            "k": "printed",
+                            "v": "contradicted",
+                            "e": [eid],
+                            "fix": {"span": "three cards", "text": "a card"},
+                            "why": "Printed draw amount.",
+                        },
+                    }
+                )
+            )
+
+    parts = ["Lead", "Candidate 0 draws three cards.", ""]
+    corrected, receipt = review_claims(
+        CompactReviewer(),
+        parts,
+        ["Card: Candidate 0\nOracle text: {T}: Draw a card."],
+        "Find draw",
+    )
+    assert corrected == ["Lead", "Candidate 0 draws a card.", ""]
+    assert receipt["status"] == "corrected"
+    assert receipt["patches"][0]["claim"] == "three cards"
 
 
 def test_runtime_selection_does_not_generate_prose_or_retry_whole_answer(
@@ -383,9 +479,8 @@ def test_selection_runtime_uses_focused_review_once(prepared, monkeypatch):
         selection_first=True,
     )
     assert len(reviewer.requests) == 1
-    assert issubclass(reviewer.requests[0].schema, ClaimReviewDecision)
-    bounds = reviewer.requests[0].schema.model_json_schema()["properties"]["judgments"]
-    assert bounds["minItems"] == bounds["maxItems"] == 2
+    schema = reviewer.requests[0].schema.model_json_schema()
+    assert {"f", "c0", "c1"} <= set(schema["required"])
     assert result["answer_review"]["status"] == "unverified"
     assert result["answer_review"]["claim_count"] == 2
 
