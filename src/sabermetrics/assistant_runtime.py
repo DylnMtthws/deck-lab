@@ -100,7 +100,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v35"
+PROMPT_VERSION = "build-conversation.v36"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1307,6 +1307,16 @@ def _encode_context(
             entry = _compact(item)
         conversation.append(entry)
     payload = {"state": _compact(state), "conversation": conversation}
+    inventory_view = state.get("deck_inventory")
+    if (
+        isinstance(inventory_view, dict)
+        and isinstance(inventory_view.get("rows"), list)
+        and len(inventory_view["rows"]) <= 128
+        and len(json.dumps(inventory_view, ensure_ascii=False).encode()) <= 9000
+    ):
+        # This view already bounds whole rows and discloses omissions. Generic
+        # list compaction would hide every card after the first twelve again.
+        payload["state"]["deck_inventory"] = deepcopy(inventory_view)
     # These facts must not depend on the generic dictionary's first-32-key cap.
     for key in (
         "consulted_cards",
@@ -2794,11 +2804,68 @@ def run_turn(
                     result["reason"] = "selection_explanation_incomplete"
                 raw_step = selection_reply(selection, manifest, discovery_requirements)
             plan_route = None
+            recovered_deck_scope = False
             if isinstance(raw_step, dict) and "route" in raw_step:
                 try:
                     plan = RequestPlan.model_validate(raw_step)
                     normalized_task = plan.research_task.to_task(current_request)
                     plan_route = plan.route
+                    grounded_names = [
+                        name
+                        for name in normalized_task.named_cards
+                        if reference_key(name)
+                        and reference_key(name) in reference_key(current_request)
+                    ]
+                    if normalized_task.evidence_scope == "named_cards_only":
+                        normalized_task = normalized_task.model_copy(
+                            update={"named_cards": grounded_names}
+                        )
+                    if normalized_task.evidence_scope == "named_cards_only" and (
+                        not grounded_names
+                        or re.search(r"\bdeck\b", current_request, re.IGNORECASE)
+                    ):
+                        # Contextual commanders are not explicit user references.
+                        # They cannot narrow a whole-deck question to themselves.
+                        normalized_task = normalized_task.model_copy(
+                            update={"evidence_scope": "unknown"}
+                        )
+                        plan_route = "use_tools"
+                        recovered_deck_scope = True
+                        model_observations[-1][
+                            "scope_recovery"
+                        ] = "named_only_scope_requires_deck_context"
+                        inventory: list[list[Any]] = []
+                        omitted = 0
+                        for entry in document.get("entries", []):
+                            row = [
+                                entry.get("name"),
+                                entry.get("quantity"),
+                                bool(entry.get("is_commander")),
+                                entry.get("role"),
+                                entry.get("zone_name"),
+                            ]
+                            trial = [*inventory, row]
+                            if (
+                                len(trial) <= 128
+                                and len(json.dumps(trial, ensure_ascii=False).encode())
+                                <= 8000
+                            ):
+                                inventory = trial
+                            else:
+                                omitted += 1
+                        state["deck_inventory"] = {
+                            "revision": document["revision"],
+                            "fields": [
+                                "name",
+                                "quantity",
+                                "is_commander",
+                                "role",
+                                "zone_name",
+                            ],
+                            "rows": inventory,
+                            "omitted_entries": omitted,
+                            "scope": "Current deck inventory, not battlefield state. Roles are heuristic labels, not proven win conditions. Read relevant complete card text before asserting an interaction; omitted entries are unknown.",
+                        }
                     if (
                         normalized_task.requires_empirical_evidence
                         or normalized_task.evidence_scope == "candidate_discovery"
@@ -3106,6 +3173,16 @@ def run_turn(
                             step = step.model_copy(update={"tool_calls": safe_reads})
                         else:
                             continue
+            if recovered_deck_scope and not step.tool_calls and not answer_only:
+                step = step.model_copy(
+                    update={
+                        "tool_calls": [
+                            ToolCallAdapter.validate_python(
+                                {"name": "inspect_deck", "arguments": {}}
+                            )
+                        ]
+                    }
+                )
             if plan_route == "use_tools" and not step.tool_calls:
                 # Routing is executable: optional planner prose cannot terminate
                 # research. Named facts may already justify the next answer-only

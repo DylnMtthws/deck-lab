@@ -723,3 +723,148 @@ def test_planner_repair_preserves_deadline_reserve(prepared, monkeypatch):
     )
     assert len(gateway.requests) == 1
     assert result["reason"] == "planning_schema_invalid"
+
+
+def test_context_commanders_cannot_narrow_whole_deck_review(prepared):
+    service, path, owner, deck, _, _ = prepared
+    request = "Review this deck. Tell me what its win condition is."
+    gateway = Gateway(
+        [
+            plan(
+                request,
+                named=["Francisco, Fowl Marauder", "Rograkh, Son of Rohgahh"],
+                scope="named_cards_only",
+                route="answer",
+            ),
+            AssistantStep(
+                content="Current inventory requires actual card text to establish the winning line.",
+                findings=[
+                    "The deck's winning interaction remains a hypothesis pending card evidence."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert gateway.requests[1].schema.__name__ == "AssistantStep"
+    payload = json.loads(gateway.requests[1].user)
+    assert payload["state"]["deck_inventory"]["rows"]
+    assert payload["state"]["deck_inventory"]["omitted_entries"] == 0
+    assert result["research"]["task"]["evidence_scope"] == "unknown"
+    assert result["research"]["task"]["named_cards"] == []
+    assert result["research"]["runtime"]["model_calls"][0]["scope_recovery"]
+    assert any(
+        e["type"] == "tool_started" and e["name"] == "inspect_deck"
+        for e in result["actions"]
+    )
+
+
+def test_contextual_name_does_not_erase_explicit_card_target(prepared):
+    service, path, owner, deck, _, _ = prepared
+    seed_card(path, "elegy", "Elegy Acolyte")
+    request = "Assess Elegy Acolyte using its printed text."
+    gateway = Gateway(
+        [
+            plan(request, named=["Elegy Acolyte", "Kinnan"], scope="named_cards_only"),
+            AssistantStep(
+                content="Elegy Acolyte's printed text supplies the requested card assessment.",
+                findings=[
+                    "Its supplied text is the source for this bounded assessment."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert result["research"]["task"]["named_cards"] == ["Elegy Acolyte"]
+    assert result["research"]["task"]["evidence_scope"] == "named_cards_only"
+    assert any(
+        e["type"] == "tool_started" and e["name"] == "card_details"
+        for e in result["actions"]
+    )
+    assert "Elegy Acolyte" in gateway.requests[-1].user
+
+
+def test_named_commander_does_not_narrow_a_deck_question(prepared):
+    service, path, owner, deck, _, _ = prepared
+    request = "Review this Kinnan deck. Tell me what its win condition is."
+    gateway = Gateway(
+        [
+            plan(request, named=["Kinnan"], scope="named_cards_only"),
+            AssistantStep(
+                content="Full deck evidence is needed to identify the actual winning interaction.",
+                findings=[
+                    "Commander identity alone cannot establish this deck's winning line."
+                ],
+            ),
+        ]
+    )
+    # Keep the explicitly named commander available without needing extra reads.
+    from sabermetrics import assistant_runtime
+
+    original = assistant_runtime._pin_named_deck_sources
+
+    def pinned(*args):
+        result = original(*args)
+        args[1].setdefault("consulted_cards", []).append(
+            {
+                "card": {
+                    "id": "kinnan",
+                    "name": "Kinnan",
+                    "oracle_text": "Printed commander text.",
+                }
+            }
+        )
+        return result
+
+    from unittest.mock import patch
+
+    with patch.object(assistant_runtime, "_pin_named_deck_sources", pinned):
+        result = run_turn(
+            path,
+            owner,
+            deck,
+            [{"role": "user", "content": request}],
+            gateway=gateway,
+            request_planner=True,
+            experiment_service=service,
+        )
+    assert gateway.requests[1].schema.__name__ == "AssistantStep"
+    assert json.loads(gateway.requests[1].user)["state"]["deck_inventory"]["rows"]
+    assert result["research"]["task"]["evidence_scope"] == "unknown"
+    assert result["research"]["runtime"]["tool_calls"] > 0
+
+
+def test_bounded_inventory_survives_generic_context_compaction():
+    from sabermetrics.assistant_runtime import _encode_context
+
+    rows = [
+        [f"Current card {i}", 1, False, "wincon" if i == 19 else "other", "Unsorted"]
+        for i in range(20)
+    ]
+    view = {
+        "revision": 7,
+        "fields": ["name", "quantity", "is_commander", "role", "zone_name"],
+        "rows": rows,
+        "omitted_entries": 0,
+        "scope": "Roles are heuristic labels, not verified win conditions.",
+    }
+    result = json.loads(
+        _encode_context({"deck_inventory": view}, "Review this deck", [])
+    )
+    assert result["state"]["deck_inventory"] == view
+    assert len(result["state"]["deck_inventory"]["rows"]) == 20
