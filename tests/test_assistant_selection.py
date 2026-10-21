@@ -578,7 +578,7 @@ def test_runtime_publishes_bound_review_cards_before_global_completion(
     service, path, owner, deck, _, _ = prepared
     with db.connect(path) as conn:
         conn.execute(
-            "UPDATE cards SET oracle_text='{T}: Draw a card.', mana_cost='{1}' "
+            "UPDATE cards SET oracle_text='{T}: Draw a card.', mana_cost='{1}', type_line='Creature' "
             "WHERE id IN ('incoming-0','incoming-1')"
         )
         conn.commit()
@@ -625,7 +625,7 @@ def test_runtime_publishes_bound_review_cards_before_global_completion(
     reviewer = BoundReviewer()
     local_selection = selection(("incoming-0", "incoming-1"))
     for assessment in local_selection.assessments:
-        assessment.fit = "Draws a card."
+        assessment.fit = "Activation cost: {T}."
 
     def observe(event):
         if event.get("name") == "research_card_update":
@@ -651,15 +651,16 @@ def test_runtime_publishes_bound_review_cards_before_global_completion(
         on_event=observe,
     )
     assert result["answer_review"]["progressive_review"]["enabled"]
-    assert len(reviewer.calls) == 3
-    assert {record["card_id"] for count, record in publications if count < 3} == {
+    assert len(reviewer.calls) == 1
+    assert {record["card_id"] for count, record in publications if count == 0} == {
         "incoming-0",
         "incoming-1",
     }
     assert all(
-        claim["claim"] == "Draws a card."
-        for call in reviewer.calls[:-1]
-        for claim in call["claims"]
+        claim["text"] == "Activation cost: {T}."
+        for count, record in publications
+        if count == 0
+        for claim in record["claims"]
     )
     assert all(
         claim["claim"] == "Tap cost needs continuous control or haste."
@@ -944,3 +945,40 @@ def test_payload_rejected_contract_does_not_leak_vocabulary_or_truncate_source()
     assert data["strategic_obligation_vocabulary"]["conditions"] == []
     assert data["strategic_obligation_vocabulary"]["propositions"] == {}
     assert len(payload.encode()) <= 24000
+
+
+def test_application_caution_is_visible_once_without_becoming_a_board_claim():
+    from sabermetrics.assistant_claim_review import claim_units
+    from sabermetrics.assistant_suitability import (
+        candidate_suitability,
+        deck_support_index,
+        render_fit_reason,
+    )
+
+    requirements, cards, ledger = setup()
+    chosen = selection()
+    answer, issues = validate_selection(chosen, requirements, ledger)
+    assert not issues
+    reply = selection_reply(chosen, answer, requirements)
+    profile = candidate_suitability(
+        {**cards[0], "oracle_text": "{3}{U}: Draw a card."},
+        deck_support_index({"entries": []}),
+    )
+    note = render_fit_reason(profile)
+    parts = [reply["content"], "Candidate 0 ({1}{B}) — " + note, ""]
+    assert reply["content"].count("Application note:") == 1
+    assert (
+        "current mana, resources and legal timing are not assumed" in reply["content"]
+    )
+    assert (
+        "Casting, timing and activation resources still need to be available"
+        not in note
+    )
+    units = claim_units(parts, set())
+    assert all("not assumed" not in unit["claim"] for unit in units)
+    assert any("Activation cost:" in unit["claim"] for unit in units)
+    # A model cannot hide an incorrect interaction by naming it a caution.
+    parts[1] += " Application note: This draws without paying any cost."
+    assert any(
+        "without paying any cost" in unit["claim"] for unit in claim_units(parts, set())
+    )

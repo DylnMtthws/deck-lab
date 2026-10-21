@@ -7,8 +7,9 @@ a permit around a review job: only generate holds one. Nested wrappers on the
 same thread share its permit; different turns share the process-wide limit.
 This is a process limit, not an interprocess/distributed semaphore.
 Cost admission belongs to the original gateway: DeepSeek reserves its shared
-ledger through retries and accounting, serializing only calls to that database
-because its ceiling has no projected-cost bound. Permits do not reserve dollars.
+ledger before acquiring a permit, through retries and accounting, serializing
+only calls to that database because its ceiling has no projected-cost bound.
+Permits do not reserve dollars.
 """
 
 from __future__ import annotations
@@ -16,10 +17,15 @@ from __future__ import annotations
 import threading
 import uuid
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any
 
-from sabermetrics.cedh.cost_ledger import operation_check
+from sabermetrics.cedh.cost_ledger import (
+    check_operation_current,
+    operation_check,
+    operation_phase,
+    operation_timings,
+)
 
 
 class ProviderOperationCancelled(RuntimeError):
@@ -48,9 +54,12 @@ class ProviderBudget:
         acquired = False
         try:
             if not nested:
-                while not _PERMITS.acquire(timeout=0.025):
-                    check_active(check_current)
-                acquired = True
+                with operation_phase("provider_permit_wait"):
+                    while not _PERMITS.acquire(timeout=0.025):
+                        check_operation_current()
+                        check_active(check_current)
+                    acquired = True
+            check_operation_current()
             check_active(check_current)
             _LOCAL.depth = getattr(_LOCAL, "depth", 0) + 1
             try:
@@ -64,6 +73,14 @@ class ProviderBudget:
 
 
 shared_budget = ProviderBudget()
+
+
+@contextmanager
+def admitted_provider_operation():
+    """Acquire only after exclusive cost admission, including unwrapped calls."""
+    budget = getattr(_LOCAL, "admitted_budget", shared_budget)
+    with budget.operation():
+        yield
 
 
 class BudgetedGateway:
@@ -86,28 +103,54 @@ class BudgetedGateway:
         return getattr(self.gateway, name)
 
     def generate(self, request):
-        with (
-            operation_check(lambda: check_active(self.check_current)),
-            self.budget.operation(self.check_current),
-        ):
-            event = {
-                "type": "provider_checkpoint",
-                "call_id": uuid.uuid4().hex,
-                "call_type": getattr(request, "call_type", ""),
-                "prompt_version": getattr(request, "prompt_version", ""),
-                "provider": getattr(self.gateway, "provider", ""),
-                "model_id": getattr(self.gateway, "model_id", ""),
-            }
-            if self.on_checkpoint:
-                self.on_checkpoint({**event, "state": "started"})
-            try:
-                check_active(self.check_current)
-                result = self.gateway.generate(request)
-                check_active(self.check_current)
-                return result
-            finally:
-                if self.on_checkpoint:
-                    self.on_checkpoint({**event, "state": "finished"})
+        # Explicit capability: the gateway promises to acquire at its admitted
+        # execution boundary. Forwarded by nested wrappers, so none hold a
+        # global permit while the innermost gateway waits for its ledger.
+        deferred = getattr(self.gateway, "defers_provider_permit", False) is True
+        previous = getattr(_LOCAL, "admitted_budget", None)
+        if deferred and previous is None:
+            _LOCAL.admitted_budget = self.budget
+        try:
+            with (
+                operation_check(lambda: check_active(self.check_current)),
+                operation_timings() as phases,
+            ):
+                event = {
+                    "type": "provider_checkpoint",
+                    "call_id": uuid.uuid4().hex,
+                    "call_type": getattr(request, "call_type", ""),
+                    "prompt_version": getattr(request, "prompt_version", ""),
+                    "provider": getattr(self.gateway, "provider", ""),
+                    "model_id": getattr(self.gateway, "model_id", ""),
+                    "phase_timings": phases,
+                }
+                try:
+                    if self.on_checkpoint:
+                        with operation_phase("checkpoint_callback", state="started"):
+                            self.on_checkpoint({**event, "state": "started"})
+                    with (
+                        nullcontext()
+                        if deferred
+                        else self.budget.operation(self.check_current)
+                    ):
+                        check_operation_current()
+                        if deferred:
+                            result = self.gateway.generate(request)
+                        else:
+                            # A generic gateway may include validation, nested
+                            # wrappers and callbacks. Only the real provider
+                            # knows its HTTP transport boundary.
+                            with operation_phase("gateway_execution"):
+                                result = self.gateway.generate(request)
+                        check_operation_current()
+                        return result
+                finally:
+                    if self.on_checkpoint:
+                        with operation_phase("checkpoint_callback", state="finished"):
+                            self.on_checkpoint({**event, "state": "finished"})
+        finally:
+            if deferred and previous is None:
+                del _LOCAL.admitted_budget
 
 
 def budget_gateway(

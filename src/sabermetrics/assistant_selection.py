@@ -137,8 +137,11 @@ to meet a quota. Meet each requested count when supported, otherwise disclose a
 shortfall. Do not claim insufficient records when eligible records are supplied.
 Write fit as ONE complete sentence, target50–100 characters. Write
 conditions_and_tradeoff as ONE complete sentence, target80–140 characters.
-Never end mid-sentence or pad to a field limit. Give complete
-activation costs/conditions, distinguish casting from activation, draw from
+Never end mid-sentence or pad to a field limit. Complete printed activation
+costs are appended by the application from the retained card records. Concentrate
+your assessments on relevance, comparative tradeoffs and prerequisites instead
+of repeating those costs, except when comparing mana economics. Preserve full
+conditions, distinguish casting from activation, draw from
 filtering, optional from forced draw, and hand gain from sacrificed resources.
 Explain actual supported roles and awkwardness. Recursion alone proves neither
 counter replenishment nor a repeatable loop. Missing rules remain unverified.
@@ -151,6 +154,9 @@ Give the strongest concrete drawback of each selection; preserve role tradeoffs.
 Do not assert that a returning permanent retains or regains counters. State
 counter renewal as a separate prerequisite when relevant. If a proposed repeatable
 engine lacks prerequisite evidence, describe it as conditional, not established.
+A printed resource provider is a way to satisfy a cost, not an exclusive
+prerequisite: an ability requiring energy does not require that energy to have
+come from that card's landfall trigger. Preserve that distinction.
 An empty group with a shortfall is valid when no supplied candidate meets its
 search_contract; never select unrelated records to fill a quota.
 Use strategic_obligations as application-owned evidence obligations, not as
@@ -537,7 +543,12 @@ def selection_reply(
         or observed.get(s.group_id, 0) < (requested.get(s.group_id) or 0)
     ]
     return {
-        "content": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.",
+        "content": (
+            "Retrieved candidates follow with their costs, potential fit and tradeoffs. "
+            "Strategic judgments and rules interactions require the evidence check.\n\n"
+            "Application note: Listed costs are printed costs; current mana, resources "
+            "and legal timing are not assumed. Additional untaps are not assumed."
+        ),
         "findings": [],
         "next_action": " ".join("Shortfall: " + s.reason for s in shortfalls),
         "discovery_answer": answer.model_dump(),

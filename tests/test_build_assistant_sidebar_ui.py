@@ -767,7 +767,7 @@ data = {research_workspace: {}}; renderWorkspace();
 assert.equal(workspaceRetry.hidden, true);
 assert.match(workspaceBadge.textContent, /state unavailable/);
 data.research_workspace = {generation: 2, status: 'partial', job: {state: 'completed', checkpoint: 'claims reviewed'}, cards: []};
-renderWorkspace(); assert.match(workspaceBadge.textContent, /Partial research.*request remains incomplete/);
+renderWorkspace(); assert.match(workspaceBadge.textContent, /Research finished.*requirements or claims remain unresolved/);
 assert.equal(researchRunning(), false);
 data.research_workspace = {generation: 2, status: 'running', job: {state: 'interrupted', retry_allowed: true}, cards: []};
 renderWorkspace(); assert.match(workspaceBadge.textContent, /interrupted.*no active work confirmed/);
@@ -942,3 +942,23 @@ assert.deepEqual([...workspaceCards.keys()], ['current']);
 assert.match(status.textContent, /Research changed/);
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """.replace("HANDLER", handler))
+
+
+def test_partial_review_activity_distinguishes_unresolved_claims_from_unavailable():
+    renderer = _between(SCRIPT.read_text(), "renderToolStep(", "renderMessages(")
+    _run_node(r"""
+const assert = require("node:assert/strict");
+function element(tag, text) { return {text, children: [], appendChild(child) {this.children.push(child);}}; }
+function toolLabel() { return "Evidence review"; }
+function appendMarkdown() {}
+function messageContent(message) { return message.content; }
+function cardsFrom() { return []; }
+RENDERER
+function title(action) { return renderToolStep({action, content: "Review details"}).children[0].text; }
+assert.match(title({name: "check_answer", ok: false, data: {status: "unverified", claim_judgments: [{verdict: "supported"}]}}), /complete with unresolved claims/);
+assert.match(title({name: "check_answer", ok: false, data: {status: "not_checked", reason: "cost_ceiling"}}), /unavailable/);
+assert.match(title({name: "search_cards", ok: false}), /unavailable/);
+assert.match(title({name: "check_answer", ok: false, data: {claim_judgments: [{verdict: "unverified", method: "unreviewed_abstention"}]}}), /unavailable/);
+assert.match(title({name: "check_answer", ok: false, data: {claim_judgments: []}}), /unavailable/);
+assert.match(title({name: "check_answer", ok: true, data: {claim_judgments: [{verdict: "supported"}]}}), /complete$/);
+""".replace("RENDERER", renderer))

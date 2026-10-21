@@ -16,6 +16,7 @@ import json
 import logging
 import sqlite3
 import threading
+import time
 import weakref
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -54,6 +55,36 @@ def operation_check(check: Callable[[], None]) -> Iterator[None]:
         yield
     finally:
         _OPERATION.checks = previous
+
+
+@contextmanager
+def operation_timings() -> Iterator[list[dict]]:
+    """Collect internal phase measurements for this call and enclosing wrappers."""
+    rows: list[dict] = []
+    previous = getattr(_OPERATION, "timings", ())
+    _OPERATION.timings = (*previous, rows)
+    try:
+        yield rows
+    finally:
+        _OPERATION.timings = previous
+
+
+@contextmanager
+def operation_phase(phase: str, **metadata) -> Iterator[None]:
+    started = time.monotonic()
+    try:
+        yield
+    finally:
+        finished = time.monotonic()
+        row = {
+            "phase": phase,
+            "started_monotonic": started,
+            "finished_monotonic": finished,
+            "duration_ms": (finished - started) * 1000,
+            **metadata,
+        }
+        for rows in getattr(_OPERATION, "timings", ()):
+            rows.append(row)
 
 
 def estimate_cost(
@@ -116,9 +147,10 @@ class CostLedger:
             if lock is None:
                 lock = threading.RLock()
                 _ADMISSION_LOCKS[key] = lock
-        check_operation_current()
-        while not lock.acquire(timeout=0.025):
+        with operation_phase("ledger_wait"):
             check_operation_current()
+            while not lock.acquire(timeout=0.025):
+                check_operation_current()
         try:
             check_operation_current()
             self.check_ceiling(ceiling_usd)
@@ -182,6 +214,7 @@ class CostLedger:
                 usage.call_type,
             )
             return
+        timings = getattr(_OPERATION, "timings", ())
         metadata = json.dumps(
             {
                 "provider": usage.provider,
@@ -193,6 +226,7 @@ class CostLedger:
                 "retries": usage.retries,
                 "evidence_hash": usage.evidence_hash,
                 "cache_hit": usage.cache_hit,
+                "phase_timings": list(timings[-1]) if timings else [],
             },
             sort_keys=True,
         )

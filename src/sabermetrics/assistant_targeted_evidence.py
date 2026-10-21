@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from sabermetrics.assistant_rules import retrieve_rules
+from sabermetrics.assistant_rules import WIZARDS_HOSTS, retrieve_rules, tap_dependency
 
 _RECURSION = (
     r"\brecur\w*|\breanimat\w*|"
@@ -71,7 +73,15 @@ def _queries(text: str, claims: list[str]) -> list[str]:
         queries.append(_TAP_QUERY)
     if re.search(r"only once|once each turn|only as a sorcery", text):
         queries.append(_RESTRICTION_QUERY)
-    return list(dict.fromkeys(queries))
+    queries = list(dict.fromkeys(queries))
+    # The renderer declares this specific condition; fetch its dependencies
+    # before review even when other printed mechanics fill the lookup budget.
+    if any(
+        re.search(r"tap(?:-symbol| cost).*continuous control or haste", c.lower())
+        for c in claims
+    ):
+        queries = [_TAP_QUERY, *(q for q in queries if q != _TAP_QUERY)]
+    return queries
 
 
 def finalist_evidence(
@@ -109,6 +119,7 @@ def finalist_evidence(
                 "status": result["status"],
                 "rulings_status": result["rulings_status"],
                 "limitations": result["limitations"],
+                "rules_snapshot": result.get("rules_snapshot"),
             }
         )
     unique: dict[tuple[Any, ...], dict[str, Any]] = {}
@@ -119,8 +130,107 @@ def finalist_evidence(
             unique[key].get("text_truncated") and not hit.get("text_truncated")
         ):
             unique[key] = hit
-    merged["hits"] = list(unique.values())[:6]
-    merged["hits_omitted"] = existing.get("hits_omitted", 0) + max(0, len(unique) - 6)
+    candidates = list(unique.values())
+    ordinary = []
+    dependencies = []
+    dependency_notes = []
+    if _TAP_QUERY in queries:
+        # Require complete attributed text from one edition. A heading, rule
+        # number, excerpt, or card ruling cannot satisfy a dependency.
+        snapshots = [r["rules_snapshot"] for r in receipts if r["rules_snapshot"]]
+        snapshot = snapshots[-1] if snapshots else existing.get("rules_snapshot")
+        if snapshot:
+            merged["rules_snapshot"] = snapshot
+        old_snapshot = existing.get("rules_snapshot")
+        old_snapshot_conflicts = bool(
+            snapshot
+            and old_snapshot
+            and any(
+                snapshot.get(key) != old_snapshot.get(key)
+                for key in ("source_url", "source_version", "content_sha256")
+            )
+        )
+        groups: dict[tuple[Any, Any], dict[str, dict[str, Any]]] = {}
+        for hit in candidates:
+            if hit.get("kind") == "rule" and hit.get("text_truncated"):
+                dependency_notes.append(
+                    f"Tap-symbol candidate rule {hit.get('source_id')} has truncated text; dependency coverage remains unverified."
+                )
+                continue
+            dependency = tap_dependency(str(hit.get("text") or ""))
+            if hit.get("kind") != "rule" or not dependency:
+                ordinary.append(hit)
+                continue
+            if old_snapshot_conflicts and hit not in fresh:
+                dependency_notes.append(
+                    f"Tap-symbol dependency {dependency} has an incompatible snapshot version or hash; remains unverified."
+                )
+                continue
+            identity = (hit.get("source_url"), hit.get("version"))
+            parsed = urlsplit(str(identity[0] or ""))
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname not in WIZARDS_HOSTS
+                or not identity[1]
+                or hashlib.sha256(hit["text"].encode()).hexdigest()
+                != hit.get("content_sha256")
+            ):
+                dependency_notes.append(
+                    f"Tap-symbol dependency {dependency} lacks verified official provenance; remains unverified."
+                )
+                continue
+            if snapshot and identity != (
+                snapshot.get("source_url"),
+                snapshot.get("source_version"),
+            ):
+                dependency_notes.append(
+                    f"Tap-symbol dependency {dependency} has an incompatible snapshot version; remains unverified."
+                )
+                continue
+            groups.setdefault(identity, {}).setdefault(dependency, hit)
+        # Prefer a complete pair from the same snapshot over unrelated fresh hits.
+        chosen = max(groups.values(), key=len, default={})
+        dependencies = list(chosen.values())
+        if len(groups) > 1:
+            dependency_notes.append(
+                "Tap-symbol dependency sources have incompatible snapshot versions; editions were not combined."
+            )
+        for dependency in ("continuous_control", "haste_activation"):
+            if dependency not in chosen:
+                dependency_notes.append(
+                    f"Tap-symbol evidence dependency {dependency} is missing; this condition remains unverified."
+                )
+    else:
+        ordinary = candidates
+    # Downstream source rendering does not carry dependency warnings. Only the
+    # chosen coherent group may cross that boundary; rejected rules (including
+    # other editions) must never reappear as ordinary fallback evidence.
+    prioritized = dependencies + ordinary
+    merged["hits"] = prioritized[:6]
+    merged["limitations"] = list(
+        dict.fromkeys(
+            [
+                *existing.get("limitations", []),
+                *(note for r in receipts for note in r["limitations"]),
+                *dependency_notes,
+            ]
+        )
+    )
+    merged["evidence_dependencies"] = {
+        "tap_symbol": {
+            "required": (
+                ["continuous_control", "haste_activation"]
+                if _TAP_QUERY in queries
+                else []
+            ),
+            "retained": [tap_dependency(h["text"]) for h in dependencies],
+            "limitations": dependency_notes,
+            "scope": "Sources only; dependency coverage is not an automatic rule verdict.",
+        }
+    }
+    merged["hits_omitted"] = (
+        existing.get("hits_omitted", 0) + len(candidates) - len(merged["hits"])
+    )
     if merged["hits"]:
         merged["status"] = "available"
     merged["targeted_lookups"] = receipts
@@ -132,6 +242,8 @@ def finalist_evidence(
         "finalists_omitted": max(0, len(cards) - 3),
         "hits_retained": len(merged["hits"]),
         "queries": receipts,
+        "evidence_dependencies": merged["evidence_dependencies"],
+        "limitations": merged["limitations"],
         "queries_omitted": max(0, len(queries) - 2),
         "sources": [
             {

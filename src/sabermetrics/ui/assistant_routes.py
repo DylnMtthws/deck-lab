@@ -192,6 +192,28 @@ def _work(path, owner, deck_id, turn, app):
         name = str(value.get("name") or "tool").replace("_", " ")
         if value.get("type") == "tool_started":
             content = "Working: " + name + "…"
+        elif value.get("type") == "tool_result" and value.get("name") == "check_answer":
+            receipt = value.get("data") or {}
+            reviewed = [
+                j
+                for j in receipt.get("claim_judgments", [])
+                if j.get("method") != "unreviewed_abstention"
+                and j.get("verdict") in {"supported", "contradicted", "unverified"}
+            ]
+            unresolved = value.get("ok") is False or bool(receipt.get("unresolved"))
+            if not reviewed:
+                content = "Evidence review unavailable; claims remain unverified."
+            elif unresolved:
+                content = "Evidence review finished with unresolved claims."
+                if any(j.get("verdict") == "supported" for j in reviewed):
+                    content += " Supported findings remain available."
+            else:
+                content = "Evidence review finished; see the individual claim findings."
+            content += (
+                " Request fulfillment: "
+                + str(receipt.get("fulfillment") or "unknown")
+                + "."
+            )
         elif value.get("ok") is False:
             content = (
                 name.capitalize()

@@ -34,6 +34,8 @@ from sabermetrics.cedh.cost_ledger import (
     CostLedger,
     check_operation_current,
     estimate_cost,
+    operation_phase,
+    operation_timings,
 )
 from sabermetrics.cedh.errors import (
     ModelConfigurationError,
@@ -136,6 +138,10 @@ class DeepSeekGateway:
         deck_id: Attribution for ledger rows.
     """
 
+    # Budget adapters may defer their permit only because generate acquires it
+    # after ledger admission. Nested adapters forward this explicit capability.
+    defers_provider_permit = True
+
     def __init__(
         self,
         settings: CedhSettings | None = None,
@@ -216,7 +222,13 @@ class DeepSeekGateway:
             ModelValidationError: The response never validated against the
                 schema, after the configured repair attempts.
         """
-        with self._ledger.admission(self._settings.monthly_cost_ceiling_usd):
+        from sabermetrics.assistant_provider_budget import admitted_provider_operation
+
+        with (
+            operation_timings(),
+            self._ledger.admission(self._settings.monthly_cost_ceiling_usd),
+            admitted_provider_operation(),
+        ):
             return self._generate_admitted(request)
 
     def _generate_admitted(self, request: StructuredRequest[T]) -> GenerationResult[T]:
@@ -266,6 +278,9 @@ class DeepSeekGateway:
                 totals["reasoning"] += reasoning
                 request_id = response.get("id") or request_id
 
+                # Account for every paid response before stale-result discard.
+                # The finally below records these totals even if this raises.
+                check_operation_current()
                 content = self._content(response)
                 try:
                     value = request.schema.model_validate_json(_strip_fences(content))
@@ -350,7 +365,8 @@ class DeepSeekGateway:
         for attempt in range(model.max_retries + 1):
             check_operation_current()
             try:
-                response = self._client.post("/chat/completions", json=payload)
+                with operation_phase("transport", attempt=attempt):
+                    response = self._client.post("/chat/completions", json=payload)
                 if response.status_code in _RETRYABLE_STATUS:
                     last = ModelProviderError(
                         f"provider returned {response.status_code}: "

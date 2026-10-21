@@ -213,7 +213,7 @@ def candidate_suitability(
     awkward = []
     if "{t}" in text:
         awkward.append(
-            "Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed."
+            "Tap-symbol cost: this creature needs continuous control or haste."
             if "creature" in str(card.get("type_line") or "").lower().split("—")[0]
             else "Tap cost requires an untapped source; further activations need an untap."
         )
@@ -466,6 +466,4 @@ def render_fit_reason(profile: dict[str, Any]) -> str:
         text += " " + judgment["awkwardness"][0]
     elif judgment["setup_gaps"]:
         text += " Additional setup support remains unconfirmed."
-    else:
-        text += " Casting, timing and activation resources still need to be available."
     return text

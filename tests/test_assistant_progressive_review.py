@@ -1,8 +1,6 @@
 import json
 import threading
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -16,7 +14,8 @@ from sabermetrics.cedh.errors import ModelProviderError
 
 NAMES = ["Amber Engine", "Blue Engine", "Copper Engine", "Dawn Engine"]
 PARTS = ["Candidates"] + [
-    f"Draw: {name} ({{1}}) — Pay {{1}} to draw a card." for name in NAMES
+    f"Draw: {name} ({{1}}) — Activation cost: {{1}}. Qualified draw strategy."
+    for name in NAMES
 ]
 SOURCES = [
     f"Card: {name}\nMana cost: {{1}}\nOracle text:\n{{1}}: Draw a card."
@@ -27,233 +26,171 @@ SOURCES = [
 class Reviewer:
     def __init__(self):
         self.calls = []
-        self.lock = threading.Lock()
 
     def generate(self, request):
         payload = json.loads(request.user)
-        with self.lock:
-            self.calls.append(payload)
-        judgments = [
-            {
-                "claim_id": u["claim_id"],
-                "category": "printed_fact",
-                "verdict": "supported",
-                "citations": [
-                    {"source_index": u["part_index"] - 1, "quote": "{1}: Draw a card."}
+        self.calls.append(payload)
+        return SimpleNamespace(
+            value={
+                "fulfillment": "partial",
+                "judgments": [
+                    {
+                        "claim_id": u["claim_id"],
+                        "category": "printed_fact",
+                        "verdict": "supported",
+                        "citations": [
+                            {
+                                "source_index": u["part_index"] - 1,
+                                "quote": "{1}: Draw a card.",
+                            }
+                        ],
+                    }
+                    for u in payload["claims"]
                 ],
             }
-            for u in payload["claims"]
-        ]
-        return SimpleNamespace(
-            value={"fulfillment": "complete", "judgments": judgments}
         )
 
 
-def test_bounded_global_original_ids_and_coordinator_callback():
+def test_exact_facts_publish_on_coordinator_before_one_global_call():
     reviewer = Reviewer()
     coordinator = threading.get_ident()
-    publications = []
+    published = []
 
     def publish(corrected, receipt):
         assert threading.get_ident() == coordinator
-        assert len(corrected) == len(PARTS)
         assert receipt["fulfillment"] == "unknown"
-        for j in receipt["claim_judgments"]:
-            assert reviewed_claim_text(receipt, j, PARTS)
-        publications.append(receipt)
+        assert corrected == PARTS
+        assert all(
+            reviewed_claim_text(receipt, j, PARTS) for j in receipt["claim_judgments"]
+        )
+        if receipt.get("method") == "EXACT_source_check":
+            assert not reviewer.calls
+            assert "review_model" not in receipt
+        published.append(receipt)
 
     corrected, receipt = progressive.progressive_review(
-        reviewer, PARTS, SOURCES, "Find draw cards", on_reviewed=publish
+        reviewer, PARTS, SOURCES, "Find draw", on_reviewed=publish
     )
     assert corrected == PARTS
-    assert receipt["fulfillment"] == "complete"
-    assert receipt["progressive_review"]["job_count"] == 3
-    assert receipt["progressive_review"]["job_limit"] == 3
-    assert len(publications) == 3
-    counts = Counter(u["claim_id"] for call in reviewer.calls for u in call["claims"])
-    assert counts == {f"c{i}": 1 for i in range(4)}
+    assert len(reviewer.calls) == 1
+    assert len(published) == 2
     assert [j["claim_id"] for j in receipt["claim_judgments"]] == [
-        f"c{i}" for i in range(4)
+        f"c{i}" for i in range(8)
     ]
-    final = reviewer.calls[-1]
-    selection = final["research_context"]["progressive_selection"]
-    additional = selection["additional_parent_parts"]
-    assert not (set(final["parent_parts"]) & set(additional))
-    combined = {**final["parent_parts"], **additional}
+    assert not receipt["missing_claim_ids"]
+    assert receipt["fulfillment"] == "partial"
+    jobs = receipt["progressive_review"]
+    assert jobs["job_count"] == jobs["job_limit"] == jobs["model_job_count"] == 1
+    assert jobs["exact_fact_count"] == 4
+    assert [j["stage"] for j in jobs["jobs"]] == ["exact", "global"]
+    assert all(j["bound"] for j in jobs["jobs"])
+    assert {u["claim_id"] for u in reviewer.calls[0]["claims"]} == {
+        "c1",
+        "c3",
+        "c5",
+        "c7",
+    }
+    selection = reviewer.calls[0]["research_context"]["progressive_selection"]
+    combined = {
+        **reviewer.calls[0]["parent_parts"],
+        **selection["additional_parent_parts"],
+    }
     assert [combined[str(i)] for i in selection["selection_order"]] == PARTS
-    assert [r["source_index"] for r in final["source_records"]] == list(range(4))
-    for call in reviewer.calls[:-1]:
-        assert len(call["source_records"]) < 4
-        assert {r["source_index"] for r in call["source_records"]} == {
-            u["part_index"] - 1 for u in call["claims"]
-        }
-        assert len(call["parent_parts"]) < len(PARTS) - 1
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        "Together with Blue Engine, this draws cards.",
-        "Both use the same fodder.",
-        "The best engine in the deck.",
-        "No other card is needed.",
-        "They share available mana.",
-        "Works without any support.",
-        "The only draw engine in the deck.",
-        "This is the cheapest draw engine in your deck.",
-        "This is the most efficient draw engine.",
-        "This is the least expensive option.",
-        "This engine is cheaper than the alternatives.",
-        "This is the fastest draw engine.",
-        "This is a top draw engine among your cards.",
-    ],
-)
-def test_coupled_claim_is_reserved_for_global_batch(body):
-    parts = PARTS[:]
-    parts[1] = parts[1].split(" — ", 1)[0] + " — " + body
-    reviewer = Reviewer()
-    _, receipt = progressive.progressive_review(reviewer, parts, SOURCES, "Find cards")
-    assert len(reviewer.calls) == 3
-    assert receipt["progressive_review"]["enabled"]
-    assert {u["claim_id"] for u in reviewer.calls[-1]["claims"]} == {"c0"}
-    assert all(
-        "c0" not in {u["claim_id"] for u in call["claims"]}
-        for call in reviewer.calls[:-1]
-    )
+    assert receipt["source_sha256"] == [progressive.text_hash(s) for s in SOURCES]
+    assert jobs["evidence_bytes_sent"] == sum(len(s.encode()) for s in SOURCES)
 
 
 @pytest.mark.parametrize(
     "claim",
     [
+        "Pay {1} to draw a card.",
+        "Draw a card.",
+        "Activation costs {1}.",
+        "Draws a card only after paying {1}, without tapping.",
         "This is the cheapest draw engine in your deck.",
-        "This is the priciest draw engine.",
-        "It outperforms all alternative draw engines.",
+        "It outperforms all alternatives.",
+        "Together with Blue Engine, this draws cards.",
+        "Both use the same fodder.",
+        "No other card is needed.",
         "This is your sole draw engine.",
-        "This is an unrivalled draw engine.",
-        "Every alternative is inferior to this engine.",
-        "Your deck has no substitute for this draw engine.",
-        "This engine dominates the available alternatives.",
-        "Draws a card and outperforms all alternatives.",
-        "Pay {1} to draw a card using your sole engine.",
         "Potential deck support: Amber Engine (counter support).",
+        "Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.",
     ],
 )
-def test_deck_superlative_never_publishes_locally_and_keeps_original_global_id(claim):
-    parts = PARTS[:]
-    parts[1] = parts[1].split(" — ", 1)[0] + " — " + claim
+def test_unknown_and_global_claims_stay_in_single_semantic_call(claim):
+    parts = [
+        p.replace("Activation cost: {1}. Qualified draw strategy.", claim)
+        for p in PARTS
+    ]
     reviewer = Reviewer()
-    published = []
-    _, receipt = progressive.progressive_review(
-        reviewer,
-        parts,
-        SOURCES,
-        "Find draw engines",
-        on_reviewed=lambda corrected, result: published.append(result),
-    )
-    units = progressive.claim_units(parts, set())
-    cid = next(u["claim_id"] for u in units if u["claim"] == claim)
-    assert len(reviewer.calls) == len(published) == 3
-    assert all(
-        cid not in {j["claim_id"] for j in result["claim_judgments"]}
-        for result in published[:-1]
-    )
-    final = reviewer.calls[-1]
-    assert {u["claim_id"] for u in final["claims"]} == {cid}
-    assert final["claims"][0]["claim"] == claim
-    assert {r["source_index"] for r in final["source_records"]} == set(range(4))
-    assert cid in {j["claim_id"] for j in receipt["claim_judgments"]}
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {"protected_parts": {2}},
-        {"research_context": {"empirical_receipts": ["measured"]}},
-        {"research_context": {"task": {"kind": "package"}}},
-        {"research_context": {"recommendation_packets": ["malformed"]}},
-        {
-            "research_context": {
-                "recommendation_packets": [
-                    {"incoming": "Amber Engine", "outgoing": "Blue Engine"}
-                ]
-            }
-        },
-    ],
-)
-def test_protected_or_package_context_is_single_batch(kwargs):
-    reviewer = Reviewer()
-    _, receipt = progressive.progressive_review(
-        reviewer, PARTS, SOURCES, "Find cards", **kwargs
-    )
+    _, receipt = progressive.progressive_review(reviewer, parts, SOURCES, "Find cards")
     assert len(reviewer.calls) == 1
     assert not receipt["progressive_review"]["enabled"]
+    assert {u["claim_id"] for u in reviewer.calls[0]["claims"]} == {
+        f"c{i}" for i in range(4)
+    }
+    assert len(receipt["claim_judgments"]) == 4
 
 
-def test_global_failure_keeps_successful_local_findings_and_unknown_fulfillment():
-    class FinalFailure(Reviewer):
+def test_global_failure_keeps_exact_facts_and_unknown_fulfillment():
+    class Failure(Reviewer):
         def generate(self, request):
-            if "progressive_selection" in json.loads(request.user)["research_context"]:
-                raise ModelProviderError("failed final review")
-            return super().generate(request)
+            self.calls.append(json.loads(request.user))
+            raise ModelProviderError("failed global review")
 
+    reviewer = Failure()
     published = []
-    corrected, receipt = progressive.progressive_review(
-        FinalFailure(),
-        PARTS,
-        SOURCES,
-        "Find draw",
-        on_reviewed=lambda c, r: published.append(r),
+    _, receipt = progressive.progressive_review(
+        reviewer, PARTS, SOURCES, "Draw", on_reviewed=lambda c, r: published.append(r)
     )
-    assert corrected == PARTS
-    assert len(published) == 2
-    assert len(receipt["claim_judgments"]) == 3
-    assert receipt["missing_claim_ids"] == ["c3"]
+    assert len(reviewer.calls) == len(published) == 1
+    assert {
+        j["claim_id"] for j in receipt["claim_judgments"] if j["verdict"] == "supported"
+    } == {"c0", "c2", "c4", "c6"}
+    assert len(receipt["claim_judgments"]) == 8
+    assert all(
+        j["method"] == "unreviewed_abstention"
+        for j in receipt["claim_judgments"]
+        if j["verdict"] == "unverified"
+    )
+    assert receipt["missing_claim_ids"] == ["c1", "c3", "c5", "c7"]
     assert receipt["fulfillment"] == "unknown"
     assert receipt["status"] == "unverified"
 
 
-@pytest.mark.parametrize("corruption", ["duplicate", "hash", "sources"])
-def test_invalid_local_binding_is_not_published_and_retried_in_final(
+@pytest.mark.parametrize("corruption", ["duplicate", "hash", "sources", "indices"])
+def test_invalid_exact_receipt_is_not_published_and_retried_globally(
     monkeypatch, corruption
 ):
-    original_review = progressive.review_claims
+    original = progressive.exact_cost_facts
 
-    def corrupt(*args, **kwargs):
-        corrected, receipt = original_review(*args, **kwargs)
-        if (
-            "c0" in kwargs["claim_ids"]
-            and "progressive_selection" not in kwargs["research_context"]
-        ):
-            receipt = deepcopy(receipt)
-            if corruption == "duplicate":
-                receipt["claim_judgments"] *= 2
-            elif corruption == "hash":
-                receipt["claim_judgments"][0]["part_sha256"] = "stale hash"
-            else:
-                receipt["source_sha256"].reverse()
+    def corrupt(*args):
+        corrected, receipt = original(*args)
+        if corruption == "duplicate":
+            receipt["claim_judgments"] *= 2
+        elif corruption == "hash":
+            receipt["claim_judgments"][0]["part_sha256"] = "stale"
+        elif corruption == "sources":
+            receipt["source_sha256"].reverse()
+        else:
+            receipt["evidence_indices"] = []
         return corrected, receipt
 
-    monkeypatch.setattr(progressive, "review_claims", corrupt)
+    monkeypatch.setattr(progressive, "exact_cost_facts", corrupt)
     reviewer = Reviewer()
     published = []
     _, receipt = progressive.progressive_review(
-        reviewer,
-        PARTS,
-        SOURCES,
-        "Find draw",
-        on_reviewed=lambda c, r: published.append(r),
+        reviewer, PARTS, SOURCES, "Draw", on_reviewed=lambda c, r: published.append(r)
     )
-    assert all(
-        "c0" not in {j["claim_id"] for j in r["claim_judgments"]}
-        for r in published[:-1]
-    )
-    assert "c0" in {u["claim_id"] for u in reviewer.calls[-1]["claims"]}
-    assert len(receipt["claim_judgments"]) == 4
-    assert receipt["progressive_review"]["job_count"] <= 3
+    assert len(reviewer.calls) == len(published) == 1
+    assert len(reviewer.calls[0]["claims"]) == 8
+    assert len(receipt["claim_judgments"]) == 8
+    assert not receipt["progressive_review"]["jobs"][0]["bound"]
 
 
-def test_source_focus_and_wire_evidence_ids_keep_identical_basis():
+def test_focused_source_basis_wire_ids_and_metadata_remain_bound():
     sources = SourceEvidence()
+    sources.card_names = NAMES[:]
     sources.extend(
         [
             "Current deck printed mana costs:\nAmber Engine: {1}\nUnmentioned Card: {9}",
@@ -262,14 +199,13 @@ def test_source_focus_and_wire_evidence_ids_keep_identical_basis():
     )
     _records, quotes = evidence_catalog(focused_sources(PARTS, sources))
     by_index = {
-        index: eid
-        for eid, (index, quote) in quotes.items()
-        if quote == "{1}: Draw a card."
+        i: eid for eid, (i, quote) in quotes.items() if quote == "{1}: Draw a card."
     }
 
-    class WireReviewer:
+    class WireReviewer(Reviewer):
         def generate(self, request):
             payload = json.loads(request.user)
+            self.calls.append(payload)
             return SimpleNamespace(
                 value={
                     "fulfillment": "partial",
@@ -287,71 +223,336 @@ def test_source_focus_and_wire_evidence_ids_keep_identical_basis():
                 }
             )
 
-    _, receipt = progressive.progressive_review(
-        WireReviewer(), PARTS, sources, "Find draw"
-    )
-    assert len(receipt["claim_judgments"]) == 4
+    _, receipt = progressive.progressive_review(WireReviewer(), PARTS, sources, "Draw")
     assert receipt["omitted_sources"] == 1
-    for j in receipt["claim_judgments"]:
-        assert j["citations"][0]["source_index"] == j["part_index"]
-    assert receipt["fulfillment"] == "partial"
+    assert receipt["status"] == "unverified"
+    assert len(receipt["claim_judgments"]) == 8
+    assert all(
+        j["citations"][0]["source_index"] == j["part_index"]
+        for j in receipt["claim_judgments"]
+    )
+    assert receipt["source_sha256"] == [
+        progressive.text_hash(s) for s in focused_sources(PARTS, sources)
+    ]
 
 
-def test_late_cancellation_prevents_publication_and_final_call():
-    cancelled = threading.Event()
+def test_cancellation_after_exact_publication_prevents_provider_call():
+    reviewer = Reviewer()
+    current = True
 
-    class CancellingReviewer(Reviewer):
-        def generate(self, request):
-            result = super().generate(request)
-            cancelled.set()
-            return result
+    def publish(c, r):
+        nonlocal current
+        current = False
 
-    published = []
-    reviewer = CancellingReviewer()
     with pytest.raises(ProviderOperationCancelled):
         progressive.progressive_review(
             reviewer,
             PARTS,
             SOURCES,
-            "draw",
-            check_current=lambda: not cancelled.is_set(),
+            "Draw",
+            on_reviewed=publish,
+            check_current=lambda: current,
+        )
+    assert not reviewer.calls
+
+
+def test_cancellation_after_model_return_prevents_semantic_publication():
+    current = True
+    published = []
+
+    class CancellingReviewer(Reviewer):
+        def generate(self, request):
+            nonlocal current
+            result = super().generate(request)
+            current = False
+            return result
+
+    with pytest.raises(ProviderOperationCancelled):
+        progressive.progressive_review(
+            CancellingReviewer(),
+            PARTS,
+            SOURCES,
+            "Draw",
+            check_current=lambda: current,
             on_reviewed=lambda c, r: published.append(r),
         )
-    assert not published
-    assert len(reviewer.calls) <= 2
+    assert len(published) == 1
+    assert published[0]["method"] == "EXACT_source_check"
 
 
-def test_completion_callbacks_are_serial_and_precede_final_review():
-    fast_published = threading.Event()
-    coordinator = threading.get_ident()
-    order = []
+@pytest.mark.parametrize("actual_gateway", [False, True])
+@pytest.mark.parametrize("after_acquire", [False, True])
+@pytest.mark.parametrize("deadline", [False, True])
+def test_queued_review_checks_caller_before_any_provider_execution(
+    monkeypatch, tmp_path, actual_gateway, after_acquire, deadline
+):
+    from sabermetrics import assistant_provider_budget as budget_module
+    from sabermetrics.cedh.cost_ledger import check_operation_current
 
-    class OrderedReviewer(Reviewer):
-        def generate(self, request):
-            payload = json.loads(request.user)
-            ids = {u["claim_id"] for u in payload["claims"]}
-            if ids == {"c0"}:
-                assert fast_published.wait(3)
-            if "progressive_selection" in payload["research_context"]:
-                assert len(order) == 2
-            return super().generate(request)
+    stale, waiting, release = (threading.Event() for _ in range(3))
+    ready = [threading.Event(), threading.Event()]
+    reviewer = Reviewer()
+    caller_threads = []
+    outer_checks = []
+    transport_calls = []
+    client = None
 
-    def publish(corrected, receipt):
-        assert threading.get_ident() == coordinator
-        ids = {j["claim_id"] for j in receipt["claim_judgments"]}
-        order.append(ids)
-        if ids == {"c1", "c2"}:
-            fast_published.set()
+    def current():
+        caller_threads.append(threading.get_ident())
+        if stale.is_set():
+            if deadline:
+                raise TimeoutError("review deadline expired")
+            return False
+        return True
 
-    progressive.progressive_review(
-        OrderedReviewer(), PARTS, SOURCES, "draw", on_reviewed=publish
+    gateway = reviewer
+    if actual_gateway:
+        import httpx
+
+        from sabermetrics.cedh.provider_deepseek import DeepSeekGateway
+        from sabermetrics.cedh.settings import load_cedh_settings
+
+        settings = load_cedh_settings()
+        monkeypatch.setenv(settings.model.credential_env, "fixture-token")
+
+        def transport(request):
+            transport_calls.append(request)
+            raise AssertionError("cancelled review reached HTTP transport")
+
+        client = httpx.Client(transport=httpx.MockTransport(transport))
+        gateway = DeepSeekGateway(
+            settings, db_path=str(tmp_path / "review-cancel.db"), client=client
+        )
+    # Nested wrapper callbacks remain scoped and execute on the review thread.
+    gateway = budget_module.budget_gateway(
+        budget_module.budget_gateway(gateway),
+        check_current=lambda: outer_checks.append(threading.get_ident()),
     )
-    assert order == [{"c1", "c2"}, {"c0"}, {"c3"}]
+    underlying = budget_module._PERMITS
+
+    class ObservedPermits:
+        def acquire(self, **kwargs):
+            acquired = underlying.acquire(**kwargs)
+            if threading.current_thread().name.startswith("review-waiter"):
+                if acquired and after_acquire:
+                    stale.set()
+                elif not acquired:
+                    waiting.set()
+            return acquired
+
+        def release(self):
+            underlying.release()
+
+    monkeypatch.setattr(budget_module, "_PERMITS", ObservedPermits())
+
+    def holder(index):
+        with budget_module.ProviderBudget().operation():
+            ready[index].set()
+            assert release.wait(3)
+
+    def review():
+        owner = threading.get_ident()
+        try:
+            return progressive.progressive_review(
+                gateway, PARTS, SOURCES, "Draw", check_current=current
+            )
+        finally:
+            assert caller_threads and set(caller_threads) == {owner}
+            assert set(outer_checks) <= {owner}
+            if actual_gateway:
+                assert outer_checks
+            # Hooks from failed nested wrappers must leave no stale scope.
+            check_operation_current()
+
+    try:
+        with (
+            ThreadPoolExecutor(max_workers=2) as holders,
+            ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="review-waiter"
+            ) as waiter,
+        ):
+            held = [holders.submit(holder, i) for i in range(2)]
+            try:
+                assert all(event.wait(3) for event in ready)
+                pending = waiter.submit(review)
+                assert waiting.wait(3)
+                if after_acquire:
+                    release.set()
+                else:
+                    stale.set()
+                with pytest.raises(
+                    TimeoutError if deadline else ProviderOperationCancelled
+                ):
+                    pending.result(timeout=3)
+            finally:
+                release.set()
+            for future in held:
+                future.result(timeout=3)
+        assert not reviewer.calls
+        assert not transport_calls
+        # Cancellation releases the global permits for subsequent operations.
+        assert (
+            budget_module.budget_gateway(
+                SimpleNamespace(generate=lambda r: r)
+            ).generate(7)
+            == 7
+        )
+    finally:
+        if client is not None:
+            client.close()
 
 
-def test_multiple_turns_share_global_two_provider_limit():
-    entered = threading.Event()
-    release = threading.Event()
+@pytest.mark.parametrize("fulfillment", ["complete", "partial"])
+def test_all_exact_still_has_one_real_fulfillment_call_without_duplicate_judgments(
+    fulfillment,
+):
+    parts = [p.replace(" Qualified draw strategy.", "") for p in PARTS]
+
+    class CompleteReviewer(Reviewer):
+        def generate(self, request):
+            result = super().generate(request)
+            result.value["fulfillment"] = fulfillment
+            return result
+
+    reviewer = CompleteReviewer()
+    published = []
+    _, receipt = progressive.progressive_review(
+        reviewer, parts, SOURCES, "Draw", on_reviewed=lambda c, r: published.append(r)
+    )
+    assert len(reviewer.calls) == len(published) == 1
+    assert len(receipt["claim_judgments"]) == 4
+    assert all(j["method"] == "EXACT_source_check" for j in receipt["claim_judgments"])
+    assert receipt["fulfillment"] == fulfillment
+    assert receipt["status"] == "no_supported_correction"
+
+
+@pytest.mark.parametrize(
+    "verdict,remainder,correct",
+    [
+        ("supported", True, False),
+        ("unverified", False, False),
+        ("contradicted", False, False),
+        ("contradicted", False, True),
+    ],
+)
+@pytest.mark.parametrize("fulfillment", ["complete", "partial"])
+def test_all_exact_retains_actual_semantic_qualifications(
+    verdict, remainder, correct, fulfillment
+):
+    parts = [p.replace(" Qualified draw strategy.", "") for p in PARTS]
+
+    class QualifiedReviewer(Reviewer):
+        def generate(self, request):
+            result = super().generate(request)
+            result.value["fulfillment"] = fulfillment
+            judgment = result.value["judgments"][0]
+            judgment.update(
+                verdict=verdict,
+                unverified_remainder=remainder,
+                reason="Payable cost still depends on the game state.",
+            )
+            if correct:
+                judgment.update(
+                    correction_span="Activation cost: {1}.",
+                    replacement="Printed activation cost: {1}.",
+                )
+            return result
+
+    reviewer = QualifiedReviewer()
+    publications = []
+    corrected, receipt = progressive.progressive_review(
+        reviewer,
+        parts,
+        SOURCES,
+        "Draw",
+        on_reviewed=lambda c, r: publications.append(r),
+    )
+    assert len(reviewer.calls) == len(publications) == 1
+    assert corrected == parts
+    assert receipt["status"] == "unverified"
+    assert receipt["fulfillment"] == (
+        "unknown" if fulfillment == "complete" else fulfillment
+    )
+    assert receipt["unresolved"]
+    assert not receipt["patches"]
+    assert not receipt["missing_claim_ids"]
+    assert [j["claim_id"] for j in receipt["claim_judgments"]] == [
+        "c0",
+        "c1",
+        "c2",
+        "c3",
+    ]
+    assert all(
+        j["method"] == "EXACT_source_check"
+        and j["verdict"] == "supported"
+        and reviewed_claim_text(receipt, j, parts)
+        for j in receipt["claim_judgments"]
+    )
+    recheck = receipt["progressive_review"]["semantic_recheck"]
+    assert recheck["applied"] is False
+    semantic = recheck["receipt"]
+    judgment = semantic["claim_judgments"][0]
+    assert judgment["claim_id"] == "c0"
+    assert judgment["verdict"] == ("unverified" if remainder else verdict)
+    assert judgment["unverified_remainder"] is remainder
+    assert judgment["reason"] == "Payable cost still depends on the game state."
+    assert reviewed_claim_text(semantic, judgment, parts)
+    assert bool(semantic["patches"]) is correct
+    assert receipt["progressive_review"]["global_review_complete"]
+
+
+def test_semantic_correction_does_not_transfer_exact_verdict_to_rewritten_part():
+    class CorrectingReviewer(Reviewer):
+        def generate(self, request):
+            result = super().generate(request)
+            result.value["judgments"][0].update(
+                verdict="contradicted",
+                correction_span="Qualified",
+                replacement="Tentative",
+            )
+            return result
+
+    corrected, receipt = progressive.progressive_review(
+        CorrectingReviewer(), PARTS, SOURCES, "Draw"
+    )
+    assert corrected[1] == PARTS[1].replace("Qualified", "Tentative")
+    assert len(receipt["patches"]) == 1
+    exact = receipt["claim_judgments"][0]
+    assert reviewed_claim_text(receipt, exact, PARTS)
+    assert reviewed_claim_text(receipt, exact, corrected) == ""
+
+
+def test_large_discovery_never_fans_out_or_exceeds_semantic_claim_limit():
+    parts = ["Candidates"] + [
+        f"Draw: Engine {i} ({{1}}) — Activation cost: {{1}}. Draw strategy."
+        for i in range(40)
+    ]
+    sources = [
+        f"Card: Engine {i}\nOracle text:\n{{1}}: Draw a card." for i in range(40)
+    ]
+    reviewer = Reviewer()
+    _, receipt = progressive.progressive_review(reviewer, parts, sources, "Draw")
+    assert len(reviewer.calls) == 1
+    assert len(reviewer.calls[0]["claims"]) == 40
+    assert len(receipt["claim_judgments"]) == 80
+    assert not receipt["missing_claim_ids"]
+
+
+def test_unbounded_semantic_context_abstains_without_fanout():
+    parts = ["Candidates"] + [
+        f"Draw: Engine {i} ({{1}}) — Unknown claim." for i in range(65)
+    ]
+    reviewer = Reviewer()
+    _, receipt = progressive.progressive_review(reviewer, parts, SOURCES, "Draw")
+    assert not reviewer.calls
+    assert receipt["status"] == "unverified"
+    assert len(receipt["missing_claim_ids"]) == 65
+    assert len(receipt["claim_judgments"]) == 65
+    assert receipt["progressive_review"]["model_job_count"] == 0
+
+
+def test_multiple_turns_keep_process_wide_two_provider_limit():
+    entered, release = threading.Event(), threading.Event()
     lock = threading.Lock()
     active = peak = 0
 
@@ -360,7 +561,7 @@ def test_multiple_turns_share_global_two_provider_limit():
             nonlocal active, peak
             with lock:
                 active += 1
-                peak = max(peak, active)
+                peak = max(active, peak)
                 if active == 2:
                     entered.set()
             assert release.wait(3)
@@ -370,14 +571,14 @@ def test_multiple_turns_share_global_two_provider_limit():
                 with lock:
                     active -= 1
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         turns = [
-            executor.submit(
+            pool.submit(
                 progressive.progressive_review,
                 BlockingReviewer(),
                 PARTS,
                 SOURCES,
-                "draw",
+                "Draw",
             )
             for _ in range(2)
         ]
@@ -385,310 +586,99 @@ def test_multiple_turns_share_global_two_provider_limit():
             assert entered.wait(3)
         finally:
             release.set()
-        for turn in turns:
-            assert len(turn.result(timeout=3)[1]["claim_judgments"]) == 4
+        assert all(
+            len(turn.result(timeout=3)[1]["claim_judgments"]) == 8 for turn in turns
+        )
     assert peak == 2
 
 
-def test_realistic_paragraphs_packets_and_commander_support_get_local_review():
-    commander = "Marchesa, the Black Rose"
-    sources = [
-        *SOURCES,
-        f"Card: {commander}\nOracle text:\nDethrone (Whenever this creature attacks the player with the most life, put a +1/+1 counter on it.)",
-        "Current deck:\nMarchesa, the Black Rose is the commander.",
-        "Rule 602\nAn activated ability's costs must be paid before it can resolve.",
-    ]
-    parts = ["Candidates"] + [
-        f"Draw: {name} ({{1}}) — Draws a card only after paying {{1}}, without tapping. "
-        f"Potential deck support: {commander} (counter support). "
-        "Both selected engines consume the same fodder."
-        for name in NAMES
-    ]
-    context = {
-        "preferences": [],
-        "task": {"kind": "discover", "evidence_scope": "candidate_discovery"},
-        "empirical_receipts": [],
-        "recommendation_packets": [
-            {"incoming": name, "prerequisites": ["counter support"], "coverage": {}}
-            for name in NAMES
-        ],
-    }
-    reviewer = Reviewer()
-    _, receipt = progressive.progressive_review(
-        reviewer, parts, sources, "Find draw cards", research_context=context
-    )
-    assert receipt["progressive_review"]["enabled"]
-    assert len(reviewer.calls) == 3
-    expected_coupled = {f"c{i * 3 + j}" for i in range(4) for j in (1, 2)}
-    assert {u["claim_id"] for u in reviewer.calls[-1]["claims"]} == expected_coupled
-    for call in reviewer.calls[:-1]:
-        assert not ({u["claim_id"] for u in call["claims"]} & expected_coupled)
-        assert all("Potential deck support" not in u["claim"] for u in call["claims"])
-        assert {4, 5, 6} <= {r["source_index"] for r in call["source_records"]}
-        assert len(call["research_context"]["recommendation_packets"]) == 2
-        assert len(call["source_records"]) < len(sources)
-    selection = reviewer.calls[-1]["research_context"]["progressive_selection"]
-    assert set(selection["additional_parent_parts"]) == {"0"}
-    for job in receipt["progressive_review"]["jobs"][:-1]:
-        assert job["evidence_bytes_sent"] < sum(len(s.encode()) for s in sources)
-
-
-def test_no_safe_source_reduction_uses_single_full_batch():
-    # Every row explicitly depends on every retrieved record. Splitting it
-    # would duplicate all evidence with no safe input reduction.
-    parts = ["Candidates"] + [row + " " + "; ".join(NAMES) + "." for row in PARTS[1:]]
-    reviewer = Reviewer()
-    _, receipt = progressive.progressive_review(reviewer, parts, SOURCES, "Find cards")
-    assert len(reviewer.calls) == 1
-    assert not receipt["progressive_review"]["enabled"]
-
-
-def test_global_and_local_corrections_in_same_original_part_both_survive():
-    parts = PARTS[:]
-    parts[1] = (
-        parts[1].replace("Pay {1}", "Pay {2}") + " Both engines draw cards together."
-    )
-    sources = [
-        SOURCES[0] + "\nBoth engines can draw cards independently.",
-        *SOURCES[1:],
-    ]
-
-    class CorrectingReviewer(Reviewer):
-        def generate(self, request):
-            result = super().generate(request)
-            payload = json.loads(request.user)
-            for unit, judgment in zip(payload["claims"], result.value["judgments"]):
-                if unit["part_index"] == 1:
-                    judgment["verdict"] = "contradicted"
-                    if "Pay {2}" in unit["claim"]:
-                        judgment.update(correction_span="{2}", replacement="{1}")
-                    else:
-                        judgment.update(
-                            correction_span="together",
-                            replacement="independently",
-                            citations=[
-                                {
-                                    "source_index": 0,
-                                    "quote": "Both engines can draw cards independently.",
-                                }
-                            ],
-                        )
-            return result
-
-    corrected, receipt = progressive.progressive_review(
-        CorrectingReviewer(), parts, sources, "Find draw"
-    )
-    assert corrected[1] == PARTS[1] + " Both engines draw cards independently."
-    assert len(receipt["patches"]) == 2
-    assert all(
-        reviewed_claim_text(receipt, j, parts) for j in receipt["claim_judgments"]
-    )
-    changed = parts[:]
-    changed[1] = corrected[1]
-    assert reviewed_claim_text(receipt, receipt["claim_judgments"][0], changed) == ""
-
-
-def test_large_discovery_stays_three_jobs_and_each_batch_respects_claim_limit():
-    parts = ["Candidates"] + [
-        f"Draw: Engine {i} ({{1}}) — Pay {{1}} to draw a card. Activation costs {{1}}."
-        for i in range(40)
-    ]
-    sources = [
-        f"Card: Engine {i}\nOracle text:\n{{1}}: Draw a card." for i in range(40)
-    ]
-    reviewer = Reviewer()
-    _, receipt = progressive.progressive_review(
-        reviewer, parts, sources, "Find draw cards"
-    )
-    assert receipt["progressive_review"]["enabled"]
-    assert len(reviewer.calls) == 3
-    assert all(len(call["claims"]) <= 64 for call in reviewer.calls)
-    assert len(receipt["claim_judgments"]) == 80
-    assert not receipt["missing_claim_ids"]
-
-
-@pytest.mark.parametrize(
-    "claim",
-    [
-        "Pay {2} to draw a card.",
-        "Draw a card.",
-        "Draws a card only after paying {1}, without tapping.",
-        "Activation costs {1}.",
-        "Mana cost {1}.",
-    ],
-)
-def test_explicit_local_facts_keep_useful_subset_review(claim):
-    parts = PARTS[:]
-    parts[1] = parts[1].split(" — ", 1)[0] + " — " + claim
-    reviewer = Reviewer()
-    published = []
-    _, receipt = progressive.progressive_review(
-        reviewer,
-        parts,
-        SOURCES,
-        "Find draw",
-        on_reviewed=lambda c, r: published.append(r),
-    )
-    assert any(
-        "c0" in {u["claim_id"] for u in call["claims"]} for call in reviewer.calls[:-1]
-    )
-    assert all(r["fulfillment"] == "unknown" for r in published)
-    assert receipt["fulfillment"] == "complete"
-
-
-def test_frozen_qa_style_renderer_clauses_enable_only_bounded_local_review():
-    # Frozen app-style paragraphs, rather than simplified standalone draw facts.
-    # Strategy remains global even when adjacent renderer clauses are local.
+def test_current_renderer_tap_condition_stays_semantic_and_lead_is_visible():
     names = ["Mystic Archaeologist", "Azure Mage", "Roil Cartographer"]
     costs = ["{3}{U}{U}", "{3}{U}", "{T}, Pay six {E}"]
-    tap = (
-        "Tap-symbol cost: this creature needs continuous control or haste; "
-        "untapping is not assumed."
-    )
-    parts = [
-        "Selected repeatable draw engines",
-        "Draw: Mystic Archaeologist ({1}{U}) — A mana sink that converts late-game "
-        "mana into cards while leaving the creature available for combat. "
-        "Potential deck support: Marchesa, the Black Rose (counter support). "
-        "Activation cost: {3}{U}{U}. "
-        "Casting, timing and activation resources still need to be available. "
-        "Mystic Archaeologist is the priciest selected engine.",
-        "Draw: Azure Mage ({1}{U}) — A reusable draw outlet that lets the deck "
-        "hold mana for interaction before committing to another card. "
-        "Relevant deck support remains unconfirmed. Activation cost: {3}{U}. "
-        "Casting, timing and activation resources still need to be available. "
-        "Azure Mage is the cheapest engine and outperforms the alternatives.",
-        "Draw: Roil Cartographer ({1}{U}) — An energy outlet whose draw plan "
-        "depends on accumulating enough counters and preserving the creature. "
-        "Relevant deck support remains unconfirmed. "
-        "Activation cost: {T}, Pay six {E}. " + tap + " "
-        "Roil Cartographer is the sole energy draw engine. "
-        "All selected engines share sufficient resources for a repeatable loop.",
-    ]
-    oracles = [
+    abilities = [
         "{3}{U}{U}: Draw two cards.",
         "{3}{U}: Draw a card.",
         "{T}, Pay six {E}: Draw three cards.",
     ]
-    rules = (
-        "Rule 302.6\nA creature's activated ability with the tap symbol requires "
-        "continuous control since the beginning of its controller's most recent turn.",
-        "Rule 702.10\nHaste permits activation of a creature's tap-symbol ability "
-        "without continuous control.",
-        "Rule 602.2\nThe source must be untapped to pay a tap-symbol cost; "
-        "further activations require it to untap.",
-    )
-    sources = [
-        f"Card: {name}\nOracle text:\n{oracle}" for name, oracle in zip(names, oracles)
-    ] + list(rules)
-    packets = [
-        {"incoming": name, "activation_costs": [cost], "coverage": {}}
+    tap = "Tap-symbol cost: this creature needs continuous control or haste."
+    lead = "Selected candidates. Casting, timing and activation resources still need to be available. Untapping is not assumed."
+    parts = [lead] + [
+        f"Draw: {name} ({{1}}{{U}}) — Qualified strategy. Activation cost: {cost}."
         for name, cost in zip(names, costs)
     ]
-    context = {
-        "task": {"kind": "discover", "evidence_scope": "candidate_discovery"},
-        "recommendation_packets": packets,
-    }
-    units = progressive.claim_units(parts, set())
-    expected_local = {
-        u["claim_id"]
-        for u in units
-        if u["claim"] in {*(f"Activation cost: {cost}." for cost in costs), tap}
-    }
-    assert len(expected_local) == 4
+    parts[3] += " " + tap
+    sources = [
+        f"Card: {name}\nOracle text:\n{ability}"
+        for name, ability in zip(names, abilities)
+    ]
 
     class RendererReviewer(Reviewer):
         def generate(self, request):
             payload = json.loads(request.user)
-            with self.lock:
-                self.calls.append(payload)
-            records = {r["source_index"] for r in payload["source_records"]}
-            judgments = []
-            for unit in payload["claims"]:
-                index = unit["part_index"] - 1
-                assert index in records  # Complete original Oracle record retained.
-                citations = [{"source_index": index, "quote": oracles[index]}]
-                if unit["claim"] == tap:
-                    assert {3, 4, 5} <= records
-                    citations = [
-                        {"source_index": i, "quote": sources[i].split("\n", 1)[1]}
-                        for i in (3, 4, 5)
-                    ]
-                judgments.append(
-                    {
-                        "claim_id": unit["claim_id"],
-                        "category": (
-                            "rules_interaction"
-                            if unit["claim"] == tap
-                            else "printed_fact"
-                        ),
-                        "verdict": (
-                            "supported"
-                            if unit["claim_id"] in expected_local
-                            else "unverified"
-                        ),
-                        "citations": citations,
-                    }
-                )
+            self.calls.append(payload)
+            assert (
+                payload["research_context"]["progressive_selection"][
+                    "additional_parent_parts"
+                ]["0"]
+                == lead
+            )
+            assert all(
+                not u["claim"].startswith("Activation cost:") for u in payload["claims"]
+            )
+            assert any(u["claim"] == tap for u in payload["claims"])
             return SimpleNamespace(
-                value={"fulfillment": "partial", "judgments": judgments}
+                value={
+                    "fulfillment": "partial",
+                    "judgments": [
+                        {
+                            "claim_id": u["claim_id"],
+                            "category": "strategic_judgment",
+                            "verdict": "unverified",
+                            "citations": [],
+                        }
+                        for u in payload["claims"]
+                    ],
+                }
             )
 
     reviewer = RendererReviewer()
-    published = []
-    corrected, receipt = progressive.progressive_review(
+    publications = []
+    _, receipt = progressive.progressive_review(
         reviewer,
         parts,
         sources,
-        "Find repeatable draw engines",
-        research_context=context,
-        on_reviewed=lambda corrected, result: published.append(result),
+        "Repeatable draw",
+        on_reviewed=lambda c, r: publications.append(r),
     )
-    assert corrected == parts
-    assert receipt["progressive_review"]["enabled"]
-    jobs = receipt["progressive_review"]["jobs"]
-    assert [job["stage"] for job in jobs] == ["local", "local", "global"]
-    assert all(job["bound"] for job in jobs)
-    assert {
-        u["claim_id"] for call in reviewer.calls[:-1] for u in call["claims"]
-    } == expected_local
-    assert {u["claim_id"] for u in reviewer.calls[-1]["claims"]} == {
-        u["claim_id"] for u in units
-    } - expected_local
-    counts = Counter(u["claim_id"] for call in reviewer.calls for u in call["claims"])
-    assert counts == {u["claim_id"]: 1 for u in units}
-    for call in reviewer.calls[:-1]:
-        selected_names = {names[u["part_index"] - 1] for u in call["claims"]}
-        assert call["research_context"]["recommendation_packets"] == [
-            p for p in packets if p["incoming"] in selected_names
-        ]
-        assert {r["source_index"] for r in call["source_records"]} == {
-            names.index(name) for name in selected_names
-        } | {3, 4, 5}
-        assert all(u["claim_id"] in expected_local for u in call["claims"])
-    assert len(published) == 2
-    assert all(r["fulfillment"] == "unknown" for r in published)
-    assert all(
-        reviewed_claim_text(r, j, parts)
-        for r in published
-        for j in r["claim_judgments"]
-    )
+    assert len(reviewer.calls) == len(publications) == 1
+    assert len(publications[0]["claim_judgments"]) == 3
+    assert publications[0]["fulfillment"] == "unknown"
+    assert len(receipt["claim_judgments"]) == 7
     assert receipt["fulfillment"] == "partial"
-    assert receipt["source_sha256"] == [progressive.text_hash(s) for s in sources]
+    assert all(
+        j["verdict"] == "unverified"
+        for j in receipt["claim_judgments"]
+        if j["reviewed_claim"] == tap
+    )
 
 
-@pytest.mark.parametrize(
-    "claim",
-    [
-        "Activation cost: {3}{U}{U}, the priciest option.",
-        "Activation cost: {3}{U}, cheaper than all alternatives.",
-        "Activation cost: {T}, Pay six {E}, without other resources.",
-        "Activation cost: {3}{U}. It outperforms every alternative.",
-        "Activation cost: sacrifice another creature.",
-        "Activation cost: {T}, Pay six {E} for a repeatable loop.",
-        "Tap-symbol cost: this creature needs continuous control or haste; untapping is assumed.",
-        "Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed, unlike the alternatives.",
-    ],
-)
-def test_renderer_local_forms_reject_qualifiers_and_freeform_costs(claim):
-    assert not progressive._local_fact(claim)
+def test_lead_and_workspace_context_remain_in_model_input_without_exact_matches():
+    reviewer = Reviewer()
+    parts = [p.replace("Activation cost: {1}. ", "") for p in PARTS]
+    context = {
+        "workspace_binding": {"document": "current", "revision": 9},
+        "source_manifest": {"card": "sha256"},
+    }
+    progressive.progressive_review(
+        reviewer, parts, SOURCES, "Draw", research_context=context
+    )
+    received = reviewer.calls[0]["research_context"]
+    assert received["workspace_binding"] == context["workspace_binding"]
+    assert received["source_manifest"] == context["source_manifest"]
+    assert received["progressive_selection"]["additional_parent_parts"] == {
+        "0": parts[0]
+    }
+    assert context == {
+        "workspace_binding": {"document": "current", "revision": 9},
+        "source_manifest": {"card": "sha256"},
+    }

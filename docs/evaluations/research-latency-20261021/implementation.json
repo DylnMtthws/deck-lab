@@ -1,0 +1,64 @@
+{
+  "purpose": "Reduce redundant review while retaining exact evidence and uncertainty",
+  "baseline_runtime_sha": "7e77bdd272260fce1f4184cbb59261301001082b",
+  "changes": [
+    {
+      "area": "review",
+      "contract": "Conservative literal printed activation-cost checks publish bound facts without a provider call; one semantic review retains interactions, strategy, comparisons and fulfillment. Unknown or incomplete forms abstain. Corrective review remains available for resolvable gaps."
+    },
+    {
+      "area": "uncertainty",
+      "contract": "A semantic recheck cannot erase exact printed facts, and exact facts cannot erase semantic disagreement. Qualified complete fulfillment becomes unknown; partial fulfillment stays explicit."
+    },
+    {
+      "area": "rules",
+      "contract": "Resolve continuous control and haste activation dependencies before initial review. Coherent complete official evidence takes priority under the cap; incompatible/truncated or unchosen-edition dependencies never enter fallback evidence."
+    },
+    {
+      "area": "provider",
+      "contract": "Exclusive per-database cost admission precedes global permit acquisition. At most two provider operations process-wide; same-database transports remain serialized through accounting. Cancellation checked during waits and before transport."
+    },
+    {
+      "area": "presentation",
+      "contract": "One fixed application caution states resources/timing/untaps are not assumed. Generated strategic caveats remain reviewed. Completed partial reviews distinguish unresolved claims from failed actions."
+    },
+    {
+      "area": "measurement",
+      "contract": "Provider phase timings distinguish ledger wait, permit wait and actual HTTP transport. Generic gateway execution is not called transport. Nested spans overlap and must not be summed; finished checkpoints omit their own callback time. Validation, backoff and accounting are not separately timed yet."
+    }
+  ],
+  "limits": [
+    "No generic rules proof or loop certification added",
+    "Exact cost recognition deliberately narrow",
+    "No new same-database concurrency or stronger cost-ceiling claim",
+    "No live latency or broad recommendation-quality gain established before paired QA measurement"
+  ],
+  "adversarial_acceptance": [
+    "Exact-facts r1 two P2 findings fixed: semantic uncertainty and queued cancellation",
+    "Rules quality r1 rejected dependency leak fixed",
+    "Permit placement metrics label P2 fixed; r2 cleared",
+    "Final exact/rules r2: 126 focused tests passed; no consequential finding",
+    "Final UI completion r2: unavailable/abstention-only versus completed partial distinction cleared, four focused tests plus probes."
+  ],
+  "evaluation": {
+    "protocol": "Two fixed prompts, fresh disposable deck fixtures, same QA server/configuration and harness, sequential baseline then candidate. Report cases individually, not percentiles. Stochastic responses/network load are uncontrolled. No held-out labels consulted."
+  },
+  "validation": {
+    "full_suite": {
+      "passed": 4075,
+      "skipped": 34,
+      "seconds": 170.63,
+      "note": "Final label-only fix additionally covered by 53 sidebar/routes tests after full-suite collection."
+    },
+    "final_sidebar_routes": {
+      "passed": 53
+    },
+    "static": [
+      "Black 18 changed/new Python files",
+      "Ruff 18 changed/new Python files",
+      "mypy seven source modules",
+      "JavaScript syntax",
+      "git diff --check"
+    ]
+  }
+}

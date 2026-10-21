@@ -423,3 +423,235 @@ def test_actual_gateway_rechecks_before_retry_and_accounts_paid_response(
     assert ledger.monthly_spend() == pytest.approx(
         0.002 if retry == "validation" else 0
     )
+
+
+def test_ledger_waiter_does_not_starve_independent_ledger_or_exceed_two_transports(
+    cost_gateway, monkeypatch
+):
+    from sabermetrics.cedh import cost_ledger
+
+    make, response, request = cost_gateway
+    release = threading.Event()
+    entered_a = threading.Event()
+    entered_c = threading.Event()
+    entered_d = threading.Event()
+    queued_b = threading.Event()
+    lock = threading.Lock()
+    active = peak = 0
+
+    def handler(entered):
+        def transport(_):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            entered.set()
+            try:
+                assert release.wait(3)
+                return response()
+            finally:
+                with lock:
+                    active -= 1
+
+        return transport
+
+    a, ledger = make("starvation.db", handler(entered_a), spend=0)
+    b, _ = make("starvation.db", handler(threading.Event()), spend=0)
+    c, _ = make("independent.db", handler(entered_c), spend=0)
+    d, _ = make("third.db", handler(entered_d), spend=0)
+    events = []
+    b = budget_gateway(b, on_checkpoint=events.append)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(a.generate, request)]
+        try:
+            assert entered_a.wait(3)
+            key = str(ledger.db_path.resolve())
+            underlying = cost_ledger._ADMISSION_LOCKS[key]
+
+            class ObservedLock:
+                def acquire(self, **kwargs):
+                    acquired = underlying.acquire(**kwargs)
+                    if not acquired:
+                        queued_b.set()
+                    return acquired
+
+                def release(self):
+                    underlying.release()
+
+            observed = ObservedLock()
+            monkeypatch.setitem(cost_ledger._ADMISSION_LOCKS, key, observed)
+            futures.append(executor.submit(b.generate, request))
+            assert queued_b.wait(3)
+            futures.append(executor.submit(c.generate, request))
+            # A remains in transport while C enters despite B's same-DB wait.
+            assert entered_c.wait(3)
+            futures.append(executor.submit(d.generate, request))
+            assert not entered_d.wait(0.1)
+            assert peak == 2
+        finally:
+            release.set()
+        assert all(f.result(timeout=3).value.ok for f in futures)
+    assert peak == 2
+    phases = events[-1]["phase_timings"]
+    assert {p["phase"] for p in phases} >= {
+        "ledger_wait",
+        "provider_permit_wait",
+        "transport",
+        "checkpoint_callback",
+    }
+    ledger_wait = next(p for p in phases if p["phase"] == "ledger_wait")
+    permit_wait = next(p for p in phases if p["phase"] == "provider_permit_wait")
+    transport = next(p for p in phases if p["phase"] == "transport")
+    assert ledger_wait["finished_monotonic"] <= permit_wait["started_monotonic"]
+    assert permit_wait["finished_monotonic"] <= transport["started_monotonic"]
+    assert all(p["duration_ms"] >= 0 for p in phases)
+
+
+@pytest.mark.parametrize("cancel_after_acquire", [False, True])
+def test_actual_gateway_permit_wait_and_acquisition_check_scoped_cancellation(
+    cost_gateway, monkeypatch, cancel_after_acquire
+):
+    from sabermetrics import assistant_provider_budget as budget_module
+
+    make, response, request = cost_gateway
+    stale = threading.Event()
+    waiting = threading.Event()
+    release = threading.Event()
+    ready = [threading.Event(), threading.Event()]
+    paid = []
+    wrapped, ledger = make(
+        "permit-cancel.db", lambda _: paid.append(1) or response(), spend=0
+    )
+    wrapped = budget_gateway(wrapped, check_current=lambda: not stale.is_set())
+    underlying = budget_module._PERMITS
+
+    class ObservedPermits:
+        def acquire(self, **kwargs):
+            acquired = underlying.acquire(**kwargs)
+            if threading.current_thread().name.startswith("permit-waiter"):
+                if acquired and cancel_after_acquire:
+                    stale.set()
+                elif not acquired:
+                    waiting.set()
+            return acquired
+
+        def release(self):
+            underlying.release()
+
+    monkeypatch.setattr(budget_module, "_PERMITS", ObservedPermits())
+
+    def holder(index):
+        with ProviderBudget().operation():
+            ready[index].set()
+            assert release.wait(3)
+
+    with (
+        ThreadPoolExecutor(max_workers=2) as holders,
+        ThreadPoolExecutor(max_workers=1, thread_name_prefix="permit-waiter") as waiter,
+    ):
+        held = [holders.submit(holder, i) for i in range(2)]
+        try:
+            assert all(event.wait(3) for event in ready)
+            pending = waiter.submit(wrapped.generate, request)
+            assert waiting.wait(3)
+            if cancel_after_acquire:
+                release.set()
+            else:
+                stale.set()
+            with pytest.raises(ProviderOperationCancelled):
+                pending.result(timeout=3)
+        finally:
+            release.set()
+        for future in held:
+            future.result(timeout=3)
+    assert not paid
+    assert ledger.monthly_spend() == 0
+    stale.clear()
+    # The scoped cancellation hook and the cancelled permit both released.
+    assert wrapped.gateway.generate(request).value.ok
+
+
+def test_paid_success_is_recorded_before_stale_discard_with_internal_timings(
+    cost_gateway,
+):
+    import json
+    import sqlite3
+
+    make, response, request = cost_gateway
+    stale = threading.Event()
+
+    def handler(_):
+        stale.set()
+        return response()
+
+    wrapped, ledger = make("paid-stale.db", handler, spend=0)
+    with pytest.raises(ProviderOperationCancelled):
+        budget_gateway(wrapped, check_current=lambda: not stale.is_set()).generate(
+            request
+        )
+    assert ledger.monthly_spend() == pytest.approx(0.002)
+    with sqlite3.connect(ledger.db_path) as conn:
+        metadata = json.loads(
+            conn.execute(
+                "SELECT metadata FROM cost_log WHERE metadata IS NOT NULL"
+            ).fetchone()[0]
+        )
+    assert {row["phase"] for row in metadata["phase_timings"]} == {
+        "ledger_wait",
+        "provider_permit_wait",
+        "transport",
+    }
+
+
+def test_transport_and_validation_retries_keep_accounting_and_phase_metadata(
+    cost_gateway, monkeypatch
+):
+    import json
+    import sqlite3
+
+    import httpx
+
+    from sabermetrics.cedh import provider_deepseek
+
+    make, response, request = cost_gateway
+    responses = iter([httpx.Response(503), response("invalid json"), response()])
+    wrapped, ledger = make("retries.db", lambda _: next(responses), spend=0)
+    wrapped.gateway.gateway._settings.model.max_retries = 1
+    monkeypatch.setattr(provider_deepseek.time, "sleep", lambda _: None)
+    result = wrapped.generate(request)
+    assert result.value.ok
+    assert result.usage.retries == 1
+    assert result.usage.validation_failures == 1
+    assert ledger.monthly_spend() == pytest.approx(0.004)
+    with sqlite3.connect(ledger.db_path) as conn:
+        metadata = json.loads(
+            conn.execute(
+                "SELECT metadata FROM cost_log WHERE metadata IS NOT NULL"
+            ).fetchone()[0]
+        )
+    assert len([p for p in metadata["phase_timings"] if p["phase"] == "transport"]) == 3
+    # Recording outside a scoped operation must also work after scope cleanup.
+    ledger.record(result.usage)
+    assert ledger.monthly_spend() == pytest.approx(0.008)
+
+
+def test_generic_nested_gateway_timings_never_claim_to_measure_transport():
+    import copy
+
+    events = []
+
+    def checkpoint(event):
+        # Serialize immediately, as persistence does; do not retain a mutable
+        # phase-list reference that later completion could change.
+        events.append(copy.deepcopy(event))
+
+    gateway = budget_gateway(
+        budget_gateway(
+            SimpleNamespace(generate=lambda request: "done"), on_checkpoint=checkpoint
+        ),
+        on_checkpoint=checkpoint,
+    )
+    assert gateway.generate(SimpleNamespace()) == "done"
+    phases = [p["phase"] for event in events for p in event["phase_timings"]]
+    assert "gateway_execution" in phases
+    assert "transport" not in phases

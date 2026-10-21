@@ -168,7 +168,50 @@ _EXPANSIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 _ZONE_COUNTERS = ("122.2", "counters on an object are not retained")
 _ZONE_OBJECT = ("400.7", "becomes a new object with no memory of")
-_SICKNESS_ANCHORS = ("302.6", "602.5a", "107.5")
+# Defining text, rather than numbers, identifies dependencies in each edition.
+_TAP_DEPENDENCIES = ("continuous_control", "haste_activation")
+_SICKNESS_ANCHORS = (
+    ("602.5a", "prohibited"),
+    ("107.5", "tap symbol"),
+)
+
+
+def tap_dependency(text: str) -> str | None:
+    """Identify supplied rule text, never decide whether an activation is legal."""
+    folded = _fold(text)
+    if (
+        "haste" in folded
+        and "can activate" in folded
+        and "tap symbol" in folded
+        and "continuously" in folded
+    ):
+        return "haste_activation"
+    if (
+        "tap symbol" in folded
+        and "continuously" in folded
+        and "most recent turn began" in folded
+        and ("can't" in folded or "cannot" in folded)
+    ):
+        return "continuous_control"
+    return None
+
+
+def _tap_dependency_rows(snap: _Snapshot) -> dict[str, sqlite3.Row]:
+    # Bounded snapshot scan, under the same SQLite progress/deadline guard as FTS.
+    # Exact phrases avoid trusting a moved 302.6 or a haste section heading.
+    rows = snap.conn.execute(
+        "SELECT * FROM assistant_rules WHERE instr(lower(text), 'tap symbol') > 0 "
+        "AND instr(lower(text), 'continuously') > 0 ORDER BY rule_id LIMIT 64"
+    ).fetchall()
+    found: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        dependency = tap_dependency(row["text"])
+        if dependency and snap.verified(row):
+            found.setdefault(dependency, []).append(row)
+    # Ambiguity is disclosed as missing, rather than guessed from numbering.
+    return {key: values[0] for key, values in found.items() if len(values) == 1}
+
+
 # Mana-ability anchors as (expected rule ID, defining phrase from that rule's
 # text). Numbering moves between editions, so the ID is only trusted when its
 # loaded text contains the phrase; otherwise the one rule containing the phrase
@@ -550,12 +593,19 @@ def _rule_rows(
     if (asks_tap and (tap_creature or re.search(r"summon|sick|haste", lowered))) or (
         card_mode and tap_creature
     ):
-        for rule_id in _SICKNESS_ANCHORS:
-            row = snap.get(rule_id)
+        dependencies = _tap_dependency_rows(snap)
+        for dependency in _TAP_DEPENDENCIES:
+            if dependency in dependencies:
+                sickness_rows.append(dependencies[dependency])
+            else:
+                result.limitations.append(
+                    f"Tap-symbol evidence dependency {dependency} is missing or ambiguous "
+                    "in the loaded official snapshot; this condition remains unverified."
+                )
+        for anchor in _SICKNESS_ANCHORS:
+            row = snap.anchor(anchor)
             if row is not None:
-                # With mana anchors also due, the anchors alone; their parents
-                # and references would crowd the mana rules out of the limit.
-                sickness_rows += [row] if mana_rows else snap.expand(row, refs=1)
+                sickness_rows.append(row)
     primary += _interleave(sickness_rows, mana_rows)
 
     # Keyword sections ("701.x Amass", "702.x Trample") by header, so numbering
@@ -744,7 +794,15 @@ def retrieve_rules(
         reserve = min(len(ruling_hits), 2, limit - 1)
     else:
         reserve = min(len(ruling_hits), limit)
-    result.hits = rule_hits[: limit - reserve] + ruling_hits[:reserve]
+    # Required tap dependencies outrank optional rulings even at small limits.
+    required = [h for h in rule_hits if tap_dependency(h.text)]
+    reserve = min(reserve, max(0, limit - len(required)))
+    ordered = (
+        (required + [h for h in rule_hits if h not in required])
+        if any(tap_dependency(h.text) == "haste_activation" for h in required)
+        else rule_hits
+    )
+    result.hits = ordered[: limit - reserve] + ruling_hits[:reserve]
     if result.hits:
         result.status = "available"
     elif result.status == "no_matches":

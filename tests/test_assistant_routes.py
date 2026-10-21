@@ -557,3 +557,66 @@ def test_worker_completion_does_not_drain_when_provider_becomes_unavailable(
         function, args, kwargs = executor.jobs.pop(0)
         function(*args, **kwargs)
     assert store.get(owner, decks[2])["research_workspace"]["job"]["state"] == "queued"
+
+
+@pytest.mark.parametrize("review_kind", ["partial", "not_checked", "abstention_only"])
+def test_partial_evidence_review_is_not_reported_as_failed_action(
+    setup, monkeypatch, review_kind
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    revision = DeckDocumentRepo(path).get(owner, deck)["revision"]
+
+    def run(*_args, **kwargs):
+        receipt = {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "unresolved": ["support unknown"],
+            "claim_judgments": [{"verdict": "supported"}],
+        }
+        if review_kind == "not_checked":
+            receipt = {"status": "not_checked", "reason": "cost_ceiling"}
+        elif review_kind == "abstention_only":
+            receipt["claim_judgments"] = [
+                {"verdict": "unverified", "method": "unreviewed_abstention"}
+            ]
+        kwargs["on_event"](
+            {
+                "type": "tool_result",
+                "name": "check_answer",
+                "ok": False,
+                "data": receipt,
+            }
+        )
+        return {
+            "content": "Three candidates; suitability remains conditional.",
+            "status": "incomplete",
+            "reason": "answer_partially_fulfilled",
+            "answer_review": receipt,
+            "proposals": [],
+        }
+
+    monkeypatch.setattr(assistant_runtime, "run_turn", run)
+    client.post(
+        f"/api/decks/{deck}/assistant/messages",
+        json={"message": "Find three candidates", "expected_revision": revision},
+    )
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    session = client.get(f"/api/decks/{deck}/assistant").json
+    review = next(
+        m
+        for m in session["messages"]
+        if (m.get("action") or {}).get("name") == "check_answer"
+    )
+    if review_kind == "partial":
+        assert "Supported findings remain available" in review["content"]
+        assert "Request fulfillment: partial" in review["content"]
+    else:
+        assert "review unavailable" in review["content"]
+        assert "findings remain available" not in review["content"]
+        assert "review finished" not in review["content"]
+    assert "Could not complete this action" not in review["content"]
+    assert session["messages"][-1]["status"] == "incomplete"
+    assert session["research_workspace"]["status"] == "partial"

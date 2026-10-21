@@ -1,24 +1,15 @@
-"""Bounded independent discovery review, with exact original claim bindings.
+"""Publish exact printed-cost facts, then run at most one semantic review.
 
-``on_reviewed(corrected_parts, subset_receipt)`` runs only on
-the calling/coordinator thread, in completion order. The list retains ORIGINAL
-indices; the receipt, not list slicing, selects the published claims. The caller
-owns publication and persistence. ``check_current`` is also coordinator-only.
-
-At most two local batches plus one final global call; never a call per catalog
-card. All jobs use the same original parts and source order, including the
-reviewer's deterministic focused_sources basis. No verdict binds to a rewrite.
-The final call sees the whole selection and reviews only remaining original IDs.
-Only that call can supply whole-request fulfillment. Unsafe scopes use one batch.
+Callbacks retain original indices and bind to original spans, parts and sources.
+Deterministic facts never establish whole-request fulfillment or model usage.
+Unknown costs, rules, strategy and comparisons stay in the semantic call.
 """
 
 from __future__ import annotations
 
-import json
 import re
 import threading
 from collections.abc import Callable
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
 from typing import Any
 
@@ -33,160 +24,14 @@ from sabermetrics.assistant_claim_review import (
     focused_sources,
     review_claims,
 )
+from sabermetrics.assistant_exact_facts import exact_cost_facts
 from sabermetrics.assistant_provider_budget import (
     budget_gateway,
     check_active,
 )
 
-MAX_REVIEW_JOBS = 3
-MAX_LOCAL_JOBS = 2
-
-# Local admission is deliberately an allowlist of complete, card-local fact
-# forms, not a blacklist of comparison synonyms. An unrecognized predicate or
-# qualifier (including strategic/support/absence/ranking prose) stays global.
-# These forms admit a review, not a verdict: the reviewer must still check the
-# printed ability, cost and restrictions against the supplied evidence.
-_MANA = r"(?:\{[0-9WUBRGCSXYZ/PH]+\})+"
-_LOCAL_FACT = re.compile(
-    rf"(?:Pay {_MANA} to draw (?:a card|\d+ cards)"
-    rf"|Draws? (?:a card|\d+ cards)(?: only after paying {_MANA})?"
-    rf"|(?:Activation|Mana) costs? {_MANA}"
-    rf"|(?:This (?:card|ability) )?costs? {_MANA}"
-    rf")(?:,? without tapping)?[.!]?",
-    re.IGNORECASE,
-)
-# render_fit_reason appends these isolated clauses from ability compatibility
-# and candidate_suitability. Keep the label, punctuation and fixed tap wording
-# exact; arbitrary Oracle cost prose or appended strategy is not a local form.
-_RENDERED_LOCAL_FACT = re.compile(
-    rf"(?:Activation cost: (?:{_MANA}|\{{T\}}, Pay six \{{E\}})\."
-    r"|Tap-symbol cost: this creature needs continuous control or haste; "
-    r"untapping is not assumed\.)"
-)
-
-
-def _local_fact(claim: str) -> bool:
-    claim = claim.strip()
-    return (
-        _LOCAL_FACT.fullmatch(claim) is not None
-        or _RENDERED_LOCAL_FACT.fullmatch(claim) is not None
-    )
-
-
-def _local_rows(parts, sources, protected, context, units):
-    if (
-        protected
-        or context.get("empirical_receipts")
-        or context.get("package_analysis")
-        or context.get("packages")
-        or re.search(
-            r"\b(?:package|joint.?cuts?)\b",
-            json.dumps(context.get("task", {})),
-            re.IGNORECASE,
-        )
-    ):
-        return {}
-    packets = context.get("recommendation_packets", [])
-    if not isinstance(packets, list) or any(
-        not isinstance(p, dict)
-        or p.get("outgoing")
-        or (p.get("changes") or {}).get("support_context")
-        == "complete_prospective_package"
-        for p in packets
-    ):
-        return {}
-    names = list(
-        dict.fromkeys(
-            s.split("\n", 1)[0][6:] for s in sources if s.startswith("Card: ")
-        )
-    )
-    rows = {}
-    seen = set()
-    from sabermetrics.assistant_answer_review import _mentions_card_name
-
-    for index, part in enumerate(parts[1:], 1):
-        if " — " not in part:
-            # Global comparison prose is reserved for the last call.
-            continue
-        prefix, body = part.split(" — ", 1)
-        matches = [
-            name
-            for name in names
-            if re.fullmatch(
-                r"(?:[^:\n]+: )?"
-                + re.escape(name)
-                + r" \((?:(?:\{[^}\n]+\})*|mana cost not retrieved)\)",
-                prefix,
-            )
-        ]
-        if len(matches) != 1 or not body.strip():
-            return {}
-        if re.search(r"\b(?:package|joint.?cuts?)\b", body, re.IGNORECASE):
-            return {}
-        name = matches[0]
-        if name in seen:
-            return {}
-        seen.add(name)
-        rows[index] = name
-    if len(rows) < 2:
-        return {}
-    candidates = set(rows.values())
-    local = {}
-    for index, name in rows.items():
-        ids = {
-            cid
-            for cid, unit in units.items()
-            if unit["part_index"] == index
-            and _local_fact(unit["claim"])
-            and not any(
-                other != name and _mentions_card_name(unit["claim"], other)
-                for other in candidates
-            )
-        }
-        if ids:
-            local[index] = (name, ids)
-    return local
-
-
-def _job_context(context, names):
-    """Keep compact review context, with only this batch's individual packets."""
-    result = deepcopy(context)
-    if "recommendation_packets" in result:
-        result["recommendation_packets"] = [
-            p
-            for p in result["recommendation_packets"]
-            if isinstance(p, dict)
-            and (
-                p.get("incoming", {}).get("name")
-                if isinstance(p.get("incoming"), dict)
-                else p.get("incoming")
-            )
-            in names
-        ]
-    return result
-
-
-def _job_evidence(parts, sources, indices, context):
-    """Complete mentioned card records plus all deck/rules/general records.
-
-    Keeping every non-card record is deliberately conservative: printed-card
-    catalogs dominate these discovery packets, while deleting a deck or rules
-    dependency would need a semantic judgment. No lines/quotes are rewritten.
-    Unknown/deictic dependencies are left for the global call by admission.
-    """
-    from sabermetrics.assistant_answer_review import _mentions_card_name
-
-    text = (
-        " ".join(parts[i] for i in indices)
-        + " "
-        + json.dumps(context, ensure_ascii=False)
-    )
-    return {
-        i
-        for i, source in enumerate(sources)
-        if not source.startswith("Card: ")
-        or _mentions_card_name(text, source.split("\n", 1)[0][6:])
-    }
+MAX_REVIEW_JOBS = 1
+MAX_LOCAL_JOBS = 0
 
 
 def _merge(parts, receipts, sources, protected):
@@ -286,15 +131,24 @@ def progressive_review(
     }
     check_active(check_current)
     cancelled = threading.Event()
-    checker = budget_gateway(gateway, check_current=lambda: not cancelled.is_set())
+
+    def check_review_current():
+        check_active(lambda: not cancelled.is_set())
+        # Review and generate are synchronous on the caller's thread. Keep its
+        # cancellation/deadline check active while queued for admission too;
+        # nested gateway wrappers retain their own scoped checks.
+        check_active(check_current)
+
+    checker = budget_gateway(gateway, check_current=check_review_current)
     units = {u["claim_id"]: u for u in claim_units(original, protected)}
     focused = focused_sources(original, sources)
-    rows = _local_rows(original, sources, protected, context, units)
+    exact_result = exact_cost_facts(original, focused, protected)
+    exact_ids = {j["claim_id"] for j in exact_result[1]["claim_judgments"]}
     jobs = []
     accepted: list[dict[str, Any]] = []
     corrected = original[:]
 
-    def consume(result, ids, stage, evidence_indices=None):
+    def consume(result, ids, stage, evidence_indices=None, *, fulfillment_only=False):
         nonlocal corrected
         checked, receipt = result
         check_active(check_current)
@@ -315,7 +169,12 @@ def progressive_review(
                 "bound": bound,
                 "status": receipt.get("status", "unverified"),
                 "reason": receipt.get("reason"),
-                "review_model": receipt.get("review_model"),
+                "method": receipt.get("method", "semantic_model_review"),
+                **(
+                    {"review_model": receipt["review_model"]}
+                    if "review_model" in receipt
+                    else {}
+                ),
                 "evidence_indices": receipt.get("evidence_indices", []),
                 "evidence_bytes_sent": receipt.get("evidence_bytes_sent", 0),
             }
@@ -329,6 +188,8 @@ def progressive_review(
                 jobs[-1]["reason"] = "patch_merge_rejected"
         if not bound:
             return False
+        if fulfillment_only:
+            return True
         accepted.append(receipt)
         corrected = merged
         if on_reviewed and any(
@@ -360,70 +221,25 @@ def progressive_review(
 
     global_receipt = None
     try:
-        if rows:
-            local = list(rows)
-            local_ids = {cid for _, ids in rows.values() for cid in ids}
-            # Prefer coupled/global claims as the final job. If none exist,
-            # reserve one complete row so review_claims has nonempty units.
-            if local_ids == set(units):
-                local = local[:-1]
-            count = min(MAX_LOCAL_JOBS, len(local))
-            groups = [
-                local[i * len(local) // count : (i + 1) * len(local) // count]
-                for i in range(count)
-            ]
-            specifications: list[tuple[set[str], dict[str, Any], set[int]]] = []
-            for group in groups:
-                ids = {cid for index in group for cid in rows[index][1]}
-                job_context = _job_context(context, {rows[index][0] for index in group})
-                evidence = _job_evidence(original, focused, group, job_context)
-                if (
-                    not evidence
-                    or evidence == set(range(len(focused)))
-                    or len(ids) > 64
-                ):
-                    # No safe reduction: use one ordinary full-evidence batch.
-                    specifications = []
-                    rows = {}
-                    break
-                specifications.append((ids, job_context, evidence))
-            if (
-                len(set(units) - {cid for ids, _, _ in specifications for cid in ids})
-                > 64
-            ):
-                specifications = []
-                rows = {}
-            with ThreadPoolExecutor(
-                max_workers=2, thread_name_prefix="claim-review"
-            ) as executor:
-                pending = {
-                    executor.submit(run, ids, ctx, evidence): (ids, evidence)
-                    for ids, ctx, evidence in specifications
-                }
-                try:
-                    while pending:
-                        check_active(check_current)
-                        done, _ = wait(
-                            pending, timeout=0.025, return_when=FIRST_COMPLETED
-                        )
-                        # Stable tie break when several finish between polls.
-                        for future in sorted(done, key=lambda f: min(pending[f][0])):
-                            ids, evidence = pending.pop(future)
-                            consume(future.result(), ids, "local", evidence)
-                except BaseException:
-                    cancelled.set()
-                    for future in pending:
-                        future.cancel()
-                    raise
+        if exact_ids:
+            consume(
+                exact_result,
+                exact_ids,
+                "exact",
+                set(exact_result[1]["evidence_indices"]),
+            )
         check_active(check_current)
         reviewed = {j["claim_id"] for r in accepted for j in r["claim_judgments"]}
         remaining = set(units) - reviewed
+        # A semantic call always sees the complete selection, including the
+        # application-owned lead/caveats in part zero.
+        global_ids = remaining or ({min(units)} if units else set())
         global_context = context
-        if rows:
+        if original:
             # Compact selection context, never conversation/tool transcripts.
             # Preserve original prose and disclose corrections to the final
             # whole-selection comparison without transferring their verdicts.
-            global_part_indices = {units[cid]["part_index"] for cid in remaining}
+            global_part_indices = {units[cid]["part_index"] for cid in global_ids}
             global_context = {
                 **context,
                 "progressive_selection": {
@@ -436,11 +252,15 @@ def progressive_review(
                     "local_corrections": [
                         p for r in accepted for p in r.get("patches", [])
                     ],
-                    "instruction": "Combine parent_parts and additional_parent_parts in selection_order for the entire selection. Assess whole-request fulfillment and joint selection tradeoffs. Judge only supplied remaining claim IDs; local checks do not establish fulfillment.",
+                    "instruction": "Combine parent_parts and additional_parent_parts in selection_order for the entire selection. Assess whole-request fulfillment and joint selection tradeoffs. Judge only supplied claim IDs. Exact checks establish only literal printed costs, never payable/net costs, draw roles, repeatability, strength or fulfillment.",
                 },
             }
-        final_result = run(remaining, global_context)
-        if consume(final_result, remaining, "global"):
+        # review_claims requires a nonempty unit set. If every claim is exact,
+        # recheck one original unit solely to obtain semantic fulfillment; keep
+        # its deterministic judgment and do not duplicate publication/verdicts.
+        # Its semantic qualifications are retained separately below.
+        final_result = run(global_ids, global_context)
+        if consume(final_result, global_ids, "global", fulfillment_only=not remaining):
             global_receipt = final_result[1]
         check_active(check_current)
     finally:
@@ -451,13 +271,59 @@ def progressive_review(
         key=lambda j: int(j["claim_id"][1:]),
     )
     missing = sorted(set(units) - {j["claim_id"] for j in judgments})
+    # A failed/invalid semantic batch leaves explicit unknown entries for every
+    # original ID. These are abstentions, never inferred provider judgments.
+    for cid in missing:
+        unit = units[cid]
+        judgments.append(
+            {
+                **{
+                    key: unit[key]
+                    for key in (
+                        "claim_id",
+                        "part_index",
+                        "start",
+                        "end",
+                        "claim_sha256",
+                        "part_sha256",
+                    )
+                },
+                "category": "strategic_judgment",
+                "verdict": "unverified",
+                "reason": "No bound judgment supplied; category is unknown.",
+                "method": "unreviewed_abstention",
+                "citations": [],
+                "reviewed_claim": unit["claim"],
+                "rendered_claim": unit["claim"],
+                "correction_applied": False,
+                "unverified_remainder": True,
+            }
+        )
+    judgments.sort(key=lambda j: int(j["claim_id"][1:]))
     unresolved = list(
         dict.fromkeys(
             [s for r in accepted for s in r.get("unresolved", [])]
+            + (global_receipt.get("unresolved", []) if global_receipt else [])
+            + [
+                j["claim_id"]
+                + ": semantic recheck remains qualified or disagrees with the exact fact check."
+                for j in (global_receipt or {}).get("claim_judgments", [])
+                if not remaining
+                and (j.get("verdict") != "supported" or j.get("unverified_remainder"))
+            ]
             + [cid + ": no bound judgment supplied" for cid in missing]
         )
     )
     patches = [p for r in accepted for p in r.get("patches", [])]
+    unverified = bool(
+        unresolved
+        or getattr(focused, "omitted", [])
+        or global_receipt is None
+        or global_receipt.get("status") == "unverified"
+    )
+    fulfillment = (global_receipt or {}).get("fulfillment", "unknown")
+    if unverified and fulfillment == "complete":
+        fulfillment = "unknown"
     receipt = {
         **(
             global_receipt
@@ -469,14 +335,10 @@ def progressive_review(
         ),
         "status": (
             "unverified"
-            if unresolved or getattr(focused, "omitted", []) or global_receipt is None
+            if unverified
             else "corrected" if patches else "no_supported_correction"
         ),
-        "fulfillment": (
-            global_receipt.get("fulfillment", "unknown")
-            if global_receipt
-            else "unknown"
-        ),
+        "fulfillment": fulfillment,
         "claim_unit_version": VERSION,
         "reviewed_parts": {
             str(j["part_index"]): original[j["part_index"]] for j in judgments
@@ -490,7 +352,12 @@ def progressive_review(
         "omitted_sources": len(getattr(focused, "omitted", [])),
         "omitted_source_labels": list(getattr(focused, "omitted", [])),
         "progressive_review": {
-            "enabled": bool(rows),
+            "enabled": any(r.get("method") == "EXACT_source_check" for r in accepted),
+            "method": "exact_cost_then_one_semantic_review",
+            "model_job_count": sum("review_model" in j for j in jobs),
+            "exact_fact_count": sum(
+                j.get("method") == "EXACT_source_check" for j in judgments
+            ),
             "job_limit": MAX_REVIEW_JOBS,
             "local_job_limit": MAX_LOCAL_JOBS,
             "jobs": jobs,
@@ -500,8 +367,15 @@ def progressive_review(
             "input_chars": sum(
                 (j.get("review_model") or {}).get("input_chars", 0) for j in jobs
             ),
-            "job_count": len(jobs),
+            "job_count": sum(j["stage"] == "global" for j in jobs),
             "global_review_complete": global_receipt is not None,
+            # Preserve the bound semantic assessment without overwriting exact
+            # proof or presenting its proposed edits as applied output patches.
+            "semantic_recheck": (
+                {"receipt": deepcopy(global_receipt), "applied": False}
+                if global_receipt is not None and not remaining
+                else None
+            ),
         },
     }
     return corrected, receipt

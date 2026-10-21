@@ -212,3 +212,392 @@ def test_bare_graveyard_or_death_is_not_a_return_claim(tmp_path, lookup):
     assert not any(
         "return graveyard" in query or "counter renewal" in query for query in queries
     )
+
+
+CONTROL = (
+    "302.6. A creature's activated ability with the tap symbol or the untap symbol "
+    "in its activation cost can't be activated unless the creature has been under "
+    "its controller's control continuously since their most recent turn began."
+)
+HASTE = (
+    "702.10c If a creature has haste, its controller can activate its activated "
+    "abilities whose cost includes the tap symbol or the untap symbol even if "
+    "that creature hasn't been controlled by that player continuously since "
+    "their most recent turn began."
+)
+OFFICIAL_URL = "https://media.wizards.com/fixture/rules.txt"
+
+
+def dependency_hit(text, source_id):
+    import hashlib
+
+    return dict(
+        kind="rule",
+        source_id=source_id,
+        text=text,
+        text_truncated=False,
+        content_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        source_url=OFFICIAL_URL,
+        version="fixture-edition",
+        source="Wizards text snapshot; imported source identity",
+        card_oracle_id=None,
+    )
+
+
+@pytest.mark.parametrize("suffix", ["; untapping is not assumed.", "."])
+def test_declared_tap_condition_keeps_both_dependencies_before_optional_rulings(
+    tmp_path, monkeypatch, suffix
+):
+    control = dependency_hit(CONTROL, "CR 302.6")
+    haste = dependency_hit(HASTE, "CR 702.10c")
+    optional = [
+        dict(control, kind="card_ruling", source_id=f"ruling:{i}") for i in range(4)
+    ]
+    calls = []
+
+    def retrieve(path, query, **kwargs):
+        calls.append((query, kwargs))
+        return SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[control, *optional[:2]] if "summoning" in query else optional[2:],
+                status="available",
+                rulings_status="available",
+                limitations=[],
+            )
+        )
+
+    monkeypatch.setattr(module, "retrieve_rules", retrieve)
+    rules, receipt = run(
+        tmp_path,
+        "{T}, Pay {E}: You get two energy counters.",
+        [
+            "Generate energy counters.",
+            "Tap-symbol cost: this creature needs continuous control or haste" + suffix,
+        ],
+        existing={"hits": [haste], "status": "available"},
+    )
+    assert len(calls) == 2
+    assert "summoning sickness" in calls[0][0]
+    assert "energy counters player" in calls[1][0]
+    assert not any("zone change" in q for q, _ in calls)
+    assert all(kwargs["deadline_seconds"] == 0.35 for _, kwargs in calls)
+    assert len(rules["hits"]) == 6
+    assert rules["hits"][:2] == [control, haste]
+    assert rules["evidence_dependencies"]["tap_symbol"]["limitations"] == []
+    assert receipt["sources"][1]["content_sha256"] == haste["content_sha256"]
+    assert rules["hits"][1] == haste  # full text and provenance survive
+    assert "Sources only" in receipt["evidence_dependencies"]["tap_symbol"]["scope"]
+
+
+@pytest.mark.parametrize(
+    "problem",
+    ["missing", "truncated", "incompatible", "heading", "unofficial", "bad_hash"],
+)
+def test_unusable_haste_dependency_is_explicit(tmp_path, monkeypatch, problem):
+    control = dependency_hit(CONTROL, "CR 302.6")
+    haste = dependency_hit(HASTE, "CR 702.10c")
+    if problem == "truncated":
+        haste["text_truncated"] = True
+        haste["text"] = "702.10c If a creature has haste, its controller can activate"
+    elif problem == "incompatible":
+        haste["version"] = "different-edition"
+    elif problem == "heading":
+        haste = dependency_hit("702.10. Haste", "CR 702.10")
+    elif problem == "unofficial":
+        haste["source_url"] = "https://example.test/rules"
+    elif problem == "bad_hash":
+        haste["content_sha256"] = "wrong"
+    monkeypatch.setattr(
+        module,
+        "retrieve_rules",
+        lambda *args, **kwargs: SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[control],
+                status="available",
+                rulings_status="no_matches",
+                limitations=[],
+            )
+        ),
+    )
+    rules, receipt = run(
+        tmp_path,
+        "{T}: You get {E}.",
+        ["Tap-symbol cost: this creature needs continuous control or haste."],
+        existing={"hits": [] if problem == "missing" else [haste]},
+    )
+    notes = " ".join(rules["limitations"])
+    assert "haste_activation is missing" in notes
+    assert receipt["evidence_dependencies"]["tap_symbol"]["retained"] == [
+        "continuous_control"
+    ]
+    if problem in ("truncated", "incompatible"):
+        assert problem in notes
+
+
+def test_local_snapshot_fetches_actual_activation_exception_in_initial_tap_lookup(
+    tmp_path,
+):
+    from sabermetrics.assistant_rules import ingest_rules
+
+    path = tmp_path / "rules.db"
+    snapshot = (
+        "100.1. Fixture for local source QA.\n\n"
+        + CONTROL
+        + "\n\n702.10. Haste\n\n702.10a Haste is a static ability.\n\n"
+        + HASTE
+    )
+    meta = ingest_rules(
+        path, snapshot, source_url=OFFICIAL_URL, version="fixture-edition"
+    )
+    rules, receipt = module.finalist_evidence(
+        path,
+        [
+            {
+                "name": "Energy creature",
+                "type_line": "Creature",
+                "oracle_text": "{T}, Pay {E}: You get two energy counters.",
+            }
+        ],
+        {"hits": []},
+        claims=[
+            "Generate energy counters.",
+            "Tap-symbol cost: this creature needs continuous control or haste.",
+        ],
+    )
+    assert receipt["lookup_count"] == 2
+    assert rules["hits"][:2] == [
+        dependency_hit(CONTROL, "CR 302.6"),
+        dependency_hit(HASTE, "CR 702.10c"),
+    ]
+    assert rules["rules_snapshot"] == meta
+    assert receipt["queries"][0]["rules_snapshot"] == meta
+    assert not rules["evidence_dependencies"]["tap_symbol"]["limitations"]
+
+
+@pytest.mark.parametrize("moved", [False, True])
+def test_direct_tap_lookup_protects_dependencies_from_rulings_and_moved_numbers(
+    tmp_path, moved
+):
+    import sqlite3
+
+    from sabermetrics.assistant_rules import ingest_rules, retrieve_rules
+
+    path = tmp_path / "rules.db"
+    control = CONTROL.replace("302.6.", "303.8.") if moved else CONTROL
+    haste = HASTE.replace("702.10c", "702.11c") if moved else HASTE
+    snapshot = "100.1. Fixture QA.\n\n" + control + "\n\n" + haste
+    ingest_rules(path, snapshot, source_url=OFFICIAL_URL, version="fixture-edition")
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "CREATE TABLE card_rulings (id INTEGER, card_oracle_id TEXT, ruling_text TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO card_rulings VALUES (?, 'energy-creature', ?)",
+            [(i, f"Optional ruling {i}") for i in range(4)],
+        )
+    result = retrieve_rules(
+        path,
+        "tap symbol activated ability summoning sickness haste",
+        cards=[
+            {
+                "oracle_id": "energy-creature",
+                "type_line": "Creature",
+                "oracle_text": "{T}, Pay {E}: Draw a card.",
+            }
+        ],
+        limit=3,
+        deadline_seconds=0.35,
+    )
+    assert [h.text for h in result.hits[:2]] == [control, haste]
+    assert result.hits[2].kind == "card_ruling"
+
+
+def test_same_edition_label_with_different_snapshot_hash_is_incompatible(
+    tmp_path, monkeypatch
+):
+    control, haste = dependency_hit(CONTROL, "CR 302.6"), dependency_hit(
+        HASTE, "CR 702.10c"
+    )
+    snapshot = dict(
+        source_url=OFFICIAL_URL, source_version="fixture-edition", content_sha256="new"
+    )
+    monkeypatch.setattr(
+        module,
+        "retrieve_rules",
+        lambda *args, **kwargs: SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[control],
+                status="available",
+                rulings_status="no_matches",
+                limitations=[],
+                rules_snapshot=snapshot,
+            )
+        ),
+    )
+    rules, _ = run(
+        tmp_path,
+        "{T}: Draw a card.",
+        ["Tap with haste."],
+        existing={
+            "hits": [haste],
+            "rules_snapshot": dict(snapshot, content_sha256="old"),
+        },
+    )
+    assert "incompatible snapshot version or hash" in " ".join(rules["limitations"])
+    assert "haste_activation is missing" in " ".join(rules["limitations"])
+
+
+def review_sources(rules):
+    from sabermetrics.assistant_answer_review import evidence_sources
+
+    return "\n".join(
+        evidence_sources(
+            {"entries": [{"name": "Fixture", "is_commander": True}]},
+            [],
+            ["Tap-symbol cost: this creature needs continuous control or haste."],
+            rules,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "problem",
+    ["missing", "truncated", "incompatible", "unofficial", "bad_hash", "snapshot_hash"],
+)
+def test_rejected_dependencies_do_not_reach_answer_review(
+    tmp_path, monkeypatch, problem
+):
+    control = dependency_hit(CONTROL, "CR 302.6")
+    rejected = dependency_hit(HASTE + " Rejected fixture text.", "CR 702.10c")
+    snapshot = dict(
+        source_url=OFFICIAL_URL, source_version="fixture-edition", content_sha256="new"
+    )
+    existing = {"hits": [rejected]}
+    if problem == "missing":
+        existing["hits"] = []
+    elif problem == "truncated":
+        rejected["text_truncated"] = True
+        # Even a fragment too short to classify must not escape as ordinary text.
+        rejected["text"] = (
+            "702.10c If a creature has haste, its controller can activate"
+        )
+    elif problem == "incompatible":
+        rejected["version"] = "other-edition"
+    elif problem == "unofficial":
+        rejected["source_url"] = "https://example.test/rules"
+    elif problem == "bad_hash":
+        rejected["content_sha256"] = "wrong"
+    elif problem == "snapshot_hash":
+        existing["rules_snapshot"] = dict(snapshot, content_sha256="old")
+    monkeypatch.setattr(
+        module,
+        "retrieve_rules",
+        lambda *args, **kwargs: SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[control],
+                status="available",
+                rulings_status="no_matches",
+                limitations=[],
+                rules_snapshot=snapshot,
+            )
+        ),
+    )
+    rules, receipt = run(
+        tmp_path, "{T}: Draw a card.", ["Tap with haste."], existing=existing
+    )
+    sources = review_sources(rules)
+    assert CONTROL in sources
+    assert rejected["text"] not in sources
+    assert rules["hits"] == [control]
+    assert rules["hits_omitted"] == (problem != "missing")
+    assert "haste_activation is missing" in " ".join(rules["limitations"])
+    assert receipt["evidence_dependencies"]["tap_symbol"]["retained"] == [
+        "continuous_control"
+    ]
+    assert (
+        "not an automatic rule verdict"
+        in rules["evidence_dependencies"]["tap_symbol"]["scope"]
+    )
+
+
+def test_complete_pair_wins_without_reusing_other_edition_as_fallback(
+    tmp_path, monkeypatch
+):
+    control, haste = dependency_hit(CONTROL, "CR 302.6"), dependency_hit(
+        HASTE, "CR 702.10c"
+    )
+    rejected = dependency_hit(CONTROL + " Rejected other edition.", "CR 303.8")
+    rejected["version"] = "other-edition"
+    optional = [
+        dict(control, kind="card_ruling", source_id=f"ruling:{i}", text=f"Optional {i}")
+        for i in range(5)
+    ]
+    monkeypatch.setattr(
+        module,
+        "retrieve_rules",
+        lambda *args, **kwargs: SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[rejected, *optional],
+                status="available",
+                rulings_status="available",
+                limitations=[],
+            )
+        ),
+    )
+    rules, _ = run(
+        tmp_path,
+        "{T}: Draw a card.",
+        ["Tap with haste."],
+        existing={"hits": [control, haste]},
+    )
+    assert rules["hits"] == [control, haste, *optional[:4]]
+    assert rules["hits_omitted"] == 2
+    assert rejected["text"] not in review_sources(rules)
+    assert "incompatible snapshot versions" in " ".join(rules["limitations"])
+
+
+@pytest.mark.parametrize(
+    "problem", ["truncated", "bad_hash", "incompatible", "snapshot_hash"]
+)
+def test_fresh_valid_dependency_replaces_rejected_old_evidence(
+    tmp_path, monkeypatch, problem
+):
+    control, haste = dependency_hit(CONTROL, "CR 302.6"), dependency_hit(
+        HASTE, "CR 702.10c"
+    )
+    rejected = dict(haste)
+    snapshot = dict(
+        source_url=OFFICIAL_URL, source_version="fixture-edition", content_sha256="new"
+    )
+    existing = {"hits": [rejected]}
+    if problem == "truncated":
+        rejected.update(text="702.10c If a creature has haste", text_truncated=True)
+    elif problem == "bad_hash":
+        rejected["content_sha256"] = "wrong"
+    elif problem == "incompatible":
+        rejected["version"] = "other-edition"
+    else:
+        existing["rules_snapshot"] = dict(snapshot, content_sha256="old")
+    monkeypatch.setattr(
+        module,
+        "retrieve_rules",
+        lambda *args, **kwargs: SimpleNamespace(
+            model_dump=lambda: dict(
+                hits=[control, haste],
+                status="available",
+                rulings_status="no_matches",
+                limitations=[],
+                rules_snapshot=snapshot,
+            )
+        ),
+    )
+    rules, _ = run(
+        tmp_path, "{T}: Draw a card.", ["Tap with haste."], existing=existing
+    )
+    assert rules["hits"] == [control, haste]
+    assert rules["evidence_dependencies"]["tap_symbol"]["retained"] == [
+        "continuous_control",
+        "haste_activation",
+    ]
+    assert not any("is missing" in note for note in rules["limitations"])
+    assert HASTE in review_sources(rules)

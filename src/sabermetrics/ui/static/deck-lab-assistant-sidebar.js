@@ -469,7 +469,7 @@
     workspaceReceipt.textContent = captured.length ? "Captured settings: " + captured.map(function (key) { return key.replace(/_/g, " ") + ": " + (Array.isArray(constraints[key]) ? constraints[key].join(", ") : constraints[key]); }).join(" · ") : "No additional settings captured.";
     var job = workspace.job || {};
     var jobState = job.state === "completed" && workspace.status === "partial" ? "partial" : job.state || workspace.status || "unknown";
-    var labels = { queued: "Research queued", running: "Research running", completed: "Research completed", partial: "Partial research · request remains incomplete", stopped: "Research stopped · retrieved cards retained", interrupted: "Research interrupted · no active work confirmed", superseded: "Research superseded" };
+    var labels = { queued: "Research queued", running: "Research running", completed: "Research completed", partial: "Research finished · some requirements or claims remain unresolved", stopped: "Research stopped · retrieved cards retained", interrupted: "Research interrupted · no active work confirmed", superseded: "Research superseded" };
     var badge = (labels[jobState] || "Research state unavailable") + (workspace.archived_omitted ? " · " + workspace.archived_omitted + " older artifacts outside the retained history limit" : "");
     if (workspaceBadge.textContent !== badge) workspaceBadge.textContent = badge;
     workspaceRetry.hidden = !job.retry_allowed;
@@ -999,6 +999,9 @@
     }
     var failed = action.ok === false;
     var title = toolLabel(action) + (failed ? " · unavailable" : " · complete");
+    if (action.name === "check_answer" && action.data && Array.isArray(action.data.claim_judgments) && action.data.claim_judgments.some(function (claim) { return claim.method !== "unreviewed_abstention" && ["supported", "contradicted", "unverified"].indexOf(claim.verdict) >= 0; })) {
+      title = toolLabel(action) + (failed ? " · complete with unresolved claims" : " · complete");
+    }
     if (action.name === "search_cards" && action.ok === true) {
       var cards = action.data && Array.isArray(action.data.cards) ? action.data.cards : [];
       title = "Card catalog search · " + cards.length + (cards.length === 1 ? " result" : " results");
