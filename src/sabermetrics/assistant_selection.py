@@ -143,8 +143,11 @@ your assessments on relevance, comparative tradeoffs and prerequisites instead
 of repeating those costs, except when comparing mana economics. Preserve full
 conditions, distinguish casting from activation, draw from
 filtering, optional from forced draw, and hand gain from sacrificed resources.
-Explain actual supported roles and awkwardness. Recursion alone proves neither
-counter replenishment nor a repeatable loop. Missing rules remain unverified.
+Explain actual supported roles and awkwardness. Return-to-battlefield is not
+casting. Recursion fit must state printed
+prerequisites/delay and unresolved renewal; ingredients alone prove no repeatable
+loop. For Marchesa, counter at death, next end step and counter renewal remain
+prerequisites, not supplied state. Missing rules remain unverified.
 For ranked groups, explain a pairwise tradeoff that determines relative order.
 Use ability_compatibility to distinguish matching printed ingredients from unknown
 prerequisites. Do not award synergy for unrelated source abilities. Check first
@@ -168,6 +171,9 @@ Within obligation rows, e indexes the candidate evidence table; c indexes shared
 conditions (wire_fields declares these lossless aliases).
 Prefer meaningfully different mechanisms among comparably useful candidates,
 without forcing a diversity quota or promoting weaker choices to fill counts.
+Explain output/resource quantity explicitly (for example, Archaeologist draws two
+cards per activation). When applicable, explain source mana versus Kinnan bonus
+mana separately, including spending restrictions and spell uncounterability.
 Make comparisons on named dimensions: activation mana, output, colored requirements,
 tap use, energy, sacrificed cards, setup and casting cost remain separate. Do not
 invent exchange rates or call one ability cheaper/faster overall across unlike
@@ -487,19 +493,6 @@ def selection_payload(
         "by_card": membership,
         "unsupported_cards": aid["unsupported_cards"],
     }
-    for key, value in (
-        (
-            "shared_resource_comparisons",
-            compact_aid if len(aid["records"]) >= 2 else None,
-        ),
-        ("shared_strategic_evidence", strategic_evidence),
-    ):
-        if value is None:
-            continue
-        payload[key] = value
-        if not fits():
-            payload.pop(key)
-            payload.setdefault("omitted_shared_evidence", []).append(key)
     # Lossless wire aliases for repeated reference keys, applied only AFTER
     # packing. No candidate/enrichment is added with the newly freed bytes.
     payload["strategic_obligation_vocabulary"]["wire_fields"] = {
@@ -511,10 +504,97 @@ def selection_payload(
             for alias, key in (("e", "evidence_refs"), ("c", "condition_refs")):
                 if key in row:
                     row[alias] = row.pop(key)
-    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded.encode()) > 28000:
+    # Equivalent shared scope compression happens after the comparison pool and
+    # contracts freeze. It also leaves room to disclose optional aid omissions,
+    # even for one huge printed record with no accepted contract aliases.
+    payload["context_scope"] = (
+        "Omissions=context_omitted, not ineligible/exhausted. "
+        "Whole retrieved sources; honor truncation flags. "
+        "Missing enrichment proves no negative."
+    )
+    if "ledger_scope" in payload:
+        payload["ledger_scope"] = "Ledger excerpts prove no completeness/absence."
+    # Spend losslessly freed bytes on optional aids only. The comparison pool and
+    # all enrichment coverage above remain frozen; never backfill candidates.
+    optional = {
+        key: value
+        for key, value in (
+            ("shared_strategic_evidence", strategic_evidence),
+            (
+                "shared_resource_comparisons",
+                compact_aid if len(aid["records"]) >= 2 else None,
+            ),
+        )
+        if value is not None
+    }
+    if optional:
+        payload["omitted_shared_evidence"] = list(optional)
+    for key, value in optional.items():
+        _attach_optional_evidence(payload, key, value)
+    encoded = _encode_selection(payload)
+    if len(encoded.encode()) > 24000:
         raise ValueError("Selection context exceeds its bound")
     return encoded, DiscoveryLedger(candidates=retained)
+
+
+def _encode_selection(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _attach_optional_evidence(payload: dict[str, Any], key: str, value: Any) -> None:
+    omissions = payload.setdefault("omitted_shared_evidence", [])
+    if key not in omissions:
+        omissions.append(key)
+    trial = {
+        **payload,
+        key: value,
+        "omitted_shared_evidence": [k for k in omissions if k != key],
+    }
+    if not trial["omitted_shared_evidence"]:
+        trial.pop("omitted_shared_evidence")
+    if len(_encode_selection(trial).encode()) <= 24000:
+        payload.clear()
+        payload.update(trial)
+
+
+def attach_selection_evidence(encoded: str, evidence: dict[str, Any]) -> str:
+    """Attach context after freezing whole records, contracts and wire aliases.
+
+    A separately packed optional arithmetic aid can yield its space, but no
+    printed source or candidate contract can. The caller retains the same ledger.
+    """
+    if not evidence.get("rows") and not evidence.get("unknowns"):
+        return encoded
+    payload = json.loads(encoded)
+    key = "shared_strategic_evidence"
+    # Whole shared rule bodies are optional on this wire; admission was already
+    # checked against full local dependencies. Never trim assumptions or rows.
+    choices = [evidence]
+    if evidence.get("rule_sources"):
+        choices.append(
+            {
+                **{k: v for k, v in evidence.items() if k != "rule_sources"},
+                "rule_sources_context_omitted": True,
+            }
+        )
+    arithmetic = payload.pop("shared_resource_comparisons", None)
+    omissions = payload.setdefault("omitted_shared_evidence", [])
+    for name in [
+        key,
+        *(["shared_resource_comparisons"] if arithmetic is not None else []),
+    ]:
+        if name not in omissions:
+            omissions.append(name)
+    for choice in choices:
+        _attach_optional_evidence(payload, key, choice)
+        if key in payload:
+            break
+    if arithmetic is not None:
+        _attach_optional_evidence(payload, "shared_resource_comparisons", arithmetic)
+    result = _encode_selection(payload)
+    if len(result.encode()) > 24000:
+        raise ValueError("Selection context exceeds its bound")
+    return result
 
 
 def validate_selection(

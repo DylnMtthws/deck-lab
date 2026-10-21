@@ -14,6 +14,7 @@ from sabermetrics.assistant_rulings_import import import_rulings
 from sabermetrics.assistant_strategy_context import (
     close_strategy_cache,
     expand_review_sources,
+    selection_strategy_context,
     snapshot_card,
     strategy_context,
     strategy_wire_context,
@@ -303,8 +304,14 @@ def test_cache_reuses_full_local_evidence_but_rechecks_supplied_mechanics(
     assert len(reads) == 5 and set(reads.values()) == {1}
 
 
+@pytest.mark.parametrize("retrieved_count", [2, 16])
 def test_runtime_passes_shared_context_and_expanded_source_basis(
-    prepared, monkeypatch, local_snapshot, tmp_path, watcher_connections
+    prepared,
+    monkeypatch,
+    local_snapshot,
+    tmp_path,
+    watcher_connections,
+    retrieved_count,
 ):
     from sabermetrics.assistant_runtime import run_turn
     from tests.test_assistant_runtime import Gateway, call, step
@@ -320,9 +327,34 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
             "oracle_id": f"incoming-oracle-{i}",
             "name": f"Incoming {i}",
         }
-        for i in range(2)
+        for i in range(retrieved_count)
     ]
+    if retrieved_count == 16:
+        # Eight whole comparison records fit; the other eight are deliberately
+        # too large. All sixteen remain retrieved sources, plus the commander.
+        for card in candidates[3:8]:
+            card["oracle_text"] = "{T}: Draw a card."
+        for card in candidates[8:]:
+            card["oracle_text"] = "{T}: Draw a card. " + "x" * 24000
+        monkeypatch.setattr(
+            "sabermetrics.assistant_tools.search_cards",
+            lambda conn, **kwargs: deepcopy(
+                candidates[:8] if kwargs["query"] == "batch-a" else candidates[8:]
+            ),
+        )
     with sqlite3.connect(path) as conn:
+        for card in candidates[4:]:
+            conn.execute(
+                "INSERT INTO cards(id,oracle_id,name,type_line,color_identity,is_legal_in_99) VALUES(?,?,?,?,?,?)",
+                (
+                    card["id"],
+                    card["oracle_id"],
+                    card["name"],
+                    card["type_line"],
+                    "[]",
+                    1,
+                ),
+            )
         for card in [commander, *candidates]:
             conn.execute(
                 "UPDATE cards SET oracle_id=?,name=?,mana_cost=?,type_line=?,oracle_text=? WHERE id=?",
@@ -339,9 +371,10 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
                 ),
             )
         conn.execute(
-            "UPDATE deck_entries SET oracle_id=?,name=?,mana_cost=?,type_line=? WHERE card_id='card-cmd'",
+            "UPDATE deck_entries SET oracle_id=?,name=?,mana_cost=?,type_line=?,oracle_text=? WHERE card_id='card-cmd'",
             tuple(
-                commander[k] for k in ("oracle_id", "name", "mana_cost", "type_line")
+                commander[k]
+                for k in ("oracle_id", "name", "mana_cost", "type_line", "oracle_text")
             ),
         )
     snapshot = tmp_path / "runtime-cards.json"
@@ -360,8 +393,22 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
         for table in ("card_rulings", "card_rulings_snapshots"):
             conn.execute(f"DROP TABLE IF EXISTS main.{table}")
             conn.execute(f"CREATE TABLE main.{table} AS SELECT * FROM fixture.{table}")
-    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
+    monkeypatch.setattr(
+        "sabermetrics.assistant_runtime.MAX_TOOL_CALLS",
+        2 if retrieved_count == 16 else 1,
+    )
     seen = {}
+    import sabermetrics.assistant_selection as selector
+
+    original_payload = selector.selection_payload
+
+    def frozen_payload(*args, **kwargs):
+        encoded, retained = original_payload(*args, **kwargs)
+        seen["frozen"] = json.loads(encoded)
+        seen["retrieved"] = len(args[3])
+        return encoded, retained
+
+    monkeypatch.setattr(selector, "selection_payload", frozen_payload)
     import sabermetrics.assistant_strategy_context as adapter
 
     lookup_queries = []
@@ -390,7 +437,14 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
     monkeypatch.setattr(fragments, "reviewed_sections", sections)
     gateway = Gateway(
         [
-            step(call("search_cards", {"query": "Incoming"})),
+            (
+                step(
+                    call("search_cards", {"query": "batch-a"}),
+                    call("search_cards", {"query": "batch-b"}),
+                )
+                if retrieved_count == 16
+                else step(call("search_cards", {"query": "Incoming"}))
+            ),
             selection(("incoming-0", "incoming-1")).model_dump(),
         ]
     )
@@ -407,19 +461,69 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
     assert result["status"] == "done", result
     assert len(gateway.requests) == 2
     selection_request = gateway.requests[1]
-    assert selection_request.prompt_version == "assistant-selection.v6"
+    assert selection_request.prompt_version == "assistant-selection.v7"
     payload = json.loads(selection_request.user)
+    assert len(selection_request.user.encode()) <= 24000
+    assert payload["candidates"] == seen["frozen"]["candidates"]
+    assert payload["deck_sources"] == seen["frozen"]["deck_sources"]
+    assert payload["omitted_candidate_ids"] == seen["frozen"]["omitted_candidate_ids"]
+    assert any(
+        c.get("card_id", c.get("id")) == commander["id"]
+        and c.get("oracle_text") == commander["oracle_text"]
+        for c in payload["deck_sources"]
+    )
+    assert (
+        payload["strategic_obligation_vocabulary"]
+        == seen["frozen"]["strategic_obligation_vocabulary"]
+    )
+    if retrieved_count == 16:
+        assert seen["retrieved"] == 16
+        assert len(payload["candidates"]) == 8
+        assert len(payload["omitted_candidate_ids"]) == 8
+    assert "shared_strategic_evidence" in payload, (
+        len(selection_request.user.encode()),
+        payload.get("omitted_shared_evidence"),
+    )
     selection_wire = payload["shared_strategic_evidence"]
+    assert [r["source_id"] for r in selection_wire["rows"]] == [
+        c["card_id"] for c in payload["candidates"]
+    ]
+    colored = selection_wire["ability_profiles"][
+        selection_wire["rows"][0]["ability_refs"][1]
+    ]["source_mana"]
+    assert colored["restrictions"] == ["legendary_spell_only"]
+    assert colored["spell_benefit"]["kind"] == "spell_cant_be_countered"
+    assert (
+        selection_wire["bounded_rows_only"]["kinnan_extra_mana"][
+            "inherits_source_spell_benefit"
+        ]
+        is False
+    )
+    stage = next(
+        s
+        for s in result["research"]["runtime"]["stages"]
+        if s["stage"] == "selection_evidence"
+    )
+    assert stage["shared_strategic_evidence_included"] is True
+    assert stage["omitted_shared_evidence"] == payload.get(
+        "omitted_shared_evidence", []
+    )
+    assert stage["bounded_conditional_mana_source_count"] == (
+        3 if retrieved_count == 16 else 2
+    )
+    assert stage["scope_source_count"] == len(payload["candidates"]) + 1
     review_wire = seen["context"]["shared_strategic_evidence"]
     assert (
-        selection_wire["mana_evidence"]["rows"][0]["status"]
-        == "bounded_conditional_evidence"
-    ), selection_wire["mana_evidence"]["rows"][0]["unknowns"]
+        selection_wire["rows"][0]["status"] == "bounded_conditional_evidence"
+    ), selection_wire["rows"][0]["unknowns"]
     assert (
         review_wire["mana_evidence"]["rows"][0]["status"]
         == "bounded_conditional_evidence"
     ), review_wire
     assert "cards" not in selection_wire and "rules" not in selection_wire
+    assert selection_wire.get("rule_sources") or selection_wire.get(
+        "rule_sources_context_omitted"
+    )
     assert "cards" not in review_wire and "rules" not in review_wire
     assert lookup_queries == [
         "CR 106.12",
@@ -687,3 +791,57 @@ def test_snapshot_card_cache_generation_is_checked_independently(local_snapshot)
         assert not snapshot_card(path, source, cache)["is_current"]
     finally:
         close_strategy_cache(cache)
+
+
+def test_selector_projection_is_compact_without_losing_conditions_or_mana(request):
+    from sabermetrics.assistant_mana_evidence import build_mana_evidence
+    from tests.test_assistant_mana_evidence import HAWKER, card
+
+    deck, commander, rules = request.getfixturevalue("inputs")
+    sources = [
+        card("Delighted Halfling", HALFLING),
+        card("Omen Hawker", HAWKER),
+        card("Elvish Mystic", "{T}: Add {G}."),
+    ]
+    context = {
+        "mana_evidence": build_mana_evidence(deck, [*sources, commander], rules),
+        "rules": rules["hits"],
+        "unknowns": [],
+    }
+    original = deepcopy(context)
+    wire = selection_strategy_context(context)
+    assert (
+        len(json.dumps(wire, ensure_ascii=False, separators=(",", ":")).encode())
+        <= 2500
+    )
+    assert context == original
+    assert wire["conditions"] == context["mana_evidence"]["rows"][0]["conditions"]
+    assert wire["commander_id"] == commander["id"]
+    assert [r["source_id"] for r in wire["rows"]] == [c["id"] for c in sources]
+    source_mana = wire["ability_profiles"][wire["rows"][1]["ability_refs"][0]][
+        "source_mana"
+    ]
+    assert source_mana == {
+        "quantity": 2,
+        "type_options": ["C", "U"],
+        "restrictions": ["activated_abilities_only"],
+        "spell_benefit": None,
+    }
+    bonus = wire["bounded_rows_only"]["kinnan_extra_mana"]
+    assert bonus["quantity"] == 1 and "actually produced" in bonus["type_choice"]
+    assert bonus["inherits_source_spending_restriction"] is False
+    assert bonus["inherits_source_spell_benefit"] is False
+    assert [r["text"] for r in wire["rule_sources"]] == [
+        h["text"] for h in rules["hits"]
+    ]
+    assert "sha256" not in json.dumps(wire) and "quote" not in json.dumps(wire)
+
+
+def test_selector_projection_keeps_unknown_source_ids_explicit(local_snapshot):
+    path, deck, _, source = local_snapshot
+    context = strategy_context(path, deck, [{**source, "oracle_text": "{T}: Add {G}."}])
+    wire = selection_strategy_context(context)
+    assert wire["rows"][0]["source_id"] == source["id"]
+    assert wire["rows"][0]["status"] == "unknown"
+    assert wire["rows"][0]["unknowns"]
+    assert "abilities" not in wire["rows"][0]

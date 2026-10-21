@@ -401,6 +401,86 @@ def strategy_wire_context(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def selection_strategy_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Compact selector projection of locally bound, complete helper results.
+
+    Printed candidate/commander sources already travel on the selection wire.
+    Hashes, quotes, offsets and full provenance remain in the unchanged context
+    used by review. Only admitted rows may carry derived interaction conclusions.
+    Unknown source identities and every conditional assumption remain explicit.
+    """
+    conditions: list[str] = []
+    ability_profiles: list[dict[str, Any]] = []
+    rows = []
+    commander_id = None
+    for row in context.get("mana_evidence", {}).get("rows", []):
+        commander = row.get("commander") or {}
+        commander_id = commander.get("card_id") or commander_id
+        for condition in row.get("conditions", []):
+            if condition not in conditions:
+                conditions.append(condition)
+        projected = {
+            "source_id": row["source"]["card_id"],
+            "status": row["status"],
+            "unknowns": row["unknowns"],
+        }
+        if row["status"] == "bounded_conditional_evidence" and row.get(
+            "admitted_claims"
+        ):
+            abilities = [
+                {
+                    "activation_cost": ability["activation_cost"],
+                    "source_mana": {
+                        "quantity": ability["source_mana"]["quantity"],
+                        "type_options": ability["source_mana"]["type_options"],
+                        "restrictions": [
+                            c["kind"] for c in ability["source_mana"]["constraints"]
+                        ],
+                        "spell_benefit": (
+                            {
+                                k: v
+                                for k, v in ability["source_mana"][
+                                    "spell_benefit"
+                                ].items()
+                                if k != "quote"
+                            }
+                            if ability["source_mana"]["spell_benefit"]
+                            else None
+                        ),
+                    },
+                }
+                for ability in row["abilities"]
+            ]
+            projected["ability_refs"] = []
+            for ability in abilities:
+                if ability not in ability_profiles:
+                    ability_profiles.append(ability)
+                projected["ability_refs"].append(ability_profiles.index(ability))
+        rows.append(projected)
+    return {
+        "scope": "Complete source-bound local helper; no availability or superiority. Unknown rows admit no claims; freshness unknown.",
+        "commander_id": commander_id,
+        "conditions": conditions,
+        "ability_profiles": ability_profiles,
+        "bounded_rows_only": {
+            "kinnan_extra_mana": {
+                "quantity": 1,
+                "type_choice": "One type actually produced by this source activation.",
+                "inherits_source_spending_restriction": False,
+                "inherits_source_spell_benefit": False,
+            },
+            "commander_outlet": "Printed {5}{G}{U} outlet; payment/availability unverified.",
+        },
+        "rows": rows,
+        "rule_sources": [
+            {"ref": h["source_id"], "text": h["text"]}
+            for h in context.get("rules", [])
+            if h.get("complete") and h.get("is_current")
+        ],
+        "unknowns": context.get("unknowns", []),
+    }
+
+
 def expand_review_sources(sources: list[str], context: dict[str, Any]) -> None:
     """Append the complete source basis without replacing list metadata/indices."""
     from sabermetrics.assistant_answer_review import _card_source

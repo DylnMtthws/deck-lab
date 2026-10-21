@@ -2405,22 +2405,17 @@ def run_turn(
                 )
                 from sabermetrics.assistant_selection import (
                     CandidateSelectionDraft,
+                    attach_selection_evidence,
                     selection_payload,
                 )
 
                 system = SELECTION_SYSTEM
                 selection_evidence_started = time.monotonic()
                 from sabermetrics.assistant_strategy_context import (
+                    selection_strategy_context,
                     strategy_context,
-                    strategy_wire_context,
                 )
 
-                shared_strategic_evidence = strategy_context(
-                    Path(db_path),
-                    document,
-                    list(source_cards.values()),
-                    cache=strategy_snapshot_cache,
-                )
                 try:
                     encoded, selection_ledger = selection_payload(
                         current_request,
@@ -2432,14 +2427,29 @@ def run_turn(
                         context_priority_ids(),
                         selection_feedback,
                         document.get("entries", []),
-                        strategic_evidence=strategy_wire_context(
-                            shared_strategic_evidence
-                        ),
+                    )
+                    # Freeze the actual comparison pool before bounded local
+                    # lookup; omitted retrievals must not consume its source cap.
+                    shared_strategic_evidence = strategy_context(
+                        Path(db_path),
+                        document,
+                        [
+                            source_cards.get(c.card_id, {"card_id": c.card_id})
+                            for c in selection_ledger.candidates
+                        ],
+                        cache=strategy_snapshot_cache,
+                    )
+                    encoded = attach_selection_evidence(
+                        encoded, selection_strategy_context(shared_strategic_evidence)
                     )
                 except ValueError as exc:
                     raise AssistantBudgetExceeded(
                         "Selection evidence exceeds the context limit."
                     ) from exc
+                selection_wire_payload = json.loads(encoded)
+                selection_mana_rows = selection_wire_payload.get(
+                    "shared_strategic_evidence", {}
+                ).get("rows", [])
                 stage_timings.append(
                     {
                         "stage": "selection_evidence",
@@ -2449,6 +2459,19 @@ def run_turn(
                         ),
                         "input_chars": len(encoded),
                         "retained_candidates": len(selection_ledger.candidates),
+                        "shared_strategic_evidence_included": (
+                            "shared_strategic_evidence" in selection_wire_payload
+                        ),
+                        "omitted_shared_evidence": selection_wire_payload.get(
+                            "omitted_shared_evidence", []
+                        ),
+                        "bounded_conditional_mana_source_count": sum(
+                            row.get("status") == "bounded_conditional_evidence"
+                            for row in selection_mana_rows
+                        ),
+                        "scope_source_count": len(
+                            shared_strategic_evidence.get("cards", [])
+                        ),
                     }
                 )
                 output_budget = 4096
@@ -2495,7 +2518,7 @@ def run_turn(
                 request_gateway = bounded_gateway(owned_concise_gateway)
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v6" if selecting else PROMPT_VERSION
+                    "assistant-selection.v7" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,

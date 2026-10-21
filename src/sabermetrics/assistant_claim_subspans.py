@@ -1,4 +1,4 @@
-"""Local admission for optional semantic facts; no generated text is accepted.
+"""Local discovery and admission of exact facts; no generated text is accepted.
 
 Admission requires both complete boundaries and a bounded local evidence check.
 A category label or quote membership never establishes arbitrary entailment.
@@ -94,7 +94,7 @@ def _locally_supported(text, category, sources, citations):
                 sep
                 and re.fullmatch(r"Rule \d+(?:\.\d+)*[a-z]?\.?", header)
                 and sum(s.split("\n", 1)[0] == header for s in sources) == 1
-                and not _incomplete_source(source)
+                and complete_rule_source(source)
                 and body.strip()
                 and any(
                     c["source_index"] == index and body in c["quote"] for c in citations
@@ -137,6 +137,69 @@ def _locally_supported(text, category, sources, citations):
         ):
             return True
     return False
+
+
+def discover_subspans(unit, sources, lookup, selected):
+    """Find only the three literal forms already proved by local admission.
+
+    Search the original unit, preserving absolute offsets and catalog identities.
+    A single catalog citation must contain the entire required body; adjacent
+    lines are never assembled into a new quote or a broader semantic claim.
+    """
+    if unit.get("protected"):
+        return []
+    found = {}
+    for index, source in enumerate(sources):
+        if index not in selected:
+            continue
+        header, separator, body = source.partition("\n")
+        forms = []
+        if header.startswith("Card: ") and source.count("\nOracle text:\n") == 1:
+            oracle, terminator, _ = source.split("\nOracle text:\n", 1)[1].partition(
+                "\nPrinted characteristics:"
+            )
+            if terminator:
+                name = header[6:]
+                forms = [
+                    (f"{name} has a tap ability.", "printed_fact", oracle),
+                    (f"{name} Oracle text: “{oracle}”.", "printed_fact", oracle),
+                ]
+        elif separator and header.startswith("Rule "):
+            forms = [(f"{header}: “{body}”.", "rules_interaction", body)]
+        for text, category, required in forms:
+            eid = next(
+                (
+                    eid
+                    for eid, (source_index, quote) in lookup.items()
+                    if source_index == index
+                    and required
+                    and required in quote
+                    and _locally_supported(
+                        text,
+                        category,
+                        sources,
+                        [{"source_index": index, "quote": quote}],
+                    )
+                ),
+                None,
+            )
+            if eid is None:
+                continue
+            for match in re.finditer(re.escape(text), unit["claim"]):
+                start = unit["start"] + match.start()
+                end = unit["start"] + match.end()
+                if _complete(unit, start, end):
+                    found.setdefault(
+                        (start, end, category),
+                        {
+                            "start": start,
+                            "end": end,
+                            "category": category,
+                            "evidence_ids": [eid],
+                            "dependency_refs": [],
+                        },
+                    )
+    return [found[key] for key in sorted(found)][:3]
 
 
 def complete_rule_source(source: str) -> bool:

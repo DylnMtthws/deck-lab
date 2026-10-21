@@ -30,8 +30,8 @@ def test_exact_ratios_keep_colored_requirements_and_never_rank_quality():
     a, b = aid["records"]
     assert Fraction(*a["mana_per_drawn_card"]) == 4
     assert Fraction(*b["mana_per_drawn_card"]) == Fraction(5, 2)
-    assert a["colored_requirements"] == {"U": 1}
-    assert b["colored_requirements"] == {"U": 2}
+    assert a["mana_symbol_requirements"] == {"U": 1}
+    assert b["mana_symbol_requirements"] == {"U": 2}
     assert aid["pairs"] == [{"left": 0, "right": 1, "mana_per_card_order": 1}]
     assert cards == original
     assert "deck superiority" in aid["scope"]
@@ -75,3 +75,10 @@ def test_source_changes_and_zero_cost_have_explicit_exact_values():
     later = printed_draw_resource(card("c", "{2}: Draw a card."))
     assert first["activation_mana"] == 0
     assert first["oracle_text_sha256"] != later["oracle_text_sha256"]
+
+
+def test_colorless_requirement_is_a_mana_symbol_not_a_color():
+    profile = printed_draw_resource(card("c", "{2}{C}: Draw a card."))
+    assert profile["mana_symbol_requirements"] == {"C": 1}
+    assert profile["activation_mana"] == 3
+    assert "colored_requirements" not in profile

@@ -7,7 +7,11 @@ import pytest
 
 from sabermetrics.assistant_claim_fragments import fragment_units, reviewed_sections
 from sabermetrics.assistant_claim_review import evidence_catalog, review_claims
-from sabermetrics.assistant_claim_subspans import accepted_subspans, bind_subspans
+from sabermetrics.assistant_claim_subspans import (
+    accepted_subspans,
+    bind_subspans,
+    discover_subspans,
+)
 from sabermetrics.assistant_progressive_review import progressive_review
 from sabermetrics.assistant_review_followthrough import narrow_unverified_findings
 
@@ -37,7 +41,7 @@ class Reviewer:
 
     def generate(self, request):
         self.calls += 1
-        assert request.prompt_version == "assistant-claim-review.v8"
+        assert request.prompt_version == "assistant-claim-review.v9"
         return SimpleNamespace(
             value={
                 "fulfillment": "partial",
@@ -250,7 +254,7 @@ def test_fallback_keeps_complete_oracle_once_even_with_other_retained_fragments(
     assert output[1].count(oracle) == 1
 
 
-def test_wire_optional_subspans_use_same_single_call():
+def test_wire_without_subspans_uses_same_single_call():
     class WireReviewer:
         def generate(self, request):
             return SimpleNamespace(
@@ -261,7 +265,6 @@ def test_wire_optional_subspans_use_same_single_call():
                             "k": "rules",
                             "v": "unverified",
                             "e": [],
-                            "ss": [proposal()],
                         },
                     }
                 )
@@ -584,3 +587,232 @@ def test_incomplete_rules_cannot_certify_semantic_claim_even_in_subset(source):
     assert not any(
         j["verdict"] == "supported" for r in published for j in r["claim_judgments"]
     )
+
+
+def test_local_discovery_matches_only_old_admissible_forms_in_original_coordinates():
+    rule_body = "An ability can be activated if its costs can be paid."
+    sources = [SOURCE, "Rule 602.1\n" + rule_body]
+    texts = [
+        "Mystic has a tap ability.",
+        "Mystic Oracle text: “{T}: Add {G}.”.",
+        f"Rule 602.1: “{rule_body}”.",
+        "Mystic has a tap ability.",
+    ]
+    parts = [
+        "Candidates",
+        "Unknown assertion. " + " ".join(texts) + " It needs a loop.",
+    ]
+    # Discovery does not re-fragment the supplied original unit.
+    unit = fragment_units(parts, set(), atomic=False)[0]
+    _, lookup = evidence_catalog(sources)
+    expected = []
+    cursor = 0
+    for text, category, eid in zip(
+        texts[:3],
+        ["printed_fact", "printed_fact", "rules_interaction"],
+        [
+            "e2",
+            "e2",
+            next(e for e, (i, q) in lookup.items() if i == 1 and q == rule_body),
+        ],
+    ):
+        start = parts[1].index(text, cursor)
+        cursor = start + len(text)
+        expected.append(
+            {
+                "start": start,
+                "end": cursor,
+                "category": category,
+                "evidence_ids": [eid],
+                "dependency_refs": [],
+            }
+        )
+    proposals = discover_subspans(unit, sources, lookup, {0, 1})
+    assert proposals == expected
+    assert discover_subspans(unit, sources, lookup, {1, 0}) == expected
+    bound = bind_subspans(unit, proposals, sources, lookup, {0, 1}, [], "unverified")
+    assert [span["text"] for span in bound] == texts[:3]
+    assert len(bound) == 3
+    assert all(parts[1][p["start"] : p["end"]] == t for p, t in zip(proposals, texts))
+
+
+@pytest.mark.parametrize(
+    "change", ["unknown", "omitted", "duplicate", "clause", "pronoun", "multiline"]
+)
+def test_local_discovery_abstains_without_complete_literal_proof(change):
+    sources = [SOURCE]
+    parts = list(PARTS)
+    selected = {0}
+    if change == "unknown":
+        sources = [SOURCE.replace("Card: Mystic", "Card: Other Engine")]
+    elif change == "omitted":
+        selected = set()
+    elif change == "duplicate":
+        sources *= 2
+    elif change == "clause":
+        parts[1] = (
+            "Mystic ({G}) — If untapped, Mystic has a tap ability. It needs a loop."
+        )
+    elif change == "pronoun":
+        parts[1] = PARTS[1].replace("Mystic has", "It has")
+    elif change == "multiline":
+        oracle = "{T}: Add {G}.\nSpend this mana only to cast creatures."
+        sources = [SOURCE.replace("{T}: Add {G}.", oracle)]
+        # Neither a tap property nor an entire Oracle quote has a single catalog
+        # citation containing the complete required body.
+        parts[1] = f"Mystic Oracle text: “{oracle}”. It needs a loop."
+    unit = fragment_units(parts, set(), atomic=False)[0]
+    _, lookup = evidence_catalog(sources)
+    assert discover_subspans(unit, sources, lookup, selected) == []
+
+
+def test_local_discovery_still_passes_through_patch_guard():
+    unit = fragment_units(PARTS, set())[0]
+    _, lookup = evidence_catalog([SOURCE])
+    proposals = discover_subspans(unit, [SOURCE], lookup, {0})
+    assert proposals == [proposal()]
+    assert not bind_subspans(
+        unit,
+        proposals,
+        [SOURCE],
+        lookup,
+        {0},
+        [{"part_index": 1, "claim": "tap ability", "replacement": "mana ability"}],
+        "unverified",
+    )
+
+
+@pytest.mark.parametrize(
+    "spans",
+    [[], [proposal(evidence_ids=["unknown"])], [proposal(dependency_refs=["c99"])]],
+)
+def test_injected_proposals_cannot_weaken_independent_local_discovery(spans):
+    _, receipt = review_claims(Reviewer(spans), PARTS, [SOURCE], "mana")
+    assert (
+        receipt["claim_judgments"][0]["supported_subspans"][0]["text"]
+        == "Mystic has a tap ability."
+    )
+    # Malformed receipt binding remains independently fail closed.
+    unit = fragment_units(PARTS, set())[0]
+    _, lookup = evidence_catalog([SOURCE])
+    assert bind_subspans(unit, spans, [SOURCE], lookup, {0}, [], "unverified") == []
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"fulfillment": "partial", "judgments": []},
+        {
+            "fulfillment": "partial",
+            "judgments": [
+                {"claim_id": "c0", "category": "invalid", "verdict": "unverified"}
+            ],
+        },
+        {
+            "fulfillment": "partial",
+            "judgments": [
+                {"claim_id": "c99", "category": "printed_fact", "verdict": "unverified"}
+            ],
+        },
+    ],
+)
+def test_missing_or_invalid_semantic_receipt_cannot_publish_local_facts(raw):
+    class Gateway:
+        def generate(self, request):
+            return SimpleNamespace(value=raw)
+
+    corrected, receipt = review_claims(Gateway(), PARTS, [SOURCE], "mana")
+    assert not receipt.get("partial_facts_retained", 0)
+    assert reviewed_sections(PARTS, corrected, receipt, [SOURCE]) == []
+
+
+def test_binding_runs_after_normalization_with_all_patches(monkeypatch):
+    import sabermetrics.assistant_claim_subspans as module
+
+    parts = [
+        "Candidates",
+        "Mystic ({G}) — Mystic has a tap ability. It needs a loop. Mystic costs {U}.",
+    ]
+    seen = []
+    original = module.bind_subspans
+
+    def capture(unit, proposals, sources, lookup, selected, patches, verdict):
+        seen.append((unit["claim_id"], [p.model_dump() for p in patches], verdict))
+        return original(unit, proposals, sources, lookup, selected, patches, verdict)
+
+    monkeypatch.setattr(module, "bind_subspans", capture)
+
+    class Gateway:
+        def generate(self, request):
+            return SimpleNamespace(
+                value={
+                    "fulfillment": "partial",
+                    "judgments": [
+                        {
+                            "claim_id": "c0",
+                            "category": "rules_interaction",
+                            "verdict": "supported",
+                        },
+                        {
+                            "claim_id": "c1",
+                            "category": "printed_fact",
+                            "verdict": "contradicted",
+                            "correction_span": "{U}",
+                            "replacement": "{G}",
+                            "citations": [
+                                {"source_index": 0, "quote": "Mana cost: {G}"}
+                            ],
+                        },
+                    ],
+                }
+            )
+
+    _, receipt = review_claims(Gateway(), parts, [SOURCE], "mana")
+    assert len(receipt["patches"]) == 1
+    assert seen == [
+        ("c0", receipt["patches"], "unverified"),
+        ("c1", receipt["patches"], "contradicted"),
+    ]
+    assert receipt["partial_facts_retained"] == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "No rule text available.",
+        "Placeholder rule text.",
+        "[Unavailable]",
+        "Excerpt; omissions unknown.",
+    ],
+)
+def test_local_rule_discovery_uses_the_semantic_completeness_gate(body):
+    source = "Rule 602.1\n" + body
+    text = f"Rule 602.1: “{body}”."
+    parts = [
+        "Lead",
+        "Mystic ({G}) — " + text + " Independent research remains uncertain.",
+    ]
+
+    class UnknownReviewer:
+        def generate(self, request):
+            return SimpleNamespace(
+                value={
+                    "fulfillment": "partial",
+                    "judgments": [
+                        {
+                            "claim_id": "c0",
+                            "category": "rules_interaction",
+                            "verdict": "unverified",
+                        },
+                        {
+                            "claim_id": "c1",
+                            "category": "strategic_judgment",
+                            "verdict": "unverified",
+                        },
+                    ],
+                }
+            )
+
+    corrected, receipt = review_claims(UnknownReviewer(), parts, [source], "mana")
+    assert all(not j.get("supported_subspans") for j in receipt["claim_judgments"])
+    assert not reviewed_sections(parts, corrected, receipt, [source])

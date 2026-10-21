@@ -12,6 +12,7 @@ from sabermetrics.assistant_discovery_contract import (
 from sabermetrics.assistant_selection import (
     CandidateSelection,
     CandidateSelectionDraft,
+    attach_selection_evidence,
     selection_payload,
     selection_reply,
     validate_selection,
@@ -466,6 +467,19 @@ def test_runtime_selection_does_not_generate_prose_or_retry_whole_answer(
     assert "Incoming" in result["content"]
     assert result["research"]["selection_validation"]["complete"]
     assert result["research"]["runtime"]["model_calls"][1]["route"] == "selection"
+    payload = json.loads(gateway.requests[1].user)
+    assert "shared_strategic_evidence" not in payload
+    stage = next(
+        s
+        for s in result["research"]["runtime"]["stages"]
+        if s["stage"] == "selection_evidence"
+    )
+    assert stage["shared_strategic_evidence_included"] is False
+    assert stage["bounded_conditional_mana_source_count"] == 0
+    assert stage["scope_source_count"] == 0
+    assert stage["omitted_shared_evidence"] == payload.get(
+        "omitted_shared_evidence", []
+    )
 
 
 pytest_plugins = ["tests.test_assistant_experiments"]
@@ -1078,3 +1092,134 @@ def test_unparsed_resources_do_not_add_empty_comparison_context():
         [],
     )
     assert "shared_resource_comparisons" not in json.loads(payload)
+
+
+def test_optional_aid_uses_bytes_freed_after_lossless_alias_compression():
+    requirements, cards, ledger = setup()
+    args = (
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    base, retained = selection_payload(*args)
+    original = json.loads(base)
+    # Fit just below the final bound; long reference keys would evict this aid.
+    overhead = len(b',"shared_strategic_evidence":{"note":""}')
+    evidence = {"note": "x" * (24000 - len(base.encode()) - overhead - 5)}
+    encoded, same = selection_payload(*args, strategic_evidence=evidence)
+    payload = json.loads(encoded)
+    assert len(encoded.encode()) <= 24000
+    assert payload["shared_strategic_evidence"] == evidence
+    assert payload["candidates"] == original["candidates"]
+    assert same == retained
+    for record in payload["candidates"]:
+        for row in record.get("strategic_obligations", {}).get("obligations", []):
+            for alias, key in (("e", "evidence_refs"), ("c", "condition_refs")):
+                if alias in row:
+                    row[key] = row.pop(alias)
+    assert (
+        len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
+        > 24000
+    )
+
+
+def test_postpacking_aid_omits_only_shared_rule_bodies_when_needed():
+    requirements, cards, ledger = setup()
+    encoded, _ = selection_payload(
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    base = json.loads(encoded)
+    evidence = {
+        "conditions": ["Every exact conditional assumption remains."],
+        "rows": [
+            {"source_id": "c0", "status": "unknown", "unknowns": ["missing_rule"]}
+        ],
+        "rule_sources": [{"ref": "large-complete-rule", "text": "x" * 24000}],
+    }
+    packed = attach_selection_evidence(encoded, evidence)
+    data = json.loads(packed)
+    assert len(packed.encode()) <= 24000
+    aid = data["shared_strategic_evidence"]
+    assert aid["conditions"] == evidence["conditions"]
+    assert aid["rows"] == evidence["rows"]
+    assert aid["rule_sources_context_omitted"] is True
+    assert data["candidates"] == base["candidates"]
+    assert (
+        data["strategic_obligation_vocabulary"]
+        == base["strategic_obligation_vocabulary"]
+    )
+    omitted = json.loads(
+        attach_selection_evidence(encoded, {"unknowns": ["x" * 24000]})
+    )
+    assert "shared_strategic_evidence" not in omitted
+    assert "shared_strategic_evidence" in omitted["omitted_shared_evidence"]
+    assert omitted["candidates"] == base["candidates"]
+
+
+def test_empty_not_applicable_selector_context_adds_no_wire_padding():
+    requirements, cards, ledger = setup()
+    encoded, _ = selection_payload(
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    assert attach_selection_evidence(encoded, {"rows": [], "unknowns": []}) == encoded
+
+
+def test_near_bound_single_whole_source_can_disclose_optional_omission():
+    requirements, cards, _ = setup()
+    # No enrichment fits, so there are no contract aliases to supply headroom.
+    card = cards[0]
+    card["oracle_text"] = "{T}: Draw a card. " + "x" * 21800
+    ledger = DiscoveryLedger(
+        candidates=[candidate_from_card(card, group_ids=["list_1"])]
+    )
+    args = (
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {card["id"]: card},
+        [],
+        set(),
+        [],
+    )
+    encoded, _ = selection_payload(*args)
+    # Tune the complete source up to the original packing boundary.
+    payload = json.loads(encoded)
+    scope_savings = len(
+        "Omitted candidates/enrichments are context_omitted, not ineligible or exhausted discovery. Printed records are whole retrieved sources; honor their truncation flags. Missing enrichments establish no negative facts."
+    ) - len(payload["context_scope"])
+    scope_savings += len(
+        "Retrieved ledger fields may be bounded excerpts; do not infer completeness or absence from them."
+    ) - len(payload["ledger_scope"])
+    # wire_fields is added after packing, even with zero accepted contracts.
+    alias_overhead = len(',"wire_fields":{"e":"evidence_refs","c":"condition_refs"}')
+    card["oracle_text"] += "x" * (
+        24000 - len(encoded.encode()) - scope_savings + alias_overhead - 1
+    )
+    ledger.candidates[0] = candidate_from_card(card, group_ids=["list_1"])
+    encoded, retained = selection_payload(*args)
+    base = json.loads(encoded)
+    assert len(retained.candidates) == 1
+    assert "strategic_obligations" in base["candidates"][0]["context_omitted"]
+    assert len(encoded.encode()) > 23800
+    packed = attach_selection_evidence(encoded, {"unknowns": ["x" * 24000]})
+    data = json.loads(packed)
+    assert len(packed.encode()) <= 24000
+    assert data["omitted_shared_evidence"] == ["shared_strategic_evidence"]
+    assert data["candidates"] == base["candidates"]
+    assert data["candidates"][0]["printed"]["oracle_text"] == card["oracle_text"]

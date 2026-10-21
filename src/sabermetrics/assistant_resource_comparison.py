@@ -44,7 +44,9 @@ def printed_draw_resource(card: dict[str, Any]) -> dict[str, Any] | None:
         "printed_activation_cost": match["cost"],
         "activation_mana": mana,
         "cards_drawn": count,
-        "colored_requirements": {c: symbols.count(c) for c in "WUBRGC" if c in symbols},
+        "mana_symbol_requirements": {
+            c: symbols.count(c) for c in "WUBRGC" if c in symbols
+        },
         "mana_per_drawn_card": [ratio.numerator, ratio.denominator],
         "oracle_text_sha256": hashlib.sha256(raw.encode()).hexdigest(),
         "source_span": [0, len(raw)],
@@ -72,7 +74,7 @@ def resource_comparison_aid(cards: list[dict[str, Any]]) -> dict[str, Any]:
                 {"left": i, "right": j, "mana_per_card_order": (a > b) - (a < b)}
             )
     return {
-        "scope": "Exact printed activation mana per drawn card only. Colored requirements remain distinct. Assumes printed unmodified resolution, never payable resources, repeatability, speed or deck superiority. Mana, energy, taps, life and sacrificed cards have no inferred exchange rate.",
+        "scope": "Exact printed activation mana per drawn card only. Specific mana-symbol requirements remain distinct. Assumes printed unmodified resolution, never payable resources, repeatability, speed or deck superiority. Mana, energy, taps, life and sacrificed cards have no inferred exchange rate.",
         "records": records,
         "pairs": pairs,
         "unsupported_cards": len(cards) - len(records),

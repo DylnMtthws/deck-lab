@@ -37,7 +37,7 @@ def test_compact_wire_retains_text_evidence_and_local_hash_binding():
         metrics["uncompressed_input_bytes"] - metrics["input_bytes"]
         == metrics["transport_bytes_saved"]
     )
-    assert request.prompt_version == "assistant-claim-review.v8"
+    assert request.prompt_version == "assistant-claim-review.v9"
 
 
 def test_explicit_gap_survives_wire_and_bound_receipt():
@@ -119,3 +119,48 @@ def test_selected_identical_claims_keep_occurrence_identity_on_wire():
     assert left["claims"][0]["start"] != right["claims"][0]["start"]
     assert left["parent_parts"] == right["parent_parts"]
     assert captured[0].cache_key != captured[1].cache_key
+
+
+def test_production_schema_omits_subspan_proposals_but_retains_local_fact():
+    import pytest
+    from pydantic import ValidationError
+
+    from tests.test_assistant_claim_subspan_contract import PARTS, SOURCE
+
+    class Gateway:
+        calls = 0
+
+        def generate(self, request):
+            self.calls += 1
+            schema = request.schema.model_json_schema(by_alias=True)
+            properties = schema["$defs"]["WireJudgment"]["properties"]
+            assert "ss" not in properties
+            assert "supported_subspans" not in properties
+            assert "Optional ss" not in request.system
+            assert "dependency_refs" not in request.system
+            wire = {"f": "partial", "c0": {"k": "rules", "v": "unverified", "e": []}}
+            with pytest.raises(ValidationError):
+                request.schema.model_validate(
+                    {"f": "partial", "c0": {**wire["c0"], "ss": []}}
+                )
+            return SimpleNamespace(value=request.schema.model_validate(wire))
+
+    gateway = Gateway()
+    corrected, receipt = review_claims(
+        gateway, PARTS, [SOURCE], "mana", evidence_indices={0}
+    )
+    assert gateway.calls == 1
+    assert corrected == PARTS
+    judgment = receipt["claim_judgments"][0]
+    assert judgment["verdict"] == "unverified"
+    assert receipt["fulfillment"] == "unknown"
+    unit = fragment_units(PARTS, set())[0]
+    assert matching_judgment(unit, judgment)
+    (span,) = judgment["supported_subspans"]
+    assert span["text"] == "Mystic has a tap ability."
+    assert span["evidence_ids"] == ["e2"]
+    assert span["citations"] == [{"source_index": 0, "quote": "{T}: Add {G}."}]
+    assert span["parent_claim_sha256"] == unit["claim_sha256"]
+    assert span["parent_part_sha256"] == unit["part_sha256"]
+    assert span["source_sha256"] == receipt["source_sha256"]
+    assert receipt["evidence_indices"] == [0]

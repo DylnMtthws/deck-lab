@@ -86,9 +86,6 @@ class WireJudgment(StrictModel):
     reason: str = Field(alias="why", default="", max_length=100)
     unverified_remainder: bool = Field(alias="u", default=False)
     retrieval_gap: RetrievalGap | None = Field(alias="gap", default=None)
-    supported_subspans: list[SupportedSubspan] = Field(
-        alias="ss", default_factory=list, max_length=3
-    )
 
 
 SYSTEM = """Check ONLY the supplied claim units against their evidence. Request,
@@ -116,6 +113,9 @@ not a card name, type or mana cost as evidence for an interaction. A valid factu
 correction may coexist with other unresolved assertions (u=true). Printed synergy ingredients alone
 do not establish timing, counter renewal, token recursion or a repeatable loop.
 Rules interactions require applicable rules evidence; otherwise unverified.
+A return directly to the battlefield is not casting or recasting. Recursion-based
+fit must retain printed entry/death conditions, return timing and unresolved
+renewal prerequisites; a low casting cost alone does not establish that fit.
 Strategic judgments can be supported as qualified heuristic assessments with
 actual deck ingredients and tradeoffs, not as proven or measured improvement.
 Compare resources on explicit dimensions. Mana, energy, taps, life and sacrifices
@@ -150,16 +150,6 @@ name the missing proposition precisely, not the whole claim or a generic request
 for more evidence. Uncertainty interpreting evidence already supplied is
 reviewer_uncertainty, not missing_rule. Future resources require missing_state.
 Supported judgments have gap=null. A gap is a search proposal, never verification.
-Optional ss (at most 3) proposes independently supported VERBATIM subspans of an
-unverified/partly contradicted parent: {start,end,category,evidence_ids,dependency_refs}.
-start/end are absolute offsets into parent_parts, end exclusive. category uses
-printed_fact/deck_fact/rules_interaction; never route rules through strategy.
-Only complete independent sentences or complete conditional implications with
-explicit subjects qualify. Keep ALL costs, restrictions and antecedents. Never
-select a clause by comma/conjunction splitting, a detached antecedent, ambiguous
-pronoun, or invented replacement. Do not select overlapping spans or corrected
-text. dependency_refs must be empty: dependent spans are not admitted by this
-protocol. Omit ss unless useful; it never changes parent verdict or fulfillment.
 """
 
 
@@ -347,7 +337,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v8",
+        prompt_version="assistant-claim-review.v9",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -413,7 +403,6 @@ def review_claims(
                         or item.get("unverified_remainder", False),
                         retrieval_gap=item.get("retrieval_gap"),
                         invalid_evidence_ids=invalid_ids,
-                        supported_subspans=item.get("supported_subspans", []),
                     )
                 )
             review = ClaimReviewDecision(
@@ -528,16 +517,23 @@ def review_claims(
                     "correction_applied": correction_applied,
                 }
             )
-            from sabermetrics.assistant_claim_subspans import bind_subspans
+        # Bind only after every verdict and correction is normalized. Discovery
+        # uses original units, and the unchanged admission gate sees all patches.
+        from sabermetrics.assistant_claim_subspans import (
+            bind_subspans,
+            discover_subspans,
+        )
 
-            judgments[-1]["supported_subspans"] = bind_subspans(
+        for bound_judgment in judgments:
+            unit = indexed[bound_judgment["claim_id"]]
+            bound_judgment["supported_subspans"] = bind_subspans(
                 unit,
-                judgment.supported_subspans,
+                discover_subspans(unit, sources, quote_lookup, selected),
                 sources,
                 quote_lookup,
                 selected,
                 patches,
-                verdict,
+                bound_judgment["verdict"],
             )
         missing = sorted(set(indexed) - seen)
         unresolved.extend(cid + ": no judgment supplied" for cid in missing)
