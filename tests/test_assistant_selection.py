@@ -625,3 +625,216 @@ def test_comparing_additional_candidates_still_excludes_prior_picks(
     assert "incoming-0" not in {
         c["card_id"] for c in json.loads(gateway.requests[-1].user)["candidates"]
     }
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_payload_reserves_printed_records_before_redundant_enrichments(reverse):
+    requirements, cards, _ = setup(count=3)
+    requirements[0] = requirements[0].model_copy(
+        update={"request_quote": "Compare candidates"}
+    )
+    for card in cards:
+        card["retrieval_views"] = {"repeated_metadata": "x" * 30000}
+        card["card_faces"] = [
+            {"type_line": "Creature", "oracle_text": "{T}: Draw a card."}
+        ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(c, group_ids=["list_1"], rank=i + 1)
+            for i, c in enumerate(cards)
+        ]
+    )
+    if reverse:
+        ledger.candidates.reverse()
+    payload, retained = selection_payload(
+        "Three draw candidates",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    data = json.loads(payload)
+    assert [c.card_id for c in retained.candidates] == ["c0", "c1", "c2"]
+    assert len(payload.encode()) <= 24000
+    assert not data["omitted_candidate_ids"]
+    for record, card in zip(data["candidates"], cards):
+        assert record["printed"]["oracle_text"] == card["oracle_text"]
+        assert record["printed"]["card_faces"] == card["card_faces"]
+        assert "retrieval_views" in record["context_omitted"]
+        assert "retrieval_views" not in record
+
+
+def test_payload_reserves_each_group_before_spending_on_alternatives():
+    requirements = [
+        DiscoveryRequirement(
+            group_id=gid,
+            label="Draw",
+            requested_count=n,
+            request_quote="Draw candidates",
+        )
+        for gid, n in [("a", 2), ("b", 1)]
+    ]
+    cards = [
+        {
+            "id": cid,
+            "name": cid,
+            "type_line": "Creature",
+            "oracle_text": "{T}: Draw a card. " + "x" * size,
+        }
+        for cid, size in [("a0", 9000), ("a1", 9000), ("b0", 6000)]
+    ]
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(c, group_ids=[c["id"][0]], rank=i + 1)
+            for i, c in enumerate(cards)
+        ]
+    )
+    payload, retained = selection_payload(
+        "Draw candidates",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    data = json.loads(payload)
+    assert [c.card_id for c in retained.candidates] == ["a0", "b0"]
+    assert data["omitted_candidate_ids"] == ["a1"]
+    assert "not ineligible" in data["context_scope"]
+    assert len(payload.encode()) <= 24000
+    for record in data["candidates"]:
+        assert record["printed"]["oracle_text"] == next(
+            c["oracle_text"] for c in cards if c["id"] == record["card_id"]
+        )
+
+
+def test_payload_counts_shared_candidates_for_each_eligible_group():
+    requirements, cards, _ = setup(count=1)
+    requirements.append(requirements[0].model_copy(update={"group_id": "list_2"}))
+    cards[0]["oracle_text"] += "x" * 14000
+    cards[1]["oracle_text"] += "x" * 14000
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(cards[0], group_ids=["list_1", "list_2"], rank=1),
+            candidate_from_card(cards[1], group_ids=["list_2"], rank=2),
+        ]
+    )
+    payload, retained = selection_payload(
+        "Draw candidates",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    data = json.loads(payload)
+    assert [c.card_id for c in retained.candidates] == ["c0"]
+    assert data["candidates"][0]["group_ids"] == ["list_1", "list_2"]
+    assert data["omitted_candidate_ids"] == ["c1"]
+
+
+def test_payload_filters_mixed_request_membership_per_group():
+    requirements = [
+        DiscoveryRequirement(
+            group_id="draw",
+            label="draw",
+            requested_count=1,
+            request_quote="Find repeatable draw creatures",
+        ),
+        DiscoveryRequirement(
+            group_id="mana",
+            label="mana",
+            requested_count=1,
+            request_quote="Find mana rocks",
+        ),
+    ]
+    cards = [
+        {
+            "id": "draw",
+            "name": "Draw",
+            "type_line": "Creature",
+            "oracle_text": "{T}: Draw a card.",
+        },
+        {
+            "id": "mana",
+            "name": "Mana",
+            "type_line": "Artifact",
+            "oracle_text": "{T}: Add {U}.",
+        },
+    ]
+    ledger = DiscoveryLedger(candidates=[candidate_from_card(c) for c in cards])
+    payload, retained = selection_payload(
+        "Find repeatable draw creatures and mana rocks",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    assert len(retained.candidates) == 2
+    assert {
+        c["card_id"]: c["group_ids"] for c in json.loads(payload)["candidates"]
+    } == {
+        "draw": ["draw"],
+        "mana": ["mana"],
+    }
+
+
+def test_payload_retains_exact_contract_hashes_conditions_and_gap_statuses():
+    from sabermetrics.assistant_strategic_obligations import (
+        build_strategic_obligations,
+        compact_strategic_obligations,
+    )
+
+    requirements, cards, ledger = setup(count=1)
+    cards[0][
+        "oracle_text"
+    ] = "{T}, Remove a +1/+1 counter from this creature: Draw a card."
+    request = "Find repeatable draw creatures"
+    payload, _ = selection_payload(
+        request, requirements, ledger, {c["id"]: c for c in cards}, [], set(), []
+    )
+    data = json.loads(payload)
+    record = next(c for c in data["candidates"] if c["card_id"] == "c0")
+    vocabulary = {"propositions": {}, "conditions": []}
+    expected = compact_strategic_obligations(
+        build_strategic_obligations(cards[0], request),
+        vocabulary=vocabulary,
+    )
+    contract = record["strategic_obligations"]
+    assert contract["evidence"] == expected["evidence"]
+    for row, original in zip(contract["obligations"], expected["obligations"]):
+        assert row.get("gap") == original.get("gap")
+        assert row["status"] == original["status"]
+        assert [
+            data["strategic_obligation_vocabulary"]["conditions"][i]
+            for i in row.get("condition_refs", [])
+        ] == [vocabulary["conditions"][i] for i in original.get("condition_refs", [])]
+
+
+def test_payload_rejected_contract_does_not_leak_vocabulary_or_truncate_source():
+    requirements, cards, ledger = setup(count=1)
+    cards[0]["oracle_text"] += "x" * 22000
+    payload, retained = selection_payload(
+        "Find draw",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        {"c1", "c2"},
+        [],
+    )
+    data = json.loads(payload)
+    assert [c.card_id for c in retained.candidates] == ["c0"]
+    record = data["candidates"][0]
+    assert record["printed"]["oracle_text"] == cards[0]["oracle_text"]
+    assert "strategic_obligations" in record["context_omitted"]
+    assert "strategic_obligations" not in record
+    assert data["strategic_obligation_vocabulary"]["conditions"] == []
+    assert data["strategic_obligation_vocabulary"]["propositions"] == {}
+    assert len(payload.encode()) <= 24000

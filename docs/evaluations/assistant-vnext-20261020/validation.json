@@ -1,0 +1,180 @@
+{
+  "schema": "assistant-vnext-validation.v1",
+  "implementation_commit": "2380c769feb2e15f231c7f6c1374ff5629d44768",
+  "source_attribution_commit": "bde2d8d17608f3b8ba4be25de46bb091535e2c10",
+  "vector_optimization_commit": "b26cd3d989020cc8bdbc3217ede8e0112c221bcb",
+  "offline_validation": {
+    "environment": "TZ=UTC, matching QA",
+    "passed": 3821,
+    "skipped": 23,
+    "deselected": 11,
+    "seconds": 155.29,
+    "scope": "Full offline suite; external model/Postgres/simulator integrations excluded. Five unchanged Research local/UTC boundary failures occurred in the initial local-time run; no Research code was changed."
+  },
+  "evaluation": {
+    "scope": "offline_selection_only over supplied retention pools; not end-to-end quality",
+    "cases_per_split": 16,
+    "labels": "independent AI-authored, not expert-reviewed",
+    "manifest_sha256": "5c6d45e31a9dd403e23acc2cb2017cfd8e1907c9778f08a59e373e5c2c3fe7af",
+    "development": {
+      "baseline": 0.6875,
+      "candidate": 0.6875,
+      "frozen_commit": "2380c769feb2e15f231c7f6c1374ff5629d44768"
+    },
+    "heldout": {
+      "baseline": 0.625,
+      "candidate": 0.625,
+      "frozen_commit": "2380c769feb2e15f231c7f6c1374ff5629d44768"
+    },
+    "unassessed": [
+      "full discovery recall",
+      "model selection",
+      "rendered-answer factual accuracy",
+      "package coherence",
+      "cut quality",
+      "completion"
+    ],
+    "conclusion": "No measured selection-quality gain; do not infer zero factual errors from zero factual answers."
+  },
+  "knowledge": {
+    "canonical": {
+      "content_hash": "198b92bc4575b9007790cfdaa514b397e5f1fa521ba01a0d78c4b9f36aa249ff",
+      "cards": 34353,
+      "observed_at": "2026-10-20T21:02:00.122+00:00",
+      "retrieved_at": "2026-10-20T23:50:04.861653+00:00",
+      "version": "2026-10-20T21:02:00.122+00:00"
+    },
+    "canonical_source_scope": {
+      "source_rows": 38940,
+      "matched_rows": 34353,
+      "absent_catalog": 4586,
+      "name_mismatch": 1
+    },
+    "rulings": {
+      "namespace": "scryfall-bulk",
+      "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+      "source_version": "2026-10-20T21:00:33.452+00:00",
+      "content_sha256": "e494a5b0fe84badb3fcb7a798a928bf382080478be490361e7c4f318a022706d",
+      "raw_bytes": 5422271,
+      "input_format": "jsonl.gz",
+      "rows_count": 79661,
+      "wotc_count": 79592,
+      "scryfall_count": 69,
+      "duplicates_dropped": 43,
+      "empty_comments_skipped": 2,
+      "descriptor_uri": "https://api.scryfall.com/bulk-data/06f54c0b-ab9c-452d-b35a-8297db5eb940",
+      "descriptor_updated_at": "2026-10-20T21:00:33.452000+00:00",
+      "imported_at": "2026-10-21T00:21:38+00:00",
+      "unchanged": false,
+      "rows_replaced": 79661,
+      "other_source_rows": 0,
+      "oracle_ids": 20079,
+      "oracle_ids_matching_cards": 19733
+    },
+    "strategy": {
+      "base_chunks": 78,
+      "added_sources": [
+        {
+          "status": "imported",
+          "source_key": "user-crystal-storm-20261020",
+          "version": "user-message-20261020-v1",
+          "chunks": 5,
+          "content_sha256": "ef3ab1fba0745c6c22c61b228057a9b80d222f51993a8714ef047a4234a24f0e",
+          "permission_basis": "direct_user_supplied_authorization",
+          "review_status": "unreviewed_community_strategy; mechanical claims require separate current Oracle/rules evidence",
+          "scope": "Declared authorization and review provenance; not legal or expert certification. No network access."
+        },
+        {
+          "status": "imported",
+          "source_key": "wikipedia-mtg-deck-types",
+          "version": "1379752294",
+          "chunks": 13,
+          "content_sha256": "01e5292a7289da9f850b1571b0163ebd4e1654b67ce4ae5c9be70d78b7bcc974",
+          "permission_basis": "open_license",
+          "review_status": "community_edited_not_expert_reviewed",
+          "scope": "Declared authorization and review provenance; not legal or expert certification. No network access."
+        },
+        {
+          "status": "imported",
+          "source_key": "crystal-storm-ai-mechanical-review-20261020",
+          "version": "2026-10-20.v1",
+          "chunks": 3,
+          "content_sha256": "4a4e0ae76071b3738c33218c49e9210ff80fcb90a1e9c2c37932ecade6f99782",
+          "permission_basis": "original_authored_work",
+          "review_status": "ai_source_review_not_expert_reviewed",
+          "scope": "Declared authorization and review provenance; not legal or expert certification. No network access."
+        }
+      ]
+    },
+    "index": {
+      "sha256": "4304f5e62dd12d80c6c59925e45dd58acd06b78137f94bcc2f9b405c947497ac",
+      "generation": "d9ac30d70d1275b686ce9fb3e7fcbe3b50510f88e3a2309451650243091cf32a",
+      "counts": {
+        "eligible": 31830,
+        "encoded_rows": 65739,
+        "excluded": 2740,
+        "expected": 31830,
+        "failed": 0,
+        "indexed": 31830,
+        "present": 31830,
+        "reused_rows": 0,
+        "stale": 0,
+        "unsupported": 0
+      },
+      "embedding_model": "fastembed@0.9.0:sentence-transformers/all-MiniLM-L6-v2:09697d311c5b7cc77ee81000158c5d2f41739328b5b0e12e43ab558130a70301",
+      "scope": "Exact cached eligible search projection; canonical inventory in the artifact describes local preparation, not live source freshness."
+    }
+  },
+  "vector_performance": {
+    "query": "repeatable sacrifice draw",
+    "scope": "One preencoded query replay; encoder startup and purged-disk-cache behavior excluded. Not end-to-end answer latency.",
+    "adversarial_review": "Codex fallback: 37 focused tests, 412 float32 differential comparisons; saved real-artifact outputs inspected, timings not independently reproduced.",
+    "runs": [
+      {
+        "run": "first",
+        "before_seconds": 9.227478168904781,
+        "after_seconds": 4.106459999457002,
+        "all_similarities_sha256": "5986da47ce9cc1165da51066b85aa36f54c03aa2ef4f8afee979108e0e2abf4b",
+        "counts": [
+          31830,
+          65739
+        ],
+        "scores_order_and_receipts_equal": true
+      },
+      {
+        "run": "warm",
+        "before_seconds": 9.059905666857958,
+        "after_seconds": 3.672816164791584,
+        "all_similarities_sha256": "5986da47ce9cc1165da51066b85aa36f54c03aa2ef4f8afee979108e0e2abf4b",
+        "counts": [
+          31830,
+          65739
+        ],
+        "scores_order_and_receipts_equal": true
+      }
+    ]
+  },
+  "limitations": [
+    "No Opus review was performed; Codex fallback agents were used.",
+    "Additional expert-reviewed permissioned primers have not been obtained.",
+    "The historical Marchesa memory omission remains unexplained.",
+    "Finite mechanical trace support does not establish arbitrary legal play or unlimited loops.",
+    "No additional public cohort records were fabricated or imported."
+  ],
+  "live_replay_fixes": {
+    "selection_packing": {
+      "recorded_runtime_retained": 2,
+      "reconstructed_baseline_retained": 3,
+      "reconstructed_fixed_retained": 8,
+      "reconstructed_fixed_bytes": 23910,
+      "eligible_retrieved": 8,
+      "scope": "Reconstructed preferences/input projection are not an exact replay of the recorded live selection payload. Printed-record reservations restore selection opportunity, not guaranteed usefulness."
+    },
+    "targeted_rules": "Rendered claims outrank unasserted support mechanics; energy and permanent counters use distinct queries.",
+    "integration_tests": {
+      "passed": 108,
+      "seconds": 15.08
+    },
+    "selection_prompt_version": "assistant-selection.v4"
+  }
+}

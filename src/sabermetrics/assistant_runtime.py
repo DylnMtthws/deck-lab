@@ -2430,7 +2430,7 @@ def run_turn(
                 request_gateway = owned_concise_gateway
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v3" if selecting else PROMPT_VERSION
+                    "assistant-selection.v4" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,

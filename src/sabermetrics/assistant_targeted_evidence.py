@@ -9,6 +9,67 @@ from typing import Any
 
 from sabermetrics.assistant_rules import retrieve_rules
 
+_RECURSION = (
+    r"\bgraveyard\b|\bdies\b|\bsacrific\w*|\brecur\w*|\breanimat\w*|"
+    r"\breturn\w*\b[^.!?;]*(?:battlefield|counter)|"
+    r"\b(?:it|creature|permanent|card) returns?\b|\bcomes? back\b"
+)
+_RECURSION_QUERY = "sacrifice dies return graveyard zone change new object delayed triggered ability token"
+_RENEWAL_QUERY = "zone change new object counters retained return counter renewal"
+_TAP_QUERY = "tap symbol activated ability summoning sickness haste"
+_RESTRICTION_QUERY = "activation restriction only once each turn sorcery timing"
+
+
+def _counter_query(text: str) -> str:
+    # Energy belongs to a player; it is not a +1/+1 counter on a permanent.
+    # These are retrieval terms, never a conclusion about an interaction.
+    if re.search(r"\benergy\b|\{e\}", text) and "+1/+1" not in text:
+        return "energy counters player pay energy cost proliferate"
+    if "+1/+1" in text and not re.search(r"\benergy\b|\{e\}", text):
+        return (
+            "+1/+1 counters permanent remove counters cost putting counters proliferate"
+        )
+    return "remove counters cost putting counters restrictions proliferate"
+
+
+def _queries(text: str, claims: list[str]) -> list[str]:
+    # Only rendered assertions can request recursion/renewal. In particular,
+    # 'repeat' plus an unasserted support card's return ability is insufficient.
+    fragments = [
+        part for claim in claims for part in re.split(r"[.!?;\n]", claim.lower())
+    ]
+    queries = []
+    for fragment in fragments:
+        recursion = bool(re.search(_RECURSION, fragment))
+        counters = bool(
+            re.search(r"\bcounters?\b|\bproliferat\w*|\benergy\b|\{e\}", fragment)
+        )
+        object_counters = counters and (
+            "+1/+1" in fragment or not re.search(r"\benergy\b|\{e\}", fragment)
+        )
+        if object_counters and (
+            recursion
+            or re.search(r"\bretain\w*|\brenew\w*|\breplenish\w*|\bkeep\w*", fragment)
+        ):
+            queries.append(_RENEWAL_QUERY)
+        if recursion:
+            queries.append(_RECURSION_QUERY)
+        if counters:
+            queries.append(_counter_query(fragment))
+        if re.search(r"\{t\}|\b(?:un)?tap\w*|\bhaste\b|summoning sickness", fragment):
+            queries.append(_TAP_QUERY)
+        if re.search(r"only once|once each turn|only as a sorcery", fragment):
+            queries.append(_RESTRICTION_QUERY)
+    # Printed finalist mechanics fill spare slots after claim-specific needs.
+    # Support cards remain retrieval scope, not additional assertions.
+    if re.search(r"\bcounters?\b|proliferate|\benergy\b|\{e\}", text):
+        queries.append(_counter_query(text))
+    if re.search(r"\{t\}|\bhaste\b", text):
+        queries.append(_TAP_QUERY)
+    if re.search(r"only once|once each turn|only as a sorcery", text):
+        queries.append(_RESTRICTION_QUERY)
+    return list(dict.fromkeys(queries))
+
 
 def finalist_evidence(
     db_path: Path,
@@ -25,36 +86,7 @@ def finalist_evidence(
     started = time.monotonic()
     finalists = cards[:3]
     text = "\n".join(str(c.get("oracle_text") or "") for c in finalists).lower()
-    queries = []
-    claim_text = " ".join(claims or []).lower()
-    if re.search(
-        r"repeat|loop|retain|renew|return.*counter|counter.*return", claim_text
-    ) and re.search(
-        r"return|graveyard|dies",
-        text
-        + " "
-        + " ".join(str(c.get("oracle_text") or "") for c in support_cards or []),
-    ):
-        queries.append(
-            "zone change new object counters retained return counter renewal"
-        )
-    for pattern, query in (
-        (
-            r"sacrifice|\bdies\b|return.*graveyard|return that card",
-            "sacrifice dies return graveyard zone change new object delayed triggered ability token",
-        ),
-        (
-            r"counter|proliferate",
-            "remove counters cost putting counters restrictions proliferate",
-        ),
-        (r"\{t\}|\bhaste\b", "tap symbol activated ability summoning sickness haste"),
-        (
-            r"only once|once each turn|only as a sorcery",
-            "activation restriction only once each turn sorcery timing",
-        ),
-    ):
-        if re.search(pattern, text):
-            queries.append(query)
+    queries = _queries(text, claims or [])
     merged = dict(existing)
     fresh = []
     receipts = []

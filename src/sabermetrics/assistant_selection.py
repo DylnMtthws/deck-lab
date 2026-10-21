@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from typing import Any
 
 from pydantic import Field, field_validator
@@ -23,7 +24,6 @@ from sabermetrics.assistant_strategic_obligations import (
     compact_strategic_obligations,
     strategic_rank_key,
 )
-from sabermetrics.assistant_suitability import render_fit_reason
 
 
 def complete_sentence(value: str) -> str:
@@ -160,6 +160,9 @@ support_not_found means bounded checks did not find it, never that none exists.
 Status applies to each stated proposition, not the candidate's overall quality.
 Prefer meaningfully different mechanisms among comparably useful candidates,
 without forcing a diversity quota or promoting weaker choices to fill counts.
+omitted_candidate_ids are context omissions, never exhausted eligible discovery.
+When records or enrichments are context_omitted, disclose the evidence limit;
+never describe omitted candidates as ineligible or claim only supplied records exist.
 Only select supplied IDs; no duplicates, existing deck cards or excluded IDs.
 Do not duplicate card names/casting costs: code renders those printed fields.
 When repairing, change only invalid selections/assessments, preserving valid ones.
@@ -289,19 +292,39 @@ def selection_payload(
             request,
             deck_entries=deck_sources if deck_entries is not None else None,
         )
-    retained = []
+    # Printed sources get the budget before derived explanations. Keep group
+    # eligibility request-aware, including restored candidates without group tags.
+    eligible_groups = {
+        c.card_id: {
+            gid
+            for gid, goal in goals.items()
+            if (not (set(c.group_ids) & set(goals)) or gid in c.group_ids)
+            and meets_goal(sources.get(c.card_id, {}), goal)
+        }
+        for c in candidates
+    }
+    payload["context_scope"] = (
+        "Omitted candidates/enrichments are context_omitted, not ineligible or "
+        "exhausted discovery. Printed records are whole retrieved sources; honor "
+        "their truncation flags. Missing enrichments establish no negative facts."
+    )
+    payload["omitted_candidate_ids"] = [c.card_id for c in candidates]
+    records: dict[str, dict[str, Any]] = {}
     for candidate in candidates:
         card = sources.get(candidate.card_id, {})
-        record = {
+        records[candidate.card_id] = {
             "card_id": candidate.card_id,
             "name": candidate.name,
-            "group_ids": candidate.group_ids,
+            "group_ids": [
+                gid for gid in goals if gid in eligible_groups[candidate.card_id]
+            ],
             "ledger_scope": "Retrieved ledger fields may be bounded excerpts; do not infer completeness or absence from them.",
             "printed": {
                 key: card[key]
                 for key in (
                     "mana_cost",
                     "cmc",
+                    "mana_value",
                     "type_line",
                     "oracle_text",
                     "oracle_text_truncated",
@@ -314,31 +337,97 @@ def selection_payload(
                 if card.get("oracle_text")
                 else [f.model_dump() for f in candidate.source_facts]
             ),
+            "context_omitted": [
+                "strategic_obligations",
+                "ability_compatibility",
+                "functional_comparison",
+                "retrieval_views",
+                "recommendation_packet",
+                "heuristic_support_unverified",
+            ],
+        }
+
+    def fits() -> bool:
+        return (
+            len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
+            <= 24000
+        )
+
+    retained_ids: set[str] = set()
+    attempted: set[str] = set()
+
+    def retain(candidate: Any) -> None:
+        cid = candidate.card_id
+        attempted.add(cid)
+        payload["candidates"].append(records[cid])
+        payload["omitted_candidate_ids"].remove(cid)
+        if fits():
+            retained_ids.add(cid)
+        else:
+            payload["candidates"].pop()
+            payload["omitted_candidate_ids"].append(cid)
+
+    # One slot per group per round prevents a large early group from consuming
+    # every slot. Shared records count for each eligible group, once per identity.
+    while True:
+        progress = False
+        for requirement in requirements:
+            gid = requirement.group_id
+            count = sum(gid in eligible_groups[cid] for cid in retained_ids)
+            if count >= (requirement.requested_count or 0):
+                continue
+            next_candidate = next(
+                (
+                    c
+                    for c in candidates
+                    if c.card_id not in attempted and gid in eligible_groups[c.card_id]
+                ),
+                None,
+            )
+            if next_candidate is not None:
+                retain(next_candidate)
+                progress = True
+        if not progress:
+            break
+    for candidate in candidates:
+        if candidate.card_id not in attempted:
+            retain(candidate)
+    # Reservation order is only for packing. Preserve the global strategic and
+    # request-aware ranking in both views returned to the caller.
+    retained = [c for c in candidates if c.card_id in retained_ids]
+    payload["candidates"] = [records[c.card_id] for c in retained]
+    payload["omitted_candidate_ids"] = [
+        c.card_id for c in candidates if c.card_id not in retained_ids
+    ]
+
+    for candidate in retained:
+        cid = candidate.card_id
+        card = sources.get(cid, {})
+        record = records[cid]
+        # Intern conditions only when their entire contract fits; a rejected
+        # enrichment must not leak vocabulary or orphan evidence references.
+        vocabulary = deepcopy(payload["strategic_obligation_vocabulary"])
+        enrichments = {
+            "strategic_obligations": compact_strategic_obligations(
+                obligations[cid],
+                vocabulary=vocabulary,
+            ),
             "ability_compatibility": compatibility_summary(
                 card.get("suitability", {}).get("ability_compatibility", {})
             ),
-            "strategic_obligations": compact_strategic_obligations(
-                obligations[candidate.card_id],
-                vocabulary=payload["strategic_obligation_vocabulary"],
-            ),
             "functional_comparison": card.get("functional_comparison"),
-            "retrieval_views": card.get("retrieval_views"),
-            "recommendation_packet": card.get("suitability", {}).get(
-                "recommendation_packet"
-            ),
-            "heuristic_support_unverified": (
-                render_fit_reason(card["suitability"])
-                if card.get("suitability")
-                else "No deck-fit assessment supplied."
-            ),
         }
-        payload["candidates"].append(record)
-        if len(json.dumps(payload, ensure_ascii=False).encode()) > 24000:
-            payload["candidates"].pop()
-            payload["omitted_candidate_ids"].append(candidate.card_id)
-        else:
-            retained.append(candidate)
-    encoded = json.dumps(payload, ensure_ascii=False)
+        for key, value in enrichments.items():
+            old_vocabulary = payload["strategic_obligation_vocabulary"]
+            if key == "strategic_obligations":
+                payload["strategic_obligation_vocabulary"] = vocabulary
+            record[key] = value
+            record["context_omitted"].remove(key)
+            if not fits():
+                del record[key]
+                record["context_omitted"].append(key)
+                payload["strategic_obligation_vocabulary"] = old_vocabulary
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if len(encoded.encode()) > 28000:
         raise ValueError("Selection context exceeds its bound")
     return encoded, DiscoveryLedger(candidates=retained)

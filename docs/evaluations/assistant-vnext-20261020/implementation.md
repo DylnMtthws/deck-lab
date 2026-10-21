@@ -33,3 +33,15 @@ Memory reports capture, attachment and persistence separately, with skip reasons
 The independently authored benchmark freezes 16 development and 16 held-out cases. Labels are AI authored, not human expert certification. `capture_assistant_quality_selection.py` exercises actual production rank components and renderers for supplied retention pools; it does not execute full discovery, the model selector, claim review, cuts or packages. Missing dimensions remain unassessed. Its supplied-pool recall is not evidence of improved retrieval recall, and its offline milliseconds are not answer latency.
 
 Held-out scoring requires a final source freeze. Once consumed, that split must be retired from claims of unseen evaluation if its outcomes inform further tuning. Actual QA prose, request fulfillment, errors, costs and timings require separate live receipts.
+
+## Refresh operating constraints
+
+Large canonical imports use disk-backed SQLite temporary storage. The QA container's 128 MiB `/tmp` is too small for the full catalog import. Set `SQLITE_TMPDIR` at process startup and SQLite's `temp_store_directory` to a writable data-volume temporary directory before importing. Two failed imports rolled back without changing the previous canonical snapshot; the successful import used a compact, hash-bound exact-field projection. Source inputs and receipts retain their parent hashes.
+
+The vector query path now decodes, validates and calculates each SQLite vector norm once per lookup. Legacy JSON remains strictly validated and cannot supply trusted norms. A full-pool differential replay preserved every similarity, top-24 order and receipt. See `validation.json` for coverage, timing and evaluation limits.
+
+## Live replay corrections
+
+The first full-catalog Marchesa replay exposed candidate context loss: eight retrieved candidates became two records at selection time. Packing now reserves whole printed records across requested groups before allocating optional enrichment, preserves global ranking, and labels every omission. A reconstructed input retains all eight in 23,910 bytes; it is not an exact reconstruction of the original live payload. Omitting a record never establishes that discovery exhausted eligible candidates.
+
+Finalist lookups prioritize rendered assertions. A support card's recursion text plus the word “repeatable” no longer consumes a lookup ahead of tap/haste rules. Energy and counters on permanents use distinct search terms. Lookups remain bounded and heuristic; retrieved rules do not certify that a game action is legal.
