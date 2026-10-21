@@ -1,0 +1,304 @@
+{
+  "purpose": "Bounded chronological QA diagnostics, no causal latency or broad quality noninferiority claim",
+  "baseline_sha256": "898fbadeb6e9ae9fae2065fb2da950fb78f3fbcf05305542d3db4bfe8b5e3fe1",
+  "candidate_sha256": "64df939c6d6acabc1c95ac72e4869233a4efb5ea79cabc1e720490583ec106a5",
+  "protocol": {
+    "same_prompts": true,
+    "fresh_disposable_decks": true,
+    "runs_per_build_per_case": 1,
+    "poll_seconds": 1.5,
+    "limitations": [
+      "Uncontrolled provider/network load and stochastic selections",
+      "First supported publication can be one literal cost fact",
+      "Configured costs are application accounting, not audited billing",
+      "AI adversarial review is not independent human expert adjudication"
+    ]
+  },
+  "cases": {
+    "marchesa": {
+      "baseline": {
+        "build_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+        "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+        "first_source_seconds": 18.454,
+        "first_supported_seconds": 79.717,
+        "elapsed_seconds": 91.609,
+        "configured_cost_usd": 0.0053809999999999995,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 13986,
+        "cached_input_tokens": 0,
+        "output_tokens_including_reasoning": 4307,
+        "semantic_review_generation_records": 1,
+        "stage_timings": [
+          {
+            "elapsed_seconds": 0.107,
+            "end_seconds": 44.587126,
+            "input_chars": 22939,
+            "retained_candidates": 8,
+            "stage": "selection_evidence",
+            "start_seconds": 44.479747
+          },
+          {
+            "elapsed_seconds": 11.43,
+            "end_seconds": 86.511128,
+            "stage": "answer_review",
+            "start_seconds": 75.080909,
+            "status": "unverified"
+          },
+          {
+            "elapsed_seconds": 0.623,
+            "end_seconds": 87.501824,
+            "lookups": 0,
+            "stage": "corrective_review",
+            "start_seconds": 86.878871,
+            "status": "not_needed"
+          },
+          {
+            "attachment_status": "not_attached",
+            "deck_entries": 64,
+            "dependency_count": 67,
+            "elapsed_seconds": 0.197501,
+            "end_seconds": 87.911484,
+            "input_sha256": "5cb3cf68d554787d23850654b6e9a646356b2f9fbcb294eb67085a1a61671233",
+            "maximum_episode_chars": 12000,
+            "minimum_receipt_chars": 13757,
+            "persistence_status": "not_applicable",
+            "reason": "required_receipt_exceeds_budget",
+            "stage": "memory_capture",
+            "start_seconds": 87.713882,
+            "status": "skipped"
+          }
+        ]
+      },
+      "candidate": {
+        "build_sha": "43258c4f12d3e2d0f9d944779805af18e140d3a7",
+        "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+        "first_source_seconds": 18.591,
+        "first_supported_seconds": 83.984,
+        "elapsed_seconds": 181.53,
+        "configured_cost_usd": 0.009318,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [
+          "c9: The energy source and untap requirements are printed, but the comparative speed judgment is not meas"
+        ],
+        "reviewed_subspans": 0,
+        "generation_records": 4,
+        "input_tokens": 21528,
+        "cached_input_tokens": 1280,
+        "output_tokens_including_reasoning": 8353,
+        "semantic_review_generation_records": 2,
+        "stage_timings": [
+          {
+            "bounded_conditional_mana_source_count": 0,
+            "elapsed_seconds": 0.116,
+            "end_seconds": 42.830773,
+            "input_chars": 22260,
+            "omitted_shared_evidence": [],
+            "retained_candidates": 8,
+            "scope_source_count": 0,
+            "shared_strategic_evidence_included": false,
+            "stage": "selection_evidence",
+            "start_seconds": 42.714601
+          },
+          {
+            "elapsed_seconds": 52.86,
+            "end_seconds": 132.769963,
+            "stage": "answer_review",
+            "start_seconds": 79.909617,
+            "status": "unverified"
+          },
+          {
+            "elapsed_seconds": 43.112,
+            "end_seconds": 176.540238,
+            "lookups": 1,
+            "stage": "corrective_review",
+            "start_seconds": 133.428508,
+            "status": "unverified"
+          },
+          {
+            "attachment_status": "not_attached",
+            "deck_entries": 64,
+            "elapsed_seconds": 0.27512,
+            "end_seconds": 177.503968,
+            "error_class": "OperationalError",
+            "input_sha256": "4ac2c027cb494860a0127f94643654023b08ec313186bafade4d90dd02fd756c",
+            "persistence_status": "not_applicable",
+            "reason": "catalog_recheck_failed",
+            "stage": "memory_capture",
+            "start_seconds": 177.22874,
+            "status": "skipped"
+          }
+        ]
+      }
+    },
+    "kinnan": {
+      "baseline": {
+        "build_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+        "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+        "first_source_seconds": 16.741,
+        "first_supported_seconds": 62.271,
+        "elapsed_seconds": 98.548,
+        "configured_cost_usd": 0.006692999999999999,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [
+          "c0: Tap-symbol activation also requires continuous control or haste; the rest is supported."
+        ],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 14675,
+        "cached_input_tokens": 1408,
+        "output_tokens_including_reasoning": 6264,
+        "semantic_review_generation_records": 1,
+        "stage_timings": [
+          {
+            "elapsed_seconds": 0.211,
+            "end_seconds": 26.211183,
+            "input_chars": 23826,
+            "retained_candidates": 8,
+            "stage": "selection_evidence",
+            "start_seconds": 26.000262
+          },
+          {
+            "elapsed_seconds": 34.721,
+            "end_seconds": 94.00164,
+            "stage": "answer_review",
+            "start_seconds": 59.280883,
+            "status": "unverified"
+          },
+          {
+            "elapsed_seconds": 0.38,
+            "end_seconds": 94.590014,
+            "lookups": 0,
+            "stage": "corrective_review",
+            "start_seconds": 94.209684,
+            "status": "not_needed"
+          },
+          {
+            "attachment_status": "not_attached",
+            "deck_entries": 63,
+            "dependency_count": 66,
+            "elapsed_seconds": 0.192007,
+            "end_seconds": 94.995184,
+            "input_sha256": "b859b23f92cb8df5a20b58336c5b98ca6488e8e9b0b360c1f28ed623b2401a72",
+            "maximum_episode_chars": 12000,
+            "minimum_receipt_chars": 13878,
+            "persistence_status": "not_applicable",
+            "reason": "required_receipt_exceeds_budget",
+            "stage": "memory_capture",
+            "start_seconds": 94.803082,
+            "status": "skipped"
+          }
+        ]
+      },
+      "candidate": {
+        "build_sha": "43258c4f12d3e2d0f9d944779805af18e140d3a7",
+        "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+        "first_source_seconds": 18.137,
+        "first_supported_seconds": 72.231,
+        "elapsed_seconds": 104.65,
+        "configured_cost_usd": 0.007079,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 19010,
+        "cached_input_tokens": 1664,
+        "output_tokens_including_reasoning": 5463,
+        "semantic_review_generation_records": 1,
+        "stage_timings": [
+          {
+            "bounded_conditional_mana_source_count": 0,
+            "elapsed_seconds": 0.573,
+            "end_seconds": 28.081562,
+            "input_chars": 21675,
+            "omitted_shared_evidence": [
+              "shared_strategic_evidence"
+            ],
+            "retained_candidates": 8,
+            "scope_source_count": 9,
+            "shared_strategic_evidence_included": false,
+            "stage": "selection_evidence",
+            "start_seconds": 27.508578
+          },
+          {
+            "elapsed_seconds": 33.8,
+            "end_seconds": 102.010916,
+            "stage": "answer_review",
+            "start_seconds": 68.211311,
+            "status": "unverified"
+          },
+          {
+            "elapsed_seconds": 0.186,
+            "end_seconds": 102.598452,
+            "lookups": 0,
+            "stage": "corrective_review",
+            "start_seconds": 102.412786,
+            "status": "not_needed"
+          },
+          {
+            "attachment_status": "not_attached",
+            "deck_entries": 63,
+            "dependency_count": 66,
+            "elapsed_seconds": 0.151906,
+            "end_seconds": 103.207964,
+            "input_sha256": "a394450a78c74c9237817765a8c14090ee3277e95da21819bc16fc269fa8500a",
+            "maximum_episode_chars": 12000,
+            "minimum_receipt_chars": 13546,
+            "persistence_status": "not_applicable",
+            "reason": "required_receipt_exceeds_budget",
+            "stage": "memory_capture",
+            "start_seconds": 103.055957,
+            "status": "skipped"
+          }
+        ]
+      }
+    }
+  },
+  "candidate_runtime_sha": "43258c4f12d3e2d0f9d944779805af18e140d3a7",
+  "binding_checks": [
+    {
+      "case": "marchesa",
+      "bound_claim_spans": 12,
+      "checked_workspace_evidence_hashes": 31,
+      "deck_unchanged": true,
+      "return_projection_identical": true
+    },
+    {
+      "case": "kinnan",
+      "bound_claim_spans": 12,
+      "checked_workspace_evidence_hashes": 27,
+      "deck_unchanged": true,
+      "return_projection_identical": true
+    }
+  ],
+  "assessment": {
+    "latency": "No speed gain: Marchesa 91.609 to181.530s; Kinnan98.548 to104.650s. Both candidate samples cost more. One stochastic sample per case/build does not establish causal regression or improvement.",
+    "quality": "Blind AI reviewers preferred candidate overall in both cases for retained contributions/output. Both remain partial; strategic fit, conditions and Halfling restriction wording remain limited. Not human-expert or statistical validation.",
+    "marchesa": "All draw outputs now explicit. Comparison considers five mana/two cards versus four mana/one, but lower threshold/blue requirements need explanation. Marchesa counter-at-death/direct next-end-step return/renewal remain insufficiently explained. Corrective stage43.112s recovered c1; c9 remains unresolved.",
+    "kinnan": "Mystic/Fyndhorn green contributions and drawbacks retained. Bonus explicitly unrestricted, but nonlegendary casts get only colorless is ambiguous alongside that bonus. Uncounterability rider noninheritance remains unexplained.",
+    "local_preservation": "Zero accepted subspans in both live cases. Synthetic guarded retention is verified; these cases do not demonstrate realized subspan benefit.",
+    "selection_integration": "Actual Kinnan wire disclosed omitted shared strategic evidence; scope9 and8retained. Five-admitted/three-unknown postrun public-fact reconstruction is not an exact live replay. Further compact packing required before claiming actual selector evidence delivery.",
+    "knowledge": "Zero expert strategy sources added; human-independent evaluation remains unfulfilled."
+  },
+  "qa_only": true,
+  "production_unchanged": true,
+  "fixtures_removed": true
+}

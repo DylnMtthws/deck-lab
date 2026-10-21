@@ -38,7 +38,7 @@
     "Permissioned independently expert-reviewed strategic material",
     "Independent human benchmark authorship/adjudication"
   ],
-  "runtime_measurement_status": "First pilot slower with mixed partial quality; follow-up code frozen for QA measurement. No quality-preserving latency gain established.",
+  "runtime_measurement_status": "Pilot and follow-up are both recorded; neither demonstrates a speed gain. Blind AI reviews preferred follow-up explanations overall but both cases remain partial. Actual Kinnan selector omitted shared aid; a final compact positional-wire fix is awaiting live verification.",
   "frozen_development_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
   "regression_checks": {
     "full_suite_before_final_cache_fixes": {
@@ -61,7 +61,9 @@
     },
     "final_mypy": "6 second-phase source modules passed",
     "adversarial_local_preservation": "two rounds; final bounded clearance, 91 targeted tests",
-    "adversarial_selection_context": "final bounded clearance; tiny probes and source inspection"
+    "adversarial_selection_context": "final bounded clearance; tiny probes and source inspection",
+    "latest_packing_targeted_tests": 94,
+    "latest_packing_mypy": "3 source modules passed"
   },
   "local_preservation_wire": {
     "same_user_payload": true,
@@ -84,5 +86,14 @@
         "fulfillment": "partial"
       }
     ]
+  },
+  "actual_pool_wire_fixture": {
+    "scope": "Eight-source reconstruction from public QA facts padded to recorded21675-byte baseline, not exact input replay",
+    "baseline_bytes": 21675,
+    "helper_bytes": 1880,
+    "candidate_bytes": 23584,
+    "retained_candidates": 8,
+    "whole_sources_and_contracts_unchanged": true,
+    "near_full_omission_disclosed": true
   }
 }

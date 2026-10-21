@@ -30,6 +30,29 @@ from tests.test_assistant_mana_evidence import (
 pytest_plugins = ["tests.test_assistant_experiments"]
 
 
+def decode_selector(wire):
+    """Test the wire's declared decoder, independently of projection internals."""
+    decoded = deepcopy(wire)
+    decoded["rows"] = []
+    for values in wire["rows"]:
+        row = dict(zip(wire["row_fields"], values, strict=True))
+        row["status"] = wire["statuses"][row.pop("status_ref")]
+        row["unknowns"] = [
+            wire["unknown_vocabulary"][i] for i in row.pop("unknown_refs")
+        ]
+        decoded["rows"].append(row)
+    decoded["ability_profiles"] = []
+    for values in wire["ability_profiles"]:
+        ability = dict(zip(wire["ability_fields"], values, strict=True))
+        decoded["ability_profiles"].append(
+            {
+                "activation_cost": ability.pop("activation_cost"),
+                "source_mana": ability,
+            }
+        )
+    return decoded
+
+
 @pytest.fixture(autouse=True)
 def watcher_connections(monkeypatch):
     """Even a failed assertion must not leave a retained watcher connection."""
@@ -461,7 +484,7 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
     assert result["status"] == "done", result
     assert len(gateway.requests) == 2
     selection_request = gateway.requests[1]
-    assert selection_request.prompt_version == "assistant-selection.v7"
+    assert selection_request.prompt_version == "assistant-selection.v8"
     payload = json.loads(selection_request.user)
     assert len(selection_request.user.encode()) <= 24000
     assert payload["candidates"] == seen["frozen"]["candidates"]
@@ -484,7 +507,7 @@ def test_runtime_passes_shared_context_and_expanded_source_basis(
         len(selection_request.user.encode()),
         payload.get("omitted_shared_evidence"),
     )
-    selection_wire = payload["shared_strategic_evidence"]
+    selection_wire = decode_selector(payload["shared_strategic_evidence"])
     assert [r["source_id"] for r in selection_wire["rows"]] == [
         c["card_id"] for c in payload["candidates"]
     ]
@@ -809,9 +832,15 @@ def test_selector_projection_is_compact_without_losing_conditions_or_mana(reques
         "unknowns": [],
     }
     original = deepcopy(context)
-    wire = selection_strategy_context(context)
+    wire = decode_selector(selection_strategy_context(context))
     assert (
-        len(json.dumps(wire, ensure_ascii=False, separators=(",", ":")).encode())
+        len(
+            json.dumps(
+                selection_strategy_context(context),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode()
+        )
         <= 2500
     )
     assert context == original
@@ -840,8 +869,207 @@ def test_selector_projection_is_compact_without_losing_conditions_or_mana(reques
 def test_selector_projection_keeps_unknown_source_ids_explicit(local_snapshot):
     path, deck, _, source = local_snapshot
     context = strategy_context(path, deck, [{**source, "oracle_text": "{T}: Add {G}."}])
-    wire = selection_strategy_context(context)
+    wire = decode_selector(selection_strategy_context(context))
     assert wire["rows"][0]["source_id"] == source["id"]
     assert wire["rows"][0]["status"] == "unknown"
     assert wire["rows"][0]["unknowns"]
     assert "abilities" not in wire["rows"][0]
+
+
+def test_actual_eight_source_reconstruction_fits_frozen_21675_byte_pool(request):
+    # Public discovery_ledger printed facts from final/results.json Kinnan QA.
+    # Reconstructed helper admission, not exact live wire replay. Pad only the
+    # already-frozen baseline to its measured 21,675-byte size; never repack it.
+    from sabermetrics.assistant_discovery_contract import (
+        DiscoveryLedger,
+        DiscoveryRequirement,
+        candidate_from_card,
+    )
+    from sabermetrics.assistant_mana_evidence import build_mana_evidence
+    from sabermetrics.assistant_selection import (
+        attach_selection_evidence,
+        selection_payload,
+    )
+    from tests.test_assistant_mana_evidence import card
+
+    printed_facts = [
+        (
+            "a3ce0fa9-8742-4e2c-a8a0-00fc009f998a",
+            "Ixalli's Lorekeeper",
+            "{G}",
+            "Creature — Human Druid",
+            "{T}: Add one mana of any color. Spend this mana only to cast a Dinosaur spell or "
+            "activate an ability of a Dinosaur source.",
+        ),
+        (
+            "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+            "Delighted Halfling",
+            "{G}",
+            "Creature — Halfling Citizen",
+            "{T}: Add {C}.\n"
+            "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and "
+            "that spell can't be countered.",
+        ),
+        (
+            "215fd0b4-5817-4335-a0ed-1694e44bde41",
+            "Omen Hawker",
+            "{U}",
+            "Creature — Octopus Advisor",
+            "{T}: Add {C}{U}. Spend this mana only to activate abilities.",
+        ),
+        (
+            "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+            "Elvish Mystic",
+            "{G}",
+            "Creature — Elf Druid",
+            "{T}: Add {G}.",
+        ),
+        (
+            "df317532-7d36-40fd-938f-e972749c8792",
+            "Fyndhorn Elves",
+            "{G}",
+            "Creature — Elf Druid",
+            "{T}: Add {G}.",
+        ),
+        (
+            "2fcc69ff-8ab5-4e14-afe3-db892049a872",
+            "Boreal Druid",
+            "{G}",
+            "Snow Creature — Elf Druid",
+            "{T}: Add {C}.",
+        ),
+        (
+            "a011aefe-5853-4435-b686-179e931ba897",
+            "Joraga Treespeaker",
+            "{G}",
+            "Creature — Elf Druid",
+            "Level up {1}{G} ({1}{G}: Put a level counter on this. Level up only as a sorcery.)\n"
+            "LEVEL 1-4\n"
+            "1/2\n"
+            "{T}: Add {G}{G}.\n"
+            "LEVEL 5+\n"
+            "1/4\n"
+            'Elves you control have "{T}: Add {G}{G}."',
+        ),
+        (
+            "eb2ff7f2-b7fd-4984-a4e8-cf57b619c1a5",
+            "Wose Pathfinder",
+            "{1}{G}",
+            "Creature — Human Shaman",
+            "{T}: Add one mana of any color.\n"
+            "{6}{G}, {T}: Another target creature gets +3/+3 and gains trample until end of turn.",
+        ),
+    ]
+    deck, commander, rules = request.getfixturevalue("inputs")
+    # Use a UUID-sized commander identity too.
+    commander["id"] = "00000000-0000-0000-0000-000000000001"
+    from tests.test_assistant_mana_evidence import seal
+
+    seal(commander)
+    deck["entries"][0]["card_id"] = commander["id"]
+    sources = [
+        card(
+            name,
+            text,
+            id=cid,
+            mana_cost=cost,
+            type_line=kind,
+            layout="leveler" if name == "Joraga Treespeaker" else "normal",
+        )
+        for cid, name, cost, kind, text in printed_facts
+    ]
+    requirement = DiscoveryRequirement(
+        group_id="list_1",
+        label="Low-cost mana-producing creatures",
+        request_quote="Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost.",
+        requested_count=3,
+    )
+    ledger = DiscoveryLedger(
+        candidates=[
+            candidate_from_card(c, group_ids=["list_1"], rank=i + 1)
+            for i, c in enumerate(sources)
+        ]
+    )
+    encoded, retained = selection_payload(
+        requirement.request_quote,
+        [requirement],
+        ledger,
+        {c["id"]: c for c in sources},
+        [],
+        set(),
+        [],
+        deck_entries=[commander],
+    )
+    frozen = json.loads(encoded)
+    assert [c.card_id for c in retained.candidates] == [c["id"] for c in sources]
+    frozen["fixture_padding"] = ""
+    encode = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":"))
+    assert len(encode(frozen).encode()) <= 21675
+    frozen["fixture_padding"] = "x" * (21675 - len(encode(frozen).encode()))
+    baseline = encode(frozen)
+    assert len(baseline.encode()) == 21675
+    context = {
+        "mana_evidence": build_mana_evidence(deck, [*sources, commander], rules),
+        "rules": rules["hits"],
+        "unknowns": [],
+    }
+    original = deepcopy(context)
+    wire = selection_strategy_context(context)
+    decoded = decode_selector(wire)
+    assert [r["source_id"] for r in decoded["rows"]] == [c["id"] for c in sources]
+    for actual, row in zip(
+        context["mana_evidence"]["rows"], decoded["rows"], strict=True
+    ):
+        assert row["status"] == actual["status"]
+        assert row["unknowns"] == actual["unknowns"]
+        assert [wire["conditions"][i] for i in row["condition_refs"]] == actual[
+            "conditions"
+        ]
+        if actual["status"] == "unknown":
+            assert row["ability_refs"] == []
+        else:
+            abilities = [decoded["ability_profiles"][i] for i in row["ability_refs"]]
+            assert len(abilities) == len(actual["abilities"])
+            for ability, full in zip(abilities, actual["abilities"], strict=True):
+                assert ability["activation_cost"] == full["activation_cost"]
+                mana = ability["source_mana"]
+                assert mana["quantity"] == full["source_mana"]["quantity"]
+                assert mana["type_options"] == full["source_mana"]["type_options"]
+                assert mana["restrictions"] == [
+                    c["kind"] for c in full["source_mana"]["constraints"]
+                ]
+                benefit = full["source_mana"]["spell_benefit"]
+                assert mana["spell_benefit"] == (
+                    {k: v for k, v in benefit.items() if k != "quote"}
+                    if benefit
+                    else None
+                )
+    assert (
+        sum(r["status"] == "bounded_conditional_evidence" for r in decoded["rows"]) == 5
+    )
+    packed = attach_selection_evidence(baseline, wire)
+    payload = json.loads(packed)
+    attached = payload.pop("shared_strategic_evidence")
+    assert attached["rule_sources_context_omitted"] is True
+    assert {
+        k: v for k, v in attached.items() if k != "rule_sources_context_omitted"
+    } == {k: v for k, v in wire.items() if k != "rule_sources"}
+    # Every source, contract, alias and condition reference remains byte-equivalent
+    # after decoding; optional arithmetic alone can yield space to the helper.
+    for key, value in frozen.items():
+        if key not in {"shared_resource_comparisons", "omitted_shared_evidence"}:
+            assert payload[key] == value
+    assert context == original
+    assert len(packed.encode()) <= 24000
+    projection_bytes = len(encode(attached).encode())
+    print(
+        f"eight-source reconstruction: base={len(baseline.encode())}, helper={projection_bytes}, attached={len(packed.encode())} bytes"
+    )
+    # Near-full frozen payload: disclose omission without trimming even one row.
+    frozen["fixture_padding"] += "x" * (23900 - len(baseline.encode()))
+    near_full = encode(frozen)
+    omitted = json.loads(attach_selection_evidence(near_full, wire))
+    assert "shared_strategic_evidence" not in omitted
+    assert "shared_strategic_evidence" in omitted["omitted_shared_evidence"]
+    assert omitted["candidates"] == frozen["candidates"]
+    assert len(encode(omitted).encode()) <= 24000

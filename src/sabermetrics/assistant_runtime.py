@@ -2447,9 +2447,19 @@ def run_turn(
                         "Selection evidence exceeds the context limit."
                     ) from exc
                 selection_wire_payload = json.loads(encoded)
-                selection_mana_rows = selection_wire_payload.get(
+                selection_mana_wire = selection_wire_payload.get(
                     "shared_strategic_evidence", {}
-                ).get("rows", [])
+                )
+                selection_mana_rows = selection_mana_wire.get("rows", [])
+                if "row_fields" in selection_mana_wire:
+                    selection_mana_rows = [
+                        dict(zip(selection_mana_wire["row_fields"], row, strict=True))
+                        for row in selection_mana_rows
+                    ]
+                    for row in selection_mana_rows:
+                        row["status"] = selection_mana_wire["statuses"][
+                            row["status_ref"]
+                        ]
                 stage_timings.append(
                     {
                         "stage": "selection_evidence",
@@ -2518,7 +2528,7 @@ def run_turn(
                 request_gateway = bounded_gateway(owned_concise_gateway)
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v7" if selecting else PROMPT_VERSION
+                    "assistant-selection.v8" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,

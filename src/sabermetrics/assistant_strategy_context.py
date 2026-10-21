@@ -412,6 +412,8 @@ def selection_strategy_context(context: dict[str, Any]) -> dict[str, Any]:
     conditions: list[str] = []
     ability_profiles: list[dict[str, Any]] = []
     rows = []
+    statuses: list[str] = []
+    unknowns: list[str] = []
     commander_id = None
     for row in context.get("mana_evidence", {}).get("rows", []):
         commander = row.get("commander") or {}
@@ -456,12 +458,55 @@ def selection_strategy_context(context: dict[str, Any]) -> dict[str, Any]:
                 if ability not in ability_profiles:
                     ability_profiles.append(ability)
                 projected["ability_refs"].append(ability_profiles.index(ability))
-        rows.append(projected)
+        if row["status"] not in statuses:
+            statuses.append(row["status"])
+        for unknown in row["unknowns"]:
+            if unknown not in unknowns:
+                unknowns.append(unknown)
+        rows.append(
+            [
+                projected["source_id"],
+                statuses.index(row["status"]),
+                [unknowns.index(u) for u in row["unknowns"]],
+                projected.get("ability_refs", []),
+                [conditions.index(c) for c in row.get("conditions", [])],
+            ]
+        )
     return {
         "scope": "Complete source-bound local helper; no availability or superiority. Unknown rows admit no claims; freshness unknown.",
         "commander_id": commander_id,
         "conditions": conditions,
-        "ability_profiles": ability_profiles,
+        "row_fields": [
+            "source_id",
+            "status_ref",
+            "unknown_refs",
+            "ability_refs",
+            "condition_refs",
+        ],
+        "statuses": statuses,
+        "unknown_vocabulary": unknowns,
+        "ability_fields": [
+            "activation_cost",
+            "quantity",
+            "type_options",
+            "restrictions",
+            "spell_benefit",
+        ],
+        "ability_profiles": [
+            [
+                a["activation_cost"],
+                *[
+                    a["source_mana"][k]
+                    for k in (
+                        "quantity",
+                        "type_options",
+                        "restrictions",
+                        "spell_benefit",
+                    )
+                ],
+            ]
+            for a in ability_profiles
+        ],
         "bounded_rows_only": {
             "kinnan_extra_mana": {
                 "quantity": 1,

@@ -180,7 +180,12 @@ invent exchange rates or call one ability cheaper/faster overall across unlike
 resources. shared_resource_comparisons supplies narrow exact arithmetic, not a
 suitability ranking or proof of available resources. Shared ledger_scope applies
 to every candidate. shared_strategic_evidence is bounded source-backed context;
-unknown or omitted evidence cannot prove a negative. Distinguish restricted mana
+unknown or omitted evidence cannot prove a negative. Decode its positional rows
+using row_fields: status_ref indexes statuses, unknown_refs indexes
+unknown_vocabulary, ability_refs indexes ability_profiles (decoded by ability_fields),
+and condition_refs indexes conditions. Empty refs mean none, never an omitted row.
+Only bounded_conditional_evidence rows admit the bounded_rows_only conclusions;
+apply each row's conditions. Distinguish restricted mana
 made by a source from separate additional mana; spending restrictions and spell
 benefits do not automatically transfer. Claims about a commander interaction need
 both card sources and applicable rules, not just the incoming card's printed text.
