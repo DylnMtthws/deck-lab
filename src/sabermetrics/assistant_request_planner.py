@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from sabermetrics.assistant_research_task import EvidenceScope, PlanningResearchTask
 from sabermetrics.assistant_tools import StrictModel
@@ -39,11 +39,20 @@ class RequestPlan(StrictModel):
         description="answer only when supplied current facts suffice; use_tools continues actual orchestration. A promise of future research is never an answer."
     )
     direct_answer: DirectPlannerAnswer | None = None
+    _route_recovery: str | None = PrivateAttr(default=None)
+
+    @property
+    def route_recovery(self) -> str | None:
+        return self._route_recovery
 
     @model_validator(mode="after")
     def direct_answer_required(self):
         if self.route == "answer" and self.direct_answer is None:
-            raise ValueError("The answer route requires an explicit direct answer")
+            # Missing prose cannot certify an answer. Continue through the same
+            # validated task/tool path; this grants no execution authority and
+            # does not salvage any invalid research-task fields.
+            self.route = "use_tools"
+            self._route_recovery = "missing_direct_answer"
         return self
 
 

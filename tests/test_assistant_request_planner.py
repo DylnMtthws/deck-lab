@@ -509,3 +509,217 @@ def test_comparison_named_sources_do_not_suppress_candidate_retrieval(
         event["name"] for event in result["actions"] if event["type"] == "tool_started"
     ] == ["card_details", "search_card_functions"]
     assert result["research"]["task"]["evidence_scope"] == scope
+
+
+def test_missing_direct_answer_routes_valid_task_to_tools_without_another_call(
+    prepared,
+):
+    service, path, owner, deck, _, _ = prepared
+    request = "Review this deck. Tell me what its win condition is."
+    raw = plan(request).model_dump()
+    raw.update(route="answer", direct_answer=None)
+    recovered = RequestPlan.model_validate_json(json.dumps(raw))
+    assert recovered.route == "use_tools"
+    assert recovered.route_recovery == "missing_direct_answer"
+    assert "route_recovery" not in recovered.model_dump()
+    assert "route_recovery" not in RequestPlan.model_json_schema()["properties"]
+    gateway = Gateway(
+        [
+            recovered,
+            step(call("inspect_deck")),
+            AssistantStep(
+                content="The deck was inspected; its full win sequence still needs verification.",
+                findings=[
+                    "Printed deck entries were inspected before assessing its win condition."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 3
+    assert result["status"] != "provider_error"
+    assert (
+        result["research"]["runtime"]["model_calls"][0]["route_recovery"]
+        == "missing_direct_answer"
+    )
+    assert any(
+        e["type"] == "tool_started" and e["name"] == "inspect_deck"
+        for e in result["actions"]
+    )
+    assert not any(e["type"] == "model_retry" for e in result["actions"])
+    assert not result.get("proposals")
+
+
+def test_route_recovery_does_not_salvage_invalid_task_or_grant_fields():
+    from pydantic import ValidationError
+
+    raw = plan("Review this deck.").model_dump()
+    raw.update(route="answer", direct_answer=None)
+    for bad in (
+        {
+            **raw,
+            "research_task": {**raw["research_task"], "kind": "execute_everything"},
+        },
+        {**raw, "tool_calls": [{"name": "test_recommended_alternatives"}]},
+        {**raw, "direct_answer": {"content": "", "findings": []}},
+        {**raw, "route_recovery": "trusted"},
+    ):
+        with pytest.raises(ValidationError):
+            RequestPlan.model_validate(bad)
+    valid = plan(
+        "Review this deck.",
+        route="answer",
+        answer={
+            "content": "The supplied printed sources establish a bounded answer.",
+            "findings": ["A substantive printed fact is supplied."],
+        },
+    )
+    assert valid.route == "answer"
+    assert valid.route_recovery is None
+
+
+def test_malformed_planner_retries_once_then_runs_actual_tools(prepared):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    request = "Review this deck and identify its win condition."
+    gateway = Gateway(
+        [
+            ModelValidationError("invalid plan"),
+            plan(request),
+            step(call("inspect_deck")),
+            AssistantStep(
+                content="The inspected entries support further win-condition investigation.",
+                findings=[
+                    "The deck inspection completed; no winning sequence is assumed."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": request}],
+        gateway=gateway,
+        request_planner=True,
+        schema_repair=True,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 4
+    assert gateway.requests[0].schema is gateway.requests[1].schema is RequestPlan
+    assert gateway.requests[0].user == gateway.requests[1].user
+    assert "previous response failed the plan schema" in gateway.requests[1].system
+    assert result["status"] != "provider_error"
+    assert sum(e["type"] == "model_retry" for e in result["actions"]) == 1
+    assert any(
+        e["type"] == "tool_started" and e["name"] == "inspect_deck"
+        for e in result["actions"]
+    )
+
+
+@pytest.mark.parametrize(
+    "call_budget,repair,expected_calls", [(5, True, 2), (3, True, 1), (5, False, 1)]
+)
+def test_planner_failure_is_bounded_and_described_as_planning(
+    prepared, monkeypatch, call_budget, repair, expected_calls
+):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_MODEL_CALLS", call_budget)
+    gateway = Gateway([ModelValidationError("invalid plan")] * 3)
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Identify this deck's win condition."}],
+        gateway=gateway,
+        request_planner=True,
+        schema_repair=repair,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == expected_calls
+    assert all(r.schema is RequestPlan for r in gateway.requests)
+    assert result["reason"] == "planning_schema_invalid"
+    assert "deck research has not begun" in result["content"]
+    assert result["research"]["runtime"]["tool_calls"] == 0
+    assert not result.get("proposals")
+
+
+def test_planner_repair_checks_cancellation_before_retry(prepared):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    cancelled = False
+
+    class CancelledGateway(Gateway):
+        def generate(self, request):
+            nonlocal cancelled
+            self.requests.append(request)
+            cancelled = True
+            raise ModelValidationError("invalid plan")
+
+    gateway = CancelledGateway([])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Identify this deck's win condition."}],
+        gateway=gateway,
+        request_planner=True,
+        schema_repair=True,
+        should_stop=lambda: cancelled,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 1
+    assert result["status"] == "stopped"
+    assert not any(e["type"] == "tool_started" for e in result["actions"])
+
+
+def test_planner_repair_does_not_retry_cost_ceiling(prepared):
+    from sabermetrics.errors import LLMCostCeilingExceeded
+
+    service, path, owner, deck, _, _ = prepared
+    gateway = Gateway([LLMCostCeilingExceeded("test ceiling")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Identify this deck's win condition."}],
+        gateway=gateway,
+        request_planner=True,
+        schema_repair=True,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 1
+    assert not any(e["type"] == "model_retry" for e in result["actions"])
+    assert result["status"] != "done"
+
+
+def test_planner_repair_preserves_deadline_reserve(prepared, monkeypatch):
+    from sabermetrics.cedh.errors import ModelValidationError
+
+    service, path, owner, deck, _, _ = prepared
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TURN_SECONDS", 89)
+    gateway = Gateway([ModelValidationError("invalid plan")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Identify this deck's win condition."}],
+        gateway=gateway,
+        request_planner=True,
+        schema_repair=True,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 1
+    assert result["reason"] == "planning_schema_invalid"

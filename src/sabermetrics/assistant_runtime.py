@@ -100,7 +100,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v34"
+PROMPT_VERSION = "build-conversation.v35"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -2315,6 +2315,8 @@ def run_turn(
         model_observations: list[dict[str, Any]] = []
         discovery_repair_attempted = False
         schema_repair_attempted = False
+        planner_repair_attempted = False
+        planner_retry_pending = False
         planned_lists_executed = False
         attempted_named_sources: set[str] = set()
         query_group_ids: dict[str, str] = {}
@@ -2326,7 +2328,10 @@ def run_turn(
             state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
             state["conversation_calls_remaining"] = MAX_MODEL_CALLS - step_index
             latest_request = current_request
-            narrow_planning = step_index == 0 and use_request_planner
+            narrow_planning = use_request_planner and (
+                step_index == 0 or planner_retry_pending
+            )
+            planner_retry_pending = False
             if narrow_planning:
                 try:
                     encoded = planning_payload(current_request, state)
@@ -2360,6 +2365,14 @@ def run_turn(
                 if narrow_planning
                 else synthesis_system() if answer_only else SYSTEM
             )
+            if narrow_planning and planner_repair_attempted:
+                system += (
+                    "\nThe previous response failed the plan schema and was discarded. "
+                    "Return one complete plan grounded in the current request. "
+                    "Choose use_tools when research is needed. The answer route "
+                    "requires an explicit substantive direct_answer. Do not invent "
+                    "evidence, completed work or action permission."
+                )
             if not narrow_planning and state.get("discovery_requirements"):
                 system += "\nFor every discovery_requirements group, return discovery_answer with the matching group_id and retrieved card_ids, and one concise note per selected card in discovery_answer.notes. Return findings=[] for discovery; the application renders each canonical card name and retrieved mana cost separately. Include actual activation costs and restrictions in notes. Do not compress a whole list into one note. Meet the requested counts or explicitly identify shortfalls. Use retained session_evidence printed facts for costs and conditions.\n"
             if answer_only:
@@ -2596,6 +2609,12 @@ def run_turn(
                         "preference_count": len(
                             state["conversation_context"]["preferences"]
                         ),
+                        **(
+                            {"route_recovery": generated.value.route_recovery}
+                            if isinstance(generated.value, RequestPlan)
+                            and generated.value.route_recovery
+                            else {}
+                        ),
                     }
                 )
             except (
@@ -2603,8 +2622,8 @@ def run_turn(
                 ModelProviderError,
                 LLMCostCeilingExceeded,
             ) as exc:
-                # One complete regeneration is allowed within the same turn
-                # budget. Never parse or accept a fragment of invalid output.
+                # Stage-specific regeneration stays within the same turn budget.
+                # Never parse or accept a fragment of invalid output.
                 model_observations.append(
                     {
                         "step": step_index,
@@ -2629,6 +2648,26 @@ def run_turn(
                         ),
                     }
                 )
+                if (
+                    narrow_planning
+                    and isinstance(exc, ModelValidationError)
+                    and use_schema_repair
+                    and not planner_repair_attempted
+                    and MAX_MODEL_CALLS - step_index >= 4
+                    and MAX_TURN_SECONDS - (time.monotonic() - started) >= 90
+                ):
+                    tools.check()
+                    planner_repair_attempted = True
+                    planner_retry_pending = True
+                    emit(
+                        {
+                            "type": "model_retry",
+                            "name": "request_plan_regeneration",
+                            "revision": result["revision"],
+                            "message": "Retrying the request plan before research begins.",
+                        }
+                    )
+                    continue
                 if (
                     selecting
                     and isinstance(exc, ModelValidationError)
@@ -2682,14 +2721,22 @@ def run_turn(
                 result.update(
                     status="incomplete" if answer_repair_pending else "provider_error",
                     reason=(
-                        "answer_repair_invalid"
-                        if answer_repair_pending
-                        else "answer_schema_invalid"
+                        "planning_schema_invalid"
+                        if narrow_planning
+                        else (
+                            "answer_repair_invalid"
+                            if answer_repair_pending
+                            else "answer_schema_invalid"
+                        )
                     ),
                     content=_evidence_fallback(
                         state,
                         tools.experiments_started,
-                        headline="The model did not return a valid answer. These confirmed sources remain available; the requested analysis is incomplete.",
+                        headline=(
+                            "The request plan could not be validated; deck research has not begun. The printed deck context below is not a completed analysis."
+                            if narrow_planning
+                            else "The model did not return a valid answer. These confirmed sources remain available; the requested analysis is incomplete."
+                        ),
                     ),
                 )
                 return result
