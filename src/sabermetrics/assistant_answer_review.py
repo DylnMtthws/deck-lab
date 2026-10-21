@@ -59,6 +59,81 @@ class SourceEvidence(list[str]):
         self.card_names: list[str] = []
 
 
+def whole_deck_evidence_sources(
+    base: list[str], cards: list[dict[str, Any]]
+) -> SourceEvidence:
+    """Complete global source coverage with shared metadata labels.
+
+    Original records/provenance remain local. No Oracle text is clipped. Any
+    later wire omission is disclosed by review_answer and stays unverified.
+    """
+    result = SourceEvidence()
+    restored_names = {str(c.get("name")) for c in cards}
+    result.omitted = [
+        label for label in getattr(base, "omitted", []) if label not in restored_names
+    ]
+    fields = (
+        "id",
+        "mana_cost",
+        "type_line",
+        "cmc",
+        "mana_value",
+        "power",
+        "toughness",
+        "loyalty",
+        "defense",
+        "color_identity",
+        "layout",
+        "keywords",
+    )
+    provenance: list[dict[str, Any]] = []
+    result.append(
+        "Complete card sources below. Printed fields column order: "
+        + json.dumps(fields)
+        + "; null means unknown. Oracle text and face scopes are complete. Deck membership does not establish battlefield availability or strategic suitability."
+    )
+    for card in cards:
+        prov = {
+            k: v
+            for k, v in (card.get("provenance") or {}).items()
+            if k not in {"printing_id", "catalog_id", "catalog_differences"}
+        }
+        if prov not in provenance:
+            provenance.append(prov)
+        pieces = [
+            "Card: " + _card_name(card),
+            "Printed fields: "
+            + json.dumps(
+                [card.get(k) for k in fields], ensure_ascii=False, separators=(",", ":")
+            ),
+            "Oracle text:\n" + str(card.get("oracle_text") or ""),
+        ]
+        for face in card.get("card_faces") or []:
+            pieces.extend(
+                [
+                    "Face: " + str(face.get("name") or "unknown"),
+                    "Printed fields: "
+                    + json.dumps(
+                        [face.get(k) for k in fields],
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                    "Oracle text:\n" + str(face.get("oracle_text") or ""),
+                    "Face colors: " + json.dumps(face.get("colors")),
+                ]
+            )
+        pieces.append("Provenance ref: " + str(provenance.index(prov)))
+        result.append("\n".join(pieces))
+        result.card_names.append(_card_name(card))
+    # Replace duplicate card renderings; retain rules, facts and omissions.
+    covered = {"Card: " + _card_name(c) for c in cards}
+    result.extend(s for s in base if s.split("\n", 1)[0] not in covered)
+    result.append(
+        "Shared source provenance: " + json.dumps(provenance, ensure_ascii=False)
+    )
+    return result
+
+
 def _normalized_name_text(text: str, *, preserve_case: bool = False) -> str:
     """Normalize typography without converting words into card-name matches."""
     text = unicodedata.normalize("NFKC", text)
@@ -493,6 +568,7 @@ def review_answer(
     *,
     protected_parts: set[int] | None = None,
     research_context: dict[str, Any] | None = None,
+    full_deck_sources: bool = False,
 ) -> tuple[list[str], dict[str, Any]]:
     if not sources:
         return parts, {"status": "not_checked", "reason": "no_source_evidence"}
@@ -519,7 +595,8 @@ def review_answer(
         ensure_ascii=False,
     )
     omitted_sources = 0
-    while len(payload.encode()) > 32768 and sources:
+    payload_limit = 48000 if full_deck_sources else 32768
+    while len(payload.encode()) > payload_limit and sources:
         sources.pop()
         omitted_sources += 1
         payload = json.dumps(
@@ -532,10 +609,10 @@ def review_answer(
             },
             ensure_ascii=False,
         )
-    if len(payload.encode()) > 32768 or not sources:
+    if len(payload.encode()) > payload_limit or not sources:
         return parts, {"status": "unverified", "reason": "review_context_limit"}
     request = StructuredRequest(
-        prompt_version="assistant-answer-review.v6",
+        prompt_version="assistant-answer-review.v7",
         system=(
             Path(__file__).parent / "prompts/assistant_answer_review.txt"
         ).read_text(),
@@ -586,5 +663,6 @@ def review_answer(
             "strategic_judgments": "Heuristic fit, not printed fact or measured improvement.",
         },
         "source_sha256": [hashlib.sha256(s.encode()).hexdigest() for s in sources],
+        "context_budget_bytes": payload_limit,
         "scope": "Bounded model cross-check against supplied sources; not an independent rules proof.",
     }

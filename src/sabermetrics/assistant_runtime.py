@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import re
+import sqlite3
 import time
 from collections.abc import Callable
 from copy import deepcopy
@@ -100,7 +101,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v37"
+PROMPT_VERSION = "build-conversation.v38"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1290,6 +1291,25 @@ def _shorten_supplemental(value: Any, *, keep_list: bool = False) -> Any:
     return value
 
 
+def _deck_review_context(
+    packet: dict[str, Any], state: dict[str, Any], request: str
+) -> str | None:
+    """Whole records bypass display compaction; overflow keeps normal research."""
+    payload = {
+        "current_user_request": request,
+        "deck_evidence": packet,
+        "research_task": state.get("research_task"),
+        "answer_obligations": state.get("answer_obligations"),
+        "constraints": state.get("constraints", {}),
+        "conversation_context": state.get("conversation_context", {}),
+        "consulted_cards": state.get("consulted_cards", []),
+        "rules_evidence": state.get("rules_evidence", {}),
+        "answer_repair_feedback": state.get("answer_repair_feedback"),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return encoded if len(encoded.encode()) <= 48000 else None
+
+
 def _encode_context(
     state: dict[str, Any], latest_request: str, transcript: list
 ) -> str:
@@ -1712,6 +1732,7 @@ def run_turn(
     schema_repair: bool | None = None,
     selection_first: bool | None = None,
     progressive_reviews: bool | None = None,
+    whole_deck_reviews: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1743,6 +1764,9 @@ def run_turn(
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
     use_schema_repair = owns_gateway if schema_repair is None else schema_repair
     use_selection = owns_gateway if selection_first is None else selection_first
+    use_whole_deck_review = (
+        owns_gateway if whole_deck_reviews is None else whole_deck_reviews
+    )
     use_progressive_review = (
         owns_gateway if progressive_reviews is None else progressive_reviews
     )
@@ -2333,6 +2357,9 @@ def run_turn(
         selection_feedback: dict[str, Any] | None = None
         selection_repair_attempted = False
         selected_before_prose = False
+        deck_review_packet: dict[str, Any] | None = None
+        deck_review_source_cards: list[dict[str, Any]] = []
+        deck_review_attempted = False
         for step_index in range(MAX_MODEL_CALLS):
             tools.check()
             state["tool_calls_remaining"] = MAX_TOOL_CALLS - tool_count
@@ -2349,8 +2376,10 @@ def run_turn(
                     raise AssistantBudgetExceeded(
                         "The request exceeds the planning context limit."
                     ) from exc
-            else:
+            elif deck_review_packet is None:
                 encoded = _encode_context(state, latest_request, transcript)
+            else:
+                encoded = ""  # Dedicated whole-record encoding below.
             final_call = step_index == MAX_MODEL_CALLS - 1
             answer_only = (
                 tool_count == MAX_TOOL_CALLS or final_call or synthesis_required
@@ -2389,7 +2418,22 @@ def run_turn(
                 system += "\nThis call is reserved for a final answer. Return a final answer with the required content lead and substantive findings from confirmed receipts, identifying any missing facts. Do not request more tools or return an empty object.\n"
             if task is not None:
                 state["research_task"] = research_progress(task, observed_plans())
-                encoded = _encode_context(state, latest_request, transcript)
+                if deck_review_packet is None:
+                    encoded = _encode_context(state, latest_request, transcript)
+            if deck_review_packet is not None and not narrow_planning:
+                from sabermetrics.assistant_engine_review import (
+                    ENGINE_EXPLANATION_CONTRACT,
+                )
+
+                dedicated_context = _deck_review_context(
+                    deck_review_packet, state, current_request
+                )
+                if dedicated_context is None:
+                    raise AssistantBudgetExceeded(
+                        "The complete deck review exceeds the context limit."
+                    )
+                encoded = dedicated_context
+                system += "\n" + ENGINE_EXPLANATION_CONTRACT
             recommendation = state["workflow"].get("recommendation")
             if (
                 recommendation
@@ -3000,6 +3044,125 @@ def run_turn(
                         )
                     ),
                 }
+            if (
+                use_whole_deck_review
+                and narrow_planning
+                and task is not None
+                and not deck_review_attempted
+                and task.kind in {"explain", "auto"}
+                and not (
+                    task.additions
+                    or task.cuts
+                    or task.coordinated
+                    or task.discovery_lists
+                )
+                and not task.requires_empirical_evidence
+                and not discovery_requirements
+                and all(
+                    any(
+                        reference_key(str(c.get("name") or "")) == reference_key(name)
+                        for c in document.get("entries", [])
+                    )
+                    for name in task.named_cards
+                )
+                and task.evidence_scope
+                not in {"named_cards_only", "candidate_discovery"}
+                and re.search(r"\bdeck\b", current_request, re.IGNORECASE)
+            ):
+                from sabermetrics.assistant_deck_review import build_deck_review_packet
+                from sabermetrics.assistant_engine_review import engine_rule_evidence
+
+                deck_review_attempted = True
+                evidence_started = time.monotonic()
+                previous_rules = state.get("rules_evidence")
+                try:
+                    packet, deck_source_map, packet_receipt = build_deck_review_packet(
+                        Path(db_path), document, check_current=tools.check
+                    )
+                    if packet is not None and any(
+                        not any(
+                            reference_key(str(c.get("name") or ""))
+                            == reference_key(name)
+                            for c in deck_source_map.values()
+                        )
+                        for name in task.named_cards
+                    ):
+                        packet = None
+                        packet_receipt = {
+                            "status": "fallback",
+                            "reason": "named_source_outside_deck_scope",
+                        }
+                    if packet is not None:
+                        commander_ids = {
+                            c.get("card_id")
+                            for c in document.get("entries", [])
+                            if c.get("is_commander")
+                        }
+                        deck_sources = [
+                            {**c, "is_commander": cid in commander_ids}
+                            for cid, c in deck_source_map.items()
+                        ]
+                        rules, rules_receipt = engine_rule_evidence(
+                            Path(db_path),
+                            deck_sources,
+                            state.get("rules_evidence") or {},
+                            check_current=tools.check,
+                        )
+                        previous_rules = state.get("rules_evidence")
+                        state["rules_evidence"] = rules
+                        if (
+                            _deck_review_context(packet, state, current_request)
+                            is not None
+                        ):
+                            deck_review_packet = packet
+                            deck_review_source_cards = deck_sources
+                            source_cards.update(
+                                {
+                                    str(c.get("id") or c.get("card_id")): c
+                                    for c in deck_sources
+                                }
+                            )
+                            known_card_ids.update(source_cards)
+                            result.setdefault("research", {})[
+                                "deck_review_evidence"
+                            ] = packet_receipt
+                            state["deck_review_coverage"] = packet_receipt
+                            stage_timings.append(rules_receipt)
+                            publish_catalog(
+                                [c for c in deck_sources if c.get("is_commander")]
+                            )
+                            synthesis_required = True
+                        else:
+                            state["rules_evidence"] = previous_rules
+                            packet_receipt = {
+                                **packet_receipt,
+                                "status": "fallback",
+                                "reason": "complete_envelope_limit",
+                            }
+                except (OSError, ValueError, sqlite3.Error) as exc:
+                    tools.check()
+                    deck_review_packet = None
+                    state["rules_evidence"] = previous_rules
+                    state.pop("deck_review_coverage", None)
+                    result.get("research", {}).pop("deck_review_evidence", None)
+                    packet_receipt = {
+                        "status": "fallback",
+                        "reason": "evidence_helper_unavailable",
+                        "exception_type": type(exc).__name__,
+                    }
+                stage_timings.append(
+                    {
+                        **packet_receipt,
+                        "stage": "deck_review_evidence",
+                        **timing_window(started, evidence_started),
+                    }
+                )
+                if deck_review_packet is not None:
+                    announce(
+                        "sources",
+                        "The current deck's printed records are available. Checking how its costs, payoffs and resource renewal connect; no winning loop is certified by retrieval.",
+                    )
+                    continue
             if (
                 task is not None
                 and task.kind in {"discover", "compare"}
@@ -3621,7 +3784,10 @@ def run_turn(
                 if (
                     checker is not None
                     and not checker_review_attempted
-                    and MAX_TURN_SECONDS - (time.monotonic() - started) >= 190
+                    # Ordinary review is one 45s call. The larger reserve is
+                    # for discovery's evidence/claim/corrective pipeline.
+                    and MAX_TURN_SECONDS - (time.monotonic() - started)
+                    >= (190 if selected_before_prose else 75)
                 ):
                     tools.check()
                     checker_review_attempted = True
@@ -3739,6 +3905,14 @@ def run_turn(
                     review_sources: list[str] = evidence_sources(
                         document, actions, parts, review_rules, review_cards
                     )
+                    if deck_review_packet is not None:
+                        from sabermetrics.assistant_answer_review import (
+                            whole_deck_evidence_sources,
+                        )
+
+                        review_sources = whole_deck_evidence_sources(
+                            review_sources, deck_review_source_cards
+                        )
                     expand_review_sources(review_sources, shared_strategic_evidence)
                     from sabermetrics.assistant_answer_review import _card_source
                     from sabermetrics.assistant_workspace import (
@@ -3778,6 +3952,12 @@ def run_turn(
                             )
 
                     review_context = {
+                        "engine_explanation_contract": (
+                            ENGINE_EXPLANATION_CONTRACT
+                            if deck_review_packet is not None
+                            else None
+                        ),
+                        "deck_review_coverage": state.get("deck_review_coverage"),
                         "shared_strategic_evidence": strategy_wire_context(
                             shared_strategic_evidence
                         ),
@@ -3803,7 +3983,9 @@ def run_turn(
                             actions, result["revision"]
                         ),
                     }
-                    progressive_options = {}
+                    progressive_options: dict[str, Any] = {}
+                    if deck_review_packet is not None:
+                        progressive_options["full_deck_sources"] = True
                     if selected_before_prose and use_progressive_review:
                         from sabermetrics.assistant_progressive_review import (
                             progressive_review,
@@ -4052,6 +4234,21 @@ def run_turn(
                         result["answer_review"]["fulfillment"] = "unknown"
                         result["answer_review"]["original_fulfillment"] = "nonanswer"
                         result["reason"] = "answer_repair_unverified"
+                if deck_review_packet is not None:
+                    review = result.get("answer_review") or {}
+                    if (
+                        review.get("status")
+                        in {"not_checked", "unverified", "partially_checked"}
+                        or review.get("fulfillment") != "complete"
+                    ):
+                        result["reason"] = "answer_partially_fulfilled"
+                        if review.get("status") == "not_checked":
+                            step = step.model_copy(
+                                update={
+                                    "next_action": step.next_action
+                                    + " This explanation has not completed its evidence review; its interactions and winning sequence remain unverified."
+                                }
+                            )
                 if hypotheses:
                     known_card_ids.update(
                         pair["incoming_card_id"]

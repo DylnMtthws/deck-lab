@@ -20,6 +20,12 @@ deferral, or cautions instead of answering; unknown when you cannot establish
 fulfillment. A promise to retrieve two lists is not two lists. Assess the current
 request and research context, not an earlier task. Empty patches do not imply
 complete fulfillment. This decision is a bounded model judgment, not expertise.
+When research_context supplies an engine_explanation_contract, assess its
+requested causal explanation: setup and paid costs, payoff and recipients,
+resource renewal and stopping conditions, and whether lethal is established or
+still conditional. Naming damage cards alone does not explain a sustainable
+engine. A supported finite engine need not be infinite. Preserve useful qualified
+explanations while flagging missing steps; printed coverage is not interaction proof.
 Return patches only for consequential mechanical errors or omitted conditions.
 Also flag unresolved request-fulfillment failures: missing requested lists, a draw
 shortlist dominated by non-draw cards, ignored creature/mana/preferences, or claims
