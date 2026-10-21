@@ -568,6 +568,112 @@ def test_selection_runtime_uses_focused_review_once(prepared, monkeypatch):
     assert result["answer_review"]["claim_count"] == 4
 
 
+def test_runtime_publishes_bound_review_cards_before_global_completion(
+    prepared, monkeypatch
+):
+    from sabermetrics import db
+    from sabermetrics.assistant_runtime import run_turn
+    from tests.test_assistant_runtime import Gateway, call, step
+
+    service, path, owner, deck, _, _ = prepared
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cards SET oracle_text='{T}: Draw a card.', mana_cost='{1}' "
+            "WHERE id IN ('incoming-0','incoming-1')"
+        )
+        conn.commit()
+    monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
+    publications = []
+
+    class BoundReviewer:
+        def __init__(self):
+            self.calls = []
+
+        def generate(self, request):
+            payload = json.loads(request.user)
+            self.calls.append(payload)
+            judgments = []
+            for claim in payload["claims"]:
+                parent = payload["parent_parts"][str(claim["part_index"])]
+                source = next(
+                    row
+                    for row in payload["source_records"]
+                    if any(
+                        name in parent
+                        and any(name in line["text"] for line in row["lines"])
+                        for name in ("Incoming 0", "Incoming 1")
+                    )
+                )
+                judgments.append(
+                    {
+                        "claim_id": claim["claim_id"],
+                        "category": "printed_fact",
+                        "verdict": "supported",
+                        "reason": "Supplied evidence.",
+                        "citations": [
+                            {
+                                "source_index": source["source_index"],
+                                "quote": "{T}: Draw a card.",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                value={"fulfillment": "complete", "judgments": judgments}
+            )
+
+    reviewer = BoundReviewer()
+    local_selection = selection(("incoming-0", "incoming-1"))
+    for assessment in local_selection.assessments:
+        assessment.fit = "Draws a card."
+
+    def observe(event):
+        if event.get("name") == "research_card_update":
+            for record in event["data"]["cards"]:
+                if record["status"] == "reviewed":
+                    publications.append((len(reviewer.calls), record))
+
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Give me two additional cards."}],
+        gateway=Gateway(
+            [
+                step(call("search_cards", {"query": "Incoming"})),
+                local_selection.model_dump(),
+            ]
+        ),
+        answer_review_gateway=reviewer,
+        experiment_service=service,
+        selection_first=True,
+        progressive_reviews=True,
+        on_event=observe,
+    )
+    assert result["answer_review"]["progressive_review"]["enabled"]
+    assert len(reviewer.calls) == 3
+    assert {record["card_id"] for count, record in publications if count < 3} == {
+        "incoming-0",
+        "incoming-1",
+    }
+    assert all(
+        claim["claim"] == "Draws a card."
+        for call in reviewer.calls[:-1]
+        for claim in call["claims"]
+    )
+    assert all(
+        claim["claim"] == "Tap cost needs continuous control or haste."
+        for claim in reviewer.calls[-1]["claims"]
+    )
+    for _, record in publications:
+        assert (
+            record["source_sha256"]
+            == result["answer_review"]["workspace_card_sources"][record["card_id"]]
+        )
+        assert record["claims"]
+        assert all(claim["evidence"] for claim in record["claims"])
+
+
 def test_comparing_additional_candidates_still_excludes_prior_picks(
     prepared, monkeypatch
 ):

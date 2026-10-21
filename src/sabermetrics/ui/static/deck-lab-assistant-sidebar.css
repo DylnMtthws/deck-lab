@@ -211,3 +211,24 @@
 .dl-assistant-strategy-evidence small { display:block; margin-block:5px; color:var(--muted); line-height:1.5; }
 .dl-assistant-strategy-evidence blockquote { margin:8px 0; padding-inline-start:10px; border-inline-start:2px solid var(--line); font:inherit; }
 .dl-assistant-strategy-evidence a { display:inline-block; margin-block:5px; text-decoration:underline; }
+
+/* Persisted research cards are a reading surface separate from the activity log. */
+.dl-research-workspace { display:grid; gap:10px; padding:4px 2px 16px; border-bottom:1px solid var(--line); overflow-anchor:auto; }
+.dl-research-workspace[hidden],.dl-research-workspace [hidden] { display:none !important; }
+.dl-research-workspace h3,.dl-research-card h4 { margin:0; font:600 .875rem/1.5 var(--sans); }
+.dl-research-badge { margin:0; color:var(--muted); font-size:.75rem; }
+.dl-research-workspace label { display:grid; gap:6px; }
+.dl-research-workspace textarea { width:100%; min-height:64px; resize:vertical; }
+.dl-research-workspace details > div { padding-top:8px; }
+.dl-research-workspace summary { cursor:pointer; font-size:.8125rem; line-height:1.5; }
+.dl-research-cards { display:grid; gap:12px; }
+.dl-research-card { min-width:0; padding:12px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2); overflow-wrap:anywhere; }
+.dl-research-card p { margin:6px 0; white-space:pre-wrap; font-size:.8125rem; line-height:1.5; }
+.dl-research-card-status,.dl-research-card small { color:var(--muted); font-size:.75rem; }
+.dl-research-card details { margin-top:8px; }
+.dl-research-card pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:.75rem; }
+.dl-research-card-controls { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.dl-research-card-controls button { min-height:32px; }
+.dl-research-card-controls [aria-pressed="true"] { border-color:var(--muted); font-weight:600; }
+.dl-research-card[data-card-status="withdrawn"],.dl-research-card[data-card-status="superseded"] { border-style:dashed; }
+.dl-research-claims [data-claim-status="contradicted"] { border-inline-start:2px solid var(--muted); padding-inline-start:8px; }

@@ -14,6 +14,14 @@
   var proposalsNode = sidebar.querySelector("[data-assistant-proposals]");
   var status = sidebar.querySelector("[data-assistant-status]");
   var busy = false;
+  var sending = false;
+  var sessionEpoch = 0;
+  var refreshSequence = 0;
+  var sessionRequestSequence = 0;
+  var acceptedSessionSequence = 0;
+  var workspaceNode = null;
+  var workspaceCards = new Map();
+  var workspaceList, workspaceBadge, workspaceRequest, workspaceReceipt, workspaceRetry;
   var protectedDirty = false;
   var pollTimer = 0;
   var data = { mode: "suggest", constraints: {}, messages: [], experiments: [], provider: {} };
@@ -214,6 +222,7 @@
   }
   function settleDeferredScroll() {
     var surface = scrollSurface || transcript;
+    if (hasWorkspaceCards()) { deferredScroll = false; deferredReply = null; return; }
     if (!deferredScroll || !surface || !surface.clientHeight) return;
     deferredScroll = false;
     scrollTranscript(surface, deferredReply === transcript.lastElementChild ? deferredReply : null, null);
@@ -303,6 +312,182 @@
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault(); setWidth(width + (event.key === "ArrowRight" ? 16 : -16));
     });
+  }
+
+  function researchWorkspace() { return data.research_workspace || {}; }
+  function hasWorkspaceCards() { return Array.isArray(researchWorkspace().cards) && researchWorkspace().cards.length > 0; }
+  function researchRunning() {
+    var workspace = researchWorkspace();
+    return ["queued", "running"].indexOf(workspace.job && workspace.job.state || workspace.status) >= 0;
+  }
+  function steerPayload(action, fields) {
+    return Object.assign({ expected_revision: Number(state.revision || 0), expected_generation: Number(researchWorkspace().generation || 0),
+      action: action, client_request_id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "steer-" + Date.now() + "-" + Math.random().toString(36).slice(2) }, fields || {});
+  }
+  function acceptSession(next, sequence) {
+    var incoming = next && next.session || next || {};
+    var generation = Number(incoming.research_workspace && incoming.research_workspace.generation || 0);
+    var currentGeneration = Number(researchWorkspace().generation || 0);
+    if (generation < currentGeneration) return false;
+    if (generation === currentGeneration) {
+      var updated = Number(incoming.updated_at || 0), currentUpdated = Number(data.updated_at || 0);
+      if (updated < currentUpdated) return false;
+      // Server snapshot order wins when available; request order breaks ties.
+      if (updated === currentUpdated && sequence < acceptedSessionSequence) return false;
+    }
+    sessionEpoch += 1;
+    acceptedSessionSequence = Math.max(acceptedSessionSequence, sequence);
+    data = Object.assign({}, data, incoming);
+    render();
+    return true;
+  }
+  function acceptMutation(next, sequence) {
+    if (!acceptSession(next, sequence)) throw new Error("Research changed before this acknowledgment arrived. Your draft has been kept; review the current research before trying again.");
+  }
+  function steer(action, fields) {
+    var sequence = ++sessionRequestSequence;
+    return request(base + "/steer", { method: "POST", body: JSON.stringify(steerPayload(action, fields)) })
+      .then(function (next) { acceptMutation(next, sequence); status.textContent = "Research update acknowledged."; progressShown = status.textContent; return refresh(); })
+      .catch(function (error) { status.textContent = error.message; throw error; });
+  }
+  function workspaceDisclosure(title) {
+    var details = element("details"); details.appendChild(element("summary", title));
+    var body = element("div"); details.appendChild(body);
+    return { node: details, body: body };
+  }
+  function updateWorkspaceBody(part, value, build) {
+    var signature = JSON.stringify(value);
+    if (part.signature === signature) return;
+    part.signature = signature; part.body.replaceChildren(); build(part.body);
+  }
+  function createWorkspaceCard(id) {
+    var node = element("article", null, "dl-research-card"); node.dataset.researchCardId = id;
+    var name = element("h4"); node.appendChild(name);
+    var label = element("p", null, "dl-research-card-status"); node.appendChild(label);
+    var printed = workspaceDisclosure("Printed card facts · deck fit unverified"); node.appendChild(printed.node);
+    var claims = element("div", null, "dl-research-claims"); node.appendChild(claims);
+    var history = workspaceDisclosure("Corrections and history"); node.appendChild(history.node);
+    var controls = element("div", null, "dl-research-card-controls"); node.appendChild(controls);
+    var record = { node: node, name: name, label: label, printed: printed, claims: claims, claimNodes: new Map(), history: history, buttons: {} };
+    ["pin", "exclude", "prioritize"].forEach(function (action) {
+      var button = element("button", "", "dl-button is-ghost is-sm"); button.type = "button";
+      button.addEventListener("click", function () {
+        button.disabled = true;
+        steer(action === "pin" && record.card.pinned ? "unpin" : action, { card_id: id })
+          .catch(function () {}).finally(function () { button.disabled = false; });
+      });
+      controls.appendChild(button); record.buttons[action] = button;
+    });
+    return record;
+  }
+  function updateWorkspaceCard(record, card, workspace) {
+    record.card = card;
+    if (record.name.textContent !== (card.name || card.card_id)) record.name.textContent = card.name || card.card_id;
+    var labels = { retrieved: "Retrieved · fit unverified", reviewed: "Reviewed claims · see individual evidence", withdrawn: "Withdrawn · do not rely on earlier findings", superseded: "Superseded · earlier findings are out of date" };
+    record.node.dataset.cardStatus = card.status || "retrieved";
+    var label = (labels[card.status] || labels.retrieved) + " · version " + Number(card.version || 1) + (card.pinned ? " · pinned" : "") + (card.excluded ? " · excluded" : "");
+    if (record.label.textContent !== label) record.label.textContent = label;
+    var printed = card.printed || {};
+    updateWorkspaceBody(record.printed, printed, function (body) {
+      function faceText(face) {
+        if (face.name) body.appendChild(element("strong", face.name));
+        [face.mana_cost, face.type_line, face.oracle_text].forEach(function (text) { if (typeof text === "string" && text) body.appendChild(element("p", text)); });
+        if (face.oracle_text_truncated) body.appendChild(element("small", "Printed text is incomplete; retrieve full text before relying on omitted rules."));
+      }
+      faceText(printed); (printed.card_faces || []).forEach(faceText);
+      if (!printed.oracle_text && !(printed.card_faces || []).length) body.appendChild(element("small", "Printed rules text has not been retrieved."));
+    });
+    var ids = new Set();
+    (card.claims || []).forEach(function (claim, index) {
+      var id = String(claim.claim_id || "claim-" + index); ids.add(id);
+      var part = record.claimNodes.get(id);
+      if (!part) { part = workspaceDisclosure("Claim evidence"); record.claimNodes.set(id, part); record.claims.appendChild(part.node); }
+      var claimStatus = claim.correction_applied && claim.status === "contradicted" ? "corrected" : ["supported", "unverified", "contradicted", "withdrawn", "superseded"].indexOf(claim.status) >= 0 ? claim.status : "unverified";
+      var title = claimStatus.charAt(0).toUpperCase() + claimStatus.slice(1) + ": " + (claim.text || "Claim");
+      if (part.node.firstChild.textContent !== title) part.node.firstChild.textContent = title;
+      part.node.dataset.claimStatus = claimStatus;
+      updateWorkspaceBody(part, claim, function (body) {
+        body.appendChild(element("p", claimStatus === "supported" ? "Supported by supplied evidence; this does not establish a recommendation." : claimStatus === "corrected" ? "The original statement was contradicted. This is the reviewed correction; inspect its evidence." : claimStatus === "contradicted" ? "This claim conflicts with supplied evidence. Do not rely on it." : claimStatus === "withdrawn" || claimStatus === "superseded" ? "This finding is no longer current. Do not rely on its previous assessment." : "This claim has not been established."));
+        if (claim.correction_applied && claim.original_text) body.appendChild(element("p", "Original statement: " + claim.original_text));
+        if (claim.reason) body.appendChild(element("p", claim.reason));
+        if (claim.evidence) body.appendChild(element("pre", typeof claim.evidence === "string" ? claim.evidence : JSON.stringify(claim.evidence, null, 2)));
+      });
+    });
+    record.claimNodes.forEach(function (part, id) { if (!ids.has(id)) { part.node.remove(); record.claimNodes.delete(id); } });
+    record.history.node.hidden = !(card.history || []).length;
+    var latestHistory = (card.history || []).slice(-1)[0];
+    record.history.node.firstChild.textContent = latestHistory ? "Corrections and history · " + (latestHistory.reason || "Version " + latestHistory.version) : "Corrections and history";
+    updateWorkspaceBody(record.history, card.history || [], function (body) {
+      (card.history || []).forEach(function (entry) {
+        body.appendChild(element("p", "Version " + entry.version + ": " + (entry.reason || "Updated")));
+        (entry.claims || []).forEach(function (claim) {
+          body.appendChild(element("p", "Previous finding (" + (claim.previous_status || claim.status || "unverified") + "): " + (claim.text || "")));
+          if (claim.evidence) body.appendChild(element("pre", typeof claim.evidence === "string" ? claim.evidence : JSON.stringify(claim.evidence, null, 2)));
+        });
+      });
+    });
+    record.buttons.pin.textContent = card.pinned ? "Unpin" : "Pin";
+    record.buttons.pin.setAttribute("aria-pressed", card.pinned ? "true" : "false");
+    record.buttons.exclude.textContent = card.excluded ? "Excluded" : "Exclude";
+    record.buttons.exclude.setAttribute("aria-pressed", card.excluded ? "true" : "false");
+    var prioritized = (workspace.steering && workspace.steering.prioritized_card_ids || []).map(String).indexOf(String(card.card_id)) >= 0;
+    record.buttons.prioritize.textContent = prioritized ? "Prioritized" : "Prioritize";
+    record.buttons.prioritize.setAttribute("aria-pressed", prioritized ? "true" : "false");
+  }
+  function renderWorkspace() {
+    var workspace = researchWorkspace();
+    var surface = scrollSurface || transcript;
+    var anchor = null;
+    var anchorTop = 0;
+    if (workspaceList && surface && surface.clientHeight) {
+      var top = surface.getBoundingClientRect().top;
+      anchor = Array.prototype.find.call(workspaceList.children, function (node) { return node.getBoundingClientRect().bottom > top; });
+      if (anchor) anchorTop = anchor.getBoundingClientRect().top;
+    }
+    if (!workspaceNode && !data.research_workspace) return;
+    if (!workspaceNode) {
+      workspaceNode = element("section", null, "dl-research-workspace"); workspaceNode.setAttribute("aria-label", "Research workspace");
+      workspaceNode.appendChild(element("h3", "Research"));
+      workspaceBadge = element("p", "", "dl-research-badge"); workspaceBadge.setAttribute("role", "status"); workspaceNode.appendChild(workspaceBadge);
+      var receipt = workspaceDisclosure("Request receipt · edit request"); workspaceNode.appendChild(receipt.node);
+      var requestLabel = element("label", "Captured request");
+      workspaceRequest = element("textarea"); workspaceRequest.rows = 3; requestLabel.appendChild(workspaceRequest); receipt.body.appendChild(requestLabel);
+      workspaceReceipt = element("p"); receipt.body.appendChild(workspaceReceipt);
+      var edit = element("button", "Send revised request", "dl-button is-sm"); edit.type = "button";
+      edit.addEventListener("click", function () { if (!workspaceRequest.value.trim()) return; edit.disabled = true; steer("message", { message: workspaceRequest.value.trim() }).catch(function () {}).finally(function () { edit.disabled = false; }); }); receipt.body.appendChild(edit);
+      workspaceRetry = element("button", "Retry research", "dl-button is-sm"); workspaceRetry.type = "button";
+      workspaceRetry.addEventListener("click", function () { workspaceRetry.disabled = true; steer("retry").catch(function () {}).finally(function () { workspaceRetry.disabled = false; }); }); workspaceNode.appendChild(workspaceRetry);
+      workspaceList = element("div", null, "dl-research-cards"); workspaceNode.appendChild(workspaceList);
+      transcript.parentNode.insertBefore(workspaceNode, transcript);
+    }
+    workspaceNode.hidden = !data.research_workspace;
+    if (document.activeElement !== workspaceRequest && (workspaceRequest.dataset.captured === undefined || workspaceRequest.value === workspaceRequest.dataset.captured) && workspaceRequest.dataset.captured !== String(workspace.request_text || "")) {
+      workspaceRequest.value = workspace.request_text || ""; workspaceRequest.dataset.captured = String(workspace.request_text || "");
+    }
+    var constraints = data.constraints || {};
+    var captured = Object.keys(constraints).filter(function (key) { var value = constraints[key]; return value !== null && value !== "" && value !== undefined && (!Array.isArray(value) || value.length); });
+    workspaceReceipt.textContent = captured.length ? "Captured settings: " + captured.map(function (key) { return key.replace(/_/g, " ") + ": " + (Array.isArray(constraints[key]) ? constraints[key].join(", ") : constraints[key]); }).join(" · ") : "No additional settings captured.";
+    var job = workspace.job || {};
+    var jobState = job.state === "completed" && workspace.status === "partial" ? "partial" : job.state || workspace.status || "unknown";
+    var labels = { queued: "Research queued", running: "Research running", completed: "Research completed", partial: "Partial research · request remains incomplete", stopped: "Research stopped · retrieved cards retained", interrupted: "Research interrupted · no active work confirmed", superseded: "Research superseded" };
+    var badge = (labels[jobState] || "Research state unavailable") + (workspace.archived_omitted ? " · " + workspace.archived_omitted + " older artifacts outside the retained history limit" : "");
+    if (workspaceBadge.textContent !== badge) workspaceBadge.textContent = badge;
+    workspaceRetry.hidden = !job.retry_allowed;
+    var seen = new Set();
+    (workspace.cards || []).forEach(function (card) {
+      if (!card || !card.card_id) return;
+      var id = String(card.card_id); seen.add(id);
+      var record = workspaceCards.get(id);
+      if (!record) { record = createWorkspaceCard(id); workspaceCards.set(id, record); workspaceList.appendChild(record.node); }
+      updateWorkspaceCard(record, card, workspace);
+    });
+    workspaceCards.forEach(function (record, id) {
+      if (!seen.has(id)) { record.node.remove(); workspaceCards.delete(id); }
+    });
+    if (anchor && anchor.parentNode === workspaceList) {
+      var delta = anchor.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(delta) > 1) surface.scrollTop += delta;
+    }
   }
 
   function protectedCards() {
@@ -841,10 +1026,12 @@
   function renderMessages() {
     if (!transcript) return;
     var messages = data.messages || [];
-    var signature = JSON.stringify(messages);
+    var workspaceMode = !!(data.research_workspace && Array.isArray(data.research_workspace.cards) && data.research_workspace.cards.length);
+    var signature = JSON.stringify([workspaceMode, messages]);
     if (signature === renderedMessageSignature) return;
     var canAppend = renderedMessageSignature !== null && messages.length >= renderedMessageCount;
-    var previousMessages = renderedMessageSignature ? JSON.parse(renderedMessageSignature) : [];
+    var previousMessages = renderedMessageSignature ? JSON.parse(renderedMessageSignature)[1] : [];
+    if (renderedMessageSignature && JSON.parse(renderedMessageSignature)[0] !== workspaceMode) canAppend = false;
     for (var index = 0; canAppend && index < renderedMessageCount; index += 1) {
       if (JSON.stringify(messages[index]) !== JSON.stringify(previousMessages[index])) canAppend = false;
     }
@@ -881,7 +1068,12 @@
         toolMessages.forEach(function (item) {
           var action = item.action || {};
           if (isPartialFinding(item)) {
-            if (!item.id || !findingIds.has(item.id)) appendPartialFinding(group, item);
+            if (!workspaceMode || ["printed facts", "retrieved candidates", "preliminary fit", "reviewed fragments"].indexOf(action.data && action.data.source_scope) < 0) {
+              if (!item.id || !findingIds.has(item.id)) appendPartialFinding(group, item);
+            } else {
+              var audit = element("details"); audit.appendChild(element("summary", "Workspace finding · " + action.data.source_scope));
+              audit.appendChild(element("p", action.content || item.content || "Card finding updated in Research workspace")); activity.appendChild(audit);
+            }
             if (item.id) findingIds.add(item.id);
             return;
           }
@@ -922,7 +1114,7 @@
       if (followingLatest) { deferredScroll = true; deferredReply = newReply || (deferredReply === transcript.lastElementChild ? deferredReply : null); }
       return;
     }
-    scrollTranscript(surface, newReply, anchor);
+    if (!workspaceMode) scrollTranscript(surface, newReply, anchor);
   }
   function scrollTranscript(surface, newReply, anchor) {
     var anchorNode = anchor && Array.prototype.find.call(transcript.children, function (node) {
@@ -952,7 +1144,7 @@
     if (!transcript) return;
     var groups = transcript.querySelectorAll(".dl-assistant-activity > details");
     Array.prototype.forEach.call(groups, function (activity) {
-      var live = !!data.busy && activity.parentNode === transcript.lastElementChild;
+      var live = (data.research_workspace ? ["queued", "running"].indexOf(data.research_workspace.job && data.research_workspace.job.state || data.research_workspace.status) >= 0 : !!data.busy) && activity.parentNode === transcript.lastElementChild;
       var waiting = Array.prototype.slice.call(activity.querySelectorAll("[data-pending-tool]"));
       var finished = Number(activity.dataset.finishedCount || 0);
       var parts = ["Research activity"];
@@ -1180,17 +1372,18 @@
     renderedExperimentSignature = signature;
   }
   function render() {
-    renderSettings(); renderMessages(); renderProposals(); renderExperiments();
+    renderSettings(); renderWorkspace(); renderMessages(); renderProposals(); renderExperiments();
     var welcome = sidebar.querySelector("[data-assistant-welcome]");
     if (welcome) welcome.hidden = (data.messages || []).length > 0;
     var experimentsRunning = (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; });
-    busy = !!data.busy || experimentsRunning;
-    var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = busy;
+    busy = (data.research_workspace ? researchRunning() : !!data.busy) || experimentsRunning;
+    var send = sidebar.querySelector("[data-assistant-send]"); if (send) { send.disabled = sending; send.textContent = busy ? "Send steering" : "Send"; }
     var stop = sidebar.querySelector("[data-assistant-stop]"); if (stop) stop.hidden = !busy;
     syncActivities();
-    if (!data.busy) stopRequested = false;
-    showProgress(progressText(data.messages, { chatBusy: !!data.busy, experimentsRunning: experimentsRunning, stopping: stopRequested, startedAt: data.started_at, now: Date.now() / 1000 }));
+    if (!busy) stopRequested = false;
+    showProgress(data.research_workspace ? (stopRequested && busy ? "Stopping after the current step…" : "") : progressText(data.messages, { chatBusy: !!data.busy, experimentsRunning: experimentsRunning, stopping: stopRequested, startedAt: data.started_at, now: Date.now() / 1000 }));
     if (busy) schedulePoll();
+    else if (pollTimer) { window.clearTimeout(pollTimer); pollTimer = 0; }
   }
   function showProgress(text) {
     // Progress owns the status line only while it is the latest thing shown there;
@@ -1201,15 +1394,24 @@
   }
   function refresh() {
     // A failed refresh is transient: the next successful one may replace its message.
-    return request(base).then(function (next) { data = Object.assign({}, data, next || {}); render(); }).catch(function (error) { status.textContent = error.message; progressShown = error.message; });
+    var epoch = sessionEpoch;
+    var sequence = ++refreshSequence;
+    var requestSequence = ++sessionRequestSequence;
+    return request(base).then(function (next) {
+      if (epoch === sessionEpoch && sequence === refreshSequence) acceptSession(next, requestSequence);
+    }).catch(function (error) {
+      if (epoch !== sessionEpoch || sequence !== refreshSequence) return;
+      status.textContent = error.message; progressShown = error.message; if (busy) schedulePoll();
+    });
   }
   function schedulePoll() { if (pollTimer) return; pollTimer = window.setTimeout(function () { pollTimer = 0; refresh(); }, 1800); }
 
   sidebar.querySelectorAll("[data-assistant-mode]").forEach(function (button) {
     button.addEventListener("click", function () {
       var mode = button.dataset.assistantMode;
+      var sequence = ++sessionRequestSequence;
       request(base + "/settings", { method: "POST", body: JSON.stringify({ mode: mode, constraints: data.constraints || {} }) })
-        .then(function (next) { data = Object.assign({}, data, next || {}, { mode: mode }); renderSettings(); })
+        .then(function (next) { acceptMutation(next, sequence); })
         .catch(function (error) { status.textContent = error.message; });
     });
   });
@@ -1233,20 +1435,25 @@
       theme: sidebar.querySelector("[data-assistant-theme]").value.trim(),
       protected_cards: Array.prototype.slice.call(sidebar.querySelectorAll("[data-protected-card]:checked")).map(function (box) { return box.value; })
     };
+    var sequence = ++sessionRequestSequence;
     request(base + "/settings", { method: "POST", body: JSON.stringify({ mode: data.mode || "suggest", constraints: constraints }) })
-      .then(function (next) { data = Object.assign({}, data, next || {}, { constraints: constraints }); protectedDirty = false; renderSettings(); if (statusNode) statusNode.textContent = "Constraints saved."; })
+      .then(function (next) { acceptMutation(next, sequence); protectedDirty = false; renderSettings(); if (statusNode) statusNode.textContent = "Constraints saved."; })
       .catch(function (error) { if (statusNode) statusNode.textContent = error.message; });
   });
   var composer = sidebar.querySelector("[data-assistant-composer]");
   if (composer) composer.addEventListener("submit", function (event) {
     event.preventDefault();
     var input = sidebar.querySelector("[data-assistant-message]");
-    var message = input.value.trim(); if (!message || busy) return;
+    var message = input.value.trim(); if (!message || sending) return;
+    sending = true;
     status.textContent = "Sending message…"; progressShown = status.textContent;
-    followingLatest = true;
-    request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, expected_revision: Number(state.revision || 0) }) })
-      .then(function () { input.value = ""; status.textContent = "Working on your request…"; progressShown = status.textContent; return refresh(); })
-      .catch(function (error) { status.textContent = error.message; });
+    if (!hasWorkspaceCards()) followingLatest = true;
+    var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = true;
+    var sequence = busy ? null : ++sessionRequestSequence;
+    var operation = busy ? steer("message", { message: message }) : request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, expected_revision: Number(state.revision || 0) }) }).then(function (next) { acceptMutation(next, sequence); return refresh(); });
+    operation.then(function () { if (input.value.trim() === message) input.value = ""; })
+      .catch(function (error) { status.textContent = error.message; })
+      .finally(function () { sending = false; if (send) send.disabled = false; });
   });
   var stop = sidebar.querySelector("[data-assistant-stop]");
   if (stop) stop.addEventListener("click", function () {
@@ -1264,5 +1471,7 @@
   });
   if (window.location.hash === "#goldfish") showTab("goldfish", false);
   refresh();
-  window.addEventListener("pagehide", function () { if (pollTimer) window.clearTimeout(pollTimer); });
+  window.addEventListener("pagehide", function () { if (pollTimer) window.clearTimeout(pollTimer); pollTimer = 0; });
+  window.addEventListener("pageshow", function (event) { if (event.persisted) refresh(); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
 }());

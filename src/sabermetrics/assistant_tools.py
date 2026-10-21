@@ -647,6 +647,7 @@ class AssistantTools:
         self.recommendations: dict[str, list[dict[str, Any]]] = {}
         self.discovery_results: dict[str, dict[str, Any]] = {}
         self.strategy_evidence: dict[str, Any] = {}
+        self.on_catalog_candidates: Callable[[list[dict[str, Any]]], None] | None = None
 
     @staticmethod
     def _proposal_key(proposal: dict[str, Any]) -> str:
@@ -1342,7 +1343,14 @@ class AssistantTools:
                         )
                     }
                 )
-            result = functional_search(self.path, document, effective)
+            result = functional_search(
+                self.path,
+                document,
+                effective,
+                on_candidates=self.on_catalog_candidates,
+                check_current=self.check,
+                excluded_ids=set(self.constraints.get("excluded_candidates", [])),
+            )
             from sabermetrics.assistant_retrieval_context import enrich_shortlist
 
             result["card_view_retrieval"] = enrich_shortlist(

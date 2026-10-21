@@ -108,7 +108,7 @@ def test_narrow_exception_preserves_ledger_and_allows_exception_retrieval(
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args) or {"cards": []},
+        lambda path, document, args, **kwargs: received.append(args) or {"cards": []},
     )
     result = tools.execute(call("search_card_functions", {"type_line": "permanent"}))
     assert received[0].type_line == ""

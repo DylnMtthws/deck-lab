@@ -637,6 +637,16 @@ assert.equal(findingSections().length, 3);
 assert.match(findingSections()[2].textContent, /Checked findings/);
 assert.match(findingSections()[2].textContent, /remaining claims and request completion are still under review/);
 assert.match(findingSections()[2].textContent, /Supported cost and conditional effect/);
+// Introducing workspace cards removes duplicated partial sections while retaining audit activity.
+data.research_workspace = {cards: [{card_id: 'c1'}]};
+const previousWrites = writes;
+renderMessages();
+assert.equal(findingSections().length, 1, 'only the research progress section remains');
+assert.match(activities()[0].textContent, /Workspace finding.*preliminary fit/);
+assert.match(activities()[0].textContent, /Potential support remains unconfirmed/);
+assert.equal(writes, previousWrites, 'workspace readers are not scrolled to replies');
+renderMessages();
+assert.equal(findingSections().length, 1);
 """.replace("HELPERS", helpers).replace("RENDERER", renderer)
     _run_node(harness)
 
@@ -653,3 +663,282 @@ def test_reply_card_gallery_is_folded_and_long_search_results_are_limited():
         ".dl-assistant-card-tray .dl-assistant-card-link img { width:40px; height:56px; }"
         in css
     )
+
+
+def _workspace_harness():
+    source = SCRIPT.read_text()
+    return r"""
+const assert = require('node:assert/strict');
+class El {
+  constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.attrs = {}; this.listeners = {}; this._text = ''; this.open = false; this.hidden = false; this.disabled = false; this.value = ''; }
+  appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  insertBefore(child, before) { child.parentNode = this; this.children.splice(this.children.indexOf(before), 0, child); }
+  replaceChildren() { this.children = []; }
+  remove() { this.parentNode.children.splice(this.parentNode.children.indexOf(this), 1); }
+  get firstChild() { return this.children[0]; }
+  get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
+  set textContent(value) { this._text = String(value); this.children = []; }
+  setAttribute(key, value) { this.attrs[key] = value; }
+  addEventListener(name, fn) { this.listeners[name] = fn; }
+  click() { if (!this.disabled) this.listeners.click(); }
+}
+function element(tag, text, cls) { const node = new El(tag); if (text != null) node.textContent = text; node.className = cls || ''; return node; }
+const document = {activeElement: null};
+const window = {crypto: {randomUUID: () => 'request-' + (++requestId)}};
+let requestId = 0, calls = [], rejectNext = false;
+var data = {}, state = {revision: 12}, base = '/assistant', status = element('p'), progressShown = '';
+var workspaceNode = null, workspaceCards = new Map(), workspaceList, workspaceBadge, workspaceRequest, workspaceReceipt, workspaceRetry;
+var sessionEpoch = 0, refreshSequence = 0, sessionRequestSequence = 0, acceptedSessionSequence = 0;
+const transcript = element('div'), host = element('div'); host.appendChild(transcript);
+const scrollSurface = {clientHeight: 0, scrollTop: 187};
+let refreshes = 0;
+function render() { renderWorkspace(); }
+function refresh() { refreshes += 1; return Promise.resolve(); }
+function request(url, options) {
+  const payload = JSON.parse(options.body); calls.push({url, payload});
+  if (rejectNext) { rejectNext = false; return Promise.reject(new Error('stale generation')); }
+  const next = JSON.parse(JSON.stringify(data));
+  const card = (next.research_workspace.cards || []).find(c => c.card_id === payload.card_id);
+  if (card && payload.action === 'pin') card.pinned = true;
+  if (card && payload.action === 'unpin') card.pinned = false;
+  if (card && payload.action === 'exclude') card.excluded = true;
+  if (payload.action === 'retry') { next.research_workspace.generation += 1; next.research_workspace.status = 'queued'; next.research_workspace.job = {state: 'queued'}; }
+  return Promise.resolve({session: next});
+}
+HELPERS
+const flush = () => new Promise(resolve => setImmediate(resolve));
+""".replace("HELPERS", _between(source, "researchWorkspace(", "protectedCards("))
+
+
+def test_workspace_preserves_card_identity_disclosures_and_acknowledged_controls():
+    _run_node(_workspace_harness() + r"""
+(async () => {
+data = {constraints: {theme: 'Artifacts', budget: null, protected_cards: []}, research_workspace: {generation: 4, request_text: 'Find support', status: 'running', job: {state: 'running'}, cards: [{card_id: 'c1', name: '<script>literal</script>', status: 'retrieved', version: 1, printed: {oracle_text: 'Exact text', oracle_text_truncated: true}, claims: [{claim_id: 'q1', text: 'Supports the deck', status: 'unverified'}]}]}};
+renderWorkspace();
+const card = workspaceCards.get('c1'), printed = card.printed.node, claim = card.claimNodes.get('q1').node;
+printed.open = true; claim.open = true;
+assert.equal(workspaceList.children.length, 1);
+assert.equal(card.name.textContent, '<script>literal</script>');
+assert.match(card.node.textContent, /fit unverified/);
+assert.match(card.node.textContent, /Printed text is incomplete/);
+assert.equal(workspaceReceipt.textContent, 'Captured settings: theme: Artifacts');
+workspaceRequest.value = 'Unsaved edit'; document.activeElement = workspaceRequest;
+renderWorkspace();
+assert.equal(workspaceRequest.value, 'Unsaved edit');
+card.buttons.pin.click();
+assert.equal(card.card.pinned, undefined, 'no optimistic pin before acknowledgment');
+await flush();
+assert.equal(card.card.pinned, true);
+assert.equal(card.buttons.pin.attrs['aria-pressed'], 'true');
+assert.deepEqual(calls[0].payload, {expected_revision: 12, expected_generation: 4, action: 'pin', card_id: 'c1', client_request_id: 'request-1'});
+assert.equal(calls[0].url, '/assistant/steer');
+card.buttons.pin.click(); await flush(); assert.equal(card.card.pinned, false);
+card.buttons.exclude.click(); await flush(); assert.equal(card.card.excluded, true);
+rejectNext = true; card.buttons.prioritize.click(); await flush();
+assert.equal(card.buttons.prioritize.attrs['aria-pressed'], 'false');
+assert.equal(status.textContent, 'stale generation');
+assert.equal(card.buttons.prioritize.disabled, false);
+const nextCard = data.research_workspace.cards[0];
+nextCard.version = 2; nextCard.status = 'withdrawn'; nextCard.history = [{version: 2, reason: 'Incorrect interaction retracted', claims: [{text: 'Earlier unsafe interaction', status: 'supported', evidence: {quote: 'Old quote'}}]}];
+nextCard.claims[0].status = 'contradicted'; nextCard.claims[0].evidence = {quote: 'Actual condition'};
+renderWorkspace();
+assert.equal(workspaceCards.get('c1'), card);
+assert.equal(card.printed.node, printed); assert.equal(printed.open, true);
+assert.equal(card.claimNodes.get('q1').node, claim); assert.equal(claim.open, true);
+assert.match(card.node.textContent, /Withdrawn.*do not rely/);
+assert.match(card.node.textContent, /This claim conflicts/);
+assert.match(card.node.textContent, /Incorrect interaction retracted/);
+assert.match(card.node.textContent, /Earlier unsafe interaction/);
+assert.match(card.node.textContent, /Old quote/);
+assert.equal(scrollSurface.scrollTop, 187);
+assert.equal(workspaceList.children.length, 1);
+assert.deepEqual(Object.keys(card.buttons), ['pin', 'exclude', 'prioritize']);
+data.research_workspace.cards = []; renderWorkspace();
+assert.equal(workspaceCards.has('c1'), false);
+assert.equal(workspaceList.children.length, 0);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
+
+
+def test_workspace_partial_interrupted_retry_and_missing_keys_are_honest():
+    _run_node(_workspace_harness() + r"""
+(async () => {
+data = {research_workspace: {}}; renderWorkspace();
+assert.equal(workspaceRetry.hidden, true);
+assert.match(workspaceBadge.textContent, /state unavailable/);
+data.research_workspace = {generation: 2, status: 'partial', job: {state: 'completed', checkpoint: 'claims reviewed'}, cards: []};
+renderWorkspace(); assert.match(workspaceBadge.textContent, /Partial research.*request remains incomplete/);
+assert.equal(researchRunning(), false);
+data.research_workspace = {generation: 2, status: 'running', job: {state: 'interrupted', retry_allowed: true}, cards: []};
+renderWorkspace(); assert.match(workspaceBadge.textContent, /interrupted.*no active work confirmed/);
+assert.equal(researchRunning(), false); assert.equal(workspaceRetry.hidden, false);
+workspaceRetry.click(); await flush();
+assert.equal(calls[0].payload.action, 'retry'); assert.equal(calls[0].payload.expected_generation, 2);
+assert.equal(data.research_workspace.generation, 3); assert.equal(researchRunning(), true);
+assert.match(workspaceBadge.textContent, /queued/);
+assert.equal(refreshes, 1);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
+
+
+def test_busy_composer_steers_and_idle_composer_posts_messages_without_losing_failed_draft():
+    source = SCRIPT.read_text()
+    composer = source.split(
+        '  var composer = sidebar.querySelector("[data-assistant-composer]");', 1
+    )[1].split('  var stop = sidebar.querySelector("[data-assistant-stop]");', 1)[0]
+    _run_node(_workspace_harness() + r"""
+(async () => {
+var busy = true, sending = false, followingLatest = false;
+const composer = new El('form'), input = new El('textarea'), send = new El('button');
+const sidebar = {querySelector: selector => selector === '[data-assistant-message]' ? input : send};
+data = {research_workspace: {generation: 8, status: 'running', job: {state: 'running'}, cards: [{card_id: 'a'}]}};
+COMPOSER
+input.value = 'Focus on draw'; composer.listeners.submit({preventDefault() {}});
+await flush();
+assert.equal(calls[0].url, '/assistant/steer');
+assert.equal(calls[0].payload.action, 'message'); assert.equal(calls[0].payload.message, 'Focus on draw');
+assert.equal(calls[0].payload.expected_generation, 8); assert.equal(calls[0].payload.expected_revision, 12);
+assert.equal(input.value, ''); assert.equal(send.disabled, false); assert.equal(followingLatest, false);
+input.value = 'Keep this draft'; rejectNext = true; composer.listeners.submit({preventDefault() {}}); await flush();
+assert.equal(input.value, 'Keep this draft'); assert.equal(status.textContent, 'stale generation'); assert.equal(sending, false);
+busy = false; input.value = 'New request'; composer.listeners.submit({preventDefault() {}}); await flush();
+assert.equal(calls[2].url, '/assistant/messages');
+assert.deepEqual(calls[2].payload, {message: 'New request', expected_revision: 12});
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""".replace("COMPOSER", composer))
+
+
+def test_workspace_growth_above_visible_card_preserves_reading_position():
+    _run_node(_workspace_harness() + r"""
+data = {research_workspace: {cards: [{card_id: 'above', printed: {oracle_text: 'Short'}}, {card_id: 'reading'}]}};
+renderWorkspace();
+const above = workspaceCards.get('above'), reading = workspaceCards.get('reading');
+let addedHeight = 0;
+scrollSurface.clientHeight = 120;
+scrollSurface.getBoundingClientRect = () => ({top: 0});
+above.node.getBoundingClientRect = () => ({top: -200, bottom: -20 + addedHeight});
+reading.node.getBoundingClientRect = () => ({top: addedHeight, bottom: 100 + addedHeight});
+const replace = above.printed.body.replaceChildren.bind(above.printed.body);
+above.printed.body.replaceChildren = () => { addedHeight = 40; replace(); };
+data.research_workspace.cards[0].printed.oracle_text = 'More rules text';
+renderWorkspace();
+assert.equal(scrollSurface.scrollTop, 227, 'compensates for content growth above the visible card');
+assert.equal(workspaceCards.get('reading').node, reading.node);
+""")
+
+
+def test_workspace_mutation_acknowledgments_never_restore_older_generations():
+    _run_node(_workspace_harness() + r"""
+(async () => {
+data = {updated_at: 40, research_workspace: {generation: 4, request_text: 'Old request', cards: [{card_id: 'old', pinned: false}]}};
+renderWorkspace();
+workspaceRequest.value = 'Unsaved revised request';
+const pending = [];
+request = (url, options) => { calls.push({url, payload: JSON.parse(options.body)}); return new Promise(resolve => pending.push(resolve)); };
+const oldPin = steer('pin', {card_id: 'old'}).catch(error => error);
+const message = steer('message', {message: 'New request'});
+pending[1]({updated_at: 50, research_workspace: {generation: 5, request_text: 'New request', cards: [{card_id: 'new'}]}});
+await message;
+assert.equal(workspaceRequest.value, 'Unsaved revised request', 'blurred workspace draft survives a newer generation');
+pending[0]({updated_at: 60, research_workspace: {generation: 4, request_text: 'Old request', cards: [{card_id: 'old', pinned: true}]}});
+assert.match((await oldPin).message, /Research changed/);
+assert.equal(data.research_workspace.generation, 5);
+assert.deepEqual([...workspaceCards.keys()], ['new']);
+assert.notEqual(status.textContent, 'Research update acknowledged.');
+assert.equal(refreshes, 1, 'stale acknowledgment does not refresh as success');
+const nextPin = steer('pin', {card_id: 'new'});
+assert.equal(calls[2].payload.expected_generation, 5);
+pending[2]({updated_at: 61, research_workspace: {generation: 5, cards: [{card_id: 'new', pinned: true}]}});
+await nextPin;
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
+
+
+def test_same_generation_admission_uses_server_snapshot_order_then_request_order():
+    _run_node(_workspace_harness() + r"""
+(async () => {
+data = {updated_at: 40, research_workspace: {generation: 4, cards: [{card_id: 'a'}]}};
+const pending = [];
+request = () => new Promise(resolve => pending.push(resolve));
+const snapshot = (updated, fields) => ({updated_at: updated, research_workspace: {generation: 4, cards: [{card_id: 'a', ...fields}]}});
+const pin = steer('pin', {card_id: 'a'}).catch(error => error);
+const exclude = steer('exclude', {card_id: 'a'});
+pending[1](snapshot(42, {pinned: true, excluded: true})); await exclude;
+pending[0](snapshot(41, {pinned: true}));
+assert.match((await pin).message, /Research changed/);
+assert.equal(data.research_workspace.cards[0].excluded, true);
+// Server commit order may differ from client issue order; the newer snapshot wins.
+const earlierRequest = steer('unpin', {card_id: 'a'});
+const laterRequest = steer('prioritize', {card_id: 'a'});
+pending[3](snapshot(43, {pinned: true})); await laterRequest;
+pending[2](snapshot(44, {pinned: false, excluded: true})); await earlierRequest;
+assert.equal(data.updated_at, 44); assert.equal(data.research_workspace.cards[0].pinned, false);
+// Equal timestamps (including absent timestamps) fall back to issue order.
+const tiedEarlier = steer('pin', {card_id: 'a'}).catch(error => error);
+const tiedLater = steer('exclude', {card_id: 'a'});
+pending[5](snapshot(44, {excluded: true})); await tiedLater;
+pending[4](snapshot(44, {pinned: true}));
+assert.match((await tiedEarlier).message, /Research changed/);
+assert.equal(data.research_workspace.cards[0].excluded, true);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
+
+
+def test_stale_message_acknowledgment_preserves_composer_draft():
+    source = SCRIPT.read_text()
+    composer = source.split(
+        '  var composer = sidebar.querySelector("[data-assistant-composer]");', 1
+    )[1].split('  var stop = sidebar.querySelector("[data-assistant-stop]");', 1)[0]
+    _run_node(_workspace_harness() + r"""
+(async () => {
+var busy = true, sending = false, followingLatest = false;
+const composer = new El('form'), input = new El('textarea'), send = new El('button');
+const sidebar = {querySelector: selector => selector === '[data-assistant-message]' ? input : send};
+data = {updated_at: 40, research_workspace: {generation: 4, cards: [{card_id: 'a'}]}};
+let resolveMessage;
+request = () => new Promise(resolve => { resolveMessage = resolve; });
+COMPOSER
+input.value = 'Keep this request'; composer.listeners.submit({preventDefault() {}});
+acceptSession({updated_at: 60, research_workspace: {generation: 6, cards: [{card_id: 'current'}]}}, ++sessionRequestSequence);
+resolveMessage({updated_at: 50, research_workspace: {generation: 5, cards: [{card_id: 'stale'}]}});
+await flush();
+assert.equal(input.value, 'Keep this request');
+assert.equal(data.research_workspace.generation, 6);
+assert.deepEqual([...workspaceCards.keys()], ['current']);
+assert.match(status.textContent, /Research changed/);
+assert.equal(sending, false); assert.equal(send.disabled, false); assert.equal(refreshes, 0);
+// The idle /messages path uses the same admission check and draft protection.
+busy = false; composer.listeners.submit({preventDefault() {}});
+acceptSession({updated_at: 80, research_workspace: {generation: 8, cards: []}}, ++sessionRequestSequence);
+resolveMessage({updated_at: 70, research_workspace: {generation: 7, cards: []}});
+await flush();
+assert.equal(input.value, 'Keep this request'); assert.equal(data.research_workspace.generation, 8);
+assert.equal(sending, false); assert.equal(refreshes, 0);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""".replace("COMPOSER", composer))
+
+
+def test_stale_mode_acknowledgment_cannot_restore_old_workspace():
+    handler = (
+        SCRIPT.read_text()
+        .rsplit('  sidebar.querySelectorAll("[data-assistant-mode]").forEach', 1)[1]
+        .split("  var constraintToggle =", 1)[0]
+    )
+    _run_node(_workspace_harness() + r"""
+(async () => {
+const button = new El('button'); button.dataset.assistantMode = 'suggest';
+const sidebar = {querySelectorAll: () => [button]};
+data = {updated_at: 40, research_workspace: {generation: 4, cards: [{card_id: 'old'}]}};
+let resolveMode;
+request = () => new Promise(resolve => { resolveMode = resolve; });
+sidebar.querySelectorAll('[data-assistant-mode]').forEachHANDLER
+button.listeners.click();
+acceptSession({updated_at: 50, research_workspace: {generation: 5, cards: [{card_id: 'current'}]}}, ++sessionRequestSequence);
+resolveMode({updated_at: 60, mode: 'suggest', research_workspace: {generation: 4, cards: [{card_id: 'old'}]}});
+await flush();
+assert.equal(data.research_workspace.generation, 5);
+assert.equal(steerPayload('pin', {card_id: 'current'}).expected_generation, 5);
+assert.deepEqual([...workspaceCards.keys()], ['current']);
+assert.match(status.textContent, /Research changed/);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""".replace("HANDLER", handler))

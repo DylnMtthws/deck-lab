@@ -1,0 +1,44 @@
+{
+  "scope": "Research workspace UX; QA-only release",
+  "features": {
+    "catalog_publication": "Complete eligible local records publish before semantic and association enrichment; retrieval is not suitability verification.",
+    "workspace": "Stable keyed current cards, claim-scoped verdicts, exact printed source hashes, correction history, bounded retained artifacts and pinning.",
+    "progressive_review": "At most two local batches plus a final combined review. Closed draw/cost fact forms only; ambiguous and strategic prose stays global. Exact original claim IDs, spans, hashes and source indices survive every job.",
+    "steering": "Acknowledged idempotent pin/exclude/prioritize/message operations. Material changes create a generation; old findings supersede and stale writes are fenced.",
+    "durability": "SQLite jobs, leases, heartbeats, snapshots and checkpoints. Queued jobs drain on assistant requests and worker completion. Interrupted running work requires explicit retry; no automatic paid-call replay."
+  },
+  "bounds": {
+    "admitted_jobs": 4,
+    "physical_turn_workers": 2,
+    "process_global_provider_operations": 2,
+    "review_jobs_per_turn": 3,
+    "current_cards": 24,
+    "retained_prior_cards": 24,
+    "pinned_cards": 24,
+    "claim_history_versions": 8
+  },
+  "limits": [
+    "Local review deliberately supports recognized draw/cost facts, not broad strategic local assessments. Generated free prose can fall back to one global review.",
+    "Calls sharing a cost ledger serialize through accounting. The recorded-spend ceiling can be crossed by one admitted call; there is no projected-spend guarantee.",
+    "Concurrency and cost admission are process-local; the current deployment uses one application process.",
+    "In-flight provider transport cannot be interrupted. Ledger waiters and retries check cancellation; paid responses remain accounted and stale publications are rejected.",
+    "Restart recovery of interrupted work requires explicit user retry. Queued dispatch is request/worker driven, not an autonomous external job service.",
+    "Synthetic tests and one bounded QA probe do not establish production latency percentiles or improved recommendation quality."
+  ],
+  "adversarial_fixes": [
+    "prior-generation capacity exhaustion",
+    "review/source snapshot mismatch including color identity, loyalty and defense",
+    "invisible correction claims and stale DOM archives",
+    "delayed steering and settings acknowledgments",
+    "stranded restart queue",
+    "deck revision finish race leaking logical capacity",
+    "parallel cost admission",
+    "cancelled ledger waiter starting paid transport",
+    "global comparative claims entering local review"
+  ],
+  "verification": {
+    "full_suite": "4004 passed, 34 skipped, TZ=UTC; opt-in dependencies not exercised",
+    "static_checks": "Ruff and Black passed for 26 changed Python files; mypy passed for 10 source modules; sidebar JavaScript syntax and git diff checks passed",
+    "qa": "pending deployment/live acceptance"
+  }
+}

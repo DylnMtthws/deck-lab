@@ -191,11 +191,27 @@ def review_claims(
     protected_parts: set[int] | None = None,
     research_context: dict[str, Any] | None = None,
     claim_ids: set[str] | None = None,
+    evidence_indices: set[int] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
+    """Review original claim IDs, optionally sending selected evidence records.
+
+    Selection never rebases source indices, evidence IDs or the full focused
+    source hash manifest. Citations to records not supplied remain unverified.
+    Callers must select complete dependencies; omitted records prove no absence.
+    """
     original_source_bytes = sum(len(s.encode()) for s in sources)
     sources = focused_sources(parts, sources)
     omitted = list(getattr(sources, "omitted", []))
     known_names = list(getattr(sources, "card_names", []))
+    selected = (
+        set(range(len(sources))) if evidence_indices is None else set(evidence_indices)
+    )
+    if any(type(i) is not int or not 0 <= i < len(sources) for i in selected):
+        return parts, {
+            "status": "unverified",
+            "reason": "invalid_evidence_indices",
+            "fulfillment": "unknown",
+        }
     protected = set(protected_parts or set()) | {
         i
         for i, part in enumerate(parts)
@@ -208,7 +224,7 @@ def review_claims(
     units = claim_units(parts, protected)
     if claim_ids is not None:
         units = [unit for unit in units if unit["claim_id"] in claim_ids]
-    if not sources or not units or len(units) > 64:
+    if not selected or not units or len(units) > 64:
         return parts, {
             "status": "unverified",
             "reason": "claim_context_limit",
@@ -218,14 +234,22 @@ def review_claims(
         unit["source_indices"] = [
             i
             for i, source in enumerate(sources)
-            if not source.startswith("Card: ")
-            or _mentions_card_name(
-                parts[unit["part_index"]], source.split("\n", 1)[0][6:]
+            if i in selected
+            and (
+                not source.startswith("Card: ")
+                or _mentions_card_name(
+                    parts[unit["part_index"]], source.split("\n", 1)[0][6:]
+                )
             )
         ]
     # Exact source table is shared once. Related records guide attention, not
     # an evidence deletion rule: cross-card/rules claims may need other records.
     records, quote_lookup = evidence_catalog(sources)
+    records = [record for record in records if record["source_index"] in selected]
+    quote_lookup = {
+        eid: binding for eid, binding in quote_lookup.items() if binding[0] in selected
+    }
+    evidence_bytes_sent = sum(len(sources[i].encode()) for i in selected)
     payload = json.dumps(
         {
             "request": user_request,
@@ -235,6 +259,13 @@ def review_claims(
             },
             "source_records": records,
             "research_context": research_context or {},
+            **(
+                {
+                    "evidence_scope": "Selected original source records only; omitted records cannot establish absence, ranks or whole-deck sufficiency."
+                }
+                if evidence_indices is not None
+                else {}
+            ),
         },
         ensure_ascii=False,
     )
@@ -269,6 +300,8 @@ def review_claims(
         "output_token_budget": 4096,
         "claim_count": len(units),
         "evidence_hash": request.evidence_hash,
+        "evidence_bytes_sent": evidence_bytes_sent,
+        "evidence_source_count": len(selected),
     }
     try:
         value = gateway.generate(request).value
@@ -330,7 +363,7 @@ def review_claims(
             seen.add(judgment.claim_id)
             unit = indexed[judgment.claim_id]
             citations_valid = bool(judgment.citations) and all(
-                c.source_index < len(sources) and c.quote in sources[c.source_index]
+                c.source_index in selected and c.quote in sources[c.source_index]
                 for c in judgment.citations
             )
             verdict = judgment.verdict
@@ -453,7 +486,7 @@ def review_claims(
         ),
         "claim_unit_version": "assistant-claim-fragments.v1",
         "reviewed_parts": {str(u["part_index"]): parts[u["part_index"]] for u in units},
-        "fulfillment": review.fulfillment,
+        "fulfillment": review.fulfillment if evidence_indices is None else "unknown",
         "patches": [p.model_dump() for p in patches],
         "unresolved": unresolved,
         "claim_judgments": judgments,
@@ -461,6 +494,8 @@ def review_claims(
         "review_model": model_receipt,
         "source_bytes_before_focus": original_source_bytes,
         "source_bytes_after_focus": sum(len(s.encode()) for s in sources),
+        "evidence_indices": sorted(selected),
+        "evidence_bytes_sent": evidence_bytes_sent,
         "missing_claim_ids": missing,
         "omitted_sources": len(omitted),
         "omitted_source_labels": omitted,

@@ -11,6 +11,7 @@ import re
 import sqlite3
 import time
 from collections import deque
+from collections.abc import Callable
 from contextlib import closing
 from itertools import groupby
 from pathlib import Path
@@ -352,9 +353,18 @@ def functional_profile(card: dict[str, Any]) -> dict[str, Any]:
 
 
 def functional_search(
-    path: str | Path, document: dict[str, Any], args: FunctionalSearchArgs
+    path: str | Path,
+    document: dict[str, Any],
+    args: FunctionalSearchArgs,
+    *,
+    on_candidates: Callable[[list[dict[str, Any]]], None] | None = None,
+    check_current: Callable[[], Any] | None = None,
+    excluded_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
+    check = check_current or (lambda: None)
+    check()
+    excluded_ids = excluded_ids or set()
     from sabermetrics.assistant_suitability import (
         candidate_suitability,
         deck_support_index,
@@ -389,6 +399,11 @@ def functional_search(
     with closing(sqlite3.connect(path)) as conn:
         conn.row_factory = sqlite3.Row
         for row in _catalog_faces(conn, str(Path(path).resolve())):
+            if (
+                str(row.get("id") or "") in excluded_ids
+                or str(row.get("oracle_id") or "") in excluded_ids
+            ):
+                continue
             if str(row.get("name") or "").casefold() in excluded_names:
                 continue
             if args.mana_production_required:
@@ -485,6 +500,21 @@ def functional_search(
             card["functional_profile"] = profile
             cards[oid], profiles[oid] = card, profile
         lexical = _lexical(list(cards.values()), args.query)
+        # Publish current mechanically eligible printed records before vector
+        # recall, association reads and strategic enrichment. This order is not
+        # a recommendation ranking and never certifies repeatable execution.
+        if on_candidates is not None:
+            check()
+            early = sorted(
+                cards.values(),
+                key=lambda card: (
+                    -lexical.get(str(card.get("oracle_id") or card["id"]), 0.0),
+                    str(card.get("name") or ""),
+                    str(card.get("id") or ""),
+                ),
+            )[:8]
+            on_candidates(early)
+            check()
         semantic, semantic_status, rejected = _semantic(
             conn, cards, args.query or args.function
         )
@@ -494,6 +524,7 @@ def functional_search(
     view_scores, view_receipt = recall_view_scores(
         cards, args.query or args.function, db_path=path
     )
+    check()
     for oid, score in view_scores.items():
         semantic_scores[oid] = max(score, semantic_scores.get(oid, 0))
     prefer_cheap_sacrifice = args.function == "sacrifice" and bool(
@@ -510,6 +541,7 @@ def functional_search(
         from sabermetrics.assistant_associations import research_card_associations
 
         for anchor in anchors:
+            check()
             result = research_card_associations(
                 Path(path), document, anchor["oracle_id"], limit=8
             )

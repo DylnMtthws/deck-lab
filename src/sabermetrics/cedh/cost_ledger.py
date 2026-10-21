@@ -15,6 +15,10 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import threading
+import weakref
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from sabermetrics.cedh.model_gateway import UsageRecord
@@ -23,6 +27,33 @@ from sabermetrics.config import resolve_db_path
 from sabermetrics.errors import LLMCostCeilingExceeded
 
 logger = logging.getLogger(__name__)
+
+# Distinct gateway/ledger instances for the same database share admission.
+# Weak values avoid retaining a lock for every database ever opened.
+_ADMISSION_LOCKS: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+_ADMISSION_GUARD = threading.Lock()
+_OPERATION = threading.local()
+
+
+def check_operation_current() -> None:
+    """Run caller-thread cancellation/deadline hooks before spending.
+
+    Defined in this low-level module so provider admission need not import an
+    assistant wrapper. Hooks must be thread-safe and must raise when stale.
+    """
+    for check in getattr(_OPERATION, "checks", ()):
+        check()
+
+
+@contextmanager
+def operation_check(check: Callable[[], None]) -> Iterator[None]:
+    """Scope a hook to this synchronous call; nested wrappers retain all hooks."""
+    previous = getattr(_OPERATION, "checks", ())
+    _OPERATION.checks = (*previous, check)
+    try:
+        yield
+    finally:
+        _OPERATION.checks = previous
 
 
 def estimate_cost(
@@ -63,6 +94,38 @@ class CostLedger:
         self.db_path = resolve_db_path(db_path)
 
     # -- ceiling ----------------------------------------------------------
+
+    @contextmanager
+    def admission(self, ceiling_usd: float) -> Iterator[None]:
+        """Coordinate the ceiling check through final accounting in this process.
+
+        The existing ceiling is a stop-at-recorded-spend threshold, not a
+        projected-cost cap: one admitted generation (including its repairs)
+        may cross it. The gateway has no reliable upper bound for input and
+        repair costs, so reserving an estimate would still allow oversubscription.
+        Exclusively reserving admission for this database preserves that
+        contract. Other databases remain independent. All retries and recording
+        stay inside the reservation; exceptions always release it.
+
+        This does not coordinate other processes or legacy callers that only
+        use check_ceiling, and retains best-effort accounting on write failure.
+        """
+        key = str(self.db_path.resolve())
+        with _ADMISSION_GUARD:
+            lock = _ADMISSION_LOCKS.get(key)
+            if lock is None:
+                lock = threading.RLock()
+                _ADMISSION_LOCKS[key] = lock
+        check_operation_current()
+        while not lock.acquire(timeout=0.025):
+            check_operation_current()
+        try:
+            check_operation_current()
+            self.check_ceiling(ceiling_usd)
+            check_operation_current()
+            yield
+        finally:
+            lock.release()
 
     def monthly_spend(self) -> float:
         """Total spend across every provider in the trailing 30 days.

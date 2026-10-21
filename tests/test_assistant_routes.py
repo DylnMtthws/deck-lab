@@ -18,7 +18,9 @@ def setup(tmp_path, monkeypatch):
     deck = _seed_deck(path, owner)
     executor = RecordingExecutor()
     monkeypatch.setattr(assistant_routes, "_EXECUTOR", executor)
-    monkeypatch.setattr(assistant_routes, "_SLOTS", threading.BoundedSemaphore(4))
+    monkeypatch.setattr(
+        assistant_routes, "_WORKER_SLOTS", threading.BoundedSemaphore(2)
+    )
     monkeypatch.setattr(assistant_routes, "provider_status", lambda: {"enabled": True})
     return client, path, owner, deck, executor
 
@@ -248,20 +250,310 @@ def test_deleting_deck_removes_conversation(setup):
         )
 
 
-def test_expired_conversation_recovers_and_ignores_late_worker(setup, monkeypatch):
+def test_polling_does_not_expire_a_queued_job(setup, monkeypatch):
     from sabermetrics import assistant_store
 
     _client, path, owner, deck, _ = setup
     store = AssistantStore(path)
     started = store.begin(owner, deck, "Inspect", 0)
-    assert store.get(owner, deck)["busy"]
     monkeypatch.setattr(
         assistant_store.time, "time", lambda: started["started_at"] + 1201
     )
-    expired = store.get(owner, deck)
-    assert not expired["busy"]
-    assert expired["turn_id"] is None
-    assert expired["messages"][-1]["status"] == "failed"
-    store.finish(owner, deck, started["turn_id"], {"content": "Late result"})
-    assert store.get(owner, deck)["messages"] == expired["messages"]
-    assert store.begin(owner, deck, "Retry", 0)["busy"]
+    assert store.get(owner, deck)["busy"]
+    assert store.recover(owner, deck)["research_workspace"]["job"]["state"] == "queued"
+
+
+def test_steering_ack_and_provider_checkpoints_stay_out_of_chat(setup, monkeypatch):
+    from sabermetrics import assistant_runtime
+    from sabermetrics.assistant_workspace import catalog_card_record, workspace_event
+
+    client, _path, _owner, deck, executor = setup
+    url = f"/api/decks/{deck}/assistant"
+
+    def run(*args, **kwargs):
+        for status in ("started", "finished"):
+            kwargs["on_event"](
+                {"type": "provider_checkpoint", "state": status, "call_id": "paid"}
+            )
+        card = catalog_card_record(
+            {"id": "candidate", "name": "Candidate", "oracle_text": "Draw a card."}
+        )
+        kwargs["on_event"](workspace_event([card]))
+        return {"content": "Partial findings", "status": "done"}
+
+    monkeypatch.setattr(assistant_runtime, "run_turn", run)
+    assert (
+        client.post(
+            url + "/messages", json={"message": "Find draw", "expected_revision": 0}
+        ).status_code
+        == 202
+    )
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    session = client.get(url).json
+    assert session["research_workspace"]["job"]["checkpoint"]["calls"] == {
+        "paid": "finished"
+    }
+    assert len(session["messages"]) == 3
+    body = {
+        "action": "prioritize",
+        "card_id": "candidate",
+        "expected_generation": 1,
+        "expected_revision": 0,
+        "client_request_id": "once",
+    }
+    ack = client.post(url + "/steer", json=body)
+    assert ack.status_code == 200
+    assert ack.json["research_workspace"]["generation"] == 2
+    assert ack.json["research_workspace"]["cards"][0]["status"] == "superseded"
+    assert ack.json["constraints"]["prioritized_candidates"] == ["candidate"]
+    replay = client.post(url + "/steer", json=body)
+    assert replay.json["turn_id"] == ack.json["turn_id"]
+    assert len(executor.jobs) == 1
+    assert (
+        client.post(url + "/steer", json=dict(body, expected_revision=9)).status_code
+        == 409
+    )
+
+
+def test_superseding_inflight_workers_leaves_new_generation_durably_queued(setup):
+    client, _path, _owner, deck, executor = setup
+    url = f"/api/decks/{deck}/assistant"
+    client.post(url + "/messages", json={"message": "Original", "expected_revision": 0})
+    for generation in (1, 2):
+        response = client.post(
+            url + "/steer",
+            json={
+                "action": "message",
+                "message": "Change focus",
+                "expected_revision": 0,
+                "expected_generation": generation,
+                "client_request_id": str(generation),
+            },
+        )
+        assert response.status_code == 200
+    assert len(executor.jobs) == 2
+    session = client.get(url).json
+    assert session["research_workspace"]["generation"] == 3
+    assert session["research_workspace"]["job"]["state"] == "queued"
+    # The stale worker exits before entering the runtime, freeing a physical slot.
+    function, args, kwargs = executor.jobs.pop(0)
+    function(*args, **kwargs)
+    assert client.get(url).json["research_workspace"]["job"]["state"] == "running"
+    assert len(executor.jobs) == 2
+
+
+@pytest.mark.parametrize("entry", ["session", "messages"])
+def test_unrelated_request_drains_four_persisted_jobs_after_restart(
+    setup, monkeypatch, entry
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    store = AssistantStore(path)
+    decks = [_seed_deck(path, owner) for _ in range(4)]
+    for queued in decks:
+        store.begin(owner, queued, "Persisted research", 0)
+    # New store/request, no physical workers and no request to any queued deck.
+    assert not executor.jobs
+    calls = []
+    monkeypatch.setattr(
+        assistant_runtime,
+        "run_turn",
+        lambda *a, **kw: calls.append(a[2]) or {"content": "Done"},
+    )
+    url = f"/api/decks/{deck}/assistant"
+    if entry == "session":
+        assert client.get(url).status_code == 200
+    else:
+        assert (
+            client.post(
+                url + "/messages", json={"message": "New", "expected_revision": 0}
+            ).status_code
+            == 429
+        )
+    assert len(executor.jobs) == 2
+    with pytest.raises(ValueError, match="busy"):
+        AssistantStore(path).begin(owner, deck, "Fifth job", 0)
+    while executor.jobs:
+        assert len(executor.jobs) <= 2
+        function, args, kwargs = executor.jobs.pop(0)
+        function(*args, **kwargs)
+    assert set(calls) == set(decks) and len(calls) == 4
+    for queued in decks:
+        finished = AssistantStore(path).get(owner, queued)
+        assert not finished["busy"]
+        assert finished["research_workspace"]["job"]["state"] == "completed"
+    assert (
+        client.post(
+            url + "/messages", json={"message": "New", "expected_revision": 0}
+        ).status_code
+        == 202
+    )
+
+
+def test_global_drain_respects_provider_and_never_replays_expired_running(
+    setup, monkeypatch
+):
+    import time
+
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    store = AssistantStore(path)
+    expired_deck, queued_deck, stale_deck = [_seed_deck(path, owner) for _ in range(3)]
+    old = store.begin(owner, expired_deck, "Unknown paid call", 0)
+    store.claim(owner, expired_deck)
+    store.checkpoint(
+        owner, expired_deck, old["turn_id"], {"call_id": "paid", "state": "started"}
+    )
+    store.begin(owner, queued_deck, "Safe queued", 0)
+    store.begin(owner, stale_deck, "Old revision", 0)
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE build_assistant_jobs SET lease_deadline=? WHERE id=?",
+            (time.time() - 1, old["turn_id"]),
+        )
+        conn.execute(
+            "UPDATE deck_documents SET revision=revision+1 WHERE id=?", (stale_deck,)
+        )
+        conn.commit()
+    url = f"/api/decks/{deck}/assistant"
+    monkeypatch.setattr(assistant_routes, "provider_status", lambda: {"enabled": False})
+    assert client.get(url).status_code == 200
+    assert not executor.jobs
+    monkeypatch.setattr(assistant_routes, "provider_status", lambda: {"enabled": True})
+    assert client.get(url).status_code == 200
+    assert len(executor.jobs) == 1
+    interrupted = store.get(owner, expired_deck)
+    assert not interrupted["busy"]
+    assert interrupted["research_workspace"]["job"]["state"] == "interrupted"
+    assert interrupted["research_workspace"]["job"]["retry_allowed"]
+    assert (
+        store.get(owner, stale_deck)["research_workspace"]["job"]["state"]
+        == "superseded"
+    )
+    calls = []
+    monkeypatch.setattr(
+        assistant_runtime,
+        "run_turn",
+        lambda *a, **kw: calls.append(a[2]) or {"content": "Done"},
+    )
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    assert calls == [queued_deck] and not executor.jobs
+
+
+def test_revision_change_after_final_stop_check_frees_slots_and_drains_queue(
+    setup, monkeypatch
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    store = AssistantStore(path)
+    decks = [deck, _seed_deck(path, owner), _seed_deck(path, owner)]
+    for queued in decks:
+        store.begin(owner, queued, "Research", 0)
+    monkeypatch.setattr(
+        assistant_runtime, "run_turn", lambda *a, **kw: {"content": "Stale output"}
+    )
+    finish = AssistantStore.finish
+
+    def race(self, owner_id, deck_id, turn_id, message):
+        # _work has already passed its final stopped() check.
+        with db.connect(path) as conn:
+            conn.execute(
+                "UPDATE deck_documents SET revision=revision+1 WHERE id=?", (deck_id,)
+            )
+            conn.commit()
+        return finish(self, owner_id, deck_id, turn_id, message)
+
+    monkeypatch.setattr(AssistantStore, "finish", race)
+    assert client.get(f"/api/decks/{deck}/assistant").status_code == 200
+    assert len(executor.jobs) == 2
+    executed = 0
+    while executor.jobs:
+        function, args, kwargs = executor.jobs.pop(0)
+        function(*args, **kwargs)
+        executed += 1
+    assert executed == 3
+    for item in decks:
+        session = store.get(owner, item)
+        assert not session["busy"]
+        assert session["research_workspace"]["job"]["state"] == "superseded"
+        assert [m["content"] for m in session["messages"]] == ["Research"]
+    with db.connect(path) as conn:
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM build_assistant_jobs WHERE state IN ('queued','running')"
+            ).fetchone()[0]
+            == 0
+        )
+
+
+def test_replacement_between_final_stop_check_and_finish_stays_current(
+    setup, monkeypatch
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    url = f"/api/decks/{deck}/assistant"
+    monkeypatch.setattr(
+        assistant_runtime, "run_turn", lambda *a, **kw: {"content": "Old output"}
+    )
+    client.post(url + "/messages", json={"message": "Original", "expected_revision": 0})
+    finish = AssistantStore.finish
+    replacement = {}
+
+    def race(self, owner_id, deck_id, turn_id, message):
+        replacement.update(
+            self.steer(
+                owner_id,
+                deck_id,
+                {
+                    "action": "message",
+                    "message": "Replacement",
+                    "expected_generation": 1,
+                    "client_request_id": "finish-race",
+                },
+                0,
+            )
+        )
+        return finish(self, owner_id, deck_id, turn_id, message)
+
+    monkeypatch.setattr(AssistantStore, "finish", race)
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    session = AssistantStore(path).get(owner, deck)
+    assert session["busy"] and session["turn_id"] == replacement["turn_id"]
+    assert session["research_workspace"]["generation"] == 2
+    assert session["research_workspace"]["job"]["state"] == "running"
+    assert session["messages"] == replacement["messages"]
+    assert all(m["role"] == "user" for m in session["messages"])
+    # Finish the replacement worker without another replacement race.
+    monkeypatch.setattr(AssistantStore, "finish", finish)
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    assert not AssistantStore(path).get(owner, deck)["busy"]
+
+
+def test_worker_completion_does_not_drain_when_provider_becomes_unavailable(
+    setup, monkeypatch
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    store = AssistantStore(path)
+    decks = [deck, _seed_deck(path, owner), _seed_deck(path, owner)]
+    for item in decks:
+        store.begin(owner, item, "Research", 0)
+    client.get(f"/api/decks/{deck}/assistant")
+    assert len(executor.jobs) == 2
+    monkeypatch.setattr(
+        assistant_runtime, "run_turn", lambda *a, **kw: {"content": "Done"}
+    )
+    monkeypatch.setattr(assistant_routes, "provider_status", lambda: {"enabled": False})
+    while executor.jobs:
+        function, args, kwargs = executor.jobs.pop(0)
+        function(*args, **kwargs)
+    assert store.get(owner, decks[2])["research_workspace"]["job"]["state"] == "queued"

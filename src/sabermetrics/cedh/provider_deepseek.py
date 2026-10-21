@@ -30,7 +30,11 @@ from typing import Any, Self, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from sabermetrics.cedh.cost_ledger import CostLedger, estimate_cost
+from sabermetrics.cedh.cost_ledger import (
+    CostLedger,
+    check_operation_current,
+    estimate_cost,
+)
 from sabermetrics.cedh.errors import (
     ModelConfigurationError,
     ModelProviderError,
@@ -212,7 +216,11 @@ class DeepSeekGateway:
             ModelValidationError: The response never validated against the
                 schema, after the configured repair attempts.
         """
-        self._ledger.check_ceiling(self._settings.monthly_cost_ceiling_usd)
+        with self._ledger.admission(self._settings.monthly_cost_ceiling_usd):
+            return self._generate_admitted(request)
+
+    def _generate_admitted(self, request: StructuredRequest[T]) -> GenerationResult[T]:
+        """Keep retries and usage accounting inside the ledger reservation."""
 
         model = self._settings.model
         profile = model.mode_profile(request.mode)
@@ -231,71 +239,80 @@ class DeepSeekGateway:
         request_id = ""
         last_error = ""
 
-        for attempt in range(model.max_validation_retries + 1):
-            payload = dict(body, messages=messages)
-            response, transport_retries = self._post(payload)
-            totals["retries"] += transport_retries
-            usage = response.get("usage") or {}
-            totals["input"] += int(usage.get("prompt_tokens") or 0)
-            totals["cached"] += int(
-                (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
-            )
-            completion = int(usage.get("completion_tokens") or 0)
-            reasoning = int(
-                (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
-                or 0
-            )
-            # completion_tokens includes reasoning tokens in the OpenAI-
-            # compatible schema; splitting them keeps the two priceable
-            # separately without double-charging the total.
-            totals["output"] += max(completion - reasoning, 0)
-            totals["reasoning"] += reasoning
-            request_id = response.get("id") or request_id
-
-            content = self._content(response)
-            try:
-                value = request.schema.model_validate_json(_strip_fences(content))
-            except (ValidationError, ValueError) as exc:
-                totals["validation_failures"] += 1
-                last_error = str(exc)
-                logger.warning(
-                    "cEDH gateway: %s response failed validation "
-                    "(attempt %d/%d): %s",
-                    request.call_type,
-                    attempt + 1,
-                    model.max_validation_retries + 1,
-                    last_error,
+        received_response = False
+        record = None
+        try:
+            for attempt in range(model.max_validation_retries + 1):
+                payload = dict(body, messages=messages)
+                response, transport_retries = self._post(payload)
+                totals["retries"] += transport_retries
+                received_response = True
+                usage = response.get("usage") or {}
+                totals["input"] += int(usage.get("prompt_tokens") or 0)
+                totals["cached"] += int(
+                    (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
                 )
-                if attempt >= model.max_validation_retries:
-                    break
-                messages = [
-                    *messages,
-                    {"role": "assistant", "content": content},
-                    {
-                        "role": "user",
-                        "content": (
-                            "That response did not validate against the "
-                            "required schema. Errors:\n"
-                            f"{last_error}\n\n"
-                            "Reply with JSON matching the schema exactly. No "
-                            "prose, no code fence."
-                        ),
-                    },
-                ]
-                continue
+                completion = int(usage.get("completion_tokens") or 0)
+                reasoning = int(
+                    (usage.get("completion_tokens_details") or {}).get(
+                        "reasoning_tokens"
+                    )
+                    or 0
+                )
+                # completion_tokens includes reasoning tokens in the OpenAI-
+                # compatible schema; splitting them keeps the two priceable
+                # separately without double-charging the total.
+                totals["output"] += max(completion - reasoning, 0)
+                totals["reasoning"] += reasoning
+                request_id = response.get("id") or request_id
 
-            record = self._usage(request, totals, started, request_id)
-            self._ledger.record(record, user_id=self._user_id, deck_id=self._deck_id)
-            return GenerationResult(value=value, usage=record)
+                content = self._content(response)
+                try:
+                    value = request.schema.model_validate_json(_strip_fences(content))
+                except (ValidationError, ValueError) as exc:
+                    totals["validation_failures"] += 1
+                    last_error = str(exc)
+                    logger.warning(
+                        "cEDH gateway: %s response failed validation "
+                        "(attempt %d/%d): %s",
+                        request.call_type,
+                        attempt + 1,
+                        model.max_validation_retries + 1,
+                        last_error,
+                    )
+                    if attempt >= model.max_validation_retries:
+                        break
+                    messages = [
+                        *messages,
+                        {"role": "assistant", "content": content},
+                        {
+                            "role": "user",
+                            "content": (
+                                "That response did not validate against the "
+                                "required schema. Errors:\n"
+                                f"{last_error}\n\n"
+                                "Reply with JSON matching the schema exactly. No "
+                                "prose, no code fence."
+                            ),
+                        },
+                    ]
+                    continue
 
-        record = self._usage(request, totals, started, request_id)
-        self._ledger.record(record, user_id=self._user_id, deck_id=self._deck_id)
-        raise ModelValidationError(
-            f"{request.call_type}: response never validated against "
-            f"{request.schema.__name__} after "
-            f"{totals['validation_failures']} attempt(s). Last error: "
-            f"{last_error}"
-        )
+                record = self._usage(request, totals, started, request_id)
+                return GenerationResult(value=value, usage=record)
+
+            raise ModelValidationError(
+                f"{request.call_type}: response never validated against "
+                f"{request.schema.__name__} after "
+                f"{totals['validation_failures']} attempt(s). Last error: "
+                f"{last_error}"
+            )
+        finally:
+            if received_response:
+                record = record or self._usage(request, totals, started, request_id)
+                self._ledger.record(
+                    record, user_id=self._user_id, deck_id=self._deck_id
+                )
 
     # -- internals --------------------------------------------------------
 
@@ -331,6 +348,7 @@ class DeepSeekGateway:
         model = self._settings.model
         last: Exception | None = None
         for attempt in range(model.max_retries + 1):
+            check_operation_current()
             try:
                 response = self._client.post("/chat/completions", json=payload)
                 if response.status_code in _RETRYABLE_STATUS:
@@ -348,6 +366,7 @@ class DeepSeekGateway:
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last = exc
             if attempt < model.max_retries:
+                check_operation_current()
                 time.sleep(2**attempt)
         raise ModelProviderError(
             f"model provider call failed after {model.max_retries + 1} "

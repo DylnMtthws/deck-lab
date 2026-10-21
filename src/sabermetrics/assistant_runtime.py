@@ -13,6 +13,7 @@ import math
 import re
 import time
 from collections.abc import Callable
+from copy import deepcopy
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -1699,6 +1700,7 @@ def run_turn(
     direct_routes: bool | None = None,
     schema_repair: bool | None = None,
     selection_first: bool | None = None,
+    progressive_reviews: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1729,6 +1731,9 @@ def run_turn(
     use_direct_routes = owns_gateway if direct_routes is None else direct_routes
     use_schema_repair = owns_gateway if schema_repair is None else schema_repair
     use_selection = owns_gateway if selection_first is None else selection_first
+    use_progressive_review = (
+        owns_gateway if progressive_reviews is None else progressive_reviews
+    )
     owned_package_gateway: ModelGateway | None = None
     owned_answer_review_gateway: ModelGateway | None = None
     owned_claim_review_gateway: ModelGateway | None = None
@@ -1748,6 +1753,41 @@ def run_turn(
         actions.append(event)
         if on_event:
             on_event(event)
+
+    def publish_catalog(cards: list[dict[str, Any]]) -> None:
+        from sabermetrics.assistant_workspace import (
+            catalog_card_record,
+            workspace_event,
+        )
+
+        if stopped():
+            raise ToolStopped("The request changed before catalog publication.")
+        excluded = set((constraints or {}).get("excluded_candidates", []))
+        records = [
+            record
+            for card in cards
+            if (record := catalog_card_record(card)) is not None
+            and record["card_id"] not in excluded
+        ]
+        if records:
+            emit(
+                workspace_event(
+                    records,
+                    reason="Card text retrieved; strategic assessment is pending.",
+                )
+            )
+
+    def bounded_gateway(value):
+        from sabermetrics.assistant_provider_budget import budget_gateway
+
+        def check_provider():
+            if stopped():
+                raise ToolStopped("The request changed before provider publication.")
+            return True
+
+        return budget_gateway(
+            value, check_current=check_provider, on_checkpoint=on_event
+        )
 
     progress_stage = ""
 
@@ -1782,6 +1822,7 @@ def run_turn(
             stopped,
             experiment_service=experiment_service,
         )
+        tools.on_catalog_candidates = publish_catalog
         document = tools.check()
         known_card_ids.update(
             str(entry["card_id"])
@@ -1836,6 +1877,11 @@ def run_turn(
                     user_id=owner_id,
                     deck_id=deck_id,
                 )
+        gateway = bounded_gateway(gateway)
+        if answer_review_gateway is not None:
+            answer_review_gateway = bounded_gateway(answer_review_gateway)
+        if package_research_gateway is not None:
+            package_research_gateway = bounded_gateway(package_research_gateway)
         from sabermetrics.assistant_deck_intelligence import assess_deck_requirements
 
         current_strategy = assess_deck_requirements(document, constraints or {})[
@@ -2003,13 +2049,16 @@ def run_turn(
                 for bucket in buckets:
                     if offset < len(bucket) and bucket[offset] not in ordered:
                         ordered.append(bucket[offset])
-            return ordered
+            priority = list((constraints or {}).get("prioritized_candidates", []))
+            return list(dict.fromkeys([*priority, *ordered]))
 
         tools.research_preferences = state["conversation_context"]["preferences"]
         previous_conclusions = []
         previous_selection = None
         earlier_recommendations = prior_recommendations(messages)
-        excluded_prior_ids: set[str] = set()
+        excluded_prior_ids: set[str] = set(
+            (constraints or {}).get("excluded_candidates", [])
+        )
         for prior_message in reversed(messages):
             if prior_message.get("role") != "assistant":
                 continue
@@ -2427,7 +2476,7 @@ def run_turn(
                         user_id=owner_id,
                         deck_id=deck_id,
                     )
-                request_gateway = owned_concise_gateway
+                request_gateway = bounded_gateway(owned_concise_gateway)
             request = StructuredRequest(
                 prompt_version=(
                     "assistant-selection.v4" if selecting else PROMPT_VERSION
@@ -2790,7 +2839,9 @@ def run_turn(
                 )
                 and not revises_discovered_candidates(current_request)
             ):
-                excluded_prior_ids = set(earlier_recommendations)
+                excluded_prior_ids = set(earlier_recommendations) | set(
+                    (constraints or {}).get("excluded_candidates", [])
+                )
                 tools.recommendation_exclusions = set(earlier_recommendations.values())
                 state["recommendation_novelty"] = {
                     "required": True,
@@ -3002,7 +3053,7 @@ def run_turn(
                         user_id=owner_id,
                         deck_id=deck_id,
                     )
-                    tools.package_gateway = owned_package_gateway
+                    tools.package_gateway = bounded_gateway(owned_package_gateway)
                 tool_count += 1
                 arguments = {"focus": current_request[:300], "count": task.additions}
                 emit(
@@ -3384,7 +3435,7 @@ def run_turn(
                             user_id=owner_id,
                             deck_id=deck_id,
                         )
-                    checker = owned_claim_review_gateway
+                    checker = bounded_gateway(owned_claim_review_gateway)
                 if (
                     checker is not None
                     and not checker_review_attempted
@@ -3491,6 +3542,43 @@ def run_turn(
                     review_sources: list[str] = evidence_sources(
                         document, actions, parts, review_rules, review_cards
                     )
+                    from sabermetrics.assistant_answer_review import _card_source
+                    from sabermetrics.assistant_workspace import (
+                        catalog_card_record,
+                        reviewed_card_records,
+                        workspace_event,
+                    )
+
+                    frozen_review_cards = list(
+                        {
+                            str(card.get("id") or card.get("card_id")): deepcopy(card)
+                            for card in review_cards
+                            if _card_source(card) in review_sources
+                        }.values()
+                    )
+                    card_manifest = {
+                        record["card_id"]: record["source_sha256"]
+                        for card in frozen_review_cards
+                        if (record := catalog_card_record(card)) is not None
+                    }
+
+                    def publish_review_progress(checked, partial_receipt):
+                        tools.check()
+                        bound_receipt = {
+                            **partial_receipt,
+                            "workspace_card_sources": card_manifest,
+                        }
+                        records = reviewed_card_records(
+                            parts, checked, bound_receipt, frozen_review_cards
+                        )
+                        if records:
+                            emit(
+                                workspace_event(
+                                    records,
+                                    reason="A bounded evidence review completed; whole-request comparison is still separate.",
+                                )
+                            )
+
                     review_context = {
                         "preferences": state["conversation_context"]["preferences"],
                         "task": state.get("answer_obligations", {}),
@@ -3511,6 +3599,17 @@ def run_turn(
                             actions, result["revision"]
                         ),
                     }
+                    progressive_options = {}
+                    if selected_before_prose and use_progressive_review:
+                        from sabermetrics.assistant_progressive_review import (
+                            progressive_review,
+                        )
+
+                        review_function = progressive_review
+                        progressive_options = {
+                            "on_reviewed": publish_review_progress,
+                            "check_current": tools.check,
+                        }
                     corrected, receipt = review_function(
                         checker,
                         parts,
@@ -3527,7 +3626,11 @@ def run_turn(
                             or state["workflow"].get("experiment_status")
                             else set()
                         ),
+                        **progressive_options,
                     )
+                    if selected_before_prose:
+                        receipt["workspace_card_sources"] = card_manifest
+                        publish_review_progress(corrected, receipt)
                     stage_timings.append(
                         {
                             "stage": "answer_review",
@@ -3620,6 +3723,7 @@ def run_turn(
                         corrected, receipt = narrow_unverified_findings(
                             parts, corrected, review_sources, receipt
                         )
+                        publish_review_progress(corrected, receipt)
                     if (
                         len(" ".join(part.strip() for part in corrected[:-1]).strip())
                         < 12
@@ -4107,6 +4211,9 @@ def run_turn(
                                     "card:" + candidate.card_id
                                 ] = json.dumps(card, ensure_ascii=False)
                         if incoming:
+                            publish_catalog(
+                                [card for card in retrieved if isinstance(card, dict)]
+                            )
                             ledger = merge_discovery_ledger(
                                 session.ledger,
                                 DiscoveryLedger(candidates=incoming[:40]),

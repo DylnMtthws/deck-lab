@@ -206,7 +206,7 @@ def test_current_three_preferences_merge_without_erasing_inherited_type(
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args)
+        lambda path, document, args, **kwargs: received.append(args)
         or {"status": "available", "cards": []},
     )
     gateway = Gateway(
@@ -478,7 +478,7 @@ def test_comparison_named_sources_do_not_suppress_candidate_retrieval(
     searched = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: searched.append(args)
+        lambda path, document, args, **kwargs: searched.append(args)
         or {"status": "available", "cards": []},
     )
     gateway = Gateway(

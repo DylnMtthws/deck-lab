@@ -901,7 +901,7 @@ def test_additional_discovery_excludes_prior_selection_and_rejects_reused_manife
     }
     searched = []
 
-    def retrieve(_path, _document, args):
+    def retrieve(_path, _document, args, **kwargs):
         searched.append(args)
         # Simulate a stale/misbehaving retrieval result: final validation must
         # enforce novelty even when a previously selected card slips through.
@@ -989,7 +989,7 @@ def test_transient_recommendation_exclusions_are_not_truncated_to_tool_name_cap(
     captured = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda _path, _document, args: captured.append(args) or {"cards": []},
+        lambda _path, _document, args, **kwargs: captured.append(args) or {"cards": []},
     )
     tools.execute(call("search_card_functions", {"function": "any"}))
     assert set(captured[0].excluded_names) == tools.recommendation_exclusions

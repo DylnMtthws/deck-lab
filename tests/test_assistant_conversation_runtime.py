@@ -178,7 +178,7 @@ def test_functional_tool_uses_session_preferences_without_inventing_mana_ceiling
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args) or {"cards": []},
+        lambda path, document, args, **kwargs: received.append(args) or {"cards": []},
     )
     tools.execute(call("search_card_functions", {}))
     assert received[0].type_line == "creature"
@@ -274,7 +274,7 @@ def test_optional_draw_preference_strength_and_correction(
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args) or {"cards": []},
+        lambda path, document, args, **kwargs: received.append(args) or {"cards": []},
     )
     tools.execute(call("search_card_functions", {}))
     assert received[0].optionality == expected
@@ -293,7 +293,7 @@ def test_zero_mana_requires_user_intent_but_remains_a_valid_filter(
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args) or {"cards": []},
+        lambda path, document, args, **kwargs: received.append(args) or {"cards": []},
     )
     result = tools.execute(call("search_card_functions", {"mana_max": 0}))
     assert received[0].mana_max == expected
@@ -404,7 +404,7 @@ def test_discovery_keeps_named_lookup_when_remaining_tools_are_fewer_than_batch(
     monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 2)
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda *args: {"status": "available", "cards": []},
+        lambda *args, **kwargs: {"status": "available", "cards": []},
     )
     gateway = Gateway(
         [
@@ -446,7 +446,7 @@ def test_empty_functional_result_does_not_count_as_a_completed_list(
     service, path, owner, deck, _, _ = prepared
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: {
+        lambda path, document, args, **kwargs: {
             "status": "available",
             "cards": (
                 []
@@ -646,7 +646,7 @@ def test_provider_planning_assessment_becomes_operational_preferences(
     received = []
     monkeypatch.setattr(
         "sabermetrics.assistant_tools.functional_search",
-        lambda path, document, args: received.append(args)
+        lambda path, document, args, **kwargs: received.append(args)
         or {"status": "available", "cards": []},
     )
     plan = AssistantPlanningStep.model_validate(
@@ -886,7 +886,7 @@ def test_two_successful_functional_queries_bound_reads_inside_a_batch(
     seed_card(path, "elegy", "Elegy Acolyte")
     searches = []
 
-    def search(path, document, args):
+    def search(path, document, args, **kwargs):
         searches.append(args.query)
         return {
             "status": "available",

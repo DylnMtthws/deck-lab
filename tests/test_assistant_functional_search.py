@@ -273,3 +273,38 @@ def test_semantic_view_candidate_can_enter_before_final_limit(
     result = functional_search(path, document, args)
     assert result["cards"][0]["id"] == "view-target"
     assert result["view_recall"]["status"] == "available"
+
+
+def test_eligible_source_cards_publish_before_semantic_enrichment(
+    prepared, monkeypatch
+):
+    path, document = prepared
+    for cid, kind, value in [
+        ("early", "Creature", 1),
+        ("excluded", "Creature", 1),
+        ("expensive", "Creature", 5),
+        ("not-creature", "Artifact", 1),
+    ]:
+        insert(path, cid, cid, kind, "{T}: Draw a card.", cmc=value)
+    phases = []
+
+    def receive(cards):
+        phases.append("catalog")
+        assert {c["id"] for c in cards} == {"early"}
+        assert cards[0]["oracle_text"] == "{T}: Draw a card."
+
+    def semantic(*args, **kwargs):
+        assert phases == ["catalog"]
+        phases.append("semantic")
+        return [], "unavailable_no_card_vectors", 0
+
+    monkeypatch.setattr("sabermetrics.assistant_functional_search._semantic", semantic)
+    result = functional_search(
+        path,
+        document,
+        FunctionalSearchArgs(function="draw", type_line="Creature", mana_max=2),
+        on_candidates=receive,
+        excluded_ids={"excluded"},
+    )
+    assert phases == ["catalog", "semantic"]
+    assert {c["id"] for c in result["cards"]} == {"early"}

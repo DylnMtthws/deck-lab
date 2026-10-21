@@ -246,8 +246,9 @@ def test_progress_is_published_before_provider_wait_without_extra_model_calls(pr
 
     class ObservingGateway(Gateway):
         def generate(self, request):
-            assert events[-1]["data"]["stage"] == "planning"
-            assert events[-1]["data"]["started_at"] > 0
+            progress = [e for e in events if e["type"] == "partial_finding"][-1]
+            assert progress["data"]["stage"] == "planning"
+            assert progress["data"]["started_at"] > 0
             return super().generate(request)
 
     gateway = ObservingGateway([step(content="No changes requested.")])
@@ -262,7 +263,10 @@ def test_progress_is_published_before_provider_wait_without_extra_model_calls(pr
     )
     assert result["status"] == "done"
     assert len(gateway.requests) == 1
-    assert len(events) == 1
+    assert len([e for e in events if e["type"] == "partial_finding"]) == 1
+    checkpoints = [e for e in events if e["type"] == "provider_checkpoint"]
+    assert [e["state"] for e in checkpoints] == ["started", "finished"]
+    assert checkpoints[0]["call_id"] == checkpoints[1]["call_id"]
     assert events[0]["data"]["source_scope"] == "research progress"
     assert DeckDocumentRepo(path).get(owner, deck_id) == document
 
