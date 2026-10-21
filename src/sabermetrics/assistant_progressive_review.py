@@ -24,6 +24,7 @@ from sabermetrics.assistant_claim_review import (
     focused_sources,
     review_claims,
 )
+from sabermetrics.assistant_claim_subspans import accepted_subspans
 from sabermetrics.assistant_exact_facts import exact_cost_facts
 from sabermetrics.assistant_provider_budget import (
     budget_gateway,
@@ -86,6 +87,10 @@ def _bound_receipt(
                 or quote not in sources[index]
             ):
                 return False
+        if judgment.get("supported_subspans") and not accepted_subspans(
+            unit, judgment, receipt, sources
+        ):
+            return False
     try:
         patches = [AnswerPatch.model_validate(p) for p in receipt.get("patches", [])]
         if any(
@@ -193,10 +198,16 @@ def progressive_review(
         accepted.append(receipt)
         corrected = merged
         if on_reviewed and any(
-            not j.get("unverified_remainder")
-            and (
-                j.get("verdict") == "supported"
-                or (j.get("verdict") == "contradicted" and j.get("correction_applied"))
+            j.get("supported_subspans")
+            or (
+                not j.get("unverified_remainder")
+                and (
+                    j.get("verdict") == "supported"
+                    or (
+                        j.get("verdict") == "contradicted"
+                        and j.get("correction_applied")
+                    )
+                )
             )
             for j in receipt["claim_judgments"]
         ):
@@ -349,6 +360,15 @@ def progressive_review(
         "claim_count": len(units),
         "missing_claim_ids": missing,
         "source_sha256": [text_hash(s) for s in focused],
+        "evidence_indices": list(range(len(focused))),
+        "partial_facts_retained": sum(
+            len(j.get("supported_subspans", [])) for j in judgments
+        ),
+        "partial_facts_unknown": sum(
+            j["verdict"] != "supported" or j.get("unverified_remainder", False)
+            for j in judgments
+        ),
+        "episode_subspans": "omitted; parent hypotheses retain their original verdicts",
         "omitted_sources": len(getattr(focused, "omitted", [])),
         "omitted_source_labels": list(getattr(focused, "omitted", [])),
         "progressive_review": {

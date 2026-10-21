@@ -1,0 +1,37 @@
+{
+  "status": "no_actual_receipts",
+  "suite_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
+  "provenance": {
+    "author": "Deck Lab implementation AI",
+    "independent_author": false,
+    "expert_reviewed": false,
+    "split": "development"
+  },
+  "receipts_observed": 0,
+  "cases_expected": 10,
+  "conditional_truth_accuracy": null,
+  "factual_errors": 0,
+  "claim_coverage": 0.0,
+  "mean_usefulness_loss": 1.0,
+  "fulfillment_rate": 0.0,
+  "latency_ms": {
+    "p50": null,
+    "p95": null,
+    "observed": 0
+  },
+  "cost_usd": {
+    "total_observed": null,
+    "observed": 0
+  },
+  "limitations": "Same AI authored development cases and scorer; no independent expert validation. Missing receipts are omissions. Structured annotations require independent audit.",
+  "evaluator_targeted_tests_passed": 18,
+  "actual_assistant_run": false,
+  "latency_improvement_measured": false,
+  "runtime_behavior_changed_by_this_work": false,
+  "unfulfilled": [
+    "permissioned independently expert-reviewed strategy corpus expansion",
+    "independent evaluation authorship",
+    "actual before/after runtime quality and latency measurement"
+  ],
+  "supplemental_files": "inventory.json, measurement-status.json and source-verification.json are reporting artifacts outside the frozen scoring contract; manifest/cases/labels/evidence/RUBRIC remain unchanged."
+}

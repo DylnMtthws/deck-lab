@@ -164,8 +164,20 @@ verified overall quality. Address the requested priorities and preserve conditio
 answers when useful. context_omitted means evidence was not supplied;
 support_not_found means bounded checks did not find it, never that none exists.
 Status applies to each stated proposition, not the candidate's overall quality.
+Within obligation rows, e indexes the candidate evidence table; c indexes shared
+conditions (wire_fields declares these lossless aliases).
 Prefer meaningfully different mechanisms among comparably useful candidates,
 without forcing a diversity quota or promoting weaker choices to fill counts.
+Make comparisons on named dimensions: activation mana, output, colored requirements,
+tap use, energy, sacrificed cards, setup and casting cost remain separate. Do not
+invent exchange rates or call one ability cheaper/faster overall across unlike
+resources. shared_resource_comparisons supplies narrow exact arithmetic, not a
+suitability ranking or proof of available resources. Shared ledger_scope applies
+to every candidate. shared_strategic_evidence is bounded source-backed context;
+unknown or omitted evidence cannot prove a negative. Distinguish restricted mana
+made by a source from separate additional mana; spending restrictions and spell
+benefits do not automatically transfer. Claims about a commander interaction need
+both card sources and applicable rules, not just the incoming card's printed text.
 omitted_candidate_ids are context omissions, never exhausted eligible discovery.
 When records or enrichments are context_omitted, disclose the evidence limit;
 never describe omitted candidates as ineligible or claim only supplied records exist.
@@ -185,6 +197,7 @@ def selection_payload(
     priority_ids: list[str],
     feedback: dict[str, Any] | None = None,
     deck_entries: list[dict[str, Any]] | None = None,
+    strategic_evidence: dict[str, Any] | None = None,
 ) -> tuple[str, DiscoveryLedger]:
     """Whole-record bound; never present a truncated Oracle record as complete."""
     goals = {
@@ -433,6 +446,71 @@ def selection_payload(
                 del record[key]
                 record["context_omitted"].append(key)
                 payload["strategic_obligation_vocabulary"] = old_vocabulary
+    # Packing and eligibility are already frozen. Deduplicate only the identical
+    # scope prose; never trade whole candidate records for an optional summary.
+    scopes = {r.get("ledger_scope") for r in payload["candidates"]}
+    if len(scopes) == 1 and scopes != {None}:
+        payload["ledger_scope"] = next(iter(scopes))
+        for record in payload["candidates"]:
+            record.pop("ledger_scope", None)
+    from sabermetrics.assistant_resource_comparison import resource_comparison_aid
+
+    aid = resource_comparison_aid([sources.get(c.card_id, {}) for c in retained])
+    # Cryptographic binding is local; the full printed facts remain on the wire.
+    for row in aid["records"]:
+        row.pop("oracle_text_sha256", None)
+        row.pop("source_span", None)
+    # Equal exact resource vectors share one profile; identity membership is
+    # preserved separately. This changes neither ordering nor candidate coverage.
+    profiles: list[dict[str, Any]] = []
+    membership: dict[str, int] = {}
+    for row in aid["records"]:
+        profile = {k: v for k, v in row.items() if k != "card_id"}
+        if profile not in profiles:
+            profiles.append(profile)
+        membership[row["card_id"]] = profiles.index(profile)
+    profile_pairs = []
+    for pair in aid["pairs"]:
+        left = membership[aid["records"][pair["left"]]["card_id"]]
+        right = membership[aid["records"][pair["right"]]["card_id"]]
+        if left >= right:
+            continue
+        value = dict(
+            left=left, right=right, mana_per_card_order=pair["mana_per_card_order"]
+        )
+        if value not in profile_pairs:
+            profile_pairs.append(value)
+    compact_aid = {
+        "scope": aid["scope"],
+        "profile_pairs": profile_pairs,
+        "profiles": profiles,
+        "by_card": membership,
+        "unsupported_cards": aid["unsupported_cards"],
+    }
+    for key, value in (
+        (
+            "shared_resource_comparisons",
+            compact_aid if len(aid["records"]) >= 2 else None,
+        ),
+        ("shared_strategic_evidence", strategic_evidence),
+    ):
+        if value is None:
+            continue
+        payload[key] = value
+        if not fits():
+            payload.pop(key)
+            payload.setdefault("omitted_shared_evidence", []).append(key)
+    # Lossless wire aliases for repeated reference keys, applied only AFTER
+    # packing. No candidate/enrichment is added with the newly freed bytes.
+    payload["strategic_obligation_vocabulary"]["wire_fields"] = {
+        "e": "evidence_refs",
+        "c": "condition_refs",
+    }
+    for record in payload["candidates"]:
+        for row in record.get("strategic_obligations", {}).get("obligations", []):
+            for alias, key in (("e", "evidence_refs"), ("c", "condition_refs")):
+                if key in row:
+                    row[alias] = row.pop(key)
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if len(encoded.encode()) > 28000:
         raise ValueError("Selection context exceeds its bound")

@@ -1,0 +1,276 @@
+[
+  {
+    "id": "halfling-on",
+    "strategy": "nonland_mana",
+    "prompt": "Compare source mana and Kinnan mana for a nonlegendary blue spell.",
+    "conditions": {
+      "kinnan_present": true,
+      "producer_ready": true,
+      "halfling_mode": "blue",
+      "other_mana": 0
+    },
+    "claim_questions": {
+      "extra_can_cast": "Can Kinnan\u2019s extra blue pay for a nonlegendary blue spell?",
+      "source_can_cast": "Can Halfling\u2019s original restricted blue do the same?",
+      "extra_protects": "Does spending only Kinnan\u2019s extra blue make that spell uncounterable?"
+    },
+    "prior_explanations": {
+      "role": "Halfling develops mana and can protect a legendary spell when its own restricted mana is spent."
+    },
+    "requested_topics": [
+      "source_vs_extra",
+      "restriction",
+      "protection"
+    ],
+    "evidence_ids": [
+      "kinnan",
+      "halfling"
+    ]
+  },
+  {
+    "id": "halfling-off",
+    "strategy": "nonland_mana",
+    "prompt": "Reassess the same spell without Kinnan.",
+    "conditions": {
+      "kinnan_present": false,
+      "producer_ready": true,
+      "halfling_mode": "blue"
+    },
+    "claim_questions": {
+      "extra_exists": "Does this activation still yield Kinnan mana?",
+      "source_can_cast": "Can Halfling\u2019s restricted blue pay for a nonlegendary spell?"
+    },
+    "prior_explanations": {
+      "legendary_role": "The restricted colored mode can still help cast legendary spells."
+    },
+    "requested_topics": [
+      "commander_dependency",
+      "restriction"
+    ],
+    "evidence_ids": [
+      "halfling",
+      "scenario"
+    ]
+  },
+  {
+    "id": "hawker-on",
+    "strategy": "nonland_mana",
+    "prompt": "Compare Hawker\u2019s activation resources with its ability to help cast spells.",
+    "conditions": {
+      "kinnan_present": true,
+      "producer_ready": true,
+      "hawker_output": [
+        "C",
+        "U"
+      ],
+      "source_restriction": "activate_abilities_only"
+    },
+    "claim_questions": {
+      "three_total": "Does Hawker plus this Kinnan trigger produce three mana total?",
+      "extra_casts": "Can the single Kinnan mana help pay a spell cost?",
+      "all_casts": "Can all three mana be spent to cast a spell?"
+    },
+    "prior_explanations": {
+      "activation_role": "Hawker\u2019s original two mana can help pay Kinnan\u2019s activation."
+    },
+    "requested_topics": [
+      "source_vs_extra",
+      "quantity",
+      "activation_vs_cast"
+    ],
+    "evidence_ids": [
+      "kinnan",
+      "resources",
+      "scenario"
+    ]
+  },
+  {
+    "id": "hawker-off",
+    "strategy": "spell_chain",
+    "prompt": "Assess Hawker for a spell-heavy turn without a commander.",
+    "conditions": {
+      "kinnan_present": false,
+      "producer_ready": true,
+      "source_restriction": "activate_abilities_only"
+    },
+    "claim_questions": {
+      "casts_spell": "Can Hawker\u2019s supplied restricted mana directly pay spell costs?",
+      "activation_use": "Can that mana pay an eligible activated ability cost?"
+    },
+    "prior_explanations": {
+      "conditional_role": "Hawker can still support activated abilities when such costs are present."
+    },
+    "requested_topics": [
+      "deck_fit",
+      "resource_destination"
+    ],
+    "evidence_ids": [
+      "scenario"
+    ]
+  },
+  {
+    "id": "mystic-preserve",
+    "strategy": "nonland_mana",
+    "prompt": "Review the acceleration explanation; a separate summoning caution is already present.",
+    "conditions": {
+      "kinnan_present": true,
+      "mystic_controlled_since_turn_start": true,
+      "mystic_untapped": true,
+      "other_mana": 0
+    },
+    "claim_questions": {
+      "two_green": "Does this legal Mystic activation plus Kinnan produce two green mana?",
+      "seven_paid": "Does this single activation alone pay Kinnan\u2019s seven-mana activation?"
+    },
+    "prior_explanations": {
+      "contribution": "A cheap nonland producer helps develop mana and benefits from Kinnan.",
+      "drawback": "Creature producers can be lost to creature removal.",
+      "tap_caution": "A newly entered creature without haste cannot immediately use its tap-symbol ability."
+    },
+    "requested_topics": [
+      "contribution",
+      "drawback",
+      "setup"
+    ],
+    "evidence_ids": [
+      "kinnan",
+      "scenario"
+    ]
+  },
+  {
+    "id": "mystic-new",
+    "strategy": "nonland_mana",
+    "prompt": "Reassess immediate output from a newly cast Mystic without haste.",
+    "conditions": {
+      "kinnan_present": true,
+      "mystic_controlled_since_turn_start": false,
+      "haste": false
+    },
+    "claim_questions": {
+      "immediate_tap": "Can the newly entered Mystic immediately activate its tap-symbol ability?"
+    },
+    "prior_explanations": {
+      "future_role": "Once able to tap, the producer can contribute to the mana plan."
+    },
+    "requested_topics": [
+      "timing",
+      "conditional_contribution"
+    ],
+    "evidence_ids": [
+      "scenario"
+    ]
+  },
+  {
+    "id": "rock-vs-creature-now",
+    "strategy": "recovery",
+    "prompt": "Compare immediate mana from a ready artifact and a newly cast creature.",
+    "conditions": {
+      "artifact_ready": true,
+      "creature_new_without_haste": true,
+      "kinnan_present": true,
+      "artifact_output": "G",
+      "creature_output": "G"
+    },
+    "claim_questions": {
+      "rock_now": "Can the supplied ready artifact produce mana now?",
+      "creature_now": "Can the new creature use its tap-symbol ability now?",
+      "artifact_universal": "Does this prove artifacts are always strategically superior?"
+    },
+    "prior_explanations": {
+      "cost_tradeoff": "The creature costs one mana and the rock costs two; immediate output and development cost differ."
+    },
+    "requested_topics": [
+      "mana",
+      "timing",
+      "cost",
+      "vulnerability"
+    ],
+    "evidence_ids": [
+      "scenario",
+      "kinnan"
+    ]
+  },
+  {
+    "id": "land-untap",
+    "strategy": "land_engine",
+    "prompt": "Does untapping a land count as a nonland mana activation for Kinnan?",
+    "conditions": {
+      "producer": "Portent Tracker",
+      "action": "untap target land",
+      "kinnan_present": true
+    },
+    "claim_questions": {
+      "direct_trigger": "Does the supplied land-untapping ability itself trigger Kinnan?",
+      "land_trigger": "Does subsequently tapping the land for mana trigger Kinnan?"
+    },
+    "prior_explanations": {
+      "land_role": "Untapping a usable land can still provide access to that land\u2019s resources."
+    },
+    "requested_topics": [
+      "mechanism",
+      "resource_contribution"
+    ],
+    "evidence_ids": [
+      "kinnan",
+      "resources"
+    ]
+  },
+  {
+    "id": "restriction-persists",
+    "strategy": "mana_storage",
+    "prompt": "Compare changing existing mana\u2019s color with separately producing extra mana.",
+    "conditions": {
+      "effect": "Omnath changes retained Hawker mana to black"
+    },
+    "claim_questions": {
+      "restriction_lost": "Does becoming black remove the original activation-only spending restriction?",
+      "same_as_extra": "Is changing that mana\u2019s color the same event as Kinnan producing separate extra mana?"
+    },
+    "prior_explanations": {
+      "storage_role": "Retaining mana can change when resources are available."
+    },
+    "requested_topics": [
+      "source_vs_extra",
+      "restriction",
+      "timing"
+    ],
+    "evidence_ids": [
+      "resources",
+      "kinnan"
+    ]
+  },
+  {
+    "id": "sink-not-engine",
+    "strategy": "nonland_mana",
+    "prompt": "Assess whether a large mana sink proves sufficient resource production.",
+    "conditions": {
+      "available_mana": {
+        "G": 2,
+        "U": 0
+      },
+      "activation_cost": {
+        "generic": 5,
+        "G": 1,
+        "U": 1
+      },
+      "unseen_draws": "unknown"
+    },
+    "claim_questions": {
+      "activate_now": "Can the stated pool pay this activation now?",
+      "guaranteed_future": "Do unknown future draws guarantee the missing resources?"
+    },
+    "prior_explanations": {
+      "destination": "Kinnan offers a destination for sufficient mana.",
+      "uncertainty": "A useful creature hit is conditional on the actual top five and eligible non-Human creatures."
+    },
+    "requested_topics": [
+      "quantity",
+      "colors",
+      "payoff_conditions"
+    ],
+    "evidence_ids": [
+      "kinnan",
+      "scenario"
+    ]
+  }
+]

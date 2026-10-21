@@ -62,6 +62,7 @@ from sabermetrics.assistant_research_task import (
 from sabermetrics.assistant_research_task import (
     progress as research_progress,
 )
+from sabermetrics.assistant_resource_comparison import resource_comparison_aid
 from sabermetrics.assistant_runtime_timing import timing_coverage, timing_window
 from sabermetrics.assistant_session_state import (
     compact_preferences,
@@ -1725,6 +1726,7 @@ def run_turn(
     measured_presentation: dict[str, Any] | None = None
     strategy_presentation: dict[str, Any] | None = None
     partial_draft: dict[str, Any] | None = None
+    strategy_snapshot_cache: dict[Any, Any] = {}
     reviewed_claim_parts: list[str] | None = None
     owns_gateway = gateway is None
     use_request_planner = owns_gateway if request_planner is None else request_planner
@@ -2408,6 +2410,17 @@ def run_turn(
 
                 system = SELECTION_SYSTEM
                 selection_evidence_started = time.monotonic()
+                from sabermetrics.assistant_strategy_context import (
+                    strategy_context,
+                    strategy_wire_context,
+                )
+
+                shared_strategic_evidence = strategy_context(
+                    Path(db_path),
+                    document,
+                    list(source_cards.values()),
+                    cache=strategy_snapshot_cache,
+                )
                 try:
                     encoded, selection_ledger = selection_payload(
                         current_request,
@@ -2419,6 +2432,9 @@ def run_turn(
                         context_priority_ids(),
                         selection_feedback,
                         document.get("entries", []),
+                        strategic_evidence=strategy_wire_context(
+                            shared_strategic_evidence
+                        ),
                     )
                 except ValueError as exc:
                     raise AssistantBudgetExceeded(
@@ -2479,7 +2495,7 @@ def run_turn(
                 request_gateway = bounded_gateway(owned_concise_gateway)
             request = StructuredRequest(
                 prompt_version=(
-                    "assistant-selection.v5" if selecting else PROMPT_VERSION
+                    "assistant-selection.v6" if selecting else PROMPT_VERSION
                 ),
                 system=system,
                 user=encoded,
@@ -3542,9 +3558,22 @@ def run_turn(
                         review_function = review_claims
                     else:
                         review_function = review_answer
+                    from sabermetrics.assistant_strategy_context import (
+                        expand_review_sources,
+                        strategy_context,
+                        strategy_wire_context,
+                    )
+
+                    shared_strategic_evidence = strategy_context(
+                        Path(db_path),
+                        document,
+                        review_cards,
+                        cache=strategy_snapshot_cache,
+                    )
                     review_sources: list[str] = evidence_sources(
                         document, actions, parts, review_rules, review_cards
                     )
+                    expand_review_sources(review_sources, shared_strategic_evidence)
                     from sabermetrics.assistant_answer_review import _card_source
                     from sabermetrics.assistant_workspace import (
                         catalog_card_record,
@@ -3583,6 +3612,12 @@ def run_turn(
                             )
 
                     review_context = {
+                        "shared_strategic_evidence": strategy_wire_context(
+                            shared_strategic_evidence
+                        ),
+                        "resource_comparison_aid": resource_comparison_aid(
+                            review_cards
+                        ),
                         "preferences": state["conversation_context"]["preferences"],
                         "task": state.get("answer_obligations", {}),
                         "narrow_unverified": selected_before_prose,
@@ -3664,7 +3699,9 @@ def run_turn(
                             reviewed_sections,
                         )
 
-                        checked_sections = reviewed_sections(parts, corrected, receipt)
+                        checked_sections = reviewed_sections(
+                            parts, corrected, receipt, review_sources
+                        )
                         if checked_sections:
                             emit(
                                 {
@@ -4597,6 +4634,9 @@ def run_turn(
             content="The assistant could not complete this turn. Consult the confirmed tool receipts for any actions that occurred; no preview was applied to the original deck.",
         )
     finally:
+        from sabermetrics.assistant_strategy_context import close_strategy_cache
+
+        close_strategy_cache(strategy_snapshot_cache)
         if (
             partial_draft is not None
             and not externally_stopped()

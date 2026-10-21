@@ -37,7 +37,7 @@ def test_compact_wire_retains_text_evidence_and_local_hash_binding():
         metrics["uncompressed_input_bytes"] - metrics["input_bytes"]
         == metrics["transport_bytes_saved"]
     )
-    assert request.prompt_version == "assistant-claim-review.v7"
+    assert request.prompt_version == "assistant-claim-review.v8"
 
 
 def test_explicit_gap_survives_wire_and_bound_receipt():

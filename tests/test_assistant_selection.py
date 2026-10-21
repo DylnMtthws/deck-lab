@@ -930,12 +930,31 @@ def test_payload_retains_exact_contract_hashes_conditions_and_gap_statuses():
     )
     contract = record["strategic_obligations"]
     assert contract["evidence"] == expected["evidence"]
+    assert data["strategic_obligation_vocabulary"]["wire_fields"] == {
+        "e": "evidence_refs",
+        "c": "condition_refs",
+    }
     for row, original in zip(contract["obligations"], expected["obligations"]):
+        decoded = dict(row)
+        for alias, key in data["strategic_obligation_vocabulary"][
+            "wire_fields"
+        ].items():
+            if alias in decoded:
+                decoded[key] = decoded.pop(alias)
+        decoded["condition_refs"] = [
+            data["strategic_obligation_vocabulary"]["conditions"][i]
+            for i in decoded.get("condition_refs", [])
+        ]
+        semantic_original = dict(original)
+        semantic_original["condition_refs"] = [
+            vocabulary["conditions"][i] for i in original.get("condition_refs", [])
+        ]
+        assert decoded == semantic_original
         assert row.get("gap") == original.get("gap")
         assert row["status"] == original["status"]
         assert [
             data["strategic_obligation_vocabulary"]["conditions"][i]
-            for i in row.get("condition_refs", [])
+            for i in row.get("c", [])
         ] == [vocabulary["conditions"][i] for i in original.get("condition_refs", [])]
 
 
@@ -997,3 +1016,65 @@ def test_application_caution_is_visible_once_without_becoming_a_board_claim():
     assert any(
         "without paying any cost" in unit["claim"] for unit in claim_units(parts, set())
     )
+
+
+def test_shared_arithmetic_preserves_whole_candidates_and_is_not_a_ranker():
+    requirements, cards, ledger = setup(count=2)
+    cards[0]["oracle_text"] = "{3}{U}: Draw a card."
+    cards[1]["oracle_text"] = "{3}{U}{U}: Draw two cards."
+    cards[2]["oracle_text"] = "{T}, Pay six {E}: Draw three cards."
+    sources = {c["id"]: c for c in cards}
+    payload, retained = selection_payload(
+        "Find draw creatures", requirements, ledger, sources, [], set(), []
+    )
+    data = json.loads(payload)
+    assert [c.card_id for c in retained.candidates] == [
+        c["card_id"] for c in data["candidates"]
+    ]
+    for c in data["candidates"]:
+        assert c["printed"]["oracle_text"] == sources[c["card_id"]]["oracle_text"]
+    aid = data["shared_resource_comparisons"]
+    assert set(aid["by_card"]) == {"c0", "c1"}
+    assert aid["unsupported_cards"] == 1
+    assert "deck superiority" in aid["scope"]
+    assert all("oracle_text_sha256" not in row for row in aid["profiles"])
+    assert all("ledger_scope" not in c for c in data["candidates"])
+    assert data["ledger_scope"]
+
+
+def test_optional_shared_strategy_cannot_displace_candidates_or_contracts():
+    requirements, cards, ledger = setup()
+    args = (
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    base, retained = selection_payload(*args)
+    large, same = selection_payload(*args, strategic_evidence={"large": "x" * 30000})
+    a, b = json.loads(base), json.loads(large)
+    assert [c.card_id for c in retained.candidates] == [
+        c.card_id for c in same.candidates
+    ]
+    assert a["candidates"] == b["candidates"]
+    assert a["omitted_candidate_ids"] == b["omitted_candidate_ids"]
+    assert "shared_strategic_evidence" not in b
+    assert b["omitted_shared_evidence"] == ["shared_strategic_evidence"]
+    assert len(large.encode()) <= 24000
+
+
+def test_unparsed_resources_do_not_add_empty_comparison_context():
+    requirements, cards, ledger = setup()
+    payload, _ = selection_payload(
+        "Find draw creatures",
+        requirements,
+        ledger,
+        {c["id"]: c for c in cards},
+        [],
+        set(),
+        [],
+    )
+    assert "shared_resource_comparisons" not in json.loads(payload)

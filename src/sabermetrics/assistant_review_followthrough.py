@@ -7,6 +7,35 @@ from collections import defaultdict
 from typing import Any
 
 from sabermetrics.assistant_answer_review import _mentions_card_name
+from sabermetrics.assistant_claim_subspans import (
+    accepted_subspans,
+    source_manifest_matches,
+)
+
+
+def _literal_oracle(prefix: str, sources: list[str]) -> tuple[str, str]:
+    records = [
+        s
+        for s in sources
+        if s.startswith("Card: ")
+        and _mentions_card_name(prefix, s.split("\n", 1)[0][6:])
+    ]
+    # Multiple records/names are ambiguous; never choose the most convenient.
+    if len(records) != 1:
+        return "", ""
+    source = records[0]
+    if "\nOracle text:\n" not in source or re.search(
+        r"\b(?:excerpt|truncat\w*|omission\w*|unavailable)\b|…|\.\.\.",
+        source,
+        re.IGNORECASE,
+    ):
+        return "", ""
+    oracle = source.split("\nOracle text:\n", 1)[1].split(
+        "\nPrinted characteristics:", 1
+    )[0]
+    if not oracle.strip() or "\nPrinted characteristics:" not in source:
+        return "", ""
+    return source.split("\n", 1)[0][6:], oracle
 
 
 def narrow_unverified_findings(
@@ -36,9 +65,19 @@ def narrow_unverified_findings(
     from sabermetrics.assistant_claim_fragments import VERSION, matching_judgment
 
     atomic = receipt.get("claim_unit_version") == VERSION
+    # Modern receipts carry the focused source manifest. Stale source content or
+    # rebased indices invalidate full claims as well as optional partial facts.
+    from sabermetrics.assistant_claim_review import focused_sources
+
+    focused = focused_sources(original, sources)
+    sources_bound = "source_sha256" not in receipt or source_manifest_matches(
+        receipt, focused
+    )
     units = claim_units(original, protected, atomic=atomic)
     judgments = {j["claim_id"]: j for j in receipt.get("claim_judgments", [])}
     narrowed: list[dict[str, Any]] = []
+    partial_facts_retained = 0
+    unknown_claim_ids: set[str] = set()
     result = corrected[:]
     by_part: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for unit in units:
@@ -50,7 +89,7 @@ def narrow_unverified_findings(
         rejected = []
         for unit in group:
             judgment = judgments.get(unit["claim_id"], {})
-            bound = not atomic or matching_judgment(unit, judgment)
+            bound = sources_bound and (not atomic or matching_judgment(unit, judgment))
             accepted = (
                 bound
                 and not judgment.get("unverified_remainder")
@@ -70,6 +109,15 @@ def narrow_unverified_findings(
                     kept.append(text)
                     continue
             rejected.append((unit, judgment))
+            unknown_claim_ids.add(unit["claim_id"])
+            if atomic:
+                partial = [
+                    span["text"]
+                    for span in accepted_subspans(unit, judgment, receipt, focused)
+                    if span["text"] in corrected[index]
+                ]
+                kept.extend(partial)
+                partial_facts_retained += len(partial)
         if not rejected:
             if atomic:
                 # Reconstruct only exact reviewed fragments. Substring presence
@@ -83,6 +131,14 @@ def narrow_unverified_findings(
             continue
         if atomic and kept and " — " in original[index]:
             prefix = original[index].split(" — ", 1)[0]
+            preserved_fragments = len(kept)
+            _, oracle = _literal_oracle(prefix, sources)
+            if oracle and not any(oracle in text for text in kept):
+                kept.append(
+                    "Printed card text (ability availability unverified): “"
+                    + oracle
+                    + "”"
+                )
             # Keep unresolved prerequisites visible without promoting them to
             # facts or letting favorable prose lose its qualification. A patched
             # condition may be shown only as unverified, with its exact visible
@@ -98,6 +154,7 @@ def narrow_unverified_findings(
                 text = judgment.get("rendered_claim", unit["claim"])
                 if (
                     atomic
+                    and sources_bound
                     and matching_judgment(unit, judgment)
                     and (
                         judgment.get("verdict") in {"unverified", "supported"}
@@ -131,7 +188,7 @@ def narrow_unverified_findings(
                     "part_index": index,
                     "method": "preserve_reviewed_fragments",
                     "reason": j.get("reason") or "No bound evidence judgment.",
-                    "preserved_fragments": len(kept),
+                    "preserved_fragments": preserved_fragments,
                 }
                 for u, j in rejected
             )
@@ -140,40 +197,24 @@ def narrow_unverified_findings(
         if " — " not in original[index]:
             continue
         prefix = original[index].split(" — ", 1)[0]
-        records = [
-            s
-            for s in sources
-            if s.startswith("Card: ")
-            and _mentions_card_name(prefix, s.split("\n", 1)[0][6:])
-        ]
-        if not records:
-            continue
-        source = max(
-            records,
-            key=lambda s: prefix.casefold().rfind(s.split("\n", 1)[0][6:].casefold()),
-        )
-        name = source.split("\n", 1)[0][6:]
-        cost = next(
-            (
-                line[11:]
-                for line in source.splitlines()
-                if line.startswith("Mana cost: ")
-            ),
-            "unknown",
-        )
-        oracle = (
-            source.split("\nOracle text:\n", 1)[-1].split(
-                "\nPrinted characteristics:", 1
-            )[0]
-            if "\nOracle text:\n" in source
-            else ""
-        )
+        name, oracle = _literal_oracle(prefix, sources)
+        if name:
+            source = next(s for s in sources if s.split("\n", 1)[0] == "Card: " + name)
+            cost = next(
+                (
+                    line[11:]
+                    for line in source.splitlines()
+                    if line.startswith("Mana cost: ")
+                ),
+                "unknown",
+            )
+            prefix = name + " (" + cost + ")"
         note = (
             "Setup, repeatability and strategic fit remain unverified for this request."
         )
-        if oracle and len(oracle) <= 1000:
-            note = "Printed text: " + oracle + " " + note
-        replacement = name + " (" + cost + ") — " + note
+        if oracle:
+            note = "Printed text: “" + oracle + "” " + note
+        replacement = prefix + " — Fit assessment remains conditional. " + note
         result[index] = replacement
         narrowed.append(
             {
@@ -190,13 +231,9 @@ def narrow_unverified_findings(
         receipt = {
             **receipt,
             "status": "unverified",
-            "fulfillment": (
-                receipt.get("fulfillment", "unknown")
-                if all(
-                    n.get("method") == "preserve_reviewed_fragments" for n in narrowed
-                )
-                else "partial"
-            ),
+            "fulfillment": receipt.get("fulfillment", "partial"),
             "narrowed_claims": narrowed,
+            "partial_facts_retained": partial_facts_retained,
+            "partial_facts_unknown": len(unknown_claim_ids),
         }
     return result, receipt

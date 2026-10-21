@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-21",
+  "author": "Deck Lab implementation AI",
+  "independent_author": false,
+  "expert_reviewed": false,
+  "split": "development",
+  "files_sha256": {
+    "RUBRIC.md": "4f974179e4398b010dd11f14fa899dd7bcdf848c5431021c587c924c5c2bb9ce",
+    "cases.json": "183c41206aa707ff56bfdfa71fb39e268346184f58a76705ebc4682d385b59ac",
+    "evidence.json": "56ced30a578ad0dff93e0ed9267dc0c1b9ba183729d1d894efd798a3a9905010",
+    "labels.json": "c7511e31f1a35b7cdfb16f1ec5250232486942ecedc342b8967b3179e2d40ca5"
+  }
+}

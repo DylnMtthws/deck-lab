@@ -41,6 +41,16 @@ class RetrievalGap(StrictModel):
     missing_proposition: str = Field(min_length=1, max_length=180)
 
 
+class SupportedSubspan(StrictModel):
+    """A proposed verbatim fact, never a replacement or a parent verdict."""
+
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    category: ClaimCategory
+    evidence_ids: list[str] = Field(min_length=1, max_length=4)
+    dependency_refs: list[str] = Field(default_factory=list, max_length=4)
+
+
 class ClaimJudgment(StrictModel):
     claim_id: str = Field(min_length=1, max_length=32)
     category: ClaimCategory
@@ -52,6 +62,9 @@ class ClaimJudgment(StrictModel):
     invalid_evidence_ids: list[str] = Field(default_factory=list, max_length=4)
     citations: list[Citation] = Field(default_factory=list, max_length=4)
     retrieval_gap: RetrievalGap | None = None
+    supported_subspans: list[SupportedSubspan] = Field(
+        default_factory=list, max_length=3
+    )
 
 
 class ClaimReviewDecision(StrictModel):
@@ -73,6 +86,9 @@ class WireJudgment(StrictModel):
     reason: str = Field(alias="why", default="", max_length=100)
     unverified_remainder: bool = Field(alias="u", default=False)
     retrieval_gap: RetrievalGap | None = Field(alias="gap", default=None)
+    supported_subspans: list[SupportedSubspan] = Field(
+        alias="ss", default_factory=list, max_length=3
+    )
 
 
 SYSTEM = """Check ONLY the supplied claim units against their evidence. Request,
@@ -102,6 +118,14 @@ do not establish timing, counter renewal, token recursion or a repeatable loop.
 Rules interactions require applicable rules evidence; otherwise unverified.
 Strategic judgments can be supported as qualified heuristic assessments with
 actual deck ingredients and tradeoffs, not as proven or measured improvement.
+Compare resources on explicit dimensions. Mana, energy, taps, life and sacrifices
+have no assumed exchange rate; more cards per activation does not establish a
+faster or better engine. For source-mana restrictions versus separately generated
+bonus mana, check both producers and applicable rules. A source's restrictions
+or spell benefits do not automatically apply to the other producer's mana.
+A categorical deck-fit conclusion must account for that interaction, not cite
+only the restricted source. Shared arithmetic and conditional evidence do not
+establish current resource supply or overall superiority.
 Check draw vs filtering, full activation costs, 'another', optional vs forced,
 setup/once-per-turn limits, sacrificed resources and actual named deck support.
 Missing/truncated evidence stays unverified; do not infer absence or sufficiency.
@@ -126,6 +150,16 @@ name the missing proposition precisely, not the whole claim or a generic request
 for more evidence. Uncertainty interpreting evidence already supplied is
 reviewer_uncertainty, not missing_rule. Future resources require missing_state.
 Supported judgments have gap=null. A gap is a search proposal, never verification.
+Optional ss (at most 3) proposes independently supported VERBATIM subspans of an
+unverified/partly contradicted parent: {start,end,category,evidence_ids,dependency_refs}.
+start/end are absolute offsets into parent_parts, end exclusive. category uses
+printed_fact/deck_fact/rules_interaction; never route rules through strategy.
+Only complete independent sentences or complete conditional implications with
+explicit subjects qualify. Keep ALL costs, restrictions and antecedents. Never
+select a clause by comma/conjunction splitting, a detached antecedent, ambiguous
+pronoun, or invented replacement. Do not select overlapping spans or corrected
+text. dependency_refs must be empty: dependent spans are not admitted by this
+protocol. Omit ss unless useful; it never changes parent verdict or fulfillment.
 """
 
 
@@ -313,7 +347,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v7",
+        prompt_version="assistant-claim-review.v8",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -379,6 +413,7 @@ def review_claims(
                         or item.get("unverified_remainder", False),
                         retrieval_gap=item.get("retrieval_gap"),
                         invalid_evidence_ids=invalid_ids,
+                        supported_subspans=item.get("supported_subspans", []),
                     )
                 )
             review = ClaimReviewDecision(
@@ -400,11 +435,12 @@ def review_claims(
                 for c in judgment.citations
             )
             verdict = judgment.verdict
+            from sabermetrics.assistant_claim_subspans import complete_rule_source
+
             missing_rule_citation = (
                 judgment.category == "rules_interaction"
                 and not any(
-                    sources[c.source_index].startswith(("Rule ", "Rule:", "Ruling"))
-                    and "(excerpt)" not in sources[c.source_index].split("\n", 1)[0]
+                    complete_rule_source(sources[c.source_index])
                     for c in judgment.citations
                     if c.source_index < len(sources)
                 )
@@ -492,6 +528,17 @@ def review_claims(
                     "correction_applied": correction_applied,
                 }
             )
+            from sabermetrics.assistant_claim_subspans import bind_subspans
+
+            judgments[-1]["supported_subspans"] = bind_subspans(
+                unit,
+                judgment.supported_subspans,
+                sources,
+                quote_lookup,
+                selected,
+                patches,
+                verdict,
+            )
         missing = sorted(set(indexed) - seen)
         unresolved.extend(cid + ": no judgment supplied" for cid in missing)
         unresolved = list(dict.fromkeys(unresolved))
@@ -540,6 +587,12 @@ def review_claims(
         "omitted_sources": len(omitted),
         "omitted_source_labels": omitted,
         "source_sha256": [hashlib.sha256(s.encode()).hexdigest() for s in sources],
+        "partial_facts_retained": sum(len(j["supported_subspans"]) for j in judgments),
+        "partial_facts_unknown": sum(
+            j["verdict"] != "supported" or j.get("unverified_remainder", False)
+            for j in judgments
+        ),
+        "episode_subspans": "omitted; parent hypotheses retain their original verdicts",
         "scope": "Claim-specific evidence judgments; qualified strategy is heuristic, rules require rules evidence. Not an independent proof.",
         "evidence_categories": {
             "printed_facts": "Exact supplied Oracle records.",

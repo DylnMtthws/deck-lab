@@ -1,0 +1,36 @@
+[
+  {
+    "id": "kinnan",
+    "source_url": "https://magic.wizards.com/en/news/feature/ikoria-lair-behemoths-and-commander-2020-edition-release-notes-2020-04-10",
+    "source_date": "2020-04-10",
+    "observed_at": "2026-10-21",
+    "kind": "official_primary_factual_paraphrase",
+    "author": "Deck Lab implementation AI; source verification only",
+    "facts": "Kinnan adds one mana matching a type actually produced when a nonland permanent activates its own mana ability with a tap-symbol cost. Kinnan produces this extra mana; the original producer\u2019s spending restrictions and riders do not apply to it. This is one extra mana, not a doubling of every mana produced. Its creature-selection activation costs five generic, green and blue and selects a non-Human creature from the top five."
+  },
+  {
+    "id": "halfling",
+    "source_url": "https://magic.wizards.com/en/news/feature/the-lord-of-the-rings-tales-of-middle-earth-release-notes",
+    "source_date": "2023-06-09",
+    "observed_at": "2026-10-21",
+    "kind": "official_primary_factual_paraphrase",
+    "author": "Deck Lab implementation AI; source verification only",
+    "facts": "Delighted Halfling can tap for colorless or for one colored mana restricted to casting a legendary spell. Spending its restricted mana on that spell makes that spell uncounterable. These properties belong to the mana Halfling produces."
+  },
+  {
+    "id": "resources",
+    "source_url": "https://magic.wizards.com/en/news/feature/march-of-the-machine-release-notes",
+    "source_date": "2023-04-07",
+    "observed_at": "2026-10-21",
+    "kind": "official_primary_factual_paraphrase",
+    "author": "Deck Lab implementation AI; source verification only",
+    "facts": "Omnath, Locus of All preserves spending restrictions when unspent mana changes to black; the notes specifically identify Omen Hawker as an example. Portent Tracker\u2019s land-untapping ability is not a mana ability. Its land target and timing differ from a nonland permanent tapping itself to produce mana."
+  },
+  {
+    "id": "scenario",
+    "kind": "authored_test_assumptions",
+    "author": "Deck Lab implementation AI",
+    "review_status": "ai_authored_not_expert_reviewed",
+    "facts": "Scenario premises are explicit test inputs, not imported strategy expertise. Elvish Mystic is supplied as a one-mana creature with tap: add green; Omen Hawker as a one-mana creature with tap: add colorless and blue restricted to activating abilities. A two-mana rock is supplied as an artifact with tap: add green, usable immediately. Resource budget and board conditions are fixed per case; no future draw is guaranteed."
+  }
+]

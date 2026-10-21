@@ -95,15 +95,46 @@ def matching_judgment(unit: dict[str, Any], judgment: dict[str, Any]) -> bool:
 
 
 def reviewed_sections(
-    parts: list[str], corrected: list[str], review: dict[str, Any]
+    parts: list[str],
+    corrected: list[str],
+    review: dict[str, Any],
+    sources: list[str] | None = None,
 ) -> list[str]:
     """Emit only bound checked fragments while remaining gaps are investigated."""
     if review.get("claim_unit_version") != VERSION:
         return []
+    if "source_sha256" in review:
+        if sources is None:
+            return []
+        from sabermetrics.assistant_claim_review import focused_sources
+        from sabermetrics.assistant_claim_subspans import source_manifest_matches
+
+        sources = focused_sources(parts, sources)
+        if not source_manifest_matches(review, sources):
+            return []
     judgments = {j["claim_id"]: j for j in review.get("claim_judgments", [])}
     by_part: dict[int, list[str]] = {}
+    unresolved_parts: set[int] = set()
     for unit in fragment_units(parts, set()):
         judgment = judgments.get(unit["claim_id"], {})
+        from sabermetrics.assistant_claim_subspans import accepted_subspans
+
+        for span in accepted_subspans(unit, judgment, review, sources):
+            index = unit["part_index"]
+            if span["text"] in corrected[index] and " — " in parts[index]:
+                by_part.setdefault(index, []).append(span["text"])
+        if (
+            not matching_judgment(unit, judgment)
+            or judgment.get("unverified_remainder")
+            or not (
+                judgment.get("verdict") == "supported"
+                or (
+                    judgment.get("verdict") == "contradicted"
+                    and judgment.get("correction_applied")
+                )
+            )
+        ):
+            unresolved_parts.add(unit["part_index"])
         if not matching_judgment(unit, judgment) or judgment.get(
             "unverified_remainder"
         ):
@@ -118,7 +149,14 @@ def reviewed_sections(
         if text and text in corrected[index] and " — " in parts[index]:
             by_part.setdefault(index, []).append(text)
     return [
-        parts[i].split(" — ", 1)[0] + " — " + " ".join(texts)
+        parts[i].split(" — ", 1)[0]
+        + " — "
+        + (
+            "Fit assessment remains conditional; some claims remain unverified. "
+            if i in unresolved_parts
+            else ""
+        )
+        + " ".join(texts)
         for i, texts in by_part.items()
     ]
 

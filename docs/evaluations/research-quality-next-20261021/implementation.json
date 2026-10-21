@@ -1,0 +1,57 @@
+{
+  "purpose": "Review-preservation, source-bound strategic evidence and bounded latency experiment",
+  "baseline_commit": "a1be525",
+  "baseline_runtime_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+  "changes": {
+    "preservation": "At most three original, independently admitted subspans in the existing semantic response. Strict sentence/source identity guards; complete Oracle fallback supplements surviving facts. Parent uncertainty remains.",
+    "limitations": "Subspan admission intentionally covers only narrow locally checked printed properties and exact complete quotations. General strategic subclaims and dependent references abstain.",
+    "mana": "Canonical local snapshot-bound Kinnan evidence, exact official rules/ruling dependencies, distinct source and additional mana restrictions/riders. Conditions do not assert available resources or strategic superiority.",
+    "resources": "Exact fixed activation-mana per draw arithmetic for isolated supported abilities. Colored requirements remain separate; energy/taps/life/sacrifices have no exchange rate. No pruning or learned ranking.",
+    "wire": "After candidate/enrichment packing freezes, share identical scope text and alias repeated evidence/condition reference keys. Whole source identities, offsets and hashes remain reconstructable. Freed bytes do not expand the shortlist.",
+    "knowledge": "Permission/review workflow with signed content-bound receipts, trusted registry validation, full stored manifests and read-only provenance/content audit.",
+    "evaluation": "Ten frozen AI-authored development cases; capture-time suite hash required. Missing judgments never earn success. Human independence and expert validation remain absent."
+  },
+  "wire_fixtures": [
+    {
+      "fixture": "draw",
+      "candidates": 8,
+      "baseline_bytes": 23065,
+      "candidate_bytes": 21377,
+      "candidate_records_losslessly_reconstructed": true,
+      "candidate_coverage_equal": true,
+      "arithmetic_aid_included": true
+    },
+    {
+      "fixture": "tap",
+      "candidates": 8,
+      "baseline_bytes": 23121,
+      "candidate_bytes": 20684,
+      "candidate_records_losslessly_reconstructed": true,
+      "candidate_coverage_equal": true,
+      "arithmetic_aid_included": false
+    }
+  ],
+  "wire_scope": "Synthetic offline fixtures only; bytes exclude system/schema. No transport latency or quality gain inferred.",
+  "expert_strategy_sources_added": 0,
+  "unfulfilled_external_inputs": [
+    "Permissioned independently expert-reviewed strategic material",
+    "Independent human benchmark authorship/adjudication"
+  ],
+  "runtime_measurement_status": "pending_final_validation_and_qa",
+  "frozen_development_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
+  "regression_checks": {
+    "full_suite_before_final_cache_fixes": {
+      "passed": 4439,
+      "skipped": 34,
+      "seconds": 172.2
+    },
+    "final_targeted_checks": {
+      "passed": 372,
+      "seconds": 15.02
+    },
+    "adversarial_provenance": "three rounds; final bounded clearance",
+    "adversarial_preservation": "four rounds; final bounded clearance",
+    "adversarial_runtime": "two rounds; final bounded clearance, 93 focused tests",
+    "mypy": "10 modified/new source modules passed"
+  }
+}
