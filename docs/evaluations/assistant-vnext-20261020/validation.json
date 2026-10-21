@@ -175,6 +175,45 @@
       "passed": 108,
       "seconds": 15.08
     },
-    "selection_prompt_version": "assistant-selection.v4"
-  }
+    "selection_prompt_version": "assistant-selection.v4",
+    "final_return_matching": {
+      "commit": "63aa07525ae61950938690afc2c916d9a117ed1a",
+      "targeted_tests_passed": 43,
+      "adversarial_tests_passed": 15,
+      "finding": "Bare sacrifice/death no longer implies return or counter renewal."
+    }
+  },
+  "qa_deployment": {
+    "sha": "63aa07525ae61950938690afc2c916d9a117ed1a",
+    "status": "success",
+    "environment": "qa",
+    "native_smokes": "passed",
+    "production_container_unchanged": true,
+    "deployed_at": 1792543682
+  },
+  "live_outcome": {
+    "final_replays": 3,
+    "selected_three_in_each": true,
+    "workflow_done": 1,
+    "marked_partial": 2,
+    "fully_verified_fulfillment": 0,
+    "latency_seconds": [
+      159.232,
+      143.095,
+      118.41
+    ],
+    "final_configured_cost_usd": 0.028783,
+    "all_disposable_fixtures_removed": true,
+    "original_decks_unchanged": true,
+    "independent_prose_review": "One completed Marchesa case: no consequential contradiction found in supplied facts; not general strategic-quality validation."
+  },
+  "remaining_evidence_gaps": [
+    "Whole-request completion is inconsistent; done is a workflow state, not independent fulfillment verification.",
+    "End-to-end answers remain 118\u2013159 seconds in these three replays; a retrieval microbenchmark speedup does not establish end-to-end improvement.",
+    "The repeat run challenged application-generated scope caveats as unsupported claims; exact status provenance and conditional review still need improvement.",
+    "Every final replay abstained from memory capture because required freshness dependencies exceeded the 12,000-character receipt cap; no recalled-memory usefulness gain established.",
+    "The original historical Marchesa omission remains unexplained without its original capture inputs.",
+    "Human expert strategic labels, additional permissioned reviewed primers, and full-answer/package/cut benchmark results remain unavailable.",
+    "Cohort coverage diagnostics were added; broader data and recommendation-quality gains were not established."
+  ]
 }
