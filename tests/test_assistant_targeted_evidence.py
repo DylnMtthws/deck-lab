@@ -184,3 +184,31 @@ def test_lookup_cancellation_propagates(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "retrieve_rules", cancelled)
     with pytest.raises(RuntimeError, match="cancelled"):
         run(tmp_path, "{T}: Draw a card.", ["Tap it."])
+
+
+def test_sacrifice_counter_and_tap_claim_does_not_assert_recursion(tmp_path, lookup):
+    _, receipt = run(
+        tmp_path,
+        "Sacrifice another creature: Put a +1/+1 counter on this creature. {T}: Draw a card.",
+        [
+            "Sacrifice another creature to put a +1/+1 counter on it, then tap it with haste."
+        ],
+    )
+    queries = [query for query, _ in lookup]
+    assert len(queries) == 2
+    assert "+1/+1 counters permanent" in queries[0]
+    assert "summoning sickness" in queries[1]
+    assert not any("return" in query or "renewal" in query for query in queries)
+    assert receipt["queries_omitted"] == 1
+
+
+def test_bare_graveyard_or_death_is_not_a_return_claim(tmp_path, lookup):
+    run(
+        tmp_path,
+        "{T}: Draw a card.",
+        ["The creature dies and goes to your graveyard with its +1/+1 counters."],
+    )
+    queries = [query for query, _ in lookup]
+    assert not any(
+        "return graveyard" in query or "counter renewal" in query for query in queries
+    )

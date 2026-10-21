@@ -10,14 +10,15 @@ from typing import Any
 from sabermetrics.assistant_rules import retrieve_rules
 
 _RECURSION = (
-    r"\bgraveyard\b|\bdies\b|\bsacrific\w*|\brecur\w*|\breanimat\w*|"
-    r"\breturn\w*\b[^.!?;]*(?:battlefield|counter)|"
+    r"\brecur\w*|\breanimat\w*|"
+    r"\breturn\w*\b[^.!?;]*(?:battlefield|graveyard|hand|counter)|"
     r"\b(?:it|creature|permanent|card) returns?\b|\bcomes? back\b"
 )
 _RECURSION_QUERY = "sacrifice dies return graveyard zone change new object delayed triggered ability token"
 _RENEWAL_QUERY = "zone change new object counters retained return counter renewal"
 _TAP_QUERY = "tap symbol activated ability summoning sickness haste"
 _RESTRICTION_QUERY = "activation restriction only once each turn sorcery timing"
+_SACRIFICE_QUERY = "sacrifice cost dies death triggered ability token"
 
 
 def _counter_query(text: str) -> str:
@@ -60,6 +61,8 @@ def _queries(text: str, claims: list[str]) -> list[str]:
             queries.append(_TAP_QUERY)
         if re.search(r"only once|once each turn|only as a sorcery", fragment):
             queries.append(_RESTRICTION_QUERY)
+        if not recursion and re.search(r"\bsacrific\w*|\bdies\b", fragment):
+            queries.append(_SACRIFICE_QUERY)
     # Printed finalist mechanics fill spare slots after claim-specific needs.
     # Support cards remain retrieval scope, not additional assertions.
     if re.search(r"\bcounters?\b|proliferate|\benergy\b|\{e\}", text):
