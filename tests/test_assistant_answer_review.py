@@ -533,11 +533,17 @@ def test_whole_deck_rules_preserve_distinct_same_text_attribution():
     hits[7]["text"] = hits[6]["text"]
     rules = {"hits": hits}
     base = evidence_sources({"entries": []}, [], ["Deck explanation."], rules)
+    base.extend("Rule source: " + h["source_id"] + "\n" + h["text"] for h in hits[:6])
     unmatched = "Rule source: counterevidence\nA different complete source."
     base.append(unmatched)
     sources = whole_deck_evidence_sources(base, [], rules)
     typed = [s for s in sources if "\nSource metadata: " in s]
     assert len(typed) == 8
+    assert not any(
+        s.startswith("Rule source: ") and "\nSource metadata: " not in s
+        for s in sources
+        if s != unmatched
+    )
     for hit in hits:
         assert any(
             s.startswith("Rule source: " + hit["source_id"] + "\n" + hit["text"])
