@@ -1,0 +1,91 @@
+{
+  "schema": "deck-inference-spec.v1",
+  "status": "implemented_pending_live_quality_and_latency_evaluation",
+  "purpose": "Discover and assess conditional explanations for unfamiliar existing decks without treating extraction, graph reachability, model agreement or source coverage as proof.",
+  "non_goals": [
+    "Full Magic simulator",
+    "Infinite-combo certification",
+    "Learned strategic ranking or candidate pruning",
+    "Claims of current battlefield resources",
+    "Expert recommendation quality from test success"
+  ],
+  "contracts": {
+    "compiler": "compile_deck_facts(cards, rules=None, check_current=None) -> versioned sources, bounded interpreted facts and clause coverage",
+    "search": "discover_connections(bundle, max_expansions=256, max_depth=5, max_candidates=12, check_current=None) -> proposed connections, assumption traces, dependency gaps and incomplete-search coverage",
+    "workflow": "research_deck(gateway, cards, rules, request, check_current=None, deadline=None) -> deterministic presentation and attributed inference receipt",
+    "source_boundary": "Copied printed fields are exact source data. Interpreted events retain actor, source, recipient, scope, optionality, timing and multiplicity or remain unknown. Every interpreted fact binds source identity, content hash, original offsets and exact quote.",
+    "unknown_boundary": "Unsupported clauses remain in the searchable raw-text inventory. Unknown is never a silent exclusion or an absence claim.",
+    "search_boundary": "Indexed event/resource joins propose connections. Every jointly required cost and condition survives in one shared assumption trace. Graph cycles do not establish renewal or infinity.",
+    "semantic_boundary": "Source-first discovery sees raw card clauses before graph conclusions. Verification sees the union of computational and model hypotheses, complete cited sources, rules, raw coverage gaps and the original task. Typed judgments remain probabilistic.",
+    "presentation_boundary": "Printed facts are copied from sources. Only accepted bound semantic assessments may supply interaction explanations. Rejected edges do not delete unrelated source facts. Every explanation retains its conditions and uncertainty.",
+    "freshness": "Derived facts depend on full source content and compiler version. Judgments bind exact request, source manifest, candidate manifest and model configuration. No cross-request semantic cache in v1. Currentness is checked before calls and publication.",
+    "authority": "Existing request planning, owner/deck scope, cancellation, revision, paid-call accounting and publication fences remain authoritative. This lane cannot edit, adopt or simulate a deck.",
+    "inventory": "Both calls retain the complete admitted raw source inventory and bound deck-entry quantities, commander designation and deck roles; deck roles do not assert battlefield state. Exact provenance and full canonical hashes remain in local manifests.",
+    "supplemental_evidence": "Recompile initial and supplemental rule records together. Conflicting logical identities withhold affected interpretations; source aliases remain append-only and invalidated hypotheses cannot receive conditional promotion.",
+    "trace_wire": "Ordered fact occurrences and explicit link endpoint references preserve repeated closing steps and joint costs; repeated references do not establish renewed availability."
+  },
+  "workflow": [
+    "Use existing validated whole-deck explanation admission and complete canonical local source packet.",
+    "Compile conservative source-backed predicates; retain raw clauses and gaps.",
+    "Run bounded computational search without showing its conclusions to source-first model discovery.",
+    "Call source-first typed discovery once over a compact complete raw inventory; select exact source IDs and clause IDs rather than generating citations.",
+    "Merge independently proposed candidates, preserving their origin, source dependencies, assumptions and unmodeled conditions.",
+    "Retrieve only named missing rules dependencies with at most two local lookups and within the same deadline; retain unresolved or incompatible results as gaps.",
+    "Make at most one batched semantic verification call, with full referenced source bodies and explicit coverage omissions.",
+    "Render exact source facts, qualified conditional findings, competing resource demands and remaining gaps without a third prose-generation call."
+  ],
+  "budgets": {
+    "card_entries": 128,
+    "raw_source_utf8_bytes": 100000,
+    "search_expansions": 256,
+    "search_depth": 5,
+    "search_candidates": 12,
+    "online_calls_after_existing_planner": 2,
+    "automatic_transport_retries": 0,
+    "local_rule_lookups": 2,
+    "workflow_deadline_seconds": 60,
+    "provider_attempt_timeout_seconds": 25,
+    "deadline_note": "Targets and bounded admission policies, not measured service guarantees. Provider cancellation is cooperative; late publication is fenced and paid responses remain accounted for. No automatic restart or broader synthesis after an inference failure.",
+    "canonical_source_record_utf8_bytes": 512000,
+    "model_user_payload_utf8_bytes": 48000,
+    "compilation_cache_entries": 4,
+    "compilation_cache_bytes": 4000000,
+    "provider_output_tokens": 2048,
+    "initial_rule_lookups": 1
+  },
+  "states": [
+    "copied_source_fact",
+    "bounded_interpretation",
+    "hypothesis",
+    "model_assessed_conditional",
+    "contradicted",
+    "unresolved"
+  ],
+  "acceptance": [
+    "Renamed unfamiliar compositions produce conditional multi-step hypotheses, not just known card packages.",
+    "Discard is distinct from movement to a graveyard; draw is distinct from putting a card into hand.",
+    "Source subtype, actor, recipient, combat restrictions, optionality and per-event versus per-card grouping remain explicit.",
+    "A finite-fuel cycle is never promoted to infinite or self-sustaining.",
+    "All unsupported clauses and budget-truncated search branches are disclosed; no absent-engine conclusion follows.",
+    "Missing, conflicting, granted, level-gated, multi-face and truncated source scopes abstain while retaining raw evidence.",
+    "Forged IDs, hashes, spans, duplicated judgments, stale sources and unreviewed prose fail closed.",
+    "One failed connection leaves independently copied facts and successful neighboring assessments available.",
+    "Cancellation, changed revision, insufficient deadline or provider failure prevent additional calls and stale publication.",
+    "Measure cold and warm preparation, each call, retries, full payload bytes, completion rate, cost and explanation quality. Preserve failed samples."
+  ],
+  "evaluation_limits": {
+    "independent_expert_labels": false,
+    "human_expert_review": false,
+    "quality_noninferiority_established": false,
+    "latency_improvement_established": false,
+    "required_future_evaluation": "Independent expert judgments on unfamiliar decks and held-out mechanism families, false connections, useful fact preservation, strategic contribution/setup/resource competition and complete-vs-partial fulfillment."
+  },
+  "implementation_limits": [
+    "Literal extraction vocabulary is intentionally narrow; unknown text remains available to source-first model discovery.",
+    "No general rules simulator, strategic ranker, learned pruning, cross-request semantic cache or infinite-combo certification.",
+    "Two calls occur after the existing request planner; the 60-second admission deadline excludes upstream source preparation and is cooperative.",
+    "The verifier is a probabilistic model exposed to complete admitted sources and bounded hypotheses; it is not independent human review.",
+    "Payload overflow and model failures return explicit partial facts and gaps rather than restarting a slower pipeline.",
+    "At most eight exact card bodies are displayed; display omissions are disclosed even though both model calls retain the complete admitted inventory."
+  ]
+}

@@ -1779,6 +1779,7 @@ def run_turn(
     selection_first: bool | None = None,
     progressive_reviews: bool | None = None,
     whole_deck_reviews: bool | None = None,
+    deck_inference: bool | None = None,
 ) -> dict[str, Any]:
     """Execute one persisted conversation turn; never apply deck changes.
 
@@ -1813,6 +1814,7 @@ def run_turn(
     use_whole_deck_review = (
         owns_gateway if whole_deck_reviews is None else whole_deck_reviews
     )
+    use_deck_inference = owns_gateway if deck_inference is None else deck_inference
     use_progressive_review = (
         owns_gateway if progressive_reviews is None else progressive_reviews
     )
@@ -1820,6 +1822,7 @@ def run_turn(
     owned_answer_review_gateway: ModelGateway | None = None
     owned_claim_review_gateway: ModelGateway | None = None
     owned_concise_gateway: ModelGateway | None = None
+    owned_inference_gateway: ModelGateway | None = None
     result: dict[str, Any] = {
         "content": "",
         "status": "incomplete",
@@ -3212,10 +3215,11 @@ def run_turn(
                             deck_sources,
                             state.get("rules_evidence") or {},
                             check_current=check_deck_review_current,
+                            max_lookups=1 if use_deck_inference else 2,
                         )
                         previous_rules = state.get("rules_evidence")
                         state["rules_evidence"] = rules
-                        if (
+                        if use_deck_inference or (
                             _deck_review_context(packet, state, current_request)
                             is not None
                         ):
@@ -3267,6 +3271,167 @@ def run_turn(
                         "sources",
                         "The current deck's printed records are available. Checking how its costs, payoffs and resource renewal connect; no winning loop is certified by retrieval.",
                     )
+                    if use_deck_inference:
+                        from sabermetrics.assistant_deck_inference import (
+                            local_rule_lookup,
+                            research_deck,
+                        )
+                        from sabermetrics.assistant_deck_review import (
+                            decode_deck_review_packet,
+                        )
+
+                        inference_gateway = gateway
+                        if owns_gateway:
+                            inference_model = settings.model.model_copy(
+                                update={
+                                    "timeout_seconds": 25.0,
+                                    "max_retries": 0,
+                                    "max_validation_retries": 0,
+                                    "modes": {
+                                        **settings.model.modes,
+                                        ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
+                                            ReasoningMode.EXPLAIN
+                                        ).model_copy(
+                                            update={
+                                                "max_output_tokens": 2048,
+                                                "temperature": 0.0,
+                                            }
+                                        ),
+                                    },
+                                }
+                            )
+                            owned_inference_gateway = build_gateway(
+                                settings.model_copy(update={"model": inference_model}),
+                                db_path=str(db_path),
+                                user_id=owner_id,
+                                deck_id=deck_id,
+                            )
+                            inference_gateway = bounded_gateway(owned_inference_gateway)
+                        inference_started = time.monotonic()
+                        reply, inference_receipt = research_deck(
+                            inference_gateway,
+                            deck_review_source_cards,
+                            state.get("rules_evidence") or {},
+                            current_request,
+                            context={
+                                "task": state.get("answer_obligations", {}),
+                                "constraints": constraints or {},
+                                "preferences": state["conversation_context"][
+                                    "preferences"
+                                ],
+                                "deck_revision": result["revision"],
+                                "deck_entries": [
+                                    {
+                                        "card_id": str(entry["oracle_id"]),
+                                        "quantity": entry["quantity"],
+                                        "is_commander": entry["is_commander"],
+                                        "admitted_zone": (
+                                            "commander_deck_entry"
+                                            if entry["is_commander"]
+                                            else "public_library_deck_entry"
+                                        ),
+                                    }
+                                    for entry in decode_deck_review_packet(
+                                        deck_review_packet
+                                    )
+                                ],
+                            },
+                            check_current=check_deck_review_current,
+                            deadline=min(
+                                started + MAX_TURN_SECONDS - 5, inference_started + 60
+                            ),
+                            rule_lookup=local_rule_lookup(
+                                Path(db_path),
+                                deck_review_source_cards,
+                                state.get("rules_evidence") or {},
+                                max_lookups=max(
+                                    0, 2 - rules_receipt.get("lookup_count", 0)
+                                ),
+                                check_current=check_deck_review_current,
+                            ),
+                            on_progress=lambda event: announce(
+                                "comparison",
+                                (
+                                    "Checking raw ability coverage independently of computational connections."
+                                    if event["stage"] == "source_discovery"
+                                    else "Assessing proposed connections, shared prerequisites and finite resource limits."
+                                ),
+                            ),
+                        )
+                        tools.check()
+                        stage_timings.append(
+                            {
+                                "stage": "deck_inference",
+                                **timing_window(started, inference_started),
+                                "elapsed_seconds": round(
+                                    time.monotonic() - inference_started, 6
+                                ),
+                                "status": inference_receipt["status"],
+                                "calls": inference_receipt["calls"],
+                            }
+                        )
+                        research = result.setdefault("research", {})
+                        research.update(
+                            {
+                                "deck_inference": inference_receipt,
+                                "task": research_progress(task, observed_plans()),
+                                "deck_review_coverage": state.get(
+                                    "deck_review_coverage"
+                                ),
+                            }
+                        )
+                        # Completion of bounded work is separate from discovery
+                        # completeness and semantic/model correctness.
+                        review_receipt = {
+                            "status": (
+                                "unverified"
+                                if inference_receipt["assessments"]
+                                else "not_checked"
+                            ),
+                            "fulfillment": (
+                                "partial"
+                                if inference_receipt["assessments"]
+                                else "unknown"
+                            ),
+                            "reason": "bounded_conditional_inference",
+                            "unresolved": [
+                                "Principal plan coverage and current resource availability remain unestablished."
+                            ],
+                            "inference_assessments": inference_receipt["assessments"],
+                        }
+                        result.update(
+                            content="\n\n".join(
+                                [
+                                    reply["content"],
+                                    *["- " + f for f in reply["findings"]],
+                                ]
+                            ),
+                            status="incomplete",
+                            reason="answer_partially_fulfilled",
+                            answer_review=review_receipt,
+                            presentation={
+                                "reply": {
+                                    "lead": reply["content"],
+                                    "findings": reply["findings"],
+                                    "next_action": "",
+                                },
+                                "cards": resolve_presentation_cards(
+                                    db_path,
+                                    known_card_ids,
+                                    reply["content"] + " ".join(reply["findings"]),
+                                    reply["card_ids"],
+                                ),
+                                "research": research,
+                            },
+                        )
+                        stage_timings.append(
+                            {
+                                "stage": "memory_capture",
+                                "status": "skipped",
+                                "reason": "conditional_inference_not_reusable_strategic_truth",
+                            }
+                        )
+                        return result
                     continue
             if (
                 task is not None
@@ -5201,6 +5366,7 @@ def run_turn(
                 )
         closed_gateways: set[int] = set()
         for owned in (
+            owned_inference_gateway,
             owned_claim_review_gateway,
             owned_concise_gateway,
             owned_answer_review_gateway,

@@ -621,6 +621,7 @@ def test_owned_whole_deck_synthesis_uses_one_longer_attempt(
         [{"role": "user", "content": question}],
         request_planner=True,
         whole_deck_reviews=True,
+        deck_inference=False,
         answer_review_gateway=Gateway(
             [
                 AnswerReviewDecision(

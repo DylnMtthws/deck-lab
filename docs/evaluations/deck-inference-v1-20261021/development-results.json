@@ -1,0 +1,130 @@
+{
+  "schema": "deck-inference-development-benchmark.v1",
+  "network_calls": 0,
+  "independent_expert_labels": false,
+  "recommendation_quality_measured": false,
+  "provider_latency_measured": false,
+  "cases": [
+    {
+      "id": "renamed_conditional_renewal",
+      "checks": {
+        "all_candidates_unverified": true,
+        "no_complete_search_claim": true,
+        "expected_conditional_cycle_presence": true
+      },
+      "passed": true,
+      "facts": 4,
+      "candidates": 4,
+      "cpu_ms": 2.624
+    },
+    {
+      "id": "combat_filter_counterexample",
+      "checks": {
+        "all_candidates_unverified": true,
+        "no_complete_search_claim": true,
+        "expected_conditional_cycle_presence": true,
+        "explicit_mismatch_rejected": true
+      },
+      "passed": true,
+      "facts": 2,
+      "candidates": 0,
+      "cpu_ms": 0.361
+    },
+    {
+      "id": "trailing_restriction",
+      "checks": {
+        "all_candidates_unverified": true,
+        "no_complete_search_claim": true,
+        "expected_conditional_cycle_presence": true,
+        "expected_abstention": true
+      },
+      "passed": true,
+      "facts": 0,
+      "candidates": 0,
+      "cpu_ms": 0.101
+    },
+    {
+      "id": "unknown_progression_stays_raw",
+      "checks": {
+        "all_candidates_unverified": true,
+        "no_complete_search_claim": true,
+        "expected_conditional_cycle_presence": true,
+        "expected_abstention": true
+      },
+      "passed": true,
+      "facts": 0,
+      "candidates": 0,
+      "cpu_ms": 0.161
+    }
+  ],
+  "passed": true,
+  "validation": {
+    "full_suite_before_final_trace_and_supplemental_conflict_fixes": {
+      "passed": 4893,
+      "skipped": 34,
+      "seconds": 198.45
+    },
+    "targeted_after_those_fixes": {
+      "passed": 257,
+      "seconds": 1.92
+    },
+    "static_checks": {
+      "ruff": "passed",
+      "black": "passed",
+      "mypy_new_core_modules": "passed",
+      "diff_whitespace": "passed"
+    }
+  },
+  "limits": [
+    "AI-authored development fixtures; no independent expert labels.",
+    "Offline CPU timings do not measure provider transport or end-to-end latency.",
+    "No live provider evaluation, QA deployment or production deployment in this implementation task.",
+    "Earlier live deck results do not validate this new inference path."
+  ],
+  "captured_input_offline_runs": [
+    {
+      "compilation_cache_hit": false,
+      "preparation_seconds": 0.045912,
+      "payload_utf8_bytes": {
+        "source_discovery": 32194,
+        "hypothesis_verification": 44501
+      },
+      "constructed_requests": 2,
+      "limitations": [
+        "source_discovery_unavailable",
+        "hypothesis_verification_unavailable"
+      ]
+    },
+    {
+      "compilation_cache_hit": true,
+      "preparation_seconds": 0.008544,
+      "payload_utf8_bytes": {
+        "source_discovery": 32194,
+        "hypothesis_verification": 44501
+      },
+      "constructed_requests": 2,
+      "limitations": [
+        "source_discovery_unavailable",
+        "hypothesis_verification_unavailable"
+      ]
+    }
+  ],
+  "captured_input_scope": {
+    "identities": 92,
+    "semantic_gateway": "Injected failure; no paid provider calls",
+    "coverage": "Complete admitted source inventory retained; original source gaps remain explicit.",
+    "limits": "Constructed verification includes computational hypotheses only because discovery was intentionally unavailable; real model proposals can increase payload and trigger disclosed overflow abstention."
+  },
+  "adversarial_review": {
+    "latest_round": "R5",
+    "result": "Bounded clearance for supplemental evidence handling",
+    "checks": [
+      "Oversized supplements withhold verification and preserve admitted original facts.",
+      "Incomplete supplements cannot receive conditional promotion when cited.",
+      "Original source/clause aliases and offsets remain stable through refresh and conflict reconciliation."
+    ],
+    "limitations": [
+      "Read-only AI review; not human-expert validation or a general correctness proof."
+    ]
+  }
+}

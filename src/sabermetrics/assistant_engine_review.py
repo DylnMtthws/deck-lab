@@ -143,6 +143,7 @@ def engine_rule_evidence(
     existing: dict[str, Any],
     *,
     check_current: Callable[[], Any] | None = None,
+    max_lookups: int = 2,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Merge complete local sources with at most two printed-mechanic lookups.
 
@@ -152,6 +153,8 @@ def engine_rule_evidence(
     ``check_current`` runs before/after each lookup and before return, and its
     exceptions propagate. Inputs are not mutated. No network or model calls.
     """
+    if type(max_lookups) is not int or not 0 <= max_lookups <= 2:
+        raise ValueError("max_lookups must be an integer from zero to two")
     started = time.monotonic()
     guard = check_current or (lambda: None)
     guard()
@@ -225,7 +228,7 @@ def engine_rule_evidence(
 
     add_hits(existing, "existing")
     queried: set[str] = set()
-    for _ in range(2):
+    for _ in range(max_lookups):
         # Only existing full rules can avoid a lookup; a ruling is not the
         # general action definition. This is lexical coverage, never entailment.
         # Reconsider earlier obligations if a lookup changes the snapshot.
