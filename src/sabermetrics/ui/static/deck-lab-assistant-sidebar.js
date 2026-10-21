@@ -623,6 +623,22 @@
       details.appendChild(summary);
       if (item.source_kind === "authored_guidance") details.appendChild(element("small", "Authored archetype guidance · not a retrieved primer"));
       if (item.source_kind === "external_combo_claim") details.appendChild(element("small", "Sourced combination claim · execution and prerequisites not verified"));
+      if (item.source_kind === "wiki_secondary") details.appendChild(element("small", "Community wiki explanation · defer to official card and rules evidence"));
+      var attribution = item.source_attribution || {};
+      if (attribution.author) details.appendChild(element("small", String(attribution.author).slice(0, 500)));
+      var sourceVersion = citation.version || (citation.provenance && citation.provenance.version);
+      if (sourceVersion) details.appendChild(element("small", "Source version: " + String(sourceVersion).slice(0, 120)));
+      if (attribution.source_date) details.appendChild(element("small", "Source date: " + String(attribution.source_date).slice(0, 100)));
+      if (attribution.review_status) details.appendChild(element("small", String(attribution.review_status).replace(/_/g, " ").slice(0, 400)));
+      [["Reuse license", attribution.license_url], ["Attribution and history", attribution.attribution_url]].forEach(function (entry) {
+        try {
+          var provenanceUrl = new URL(entry[1]);
+          if ((provenanceUrl.protocol !== "https:" && provenanceUrl.protocol !== "http:") || provenanceUrl.username || provenanceUrl.password) return;
+          var provenanceLink = element("a", entry[0]);
+          provenanceLink.href = provenanceUrl.href; provenanceLink.target = "_blank"; provenanceLink.rel = "noopener noreferrer";
+          details.appendChild(provenanceLink);
+        } catch (_) {}
+      });
       var url = null;
       try {
         var parsed = new URL(citation.source_url);

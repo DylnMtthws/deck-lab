@@ -162,6 +162,21 @@ assert(flatten(authored).some(n => String(n.textContent).includes("No external s
 const empty = new Node("article");
 appendStrategyEvidence(empty, { status: "empty_corpus", excerpts: [] });
 assert(flatten(empty).some(n => n.textContent === "No strategy documents have been indexed yet."));
+const wiki = new Node("article");
+appendStrategyEvidence(wiki, {excerpts: [{source_kind: "wiki_secondary", excerpt: "Adapted wiki passage.",
+  citation: {document: "Wiki", source_url: "https://example.test/wiki?oldid=123", provenance: {version: "revision-123"}},
+  source_attribution: {author: "Wiki contributors <script>", source_date: "2026-10-20", review_status: "community_edited_not_expert_reviewed",
+    license_url: "https://creativecommons.org/licenses/by-sa/4.0/", attribution_url: "https://example.test/history"}
+}]});
+const wikiNodes = flatten(wiki);
+assert(wikiNodes.some(n => n.textContent === "Wiki contributors <script>"));
+assert(wikiNodes.some(n => n.textContent === "Source version: revision-123"));
+assert(wikiNodes.some(n => n.textContent === "community edited not expert reviewed"));
+assert.equal(wikiNodes.filter(n => n.tag === "a").length, 3);
+assert(wikiNodes.some(n => n.textContent === "Reuse license" && n.href === "https://creativecommons.org/licenses/by-sa/4.0/"));
+const badLicense = new Node("article");
+appendStrategyEvidence(badLicense, {excerpts: [{excerpt: "Text", citation: {document: "Test"}, source_attribution: {license_url: "javascript:attack()", attribution_url: "https://user:secret@example.test"}}]});
+assert.equal(flatten(badLicense).filter(n => n.tag === "a").length, 0);
 """.replace("RENDERER", renderer)
     result = subprocess.run(
         [node, "-e", script], capture_output=True, text=True, check=False
