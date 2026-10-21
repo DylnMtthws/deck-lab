@@ -10,7 +10,9 @@ import math
 import re
 import sqlite3
 import time
+from collections import deque
 from contextlib import closing
+from itertools import groupby
 from pathlib import Path
 from typing import Any, Literal
 
@@ -516,11 +518,15 @@ def functional_search(
                 if str(row.get("oracle_id")) in cards:
                     associations[str(row["oracle_id"])] = row
 
+    from sabermetrics.assistant_strategic_obligations import strategic_rank_key
+
     suitability = {
         oid: candidate_suitability(
             card,
             support_index,
-            (args.query or args.function) + (" cheap" if args.prefer_low_mana else ""),
+            (args.query or args.function)
+            + (" cheap" if args.prefer_low_mana else "")
+            + (" repeatable" if args.prefer_recurring else ""),
             include_packet=False,
         )
         for oid, card in cards.items()
@@ -640,6 +646,8 @@ def functional_search(
                 and args.optionality == "preferred"
                 and controllable
             ),
+            *strategic_rank_key(suitability[oid]["strategic_obligations"]),
+            # Legacy scores only break ties; they never certify quality.
             -suitability[oid]["strategic_judgment"]["priority"],
             -int(args.prefer_recurring and recurring),
             -int(args.prefer_multifunctional and multifunctional),
@@ -654,7 +662,23 @@ def functional_search(
             oid,
         )
 
-    ordered = sorted(cards, key=rank)
+    ranked = {oid: rank(oid) for oid in cards}
+    ordered = sorted(cards, key=ranked.__getitem__)
+    # Equal substantive priorities can vary mechanisms before alphabetical ties.
+    # No worse-ranked card displaces a better-supported candidate for a quota.
+    diversified: list[str] = []
+    for _, peers in groupby(ordered, key=lambda oid: ranked[oid][:-2]):
+        mechanisms: dict[tuple[str, ...], deque[str]] = {}
+        for oid in peers:
+            signature = tuple(suitability[oid]["strategic_obligations"]["mechanism"])
+            mechanisms.setdefault(signature, deque()).append(oid)
+        active = deque(mechanisms.values())
+        while active:
+            queue = active.popleft()
+            diversified.append(queue.popleft())
+            if queue:
+                active.append(queue)
+    ordered = diversified
     # Attach rich evidence only to the shortlist; the full pool was evaluated
     # against one shared deck scan before applying the result limit.
     for oid in ordered[: args.limit]:
@@ -669,6 +693,23 @@ def functional_search(
         )
         cards[oid]["suitability"]["recommendation_packet"] = (
             compact_recommendation_packet(packet)
+        )
+        from sabermetrics.assistant_strategic_obligations import (
+            build_strategic_obligations,
+            compact_strategic_obligations,
+        )
+
+        cards[oid]["suitability"]["strategic_obligations"] = (
+            compact_strategic_obligations(
+                build_strategic_obligations(
+                    cards[oid],
+                    (args.query or args.function)
+                    + (" repeatable" if args.prefer_recurring else ""),
+                    suitability=suitability[oid],
+                    packet=packet,
+                    deck_entries=support_index.get("entries"),
+                )
+            )
         )
     from sabermetrics.assistant_compatibility import compare_candidates
 

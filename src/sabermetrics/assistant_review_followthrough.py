@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from typing import Any
 
 from sabermetrics.assistant_answer_review import _mentions_card_name
@@ -32,24 +33,71 @@ def narrow_unverified_findings(
             re.IGNORECASE,
         )
     }
-    units = claim_units(original, protected)
+    from sabermetrics.assistant_claim_fragments import VERSION, matching_judgment
+
+    atomic = receipt.get("claim_unit_version") == VERSION
+    units = claim_units(original, protected, atomic=atomic)
     judgments = {j["claim_id"]: j for j in receipt.get("claim_judgments", [])}
-    narrowed = []
+    narrowed: list[dict[str, Any]] = []
     result = corrected[:]
+    by_part: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for unit in units:
-        index = unit["part_index"]
-        judgment = judgments.get(unit["claim_id"], {})
-        if unit["protected"] or (
-            (
-                judgment.get("verdict") == "supported"
-                or (
-                    judgment.get("verdict") == "contradicted"
-                    and judgment.get("correction_applied")
+        by_part[unit["part_index"]].append(unit)
+    for index, group in by_part.items():
+        if index in protected:
+            continue
+        kept = []
+        rejected = []
+        for unit in group:
+            judgment = judgments.get(unit["claim_id"], {})
+            bound = not atomic or matching_judgment(unit, judgment)
+            accepted = (
+                bound
+                and not judgment.get("unverified_remainder")
+                and (
+                    judgment.get("verdict") == "supported"
+                    or (
+                        judgment.get("verdict") == "contradicted"
+                        and judgment.get("correction_applied")
+                    )
                 )
             )
-            and not judgment.get("unverified_remainder")
-        ):
+            if accepted:
+                text = judgment.get("rendered_claim", unit["claim"])
+                # A successful correction is still bound to the actual visible
+                # corrected text. Stale/replayed receipts cannot retain a rewrite.
+                if text in corrected[index]:
+                    kept.append(text)
+                    continue
+            rejected.append((unit, judgment))
+        if not rejected:
+            if atomic:
+                # Reconstruct only exact reviewed fragments. Substring presence
+                # cannot authorize appended or interleaved unreviewed prose.
+                prefix = (
+                    original[index].split(" — ", 1)[0] + " — "
+                    if " — " in original[index]
+                    else ""
+                )
+                result[index] = prefix + " ".join(kept)
             continue
+        if atomic and kept and " — " in original[index]:
+            prefix = original[index].split(" — ", 1)[0]
+            result[index] = (
+                prefix + " — " + " ".join(kept) + " Further claims remain unverified."
+            )
+            narrowed.extend(
+                {
+                    "claim_id": u["claim_id"],
+                    "part_index": index,
+                    "method": "preserve_reviewed_fragments",
+                    "reason": j.get("reason") or "No bound evidence judgment.",
+                    "preserved_fragments": len(kept),
+                }
+                for u, j in rejected
+            )
+            continue
+        unit, judgment = rejected[0]
         if " — " not in original[index]:
             continue
         prefix = original[index].split(" — ", 1)[0]
@@ -103,7 +151,13 @@ def narrow_unverified_findings(
         receipt = {
             **receipt,
             "status": "unverified",
-            "fulfillment": "partial",
+            "fulfillment": (
+                receipt.get("fulfillment", "unknown")
+                if all(
+                    n.get("method") == "preserve_reviewed_fragments" for n in narrowed
+                )
+                else "partial"
+            ),
             "narrowed_claims": narrowed,
         }
     return result, receipt

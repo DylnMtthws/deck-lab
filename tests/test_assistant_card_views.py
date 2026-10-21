@@ -147,3 +147,26 @@ def test_completeness_layout_and_power_are_bound_into_every_view():
         if "power" not in change:
             assert changed["views"]["functional_role"]["roles"] == []
             assert changed["views"]["prerequisite"]["draw_routes"] == []
+
+
+def test_extreme_finite_vectors_with_overflowing_norm_cannot_nominate():
+    from sabermetrics.assistant_card_views import prepare_card_view_vectors
+
+    cards = [
+        {
+            "oracle_id": "o",
+            "name": "Example",
+            "oracle_text": "Sacrifice a creature: Draw a card.",
+            "type_line": "Artifact",
+        }
+    ]
+    encoder = Encoder()
+    artifact = prepare_card_view_vectors(cards, encoder=encoder)
+    for record in artifact["records"]:
+        record["vector"] = [1e300, 1e300]
+    assert (
+        retrieve_card_views(
+            cards, "resource conversion", vector_artifact=artifact, encoder=encoder
+        )["results"]
+        == []
+    )

@@ -6,6 +6,8 @@ from Research's public cohort and deck_cards; private saved decks are not querie
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import time
 from collections import Counter, defaultdict
@@ -14,7 +16,13 @@ from pathlib import Path
 from typing import Any
 
 from sabermetrics.analytics.oracle_patterns import ROLE_PATTERNS
-from sabermetrics.assistant_associations import MAX_COHORT
+from sabermetrics.assistant_associations import MAX_COHORT, MIN_COHORT
+from sabermetrics.assistant_cohort_coverage import (
+    alternative_windows,
+    coverage_receipt,
+    read_source_provenance,
+    record_count,
+)
 from sabermetrics.deck_evidence import (
     _cohort_cte,
     _commanders,
@@ -26,6 +34,7 @@ from sabermetrics.research import ResearchRepo
 
 MAX_MEMBERSHIPS = 250_000
 MAX_LIST_CARDS = 1000
+MAX_PUBLIC_PRINTINGS = 50_000
 QUERY_SECONDS = 2.0
 
 
@@ -107,6 +116,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
         "comparable_decks": [],
         "source": "local public research_results and deck_cards snapshot",
         "source_freshness": "unknown",
+        "coverage": coverage_receipt(start, end),
         "maximum_cohort_lists": MAX_COHORT,
         "similarity_method": "distinct Oracle Jaccard; 0.85 overlap + 0.15 role similarity only with complete canonical text coverage",
         "diversity_method": "distinct compositions; greedy relevance minus 0.2 maximum Jaccard to earlier selected neighbors",
@@ -132,6 +142,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             conn.row_factory = sqlite3.Row
             conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
             conn.execute("BEGIN")
+            read_source_provenance(conn, result["coverage"])
             if not _known(conn, commanders):
                 result["status"] = "unknown_commander"
                 return result
@@ -158,6 +169,7 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             ).fetchall()
             n = len(cohort)
             result["cohort_lists"] = n
+            record_count(result["coverage"], n, MAX_COHORT, floor)
             if n > MAX_COHORT:
                 result.update(
                     status="cohort_too_large", cohort_count_is_lower_bound=True
@@ -212,9 +224,8 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             # before commander exclusion, exactly as the former DISTINCT query.
             cohort_marks = ",".join("?" for _ in cohort) or "NULL"
             deck_ids = [row["deck_id"] for row in cohort]
-            public_cards = dict(
-                conn.execute(
-                    f"""SELECT c.id,c.oracle_id FROM cards c
+            public_rows = conn.execute(
+                f"""SELECT c.id,c.oracle_id FROM cards c
                     WHERE c.id IN (
                         SELECT dc.card_id FROM deck_cards dc
                         WHERE dc.deck_id IN ({cohort_marks})
@@ -222,10 +233,17 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
                     )
                       AND c.oracle_id IS NOT NULL AND c.oracle_id!=''
                       AND lower(COALESCE(c.type_line,'')) NOT LIKE '%basic%land%'
+                    LIMIT ?
                     """,
-                    deck_ids,
-                )
-            )
+                [*deck_ids, MAX_PUBLIC_PRINTINGS + 1],
+            ).fetchall()
+            result["public_printings_loaded"] = len(public_rows)
+            result["maximum_public_printings"] = MAX_PUBLIC_PRINTINGS
+            if len(public_rows) > MAX_PUBLIC_PRINTINGS:
+                result["status"] = "catalog_too_large"
+                result["public_printing_count_is_lower_bound"] = True
+                return result
+            public_cards = dict(public_rows)
             memberships: dict[Any, set[str]] = defaultdict(set)
             membership_count = 0
             for row in conn.execute(
@@ -248,6 +266,24 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             if any(len(ids) > MAX_LIST_CARDS for ids in decks.values()):
                 result["status"] = "composition_too_large"
                 return result
+            result["coverage"]["lists_with_comparable_composition"] = sum(
+                bool(ids) for ids in decks.values()
+            )
+            # Identity of these bounded inputs only, not of the global corpus.
+            digest = hashlib.sha256()
+            digest.update(
+                json.dumps([start, end, floor, commanders], sort_keys=True).encode()
+            )
+            for row in sorted(cohort, key=lambda row: str(row["deck_id"])):
+                check_deadline()
+                deck_id = str(row["deck_id"])
+                digest.update(
+                    json.dumps([deck_id, sorted(decks.get(deck_id, set()))]).encode()
+                )
+            result["coverage"]["content_identity"] = {
+                "sha256": digest.hexdigest(),
+                "scope": "Exact cohort list IDs and distinct comparable Oracle memberships; excludes canonical role text, printings, quantities, source observation dates and full corpus identity. Not a freshness certification.",
+            }
             all_ids = set().union(*decks.values()) if decks else set()
             # Fetch only cards in these public lists, in bounded SQLite batches.
             missing = sorted(all_ids - facts.keys())
@@ -327,13 +363,28 @@ def comparable_decks(path: Path, document: dict, *, window_days=90, limit=3) -> 
             for item in selected:
                 item.pop("_ids")
             check_deadline()
+            result["coverage"]["neighbor_state"] = (
+                "available" if selected else "no_neighbors"
+            )
             result["comparable_decks"] = selected
             result["status"] = "available" if selected else "no_comparable_decks"
+            if n < MIN_COHORT:
+                alternative_windows(
+                    conn,
+                    result["coverage"],
+                    cte=cte,
+                    params=params,
+                    window_days=window_days,
+                    maximum=MAX_COHORT,
+                    deadline=deadline,
+                )
     except sqlite3.Error as exc:
         result["status"] = (
             "query_budget_exceeded" if "interrupted" in str(exc) else "unavailable"
         )
         result["comparable_decks"] = []
+        if result["coverage"]["eligible_lists"] is None:
+            result["coverage"]["state"] = result["status"]
         result["limitations"].append(
             "No complete retrieval was available; absence of neighbors is not evidence of absence."
         )

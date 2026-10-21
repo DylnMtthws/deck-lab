@@ -325,3 +325,50 @@ def test_membership_bound_counts_distinct_pairs_before_commander_exclusion(
     result = comparable_decks(path, document)
     assert result["status"] == "composition_too_large"
     assert result["comparable_decks"] == []
+
+
+def test_printing_map_size_bound_abstains_and_preserves_results_at_limit(
+    corpus, monkeypatch
+):
+    import sabermetrics.assistant_comparable_decks as module
+
+    path, document = corpus
+    expected = comparable_decks(path, document)
+    count = expected["public_printings_loaded"]
+    monkeypatch.setattr(module, "MAX_PUBLIC_PRINTINGS", count)
+    result = comparable_decks(path, document)
+    assert result["status"] == "available"
+    assert result["comparable_decks"] == expected["comparable_decks"]
+    monkeypatch.setattr(module, "MAX_PUBLIC_PRINTINGS", count - 1)
+    result = comparable_decks(path, document)
+    assert result["status"] == "catalog_too_large"
+    assert result["public_printing_count_is_lower_bound"]
+    assert result["comparable_decks"] == []
+
+
+def test_no_cohort_no_neighbors_and_unknown_freshness_are_independent(corpus):
+    path, document = corpus
+    document["entries"][1]["oracle_id"] = "unrecorded"
+    result = comparable_decks(path, document)
+    assert result["coverage"]["state"] == "eligible_cohort"
+    assert result["coverage"]["neighbor_state"] == "no_neighbors"
+    assert result["coverage"]["source_provenance"]["state"] == "unknown"
+    with sqlite3.connect(path) as conn:
+        conn.execute("DELETE FROM research_results")
+    result = comparable_decks(path, document)
+    assert result["coverage"]["state"] == "no_eligible_cohort"
+    assert result["coverage"]["eligible_lists"] == 0
+    assert result["coverage"]["neighbor_state"] == "no_neighbors"
+    assert len(result["coverage"]["alternative_windows"]["windows"]) <= 2
+
+
+def test_composition_identity_is_stable_and_scoped_to_eligible_memberships(corpus):
+    path, document = corpus
+    original = comparable_decks(path, document)["coverage"]["content_identity"]
+    with sqlite3.connect(path) as conn:
+        conn.execute("INSERT INTO deck_cards VALUES('private-only','b',1,0)")
+        conn.execute("INSERT INTO deck_cards VALUES('0','a2',4,0)")
+    assert comparable_decks(path, document)["coverage"]["content_identity"] == original
+    with sqlite3.connect(path) as conn:
+        conn.execute("INSERT INTO deck_cards VALUES('19','b',1,0)")
+    assert comparable_decks(path, document)["coverage"]["content_identity"] != original

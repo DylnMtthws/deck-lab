@@ -154,6 +154,13 @@ def _draw_accounting(card: dict[str, Any]) -> dict[str, Any]:
         return result
     line = draw_lines[0]
     cost, effect = line.split(":", 1)
+    if not re.fullmatch(
+        r"\s*(?:you )?draw " + _COUNT + r" cards?"
+        r"(?:,?\s+then (?:you )?discard " + _COUNT + r" cards?)?\.\s*",
+        effect,
+        re.IGNORECASE,
+    ):
+        return result
     draw = re.search(r"\b(?:you )?draw " + _COUNT + r" cards?\b", effect, re.IGNORECASE)
     if draw is None or re.search(
         r"target player|each player|opponent|that many|for each|\bX\b",
@@ -381,6 +388,20 @@ def candidate_suitability(
             focus=focus,
         )
         result["recommendation_packet"] = compact_recommendation_packet(packet)
+    from sabermetrics.assistant_strategic_obligations import (
+        build_strategic_obligations,
+        compact_strategic_obligations,
+    )
+
+    result["strategic_obligations"] = compact_strategic_obligations(
+        build_strategic_obligations(
+            card,
+            focus,
+            suitability=result,
+            packet=packet if include_packet else None,
+            deck_entries=index.get("entries"),
+        )
+    )
     return result
 
 

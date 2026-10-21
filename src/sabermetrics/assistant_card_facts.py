@@ -59,32 +59,59 @@ def import_snapshot(
     Inline rulings must carry oracle_id, source, published_at and comment.
     observed_at is the source snapshot date supplied by its operator, not mtime.
     """
-    raw = Path(snapshot_path).read_bytes()
-    digest = hashlib.sha256(raw).hexdigest()
-    payload = json.loads(raw)
-    cards = payload.get("data") if isinstance(payload, dict) else payload
-    if not isinstance(cards, list) or not cards:
-        raise ValueError("Snapshot must contain a nonempty Scryfall card array")
+    from sabermetrics.assistant_knowledge_refresh import iter_card_file
+
+    def file_hash() -> str:
+        digest = hashlib.sha256()
+        with Path(snapshot_path).open("rb") as source:
+            while chunk := source.read(65536):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    digest = file_hash()
     observed_at, retrieved_at = _date(observed_at), _date(retrieved_at)
     imported_at = datetime.now(UTC).isoformat()
     with sqlite3.connect(db_path) as db:
         db.execute("BEGIN IMMEDIATE")
-        # Validate the entire input before modifying any evidence.
-        records, seen = [], set()
-        mapped_ids: set[str] = set()
-        mappings: list[tuple[str, str, str]] = []
-        oracle_counts: dict[str, int] = {}
-        for item in cards:
-            if isinstance(item, dict) and isinstance(item.get("oracle_id"), str):
-                oracle = item["oracle_id"]
-                oracle_counts[oracle] = oracle_counts.get(oracle, 0) + 1
-        for card in cards:
-            if not isinstance(card, dict) or card.get("object") != "card":
+        # Stage to disk so a complete catalog snapshot is never held in Python.
+        # No persistent evidence is modified until every record is validated.
+        db.execute("PRAGMA temp_store=FILE")
+        db.execute(
+            "CREATE TEMP TABLE incoming_cards (printing_id TEXT PRIMARY KEY,oracle_id TEXT,payload TEXT NOT NULL)"
+        )
+        db.execute("CREATE INDEX incoming_oracles ON incoming_cards(oracle_id)")
+        db.execute(
+            "CREATE TEMP TABLE incoming_facts (catalog_id TEXT PRIMARY KEY,printing_id TEXT NOT NULL,payload TEXT NOT NULL)"
+        )
+        count = 0
+        for card in iter_card_file(snapshot_path, data_object=True):
+            if card.get("object") != "card":
                 raise ValueError("Expected Scryfall card objects")
             card_id = card.get("id")
-            if not isinstance(card_id, str) or not card_id or card_id in seen:
+            if not isinstance(card_id, str) or not card_id:
                 raise ValueError("Missing or duplicate printing identity")
-            seen.add(card_id)
+            if not isinstance(card.get("oracle_id"), str):
+                raise ValueError("Missing Oracle identity")  # noqa: TRY004
+            try:
+                db.execute(
+                    "INSERT INTO incoming_cards VALUES (?,?,?)",
+                    (
+                        card_id,
+                        card.get("oracle_id"),
+                        json.dumps(card, ensure_ascii=False),
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                raise ValueError("Missing or duplicate printing identity") from None
+            count += 1
+        if not count:
+            raise ValueError("Snapshot must contain a nonempty Scryfall card array")
+        if file_hash() != digest:
+            raise ValueError("Snapshot changed during import")
+        for card_id, payload in db.execute(
+            "SELECT printing_id,payload FROM incoming_cards"
+        ):
+            card = json.loads(payload)
             row = db.execute(
                 "SELECT oracle_id,name FROM cards WHERE id=?", (card_id,)
             ).fetchone()
@@ -99,15 +126,15 @@ def import_snapshot(
                 ).fetchone()
                 if row is None:
                     raise ValueError(f"Printing absent from catalog: {card_id}")
-                if oracle_counts[oracle_id] > 1:
+                if (
+                    db.execute(
+                        "SELECT count(*) FROM incoming_cards WHERE oracle_id=?",
+                        (oracle_id,),
+                    ).fetchone()[0]
+                    > 1
+                ):
                     raise ValueError("Ambiguous printings for Oracle-keyed catalog row")
                 catalog_id = oracle_id
-            if catalog_id in mapped_ids:
-                raise ValueError(
-                    "Multiple source printings mapped to one catalog identity"
-                )
-            mapped_ids.add(catalog_id)
-            mappings.append((digest, catalog_id, card_id))
             if row[0] != card.get("oracle_id") or row[1] != card.get("name"):
                 raise ValueError(f"Catalog identity mismatch: {card_id}")
             rulings = card.get("rulings", [])
@@ -150,7 +177,15 @@ def import_snapshot(
                 {k: r[k] for k in ("oracle_id", "source", "published_at", "comment")}
                 for r in rulings
             ]
-            records.append((catalog_id, json.dumps(selected, ensure_ascii=False)))
+            try:
+                db.execute(
+                    "INSERT INTO incoming_facts VALUES (?,?,?)",
+                    (catalog_id, card_id, json.dumps(selected, ensure_ascii=False)),
+                )
+            except sqlite3.IntegrityError:
+                raise ValueError(
+                    "Multiple source printings mapped to one catalog identity"
+                ) from None
         db.execute(
             "CREATE TABLE IF NOT EXISTS assistant_fact_snapshots "
             "(content_hash TEXT PRIMARY KEY, version TEXT, observed_at TEXT, retrieved_at TEXT, imported_at TEXT NOT NULL)"
@@ -169,9 +204,9 @@ def import_snapshot(
             "(snapshot_hash TEXT NOT NULL, catalog_id TEXT NOT NULL, printing_id TEXT NOT NULL, "
             "PRIMARY KEY(snapshot_hash,catalog_id))"
         )
-        db.executemany(
-            "INSERT OR IGNORE INTO assistant_card_fact_printings VALUES (?,?,?)",
-            mappings,
+        db.execute(
+            "INSERT OR IGNORE INTO assistant_card_fact_printings SELECT ?,catalog_id,printing_id FROM incoming_facts",
+            (digest,),
         )
         existing = db.execute(
             "SELECT version,observed_at,retrieved_at FROM assistant_fact_snapshots WHERE content_hash=?",
@@ -186,12 +221,12 @@ def import_snapshot(
             "INSERT OR IGNORE INTO assistant_fact_snapshots VALUES (?,?,?,?,?)",
             (digest, version, observed_at, retrieved_at, imported_at),
         )
-        db.executemany(
-            "INSERT OR IGNORE INTO assistant_card_facts VALUES (?,?,?)",
-            [(digest, card_id, data) for card_id, data in records],
+        db.execute(
+            "INSERT OR IGNORE INTO assistant_card_facts SELECT ?,catalog_id,payload FROM incoming_facts",
+            (digest,),
         )
         if not allow_older:
-            for card_id, _ in records:
+            for (card_id,) in db.execute("SELECT catalog_id FROM incoming_facts"):
                 current = db.execute(
                     "SELECT s.observed_at,c.snapshot_hash FROM assistant_card_fact_current c JOIN assistant_fact_snapshots s ON s.content_hash=c.snapshot_hash WHERE c.card_id=?",
                     (card_id,),
@@ -207,13 +242,13 @@ def import_snapshot(
                     raise ValueError(
                         "Older or undated snapshot cannot supersede dated current evidence without allow_older"
                     )
-        db.executemany(
-            "INSERT OR REPLACE INTO assistant_card_fact_current VALUES (?,?)",
-            [(card_id, digest) for card_id, _ in records],
+        db.execute(
+            "INSERT OR REPLACE INTO assistant_card_fact_current SELECT catalog_id,? FROM incoming_facts",
+            (digest,),
         )
     return {
         "content_hash": digest,
-        "cards": len(records),
+        "cards": count,
         "observed_at": observed_at,
         "retrieved_at": retrieved_at,
         "version": version,

@@ -195,8 +195,14 @@ class AssistantStore:
     def finish(self, owner_id: str, deck_id: str, turn_id: str, message: dict):
         def change(p):
             if p["turn_id"] == turn_id and p["busy"]:
+                item = copy.deepcopy(message)
+                research = item.get("research") or {}
+                if research.get("memory_capture") and research.get("reviewed_episode"):
+                    # This is part of the same atomic session write; a failed
+                    # transaction cannot publish a persisted receipt.
+                    research["memory_capture"]["persistence_status"] = "persisted"
                 p["messages"].append(
-                    dict(message, id=uuid.uuid4().hex, created_at=time.time())
+                    dict(item, id=uuid.uuid4().hex, created_at=time.time())
                 )
                 p["busy"] = False
 

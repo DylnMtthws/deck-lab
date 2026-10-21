@@ -61,6 +61,7 @@ from sabermetrics.assistant_research_task import (
 from sabermetrics.assistant_research_task import (
     progress as research_progress,
 )
+from sabermetrics.assistant_runtime_timing import timing_coverage, timing_window
 from sabermetrics.assistant_session_state import (
     compact_preferences,
     load_session_state,
@@ -97,7 +98,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v33"
+PROMPT_VERSION = "build-conversation.v34"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -2357,6 +2358,7 @@ def run_turn(
                 )
 
                 system = SELECTION_SYSTEM
+                selection_evidence_started = time.monotonic()
                 try:
                     encoded, selection_ledger = selection_payload(
                         current_request,
@@ -2373,6 +2375,17 @@ def run_turn(
                     raise AssistantBudgetExceeded(
                         "Selection evidence exceeds the context limit."
                     ) from exc
+                stage_timings.append(
+                    {
+                        "stage": "selection_evidence",
+                        **timing_window(started, selection_evidence_started),
+                        "elapsed_seconds": round(
+                            time.monotonic() - selection_evidence_started, 3
+                        ),
+                        "input_chars": len(encoded),
+                        "retained_candidates": len(selection_ledger.candidates),
+                    }
+                )
                 output_budget = 4096
                 if not selection_ledger.candidates:
                     tools.check()
@@ -2475,6 +2488,7 @@ def run_turn(
                             )
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
+                        **timing_window(started, call_started),
                         "input_chars": len(encoded),
                         "output_token_budget": output_budget,
                         "evidence_hash": request.evidence_hash,
@@ -2506,6 +2520,7 @@ def run_turn(
                             )
                         ),
                         "elapsed_seconds": round(time.monotonic() - call_started, 3),
+                        **timing_window(started, call_started),
                         "input_chars": len(encoded),
                         "output_token_budget": output_budget,
                         "evidence_hash": request.evidence_hash,
@@ -3212,6 +3227,7 @@ def run_turn(
                             }
                         )
                         continue
+                render_started = time.monotonic()
                 if step.discovery_answer is not None and step.discovery_answer.notes:
                     from sabermetrics.assistant_suitability import render_fit_reason
 
@@ -3331,6 +3347,13 @@ def run_turn(
                             "next_action": grounded[-1],
                         }
                     )
+                stage_timings.append(
+                    {
+                        "stage": "render_and_validate",
+                        **timing_window(started, render_started),
+                        "elapsed_seconds": round(time.monotonic() - render_started, 3),
+                    }
+                )
                 # The injected conversational gateway is isolated from the review
                 # seam in offline tests; production reuses the pinned costed gateway.
                 checker = answer_review_gateway or (gateway if owns_gateway else None)
@@ -3454,45 +3477,46 @@ def run_turn(
                                 time.monotonic() - evidence_started, 3
                             ),
                             "refreshed_cards": len(review_cards),
+                            **timing_window(started, evidence_started),
                         }
                     )
                     review_started = time.monotonic()
+                    review_function: Callable[..., tuple[list[str], dict[str, Any]]]
                     if selected_before_prose:
                         from sabermetrics.assistant_claim_review import review_claims
 
                         review_function = review_claims
                     else:
                         review_function = review_answer
-                    review_sources = evidence_sources(
+                    review_sources: list[str] = evidence_sources(
                         document, actions, parts, review_rules, review_cards
                     )
+                    review_context = {
+                        "preferences": state["conversation_context"]["preferences"],
+                        "task": state.get("answer_obligations", {}),
+                        "narrow_unverified": selected_before_prose,
+                        "recommendation_packets": [
+                            {
+                                "incoming": p["incoming"].get("name"),
+                                "prerequisites": p["prerequisites"][:6],
+                                "counterevidence": p["counterevidence"][:3],
+                                "unresolved_questions": p["unresolved_questions"][:4],
+                                "coverage": p["coverage"],
+                            }
+                            for p in result.get("research", {}).get(
+                                "recommendation_packets", []
+                            )
+                        ],
+                        "empirical_receipts": _empirical_receipts(
+                            actions, result["revision"]
+                        ),
+                    }
                     corrected, receipt = review_function(
                         checker,
                         parts,
                         review_sources,
                         current_request,
-                        research_context={
-                            "preferences": state["conversation_context"]["preferences"],
-                            "task": state.get("answer_obligations", {}),
-                            "narrow_unverified": selected_before_prose,
-                            "recommendation_packets": [
-                                {
-                                    "incoming": p["incoming"].get("name"),
-                                    "prerequisites": p["prerequisites"][:6],
-                                    "counterevidence": p["counterevidence"][:3],
-                                    "unresolved_questions": p["unresolved_questions"][
-                                        :4
-                                    ],
-                                    "coverage": p["coverage"],
-                                }
-                                for p in result.get("research", {}).get(
-                                    "recommendation_packets", []
-                                )
-                            ],
-                            "empirical_receipts": _empirical_receipts(
-                                actions, result["revision"]
-                            ),
-                        },
+                        research_context=review_context,
                         protected_parts=(
                             {
                                 i
@@ -3511,6 +3535,7 @@ def run_turn(
                                 time.monotonic() - review_started, 3
                             ),
                             "status": receipt.get("status"),
+                            **timing_window(started, review_started),
                         }
                     )
                     if externally_stopped():
@@ -3528,6 +3553,65 @@ def run_turn(
                             raise RevisionConflict(int(current["revision"]))
                     else:
                         tools.check()
+                    if selected_before_prose:
+                        from sabermetrics.assistant_claim_fragments import (
+                            reviewed_sections,
+                        )
+
+                        checked_sections = reviewed_sections(parts, corrected, receipt)
+                        if checked_sections:
+                            emit(
+                                {
+                                    "type": "partial_finding",
+                                    "name": "reviewed_sections",
+                                    "ok": True,
+                                    "content": "Evidence-checked fragments; the remaining claims are still under review.\n\n"
+                                    + "\n\n".join(checked_sections[:3]),
+                                    "data": {
+                                        "source_scope": "reviewed fragments",
+                                        "fulfillment": "pending",
+                                        "revision": result["revision"],
+                                    },
+                                }
+                            )
+                    if selected_before_prose and receipt.get("claim_judgments"):
+                        from sabermetrics.assistant_corrective_review import (
+                            corrective_review,
+                        )
+
+                        corrective_started = time.monotonic()
+                        corrected, review_sources, receipt = corrective_review(
+                            checker,
+                            Path(db_path),
+                            parts,
+                            corrected,
+                            review_sources,
+                            receipt,
+                            current_request,
+                            review_cards,
+                            document,
+                            check_current=tools.check,
+                            can_review=lambda: time.monotonic() - started
+                            < MAX_TURN_SECONDS - 60,
+                            research_context=review_context,
+                        )
+                        stage_timings.append(
+                            {
+                                "stage": "corrective_review",
+                                **timing_window(started, corrective_started),
+                                "elapsed_seconds": round(
+                                    time.monotonic() - corrective_started, 3
+                                ),
+                                "status": receipt.get("corrective_retrieval", {}).get(
+                                    "review_status"
+                                ),
+                                "lookups": len(
+                                    receipt.get("corrective_retrieval", {}).get(
+                                        "lookups", []
+                                    )
+                                ),
+                            }
+                        )
                     if selected_before_prose:
                         from sabermetrics.assistant_review_followthrough import (
                             narrow_unverified_findings,
@@ -3797,9 +3881,10 @@ def run_turn(
                     result["research"][
                         "selected_candidates"
                     ] = step.discovery_answer.model_dump()
-                    from sabermetrics.assistant_episodes import capture_episode
+                    from sabermetrics.assistant_episodes import capture_episode_receipt
 
-                    episode = capture_episode(
+                    memory_started = time.monotonic()
+                    memory_capture = capture_episode_receipt(
                         document,
                         current_request,
                         source_cards,
@@ -3810,8 +3895,17 @@ def run_turn(
                         claim_parts=reviewed_claim_parts,
                         db_path=db_path,
                     )
+                    episode = memory_capture.pop("episode", None)
+                    result["research"]["memory_capture"] = memory_capture
                     if episode is not None:
                         result["research"]["reviewed_episode"] = episode
+                    stage_timings.append(
+                        {
+                            "stage": "memory_capture",
+                            **memory_capture,
+                            **timing_window(started, memory_started),
+                        }
+                    )
                 result["status"] = (
                     "done"
                     if answer
@@ -4238,6 +4332,7 @@ def run_turn(
                         {
                             "stage": "tool",
                             "name": call.name,
+                            **timing_window(started, tool_started),
                             "elapsed_seconds": round(
                                 time.monotonic() - tool_started, 3
                             ),
@@ -4305,6 +4400,7 @@ def run_turn(
                         {
                             "stage": "tool",
                             "name": call.name,
+                            **timing_window(started, tool_started),
                             "elapsed_seconds": round(
                                 time.monotonic() - tool_started, 3
                             ),
@@ -4446,6 +4542,13 @@ def run_turn(
                 "elapsed_seconds": round(time.monotonic() - started, 3),
                 "prompt_version": PROMPT_VERSION,
                 "stages": locals().get("stage_timings", []),
+                "timing_coverage": timing_coverage(
+                    time.monotonic() - started,
+                    [
+                        *locals().get("stage_timings", []),
+                        *locals().get("model_observations", []),
+                    ],
+                ),
             }
             result["research"]["source_card_ids"] = list(
                 dict.fromkeys(

@@ -359,3 +359,169 @@ def test_invalid_observation_dates_do_not_fabricate_stability(corpus):
     assert result["status"] == "available"
     assert result["temporal_diagnostics"]["reason"] == "invalid_observation_date"
     assert result["associations"][0]["temporal_stability"]["state"] == "insufficient"
+
+
+def test_coverage_unknown_lineage_and_no_eligible_cohort_are_distinct(corpus):
+    path, document = corpus
+    result = research_card_associations(path, document, "oa")
+    coverage = result["coverage"]
+    assert coverage["eligible_lists"] == 20
+    assert coverage["source_provenance"]["state"] == "unknown"
+    assert coverage["source_provenance"]["generation"] is None
+    assert coverage["source_provenance"]["upstream_fetched_at"] is None
+    assert coverage["content_identity"]["sha256"] == result["aggregate_sha256"]
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE research_results SET tournament_date='2000-01-01'")
+    result = research_card_associations(path, document, "oa")
+    assert result["status"] == "insufficient_sample"
+    assert result["coverage"]["state"] == "no_eligible_cohort"
+    assert result["coverage"]["eligible_lists"] == 0
+    assert result["source_freshness"] == "unknown"
+
+
+def test_sparse_alternative_windows_preserve_scope_and_do_not_supply_leads(corpus):
+    from datetime import timedelta
+
+    path, document = corpus
+    document["entries"].append(
+        {"card_id": "partner", "oracle_id": "opartner", "is_commander": True}
+    )
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE research_results SET tournament_date=?",
+            ((date.today() - timedelta(days=15)).isoformat(),),
+        )
+        conn.executemany(
+            "INSERT INTO deck_cards VALUES(?,'partner',1,1)",
+            [(str(i),) for i in range(12)],
+        )
+        conn.execute("UPDATE tournament_results SET player_count=1 WHERE id='11'")
+    result = research_card_associations(path, document, "oa", window_days=7)
+    assert result["cohort_lists"] == 0
+    assert result["associations"] == []
+    alternative = result["coverage"]["alternative_windows"]
+    assert alternative["state"] == "available"
+    assert [w["window_days"] for w in alternative["windows"]] == [30, 90]
+    assert [w["eligible_lists"] for w in alternative["windows"]] == [11, 11]
+    assert all(not w["count_is_lower_bound"] for w in alternative["windows"])
+
+
+def test_recorded_local_refresh_counts_are_not_upstream_freshness(corpus):
+    import json
+
+    path, document = corpus
+    stamp = "2026-10-19T12:30:00+00:00"
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "CREATE TABLE research_source_state(id INTEGER PRIMARY KEY, state_json TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO research_source_state VALUES(1,?)",
+            (
+                json.dumps(
+                    {
+                        "refreshed_at": stamp,
+                        "cards": 40,
+                        "decks": 25,
+                        "entries": 26,
+                        "deck_cards": 100,
+                        "latest_event": date.today().isoformat(),
+                        "unrelated": "ignored",
+                        "min_event_size": 16,
+                    }
+                ),
+            ),
+        )
+    result = research_card_associations(path, document, "oa")
+    provenance = result["coverage"]["source_provenance"]
+    assert provenance["state"] == "recorded_local_refresh"
+    assert provenance["local_refreshed_at"] == stamp
+    assert provenance["recorded_min_event_size"] == 16
+    assert provenance["recorded_snapshot_counts"] == {
+        "cards": 40,
+        "decks": 25,
+        "entries": 26,
+        "deck_cards": 100,
+    }
+    assert provenance["generation"] is provenance["upstream_fetched_at"] is None
+    assert result["source_freshness"] == "unknown"
+    assert result["cohort_lists"] == 20
+
+
+@pytest.mark.parametrize(
+    "state", ["not json", "[]", '{"refreshed_at":"2026-10-19"}', "x" * 5000]
+)
+def test_missing_or_invalid_refresh_receipts_do_not_certify_freshness(corpus, state):
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "CREATE TABLE research_source_state(id INTEGER PRIMARY KEY, state_json TEXT)"
+        )
+        conn.execute("INSERT INTO research_source_state VALUES(1,?)", (state,))
+    result = research_card_associations(path, document, "oa")
+    assert result["status"] == "available"
+    assert result["coverage"]["source_provenance"]["state"] == "unknown"
+    assert result["coverage"]["source_provenance"]["local_refreshed_at"] is None
+
+
+def test_available_path_does_not_scan_alternative_windows(corpus, monkeypatch):
+    import sabermetrics.assistant_associations as module
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("ordinary cohorts must not run alternative counts")
+
+    monkeypatch.setattr(module, "alternative_windows", unexpected)
+    path, document = corpus
+    assert research_card_associations(path, document, "oa")["status"] == "available"
+
+
+def test_alternative_counts_abstain_at_deadline_without_losing_exact_count(
+    corpus, monkeypatch
+):
+    import sabermetrics.assistant_associations as module
+    import sabermetrics.assistant_cohort_coverage as coverage_module
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        conn.execute("DELETE FROM research_results WHERE CAST(id AS INT)>=5")
+    original = coverage_module.alternative_windows
+
+    def expired(conn, receipt, **kwargs):
+        original(conn, receipt, **{**kwargs, "deadline": -1})
+
+    monkeypatch.setattr(module, "alternative_windows", expired)
+    result = research_card_associations(path, document, "oa")
+    assert result["status"] == "insufficient_sample"
+    assert result["coverage"]["eligible_lists"] == 5
+    assert result["coverage"]["alternative_windows"]["state"] == "query_budget_exceeded"
+    assert result["coverage"]["alternative_windows"]["windows"] == []
+    assert result["associations"] == []
+
+
+def test_alternative_count_bound_is_explicit_and_all_time_has_no_broader_window(
+    corpus, monkeypatch
+):
+    from datetime import timedelta
+
+    import sabermetrics.assistant_associations as module
+
+    path, document = corpus
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE research_results SET tournament_date=?",
+            ((date.today() - timedelta(days=15)).isoformat(),),
+        )
+    monkeypatch.setattr(module, "MAX_COHORT", 10)
+    result = research_card_associations(path, document, "oa", window_days=7)
+    assert result["cohort_lists"] == 0
+    assert all(
+        w["eligible_lists"] == 11 and w["count_is_lower_bound"]
+        for w in result["coverage"]["alternative_windows"]["windows"]
+    )
+    with sqlite3.connect(path) as conn:
+        conn.execute("DELETE FROM research_results")
+    result = research_card_associations(path, document, "oa", window_days=0)
+    assert (
+        result["coverage"]["alternative_windows"]["state"]
+        == "no_broader_supported_window"
+    )

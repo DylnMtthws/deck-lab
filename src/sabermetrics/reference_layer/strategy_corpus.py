@@ -119,6 +119,10 @@ def ingest_text(
     source_class: str = "",
     primary_links: list[dict[str, str]] | None = None,
     limitations: str = "",
+    permission_basis: str = "",
+    review_status: str = "not_recorded",
+    license_url: str = "",
+    attribution_url: str = "",
 ) -> int:
     """Store exact contiguous chunks and provenance, replacing this source version.
 
@@ -160,6 +164,10 @@ def ingest_text(
             "source_class": source_class or source_kind,
             "primary_links": primary_links or [],
             "limitations": limitations,
+            "permission_basis": permission_basis,
+            "review_status": review_status,
+            "license_url": license_url,
+            "attribution_url": attribution_url,
         },
         sort_keys=True,
     )

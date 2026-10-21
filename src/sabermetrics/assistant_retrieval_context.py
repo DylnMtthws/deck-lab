@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import heapq
 import json
 import os
+import sqlite3
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sabermetrics.assistant_card_views import retrieve_card_views
+from sabermetrics.assistant_card_views import build_card_views, retrieve_card_views
+from sabermetrics.assistant_view_index import ViewQuerySession
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 MAX_VIEW_NOMINATIONS = 24
@@ -26,6 +29,7 @@ def _load(path: str, modified: int, size: int) -> dict[str, Any]:
         not isinstance(value, dict)
         or not isinstance(value.get("records"), list)
         or len(value["records"]) > 10000
+        or not all(isinstance(row, dict) for row in value["records"])
     ):
         raise ValueError("View index is malformed or exceeds record budget")
     return value
@@ -36,6 +40,9 @@ def _index_path(db_path: str | Path | None = None) -> str:
     if explicit:
         return explicit
     if db_path is not None:
+        adjacent = Path(db_path).parent / "assistant-card-view-vectors.sqlite"
+        if adjacent.is_file():
+            return str(adjacent)
         adjacent = Path(db_path).parent / "assistant-card-view-vectors.json"
         if adjacent.is_file():
             return str(adjacent)
@@ -52,13 +59,27 @@ def enrich_shortlist(
         try:
             p = Path(configured)
             stat = p.stat()
-            artifact = _load(str(p.resolve()), stat.st_mtime_ns, stat.st_size)
+            artifact = (
+                str(p)
+                if _sqlite(p)
+                else _load(str(p.resolve()), stat.st_mtime_ns, stat.st_size)
+            )
             availability = "loaded"
         except (OSError, ValueError, TypeError):
             availability = "unavailable"
     if not cards or not query.strip():
         return {"status": "no_candidates", "artifact_status": availability}
-    result = retrieve_card_views(cards[:64], query[:320], vector_artifact=artifact)
+    session = None
+    try:
+        if artifact:
+            session = ViewQuerySession(artifact, query[:320])
+        result = retrieve_card_views(cards[:64], query[:320], vector_session=session)
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, sqlite3.Error):
+        availability = "unavailable"
+        result = retrieve_card_views(cards[:64], query[:320])
+    finally:
+        if session is not None:
+            session.close()
     by_oracle = {c.get("oracle_id"): c for c in cards if c.get("oracle_id")}
     for row in result["results"]:
         views = row["card_views"]
@@ -91,7 +112,7 @@ def recall_view_scores(
     """Semantic view recall BEFORE shortlist bounds, over already eligible IDs.
 
     The artifact nominates identities only; current catalog facts and every view
-    hash are validated by retrieve_card_views before scores can influence recall.
+    hash are validated by ViewQuerySession before scores can influence recall.
     """
     configured = _index_path(db_path)
     receipt: dict[str, Any] = {
@@ -108,47 +129,55 @@ def recall_view_scores(
     try:
         p = Path(configured)
         stat = p.stat()
-        artifact = _load(str(p.resolve()), stat.st_mtime_ns, stat.st_size)
-        ids = {
-            str(row["oracle_id"])
-            for row in artifact["records"]
-            if isinstance(row, dict) and row.get("oracle_id")
-        }
-        if not ids:
+        artifact = (
+            str(p)
+            if _sqlite(p)
+            else _load(str(p.resolve()), stat.st_mtime_ns, stat.st_size)
+        )
+        if isinstance(artifact, dict) and not any(
+            row.get("oracle_id") for row in artifact["records"]
+        ):
             return {}, {**receipt, "status": "legacy_index_requires_rebuild"}
-        selected = [card for oid, card in cards.items() if oid in ids]
-        receipt["indexed_eligible_cards"] = len(selected)
-        scores: dict[str, float] = {}
-        for offset in range(0, len(selected), 64):
-            found = retrieve_card_views(
-                selected[offset : offset + 64],
-                query[:320],
-                limit=8,
-                vector_artifact=artifact,
-                all_matches=True,
-            )
-            for row in found["results"]:
-                oid = str(
-                    row["card_views"]["views"]["printed_effect"]["facts"].get(
-                        "oracle_id"
-                    )
-                    or ""
+        with_session = ViewQuerySession(artifact, query[:320])
+        try:
+            receipt["generation"] = with_session.meta.get("generation")
+            receipt["refresh_success_at"] = with_session.meta.get("refresh_success_at")
+            receipt["source"] = with_session.meta.get("source", {})
+
+            def scored():
+                for oid, card in cards.items():
+                    if str(card.get("oracle_id") or "") != str(oid):
+                        continue
+                    views = build_card_views(card)
+                    similarities = with_session.similarities(views)
+                    if similarities:
+                        receipt["indexed_eligible_cards"] += 1
+                    score = max(similarities.values(), default=0)
+                    if score > 0:
+                        receipt["positive_scored_cards"] += 1
+                        yield str(oid), score
+
+            receipt["positive_scored_cards"] = 0
+            # nsmallest retains only 24 rows while visiting the complete pool.
+            scores = dict(
+                heapq.nsmallest(
+                    MAX_VIEW_NOMINATIONS, scored(), key=lambda item: (-item[1], item[0])
                 )
-                score = max(row["view_cosines"].values(), default=0)
-                if score > 0:
-                    scores[oid] = max(scores.get(oid, 0), score)
-        compatible = len(scores)
-        scores = dict(
-            sorted(scores.items(), key=lambda item: (-item[1], item[0]))[
-                :MAX_VIEW_NOMINATIONS
-            ]
-        )
-        receipt.update(
-            status="available" if scores else "no_compatible_semantic_matches",
-            scored_cards=len(scores),
-            positive_scored_cards=compatible,
-            omitted_nominations=max(0, compatible - len(scores)),
-        )
+            )
+            receipt.update(
+                status="available" if scores else "no_compatible_semantic_matches",
+                scored_cards=len(scores),
+                omitted_nominations=max(
+                    0, receipt["positive_scored_cards"] - len(scores)
+                ),
+            )
+        finally:
+            with_session.close()
         return scores, receipt
-    except (OSError, ValueError, TypeError, KeyError):
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, sqlite3.Error):
         return {}, {**receipt, "status": "unavailable"}
+
+
+def _sqlite(path: Path) -> bool:
+    with path.open("rb") as stream:
+        return stream.read(16) == b"SQLite format 3\x00"

@@ -32,6 +32,15 @@ _FUNCTIONS = {
 _TYPES = r"creatures?|artifacts?|enchantments?|instants?|sorceries|sorcery|lands?|planeswalkers?|battles?|permanents?"
 
 
+def literal_goal_functions(positive_text: str) -> set[str]:
+    """Shared literal vocabulary; callers supply positive, normalized scope."""
+    return {
+        function
+        for function, pattern in _FUNCTIONS.items()
+        if re.search(pattern, positive_text, re.IGNORECASE)
+    }
+
+
 def compile_search_goal(quote: str, request: str = "") -> SearchGoal:
     """Only literal positive discovery language can override a planner's filters.
 
@@ -52,10 +61,10 @@ def compile_search_goal(quote: str, request: str = "") -> SearchGoal:
         flags=re.IGNORECASE,
     )
     text = positive_focus(normalized_quote.replace("‑", "-").replace("–", "-"))
-    functions = [f for f, pattern in _FUNCTIONS.items() if re.search(pattern, text)]
+    functions = literal_goal_functions(text)
     if len(functions) != 1:
         return SearchGoal(status="ambiguous")
-    function = functions[0]
+    function = next(iter(functions))
     # Ancillary questions about costs/drawbacks must not become extra card types.
     head = re.split(r"[.!?;]", text, maxsplit=1)[0]
     head = re.split(r"\b(?:for|using|in|with)\b", head, maxsplit=1)[0]

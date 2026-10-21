@@ -225,3 +225,28 @@ def test_normalized_representations_do_not_report_false_difference(evidence):
     snapshot.write_text(json.dumps([card]))
     import_snapshot(db, snapshot)
     assert card_facts(db, "printing")["provenance"]["catalog_differences"] == []
+
+
+def test_snapshot_streams_wrapped_array_without_whole_file_read(evidence, monkeypatch):
+    from pathlib import Path
+
+    db, snapshot, card = evidence
+    snapshot.write_text(
+        json.dumps(
+            {"description": "approved snapshot", "data": [card], "version": "v1"}
+        )
+    )
+    monkeypatch.setattr(
+        Path, "read_bytes", lambda *a, **k: pytest.fail("whole snapshot read")
+    )
+    assert import_snapshot(db, snapshot)["cards"] == 1
+    assert card_facts(db, "printing")["status"] == "canonical_snapshot"
+
+
+def test_malformed_stream_suffix_never_changes_current_snapshot(evidence):
+    db, snapshot, card = evidence
+    previous = import_snapshot(db, snapshot)["content_hash"]
+    snapshot.write_text(json.dumps([{**card, "oracle_text": "changed"}]) + " malformed")
+    with pytest.raises(ValueError):
+        import_snapshot(db, snapshot)
+    assert card_facts(db, "printing")["provenance"]["content_hash"] == previous

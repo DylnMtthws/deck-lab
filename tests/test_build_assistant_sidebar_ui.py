@@ -616,6 +616,12 @@ assert.equal(findingSections().length, 2);
 assert.match(findingSections()[0].textContent, /Research update.*Comparing retrieved evidence/);
 assert.match(findingSections()[1].textContent, /Preliminary deck fit.*not a ranked recommendation/);
 assert.equal(steps(activities()[0]).length, 0);
+data.messages.push(finding('f5', 'reviewed fragments', 'Supported cost and conditional effect.'));
+renderMessages();
+assert.equal(findingSections().length, 3);
+assert.match(findingSections()[2].textContent, /Checked findings/);
+assert.match(findingSections()[2].textContent, /remaining claims and request completion are still under review/);
+assert.match(findingSections()[2].textContent, /Supported cost and conditional effect/);
 """.replace("HELPERS", helpers).replace("RENDERER", renderer)
     _run_node(harness)
 

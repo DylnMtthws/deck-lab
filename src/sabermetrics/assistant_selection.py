@@ -18,6 +18,11 @@ from sabermetrics.assistant_discovery_contract import (
     validate_discovery_answer,
 )
 from sabermetrics.assistant_search_goal import compile_search_goal, meets_goal
+from sabermetrics.assistant_strategic_obligations import (
+    build_strategic_obligations,
+    compact_strategic_obligations,
+    strategic_rank_key,
+)
 from sabermetrics.assistant_suitability import render_fit_reason
 
 
@@ -148,6 +153,13 @@ counter renewal as a separate prerequisite when relevant. If a proposed repeatab
 engine lacks prerequisite evidence, describe it as conditional, not established.
 An empty group with a shortfall is valid when no supplied candidate meets its
 search_contract; never select unrelated records to fill a quota.
+Use strategic_obligations as application-owned evidence obligations, not as
+verified overall quality. Address the requested priorities and preserve conditional
+answers when useful. context_omitted means evidence was not supplied;
+support_not_found means bounded checks did not find it, never that none exists.
+Status applies to each stated proposition, not the candidate's overall quality.
+Prefer meaningfully different mechanisms among comparably useful candidates,
+without forcing a diversity quota or promoting weaker choices to fill counts.
 Only select supplied IDs; no duplicates, existing deck cards or excluded IDs.
 Do not duplicate card names/casting costs: code renders those printed fields.
 When repairing, change only invalid selections/assessments, preserving valid ones.
@@ -170,9 +182,22 @@ def selection_payload(
         r.group_id: compile_search_goal(r.request_quote, request) for r in requirements
     }
     order = {cid: i for i, cid in enumerate(priority_ids)}
+    obligations = {
+        c.card_id: build_strategic_obligations(
+            sources.get(c.card_id, {}),
+            request,
+            deck_entries=deck_entries,
+        )
+        for c in ledger.candidates
+        if c.card_id not in excluded and not c.in_deck
+    }
     candidates = sorted(
         (c for c in ledger.candidates if c.card_id not in excluded and not c.in_deck),
-        key=lambda c: (order.get(c.card_id, len(order)), c.rank),
+        key=lambda c: (
+            strategic_rank_key(obligations[c.card_id]),
+            order.get(c.card_id, len(order)),
+            c.rank,
+        ),
     )
     # Filter older/restored and search_cards receipts as well as fresh functional
     # results. Canonical identity/count validation cannot establish role/type fit.
@@ -218,6 +243,8 @@ def selection_payload(
         record: dict[str, Any] = {
             key: card[key]
             for key in (
+                "id",
+                "oracle_id",
                 "card_id",
                 "name",
                 "is_commander",
@@ -237,6 +264,11 @@ def selection_payload(
             deck_sources.append(record)
     payload: dict[str, Any] = {
         "request": request,
+        "strategic_obligation_vocabulary": {
+            "scope": "Statuses apply to vocabulary.propositions by dimension; condition_refs index vocabulary.conditions. evidence_refs index each candidate contract's evidence; source spans use exact fields and sha256, never abbreviated ledger text.",
+            "propositions": {},
+            "conditions": [],
+        },
         "requirements": [r.model_dump() for r in requirements],
         "preferences": preferences,
         "search_contracts": {gid: goal.model_dump() for gid, goal in goals.items()},
@@ -249,6 +281,14 @@ def selection_payload(
         ),
         "repair": feedback,
     }
+    # Ranking saw available deck evidence. The model sees only retained whole
+    # records, so recompute source coverage against precisely that smaller view.
+    for candidate in candidates:
+        obligations[candidate.card_id] = build_strategic_obligations(
+            sources.get(candidate.card_id, {}),
+            request,
+            deck_entries=deck_sources if deck_entries is not None else None,
+        )
     retained = []
     for candidate in candidates:
         card = sources.get(candidate.card_id, {})
@@ -276,6 +316,10 @@ def selection_payload(
             ),
             "ability_compatibility": compatibility_summary(
                 card.get("suitability", {}).get("ability_compatibility", {})
+            ),
+            "strategic_obligations": compact_strategic_obligations(
+                obligations[candidate.card_id],
+                vocabulary=payload["strategic_obligation_vocabulary"],
             ),
             "functional_comparison": card.get("functional_comparison"),
             "retrieval_views": card.get("retrieval_views"),

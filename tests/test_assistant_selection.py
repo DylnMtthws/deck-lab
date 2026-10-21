@@ -563,7 +563,9 @@ def test_selection_runtime_uses_focused_review_once(prepared, monkeypatch):
     schema = reviewer.requests[0].schema.model_json_schema()
     assert {"f", "c0", "c1"} <= set(schema["required"])
     assert result["answer_review"]["status"] == "unverified"
-    assert result["answer_review"]["claim_count"] == 2
+    # Each candidate contains two independent sentence fragments. Both remain
+    # reviewed in the single batch, with exact paragraph/span bindings.
+    assert result["answer_review"]["claim_count"] == 4
 
 
 def test_comparing_additional_candidates_still_excludes_prior_picks(

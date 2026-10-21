@@ -16,6 +16,12 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from sabermetrics.assistant_cohort_coverage import (
+    alternative_windows,
+    coverage_receipt,
+    read_source_provenance,
+    record_count,
+)
 from sabermetrics.deck_evidence import (
     _cohort_cte,
     _commanders,
@@ -29,6 +35,7 @@ MAX_COHORT = 2000
 MIN_COHORT = 10
 MIN_SUPPORT = 5
 PRIOR_LISTS = 5
+QUERY_SECONDS = 2.0
 
 
 def _observed_cohort_cte(*, partner: bool, event_column: str | None) -> str:
@@ -183,6 +190,7 @@ def research_card_associations(
         "prior_lists": PRIOR_LISTS,
         "source": "local research_results and deck_cards snapshot",
         "source_freshness": "unknown",
+        "coverage": coverage_receipt(start, end),
         "temporal_diagnostics": {"state": "unavailable"},
         "limitations": [
             "Recorded co-inclusion is association, not mechanical synergy, causality, a combo or measured improvement.",
@@ -191,7 +199,7 @@ def research_card_associations(
             "Candidates require separate current legality, color, Oracle-text and swap validation before recommendation.",
         ],
     }
-    deadline = time.monotonic() + 2
+    deadline = time.monotonic() + QUERY_SECONDS
     try:
         with closing(
             sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1)
@@ -200,6 +208,7 @@ def research_card_associations(
             # Keep the count and membership reads on one consistent snapshot.
             conn.execute("BEGIN")
             conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
+            read_source_provenance(conn, result["coverage"])
             if not _known(conn, commanders):
                 result["status"] = "unknown_commander"
                 return result
@@ -225,6 +234,7 @@ def research_card_associations(
                 [*params, MAX_COHORT + 1],
             ).fetchone()[0]
             result["cohort_lists"] = n
+            record_count(result["coverage"], n, MAX_COHORT, floor)
             if n > MAX_COHORT:
                 result["status"] = "cohort_too_large"
                 result["cohort_count_is_lower_bound"] = True
@@ -234,6 +244,15 @@ def research_card_associations(
                 return result
             if n < MIN_COHORT:
                 result["status"] = "insufficient_sample"
+                alternative_windows(
+                    conn,
+                    result["coverage"],
+                    cte=cte,
+                    params=params,
+                    window_days=window_days,
+                    maximum=MAX_COHORT,
+                    deadline=deadline,
+                )
                 return result
             # No all-pairs matrix: one anchor and at most 2,000 distinct lists.
             rows = conn.execute(
@@ -270,6 +289,10 @@ def research_card_associations(
             result["aggregate_hash_scope"] = (
                 "Cohort and per-Oracle aggregate counts, not a full corpus identity or freshness certification."
             )
+            result["coverage"]["content_identity"] = {
+                "sha256": result["aggregate_sha256"],
+                "scope": result["aggregate_hash_scope"],
+            }
             result["anchor_lists"] = anchor_n
             if anchor_n < MIN_SUPPORT:
                 result["status"] = "insufficient_anchor_sample"
@@ -369,6 +392,8 @@ def research_card_associations(
         )
         result["associations"] = []
         result["temporal_diagnostics"] = {"state": "unavailable"}
+        if result["coverage"]["eligible_lists"] is None:
+            result["coverage"]["state"] = result["status"]
         result["limitations"].append(
             "No complete association query was available; do not infer an empty metagame."
         )

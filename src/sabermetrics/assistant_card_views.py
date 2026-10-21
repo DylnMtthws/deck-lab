@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, TypeGuard
 
 from sabermetrics.assistant_strategy import draw_routes, strategy_capabilities
 
@@ -91,6 +91,7 @@ def retrieve_card_views(
     vector_artifact: dict[str, Any] | None = None,
     encoder: Any = None,
     all_matches: bool = False,
+    vector_session: Any = None,
 ) -> dict[str, Any]:
     """Bounded lexical retrieval across printed text and generated role labels.
 
@@ -108,35 +109,19 @@ def retrieve_card_views(
     limitations = [
         "Caller must retain current legal/owner/revision guards; labels are incomplete generated inference."
     ]
-    vector_rows = {}
-    query_vector = None
+    session = vector_session
+    owns_session = False
     semantic_used = False
-    if vector_artifact:
+    if session is None and vector_artifact:
         try:
-            from sabermetrics.reference_layer.strategy_corpus import (
-                local_embedding_service,
-            )
+            from sabermetrics.assistant_view_index import ViewQuerySession
 
-            service = encoder if encoder is not None else local_embedding_service()
-            if (
-                service is None
-                or vector_artifact.get("version") != VIEW_VERSION
-                or vector_artifact.get("artifact_version") != "card-view-vectors.v1"
-                or vector_artifact.get("embedding_model") != service._model_name
-            ):
-                raise ValueError("incompatible local view index")
-            query_vector = [float(value) for value in service.embed(query)]
-            if not _valid_vector(query_vector):
-                raise ValueError("invalid query vector")
-            vector_rows = {
-                (row["source_hash"], row["view"]): row
-                for row in vector_artifact["records"]
-            }
+            session = ViewQuerySession(vector_artifact, query, encoder=encoder)
+            owns_session = True
         except (ImportError, OSError, RuntimeError, ValueError, KeyError, TypeError):
             limitations.append(
                 "View vectors unavailable or incompatible; lexical fallback retained."
             )
-            query_vector = None
     for card in cards:
         views = build_card_views(card)
         printed = views["views"]["printed_effect"]["facts"]
@@ -148,35 +133,8 @@ def retrieve_card_views(
         role = len(
             terms & set(re.findall(r"\w+", " ".join(generated).replace("_", " ")))
         )
-        similarities = {}
-        if query_vector is not None:
-            import math
-
-            for name, view in views["views"].items():
-                # Empty generated projections contain no retrieval information.
-                # Embedding "[]" must not nominate an unrelated card.
-                if name == "functional_role" and not view["roles"]:
-                    continue
-                if name == "prerequisite" and not view["draw_routes"]:
-                    continue
-                row = vector_rows.get((views["source_hash"], name), {})
-                vector = row.get("vector")
-                text_hash = hashlib.sha256(_view_text(views, name).encode()).hexdigest()
-                if (
-                    row.get("view_hash") != view["view_hash"]
-                    or row.get("text_sha256") != text_hash
-                    or not _valid_vector(vector)
-                    or len(vector) != len(query_vector)
-                ):
-                    continue
-                denom = math.sqrt(
-                    sum(x * x for x in vector) * sum(x * x for x in query_vector)
-                )
-                similarities[name] = max(
-                    0.0,
-                    min(1.0, sum(a * b for a, b in zip(vector, query_vector)) / denom),
-                )
-                semantic_used = True
+        similarities = session.similarities(views) if session is not None else {}
+        semantic_used = semantic_used or bool(similarities)
         semantic = max(similarities.values(), default=0.0)
         # Cosine is a ranking signal, not a calibrated probability. Callers
         # bound nominations globally after combining the independent batches.
@@ -204,6 +162,8 @@ def retrieve_card_views(
                     },
                 )
             )
+    if owns_session:
+        session.close()
     ranked.sort(key=lambda row: (-row[0], row[1]))
     retained_limit = len(cards) if all_matches else limit
     return {
@@ -285,7 +245,7 @@ def prepare_card_view_vectors(
     }
 
 
-def _valid_vector(vector: Any) -> bool:
+def _valid_vector(vector: Any) -> TypeGuard[list[float]]:
     import math
 
     return (
@@ -297,5 +257,6 @@ def _valid_vector(vector: Any) -> bool:
             and math.isfinite(value)
             for value in vector
         )
-        and sum(value * value for value in vector) > 0
+        and math.isfinite(norm := sum(value * value for value in vector))
+        and norm > 0
     )

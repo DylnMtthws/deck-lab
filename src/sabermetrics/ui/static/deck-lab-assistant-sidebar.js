@@ -668,13 +668,13 @@
     var action = message.action || {};
     var scope = action.data && action.data.source_scope;
     var content = typeof action.content === "string" ? action.content : messageContent(message);
-    if (action.ok !== true || ["printed facts", "retrieved candidates", "preliminary fit", "research progress"].indexOf(scope) < 0 || typeof content !== "string" || !content.trim()) return;
+    if (action.ok !== true || ["printed facts", "retrieved candidates", "preliminary fit", "research progress", "reviewed fragments"].indexOf(scope) < 0 || typeof content !== "string" || !content.trim()) return;
     var finding = element("section", null, "dl-assistant-partial-finding");
     finding.dataset.messageIds = message.id || "";
-    var title = {"retrieved candidates": "Retrieved candidates", "printed facts": "Confirmed findings", "preliminary fit": "Preliminary deck fit", "research progress": "Research update"}[scope];
+    var title = {"retrieved candidates": "Retrieved candidates", "printed facts": "Confirmed findings", "preliminary fit": "Preliminary deck fit", "research progress": "Research update", "reviewed fragments": "Checked findings"}[scope];
     finding.setAttribute("aria-label", title);
     finding.appendChild(element("h3", title));
-    var labels = {"retrieved candidates": "Retrieved cards; suitability is not established by retrieval.", "printed facts": "Printed card facts; strategic fit is not established by this finding.", "preliminary fit": "Heuristic sample, not a ranked recommendation. Rules and strategic fit remain unverified.", "research progress": "Current research stage; the final answer may change after verification."};
+    var labels = {"retrieved candidates": "Retrieved cards; suitability is not established by retrieval.", "printed facts": "Printed card facts; strategic fit is not established by this finding.", "preliminary fit": "Heuristic sample, not a ranked recommendation. Rules and strategic fit remain unverified.", "research progress": "Current research stage; the final answer may change after verification.", "reviewed fragments": "Checked against supplied evidence; remaining claims and request completion are still under review."};
     finding.appendChild(element("small", labels[scope]));
     var body = element("div", null, "dl-assistant-prose");
     appendMarkdown(body, content, knownCards(action.data.cards || []));

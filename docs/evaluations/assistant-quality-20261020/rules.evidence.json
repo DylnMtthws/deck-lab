@@ -1,0 +1,13 @@
+{
+  "id": "rules:core",
+  "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+  "effective": "2026-09-25",
+  "retrieved": "2026-10-20",
+  "source_sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca",
+  "exact_excerpts": [
+    "603.2. Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.",
+    "603.5. Some triggered abilities’ effects are optional (they contain “may,” as in “At the beginning of your upkeep, you may draw a card”). These abilities go on the stack when they trigger, regardless of whether their controller intends to exercise the ability’s option or not. The choice is made when the ability resolves. Likewise, triggered abilities that have an effect “unless” something is true or a player chooses to do something will go on the stack normally; the “unless” part of the ability is dealt with when the ability resolves.",
+    "118.1. A cost is an action or payment necessary to take another action or to stop another action from taking place. To pay a cost, a player carries out the instructions specified by the spell, ability, or effect that contains that cost."
+  ],
+  "verification": "Primary Wizards text fetched directly; shared rules reference only. Card interpretations additionally use supplied cached text."
+}

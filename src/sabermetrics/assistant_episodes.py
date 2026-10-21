@@ -180,18 +180,54 @@ def capture_episode(
     retrieval_plan: dict[str, Any] | None = None,
     claim_parts: list[str] | None = None,
     db_path: str | Path | None = None,
+    _diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Persist only reviewed receipts; unknown/failed hypotheses stay negative leads."""
-    if not selection or not review or not review.get("claim_judgments"):
+    started = time.monotonic()
+    diagnostics = _diagnostics if _diagnostics is not None else {}
+    diagnostics.update(
+        input_sha256=_hash(
+            {
+                "deck": deck_evidence_hash(document),
+                "request": request,
+                "selection": selection,
+                "review": review,
+                "claim_parts": claim_parts,
+            }
+        ),
+        deck_entries=len(document.get("entries", [])),
+    )
+
+    def skipped(reason: str, **details: Any) -> None:
+        diagnostics.update(
+            status="skipped",
+            reason=reason,
+            elapsed_seconds=round(time.monotonic() - started, 6),
+            **details,
+        )
+
+    if not selection:
+        skipped("missing_selection")
+        return None
+    if not review or not review.get("claim_judgments"):
+        skipped("missing_review_judgments")
         return None
     if len(document.get("entries", [])) > 400:
+        skipped("deck_entry_limit", deck_entries=len(document["entries"]))
         return None
     ids = list(
         dict.fromkeys(
             i for g in selection.get("groups", []) for i in g.get("card_ids", [])
         )
     )[:6]
-    if not ids or any(i not in cards for i in ids):
+    if not ids:
+        skipped("no_selected_candidates")
+        return None
+    if any(i not in cards for i in ids):
+        skipped(
+            "missing_selected_evidence",
+            missing_candidates=sum(i not in cards for i in ids),
+        )
         return None
     judgments = review["claim_judgments"]
     dependencies = {
@@ -204,6 +240,7 @@ def capture_episode(
     }
     dependencies.update({i: cards[i] for i in ids})
     if db_path is None:
+        skipped("catalog_recheck_unavailable")
         return None
     try:
         with sqlite3.connect(
@@ -218,23 +255,47 @@ def capture_episode(
             connection.execute("BEGIN")
             identities = _catalog_identities(connection, sorted(dependencies), {})
         if not all(identities.values()):
+            skipped(
+                "dependency_evidence_unavailable",
+                dependency_count=len(dependencies),
+                missing_dependencies=sum(v is None for v in identities.values()),
+            )
             return None
-    except (sqlite3.Error, ValueError, TypeError):
+    except (sqlite3.Error, ValueError, TypeError) as exc:
+        skipped("catalog_recheck_failed", error_class=type(exc).__name__)
         return None
     claims = [part for part in (claim_parts or [])[1:] if part.strip()]
     hypotheses = []
     for index, judgment in enumerate(judgments[:6]):
         claim_id = str(judgment.get("claim_id", ""))[:80]
         position = int(claim_id[1:]) if re.fullmatch(r"c\d+", claim_id) else index
-        claim = claims[position] if position < len(claims) else ""
+        if review.get("claim_unit_version"):
+            from sabermetrics.assistant_claim_fragments import reviewed_claim_text
+
+            claim = reviewed_claim_text(review, judgment, claim_parts or [])
+        else:
+            claim = claims[position] if position < len(claims) else ""
+        context_prefix = ""
+        if claim and review.get("claim_unit_version") and claim_parts:
+            parent = claim_parts[judgment["part_index"]]
+            context_prefix = parent.split(" — ", 1)[0][:300] if " — " in parent else ""
         bindings = [
             i
             for i in ids
-            if str(cards[i].get("name") or "").casefold() in claim.casefold()
+            if str(cards[i].get("name") or "").casefold()
+            in (context_prefix + " " + claim).casefold()
         ]
         hypotheses.append(
             {
                 "claim_id": claim_id,
+                **(
+                    {
+                        "candidate_context": context_prefix,
+                        "reviewed_part_sha256": judgment.get("part_sha256"),
+                    }
+                    if context_prefix
+                    else {}
+                ),
                 "claim": claim,
                 "claim_sha256": hashlib.sha256(claim.encode()).hexdigest(),
                 "claim_truncated": False,
@@ -317,9 +378,41 @@ def capture_episode(
         (180, 60),
     ):
         _trim_narrative(episode, claim_limit, detail_limit)
-        if len(json.dumps(episode)) <= MAX_EPISODE_CHARS:
+        size = len(json.dumps(episode))
+        if size <= MAX_EPISODE_CHARS:
+            diagnostics.update(
+                status="captured",
+                reason="reviewed_receipt_attached",
+                episode_chars=size,
+                dependency_count=len(dependencies),
+                hypothesis_count=len(hypotheses),
+                narrative_compacted=episode["narrative_compacted"],
+                investigation_sha256=episode["investigation_sha256"],
+                elapsed_seconds=round(time.monotonic() - started, 6),
+            )
             return episode
+    skipped(
+        "required_receipt_exceeds_budget",
+        minimum_receipt_chars=size,
+        maximum_episode_chars=MAX_EPISODE_CHARS,
+        dependency_count=len(dependencies),
+    )
     return None
+
+
+def capture_episode_receipt(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Return observable capture outcome while preserving the legacy API."""
+    diagnostics: dict[str, Any] = {}
+    kwargs = {**kwargs, "_diagnostics": diagnostics}
+    episode = capture_episode(*args, **kwargs)
+    return {
+        **diagnostics,
+        "episode": episode,
+        "attachment_status": "attached" if episode is not None else "not_attached",
+        "persistence_status": (
+            "pending_store" if episode is not None else "not_applicable"
+        ),
+    }
 
 
 def recall_episodes(
@@ -340,6 +433,7 @@ def recall_episodes(
         "status": "no_history",
         "items": [],
         "skipped_stale": 0,
+        "skip_reasons": {},
         "scan_limit": MAX_SCAN,
         "scope": "Owner/deck investigation leads, not reusable factual advice. Rules and strategic judgments always require a new check.",
     }
@@ -361,7 +455,7 @@ def recall_episodes(
             ).fetchone():
                 return {**result, "status": "not_found"}
             rows = conn.execute(
-                "SELECT json_extract(m.value,'$.research.reviewed_episode') FROM build_assistant_sessions s, json_each(s.payload_json,'$.messages') m WHERE s.owner_id=? AND s.deck_id=? AND json_valid(s.payload_json) AND json_extract(m.value,'$.role')='assistant' AND length(json_extract(m.value,'$.research.reviewed_episode'))<=? ORDER BY CAST(m.key AS INTEGER) DESC LIMIT ?",
+                "SELECT json_extract(m.value,'$.research.reviewed_episode') FROM build_assistant_sessions s, json_each(s.payload_json,'$.messages') m WHERE s.owner_id=? AND s.deck_id=? AND json_valid(s.payload_json) AND json_extract(m.value,'$.role')='assistant' AND json_extract(m.value,'$.research.reviewed_episode') IS NOT NULL AND length(json_extract(m.value,'$.research.reviewed_episode'))<=? ORDER BY CAST(m.key AS INTEGER) DESC LIMIT ?",
                 (owner, deck_id, MAX_EPISODE_CHARS, MAX_SCAN),
             ).fetchall()
             fingerprint = deck_evidence_hash(document)
@@ -374,41 +468,42 @@ def recall_episodes(
                     age = (
                         datetime.now(UTC) - datetime.fromisoformat(ep["created_at"])
                     ).total_seconds()
-                    current = (
-                        ep.get("version") == VERSION
-                        and ep.get("deck_evidence_sha256") == fingerprint
-                        and 0 <= age <= 30 * 86400
-                        and (
-                            not prompt_version
-                            or ep.get("prompt_version") == prompt_version
-                        )
-                    )
+                    reasons = []
+                    if ep.get("version") != VERSION:
+                        reasons.append("episode_version")
+                    if ep.get("deck_evidence_sha256") != fingerprint:
+                        reasons.append("deck_facts_changed")
+                    if not 0 <= age <= 30 * 86400:
+                        reasons.append("age_outside_window")
+                    if prompt_version and ep.get("prompt_version") != prompt_version:
+                        reasons.append("prompt_version")
                     refs = ep.get("card_fingerprints", [])
-                    current = current and 0 < len(refs) <= 6
+                    if not 0 < len(refs) <= 6:
+                        reasons.append("candidate_dependencies_invalid")
                     dependency_ids = ep.get("dependency_card_ids", [])
                     if (
                         not isinstance(dependency_ids, list)
                         or not 1 <= len(dependency_ids) <= 406
                     ):
-                        current = False
+                        reasons.append("dependency_list_invalid")
                     else:
                         dependency_facts = _catalog_identities(
                             conn, dependency_ids, card_cache
                         )
-                        current = (
-                            current
-                            and all(dependency_facts.values())
-                            and _hash(dependency_facts) == ep.get("dependency_sha256")
-                        )
+                        if not all(dependency_facts.values()):
+                            reasons.append("dependency_evidence_unavailable")
+                        elif _hash(dependency_facts) != ep.get("dependency_sha256"):
+                            reasons.append("dependency_facts_changed")
                     for ref in refs[:6]:
                         state = card_cache.get(ref["card_id"])
-                        current = (
-                            current
-                            and bool(state)
-                            and _hash(state) == ref.get("facts_sha256")
-                        )
-                    if not current:
+                        if not state or _hash(state) != ref.get("facts_sha256"):
+                            reasons.append("candidate_facts_changed")
+                    if reasons:
                         result["skipped_stale"] += 1
+                        for reason in set(reasons):
+                            result["skip_reasons"][reason] = (
+                                result["skip_reasons"].get(reason, 0) + 1
+                            )
                         continue
                     for hypothesis in ep.get("hypotheses", []):
                         if hypothesis.get("claim_truncated"):
@@ -422,6 +517,14 @@ def recall_episodes(
                             hypothesis["unverified_remainder"] = True
                     signature = ep.get("investigation_sha256")
                     if not signature or signature in seen:
+                        reason = (
+                            "missing_investigation_identity"
+                            if not signature
+                            else "duplicate_investigation"
+                        )
+                        result["skip_reasons"][reason] = (
+                            result["skip_reasons"].get(reason, 0) + 1
+                        )
                         continue
                     seen.add(signature)
                     words = set(re.findall(r"[a-z]{4,}", query.lower()))
@@ -432,6 +535,9 @@ def recall_episodes(
                     candidates.append((score, ep))
                 except (ValueError, TypeError, KeyError, AttributeError):
                     result["skipped_stale"] += 1
+                    result["skip_reasons"]["invalid_receipt"] = (
+                        result["skip_reasons"].get("invalid_receipt", 0) + 1
+                    )
             candidates.sort(key=lambda row: -row[0])
             result["items"] = [
                 {
@@ -446,4 +552,5 @@ def recall_episodes(
                 result["status"] = "available"
     except sqlite3.Error:
         result["status"] = "unavailable"
+        result["skip_reasons"]["database_unavailable_or_deadline"] = 1
     return result

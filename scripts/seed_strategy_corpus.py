@@ -24,7 +24,26 @@ def main() -> None:
         ingest_text(args.db_path, embed=args.embed, **source)
         for source in bundle["sources"]
     )
-    print(json.dumps({"chunks_ingested": count, "limitations": bundle["limitations"]}))
+    from sabermetrics.assistant_source_import import import_source_manifest
+
+    source_root = Path(sabermetrics.__file__).parent / "config_data"
+    added = [
+        import_source_manifest(source_root / name, args.db_path, embed=args.embed)
+        for name in (
+            "crystal_storm_user_primer.json",
+            "wiki_deck_archetypes_20261020.json",
+            "crystal_storm_source_review.json",
+        )
+    ]
+    print(
+        json.dumps(
+            {
+                "chunks_ingested": count + sum(r["chunks"] for r in added),
+                "permissioned_sources": added,
+                "limitations": bundle["limitations"],
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

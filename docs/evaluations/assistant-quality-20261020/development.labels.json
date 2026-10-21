@@ -1,0 +1,579 @@
+{
+  "dev-01": {
+    "relevant_candidates": [
+      "Yawgmoth, Thran Physician"
+    ],
+    "recommendation_scores": {
+      "Yawgmoth, Thran Physician": 2,
+      "Harvester of Souls": 0,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Marchesa, the Black Rose",
+          "Unspeakable Symbol",
+          "Yawgmoth, Thran Physician"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Harvester of Souls": 2,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0,
+      "Yawgmoth, Thran Physician": 0
+    },
+    "protected_cuts": [
+      "Unspeakable Symbol",
+      "Marchesa, the Black Rose",
+      "Yawgmoth, Thran Physician"
+    ],
+    "rationale": "Yawgmoth supplies the outlet and Symbol supplies counters; life and other creatures are required. Harvester is a six-mana payoff, not the outlet.",
+    "uncertainty": "Relative cut quality depends on curve and life budget; this shell explicitly prioritizes outlet plus counter setup.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-02": {
+    "relevant_candidates": [
+      "Unspeakable Symbol"
+    ],
+    "recommendation_scores": {
+      "Unspeakable Symbol": 2,
+      "Marchesa, the Black Rose": 0,
+      "Harvester of Souls": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Marchesa, the Black Rose",
+          "Harvester of Souls"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Marchesa, the Black Rose": 0,
+      "Harvester of Souls": 2,
+      "Unspeakable Symbol": 0
+    },
+    "protected_cuts": [
+      "Marchesa, the Black Rose",
+      "Unspeakable Symbol"
+    ],
+    "rationale": "Symbol provides a controlled counter at a life cost. The named pair lacks both a counter source and a sacrifice outlet.",
+    "uncertainty": "Coherence here means the claimed autonomous recursion engine, not generic synergy.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-03": {
+    "relevant_candidates": [
+      "Viscera Seer"
+    ],
+    "recommendation_scores": {
+      "Viscera Seer": 2,
+      "Kami of the Tended Garden": 0,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Viscera Seer",
+          "Unspeakable Symbol",
+          "Marchesa, the Black Rose"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Kami of the Tended Garden": 2,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0,
+      "Viscera Seer": 0
+    },
+    "protected_cuts": [
+      "Unspeakable Symbol",
+      "Marchesa, the Black Rose",
+      "Viscera Seer"
+    ],
+    "rationale": "Seer sacrifices on demand; Kami has a conditional upkeep trigger rather than a repeatable controlled outlet.",
+    "uncertainty": "No infinite-loop claim is implied; Marchesa returns are delayed.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-04": {
+    "relevant_candidates": [
+      "Impulsive Pilferer"
+    ],
+    "recommendation_scores": {
+      "Impulsive Pilferer": 2,
+      "Harvester of Souls": 0,
+      "Yawgmoth, Thran Physician": 0,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Impulsive Pilferer",
+          "Harvester of Souls"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Harvester of Souls": 2,
+      "Yawgmoth, Thran Physician": 0,
+      "Unspeakable Symbol": 0,
+      "Marchesa, the Black Rose": 0,
+      "Impulsive Pilferer": 0
+    },
+    "protected_cuts": [
+      "Yawgmoth, Thran Physician",
+      "Unspeakable Symbol",
+      "Marchesa, the Black Rose",
+      "Impulsive Pilferer"
+    ],
+    "rationale": "Pilferer supplies a death payoff. The pair alone neither sacrifices on demand nor recurs; cutting Yawgmoth or Symbol loses a required engine role.",
+    "uncertainty": "Harvester remains useful in some slower nontoken metagames.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-05": {
+    "relevant_candidates": [
+      "Archmage Emeritus"
+    ],
+    "recommendation_scores": {
+      "Archmage Emeritus": 2,
+      "Young Pyromancer": 0,
+      "Ponder": 0,
+      "Brainstorm": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Archmage Emeritus",
+          "Ponder"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Young Pyromancer": 2,
+      "Ponder": 0,
+      "Brainstorm": 0,
+      "Archmage Emeritus": 0
+    },
+    "protected_cuts": [
+      "Ponder",
+      "Brainstorm",
+      "Archmage Emeritus"
+    ],
+    "rationale": "Emeritus explicitly includes copying. Pyromancer supplies tokens on casts but does not satisfy the requested copied-spell draw role.",
+    "uncertainty": "The cut is role-relative; tokens may be strategically valuable elsewhere.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-06": {
+    "relevant_candidates": [
+      "Archmage Emeritus"
+    ],
+    "recommendation_scores": {
+      "Archmage Emeritus": 2,
+      "Ponder": 0,
+      "Brainstorm": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Ponder",
+          "Brainstorm"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Ponder": 2,
+      "Brainstorm": 0,
+      "Archmage Emeritus": 0
+    },
+    "protected_cuts": [
+      "Brainstorm",
+      "Archmage Emeritus"
+    ],
+    "rationale": "Cantrips improve selection but the pair alone is not a repeatable engine. Emeritus adds draw events to future spells.",
+    "uncertainty": "Card quality and shuffle access are outside this simplified economy comparison.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-07": {
+    "relevant_candidates": [
+      "Counterspell"
+    ],
+    "recommendation_scores": {
+      "Counterspell": 2,
+      "Negate": 0,
+      "Archmage Emeritus": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Counterspell",
+          "Archmage Emeritus"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Negate": 2,
+      "Archmage Emeritus": 0,
+      "Counterspell": 0
+    },
+    "protected_cuts": [
+      "Archmage Emeritus",
+      "Counterspell"
+    ],
+    "rationale": "Counterspell covers creature spells too and casting it triggers Emeritus. Preserve the engine; cut narrower redundant interaction.",
+    "uncertainty": "Color availability and mana costs must still be considered in a full deck.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-08": {
+    "relevant_candidates": [
+      "Young Pyromancer"
+    ],
+    "recommendation_scores": {
+      "Young Pyromancer": 2,
+      "Ponder": 0,
+      "Archmage Emeritus": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Young Pyromancer",
+          "Archmage Emeritus"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Ponder": 2,
+      "Archmage Emeritus": 0,
+      "Young Pyromancer": 0
+    },
+    "protected_cuts": [
+      "Archmage Emeritus",
+      "Young Pyromancer"
+    ],
+    "rationale": "The pair gives distinct token and draw payoffs for casts; neither independently casts spells.",
+    "uncertainty": "A spell supply remains required; coherent payoff package does not mean autonomous loop.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-09": {
+    "relevant_candidates": [
+      "Mind Stone"
+    ],
+    "recommendation_scores": {
+      "Mind Stone": 2,
+      "Thought Vessel": 0,
+      "Sol Ring": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Mind Stone",
+          "Sol Ring"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Thought Vessel": 2,
+      "Sol Ring": 0,
+      "Mind Stone": 0
+    },
+    "protected_cuts": [
+      "Sol Ring",
+      "Mind Stone"
+    ],
+    "rationale": "Mind Stone has a separate paid tap-and-sacrifice draw activation; Thought Vessel has no draw ability.",
+    "uncertainty": "Cash-in replaces the rock with a card and loses future mana production.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-10": {
+    "relevant_candidates": [
+      "Sol Ring"
+    ],
+    "recommendation_scores": {
+      "Sol Ring": 2,
+      "Hedron Archive": 0,
+      "Mind Stone": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Hedron Archive",
+          "Mind Stone"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Hedron Archive": 2,
+      "Mind Stone": 0,
+      "Sol Ring": 0
+    },
+    "protected_cuts": [
+      "Mind Stone",
+      "Sol Ring"
+    ],
+    "rationale": "Two cash-in rocks do not make a repeatable draw engine; sacrifices consume both. Sol Ring meets the specific low-setup mana goal.",
+    "uncertainty": "This does not rank colorless rocks for every color-intensive deck.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-11": {
+    "relevant_candidates": [
+      "Commander's Sphere"
+    ],
+    "recommendation_scores": {
+      "Commander's Sphere": 2,
+      "Hedron Archive": 0,
+      "Sol Ring": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Commander's Sphere",
+          "Sol Ring"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Hedron Archive": 2,
+      "Sol Ring": 0,
+      "Commander's Sphere": 0
+    },
+    "protected_cuts": [
+      "Sol Ring",
+      "Commander's Sphere"
+    ],
+    "rationale": "Sphere can sacrifice itself without tapping or spending mana; it still consumes a permanent and is not recurring card advantage.",
+    "uncertainty": "Its three-mana setup may be inefficient outside the specific goal.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-12": {
+    "relevant_candidates": [
+      "Burnished Hart"
+    ],
+    "recommendation_scores": {
+      "Burnished Hart": 2,
+      "Thought Vessel": 0,
+      "Sol Ring": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Burnished Hart",
+          "Thought Vessel"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Thought Vessel": 2,
+      "Sol Ring": 0,
+      "Burnished Hart": 0
+    },
+    "protected_cuts": [
+      "Sol Ring",
+      "Burnished Hart"
+    ],
+    "rationale": "Hart fills a land-ramp role but requires cast plus activation mana. Thought Vessel does not recur Hart or supply basics.",
+    "uncertainty": "Package false means the proposed repeatable land-ramp engine is incomplete.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-13": {
+    "relevant_candidates": [
+      "Tatyova, Benthic Druid"
+    ],
+    "recommendation_scores": {
+      "Tatyova, Benthic Druid": 2,
+      "Lotus Cobra": 0,
+      "Sword of the Animist": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Tatyova, Benthic Druid",
+          "Rampant Growth"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Lotus Cobra": 0,
+      "Sword of the Animist": 2,
+      "Tatyova, Benthic Druid": 0
+    },
+    "protected_cuts": [
+      "Lotus Cobra",
+      "Tatyova, Benthic Druid"
+    ],
+    "rationale": "Tatyova draws and gains life on land entry. Sword requires an equipped attacker, which this shell lacks.",
+    "uncertainty": "This is a role choice, not a universal preference over cheaper ramp.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-14": {
+    "relevant_candidates": [
+      "Lotus Cobra"
+    ],
+    "recommendation_scores": {
+      "Lotus Cobra": 2,
+      "Aesi, Tyrant of Gyre Strait": 0,
+      "Sword of the Animist": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Lotus Cobra",
+          "Rampant Growth"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Aesi, Tyrant of Gyre Strait": 0,
+      "Sword of the Animist": 2,
+      "Lotus Cobra": 0
+    },
+    "protected_cuts": [
+      "Aesi, Tyrant of Gyre Strait",
+      "Lotus Cobra"
+    ],
+    "rationale": "Cobra adds mana, not cards; Rampant Growth supplies a land entry. Creature-free combat plans make Sword unreliable.",
+    "uncertainty": "Cobra is vulnerable; no guaranteed net mana or infinite loop is asserted.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-15": {
+    "relevant_candidates": [
+      "Aesi, Tyrant of Gyre Strait"
+    ],
+    "recommendation_scores": {
+      "Aesi, Tyrant of Gyre Strait": 2,
+      "Cultivate": 0,
+      "Sword of the Animist": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Aesi, Tyrant of Gyre Strait",
+          "Cultivate"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Cultivate": 0,
+      "Sword of the Animist": 2,
+      "Aesi, Tyrant of Gyre Strait": 0
+    },
+    "protected_cuts": [
+      "Cultivate",
+      "Aesi, Tyrant of Gyre Strait"
+    ],
+    "rationale": "Aesi explicitly grants an extra land play; Cultivate both puts a land onto battlefield and provides a land in hand.",
+    "uncertainty": "Extra land permission is useful only with available lands.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "dev-16": {
+    "relevant_candidates": [
+      "Rampant Growth"
+    ],
+    "recommendation_scores": {
+      "Rampant Growth": 2,
+      "Sword of the Animist": 0,
+      "Tatyova, Benthic Druid": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Sword of the Animist",
+          "Tatyova, Benthic Druid"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Sword of the Animist": 2,
+      "Tatyova, Benthic Druid": 0,
+      "Rampant Growth": 0
+    },
+    "protected_cuts": [
+      "Tatyova, Benthic Druid",
+      "Rampant Growth"
+    ],
+    "rationale": "The pair lacks an equip target and an attacker in the stipulated shell. Rampant Growth can supply a land entry directly.",
+    "uncertainty": "Pair can become coherent if a suitable attacker is added.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  }
+}
