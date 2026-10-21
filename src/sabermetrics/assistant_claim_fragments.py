@@ -13,6 +13,32 @@ def text_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def _printed_quote_spans(text: str) -> list[tuple[int, int]]:
+    """Keep renderer quotations with their restrictions and level bands.
+
+    These spans still receive normal review; recognizing a label gives it no
+    evidence or verdict. Exact offsets/hashes remain the binding authority.
+    """
+    spans = []
+    pattern = r"Printed (?:card text(?: \(ability availability unverified\))?|death trigger|support ability — [^\n“”]{1,160}): “"
+    for match in re.finditer(pattern, text):
+        start = match.end() - 1
+        depth = 1
+        for index in range(start + 1, len(text)):
+            if text[index] == "“":
+                depth += 1
+            elif text[index] == "”":
+                depth -= 1
+                if not depth:
+                    spans.append((start, index + 1))
+                    break
+        else:
+            # Malformed quotation: larger units are conservative, never an
+            # excuse to give a trailing fragment an independent supported status.
+            spans.append((start, len(text)))
+    return spans
+
+
 def fragment_units(
     parts: list[str], protected: set[int], *, atomic: bool = True
 ) -> list[dict[str, Any]]:
@@ -23,13 +49,17 @@ def fragment_units(
         # Only application-rendered discovery rows have a known context prefix.
         body_start = part.index(" — ") + 3 if atomic and " — " in part else 0
         starts = [body_start]
+        quote_spans = _printed_quote_spans(part) if atomic else []
         if atomic and body_start and index not in protected:
             # Keep conditional clauses in their sentence. No comma/semicolon
             # splitting: that could detach a consequence from its antecedent.
             starts += [
                 body_start + match.end()
                 for match in re.finditer(r"(?<=[.!?])\s+(?=[A-Z])", part[body_start:])
-                if not re.match(
+                if not any(
+                    start < body_start + match.end() < end for start, end in quote_spans
+                )
+                and not re.match(
                     r"(?:It|This|That|They|These|Those|Then|Therefore|Otherwise)\b",
                     part[body_start + match.end() :],
                 )

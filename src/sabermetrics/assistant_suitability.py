@@ -224,12 +224,12 @@ def candidate_suitability(
         ),
         (
             r"\bsacrifice\b",
-            "Sacrifice consumes an eligible permanent; tokens and nontokens may differ.",
+            "Sacrifice consumes an eligible permanent.",
         ),
         (r"\bpay [^.\n]*life", "Life payment is an additional resource cost."),
         (r"\banother\b", "Respect the printed 'another' restriction."),
         (
-            r"\bnontoken\b",
+            r"\bsacrifice (?:another|an?) nontoken\b[^:\n.]*:",
             "Token fodder does not satisfy the printed nontoken restriction.",
         ),
         (
@@ -480,13 +480,72 @@ def _render_activation_source(profile: dict[str, Any]) -> str:
     return " Printed card text (ability availability unverified): “" + raw + "”"
 
 
+def _render_death_draw_source(profile: dict[str, Any]) -> str:
+    """Explain only a direct printed death draw, never all abilities on a card."""
+    facts = profile.get("printed_facts", {})
+    raw = facts.get("oracle_text")
+    if facts.get("oracle_complete") is not True or not isinstance(raw, str):
+        return ""
+    if len(raw) > 600:
+        return ""
+    for line in raw.splitlines():
+        match = re.fullmatch(
+            r"When(?:ever)? (?:this creature|(?:another|a|one or more) "
+            r"(?:nontoken )?creatures?(?: you control)?) dies?, "
+            r"(?P<optional>you may )?draw a card\.",
+            line,
+            re.IGNORECASE,
+        )
+        if match:
+            nuance = "optional" if match["optional"] else "mandatory"
+            return (
+                " Printed death trigger: “" + line + "” For this ability, draw is "
+                "triggered rather than activated; no draw activation cost "
+                "(" + nuance + " draw)."
+            )
+    return ""
+
+
+def _render_provider_source(providers: list[dict[str, Any]]) -> str:
+    """Quote at most one complete direct outlet line from named support evidence.
+
+    Provider records contain full source lines, not the provider's full Oracle
+    text. Do not reconstruct an ability from a cost fragment or join ambiguous
+    alternatives. Quoting is evidence of a printed ingredient only.
+    """
+    for provider in providers:
+        name = provider.get("name")
+        quote = provider.get("source_quote")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(quote, str) or not 0 < len(quote) <= 400:
+            continue
+        if provider.get("oracle_complete") is False or provider.get(
+            "oracle_text_truncated"
+        ):
+            continue
+        if not re.fullmatch(r"[^:\n\r.!?()\"“”]+: [^:\n\r\"“”]+\.", quote):
+            continue
+        cost, _ = quote.split(":", 1)
+        if not re.search(r"\bsacrifice (?:a|another) creature\b", cost, re.IGNORECASE):
+            continue
+        if re.search(
+            r"\b(?:when|whenever|have|has|gain|gains)\b|[•—]", cost, re.IGNORECASE
+        ):
+            continue
+        return " Printed support ability — " + name + ": “" + quote + "”"
+    return ""
+
+
 def render_fit_reason(profile: dict[str, Any]) -> str:
     """Render transparent ingredient support without requiring model invention."""
     judgment = profile["strategic_judgment"]
     support = []
+    providers = []
     for row in judgment["support"]:
         if row["cards"] and row["dimension"] != "mana":
             support.append(str(row["cards"][0]["name"]) + " (" + row["dimension"] + ")")
+            providers.append(row["cards"][0])
     if not support:
         support = [
             str(row["commander"]) for row in judgment["engine_relationships"][:1]
@@ -497,6 +556,8 @@ def render_fit_reason(profile: dict[str, Any]) -> str:
         else "Relevant deck support remains unconfirmed."
     )
     text += _render_activation_source(profile)
+    text += _render_death_draw_source(profile)
+    text += _render_provider_source(providers[:2])
     if judgment["awkwardness"]:
         text += " " + judgment["awkwardness"][0]
     elif judgment["setup_gaps"]:

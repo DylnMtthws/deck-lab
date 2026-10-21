@@ -689,3 +689,21 @@ def test_finalist_uses_required_only_mode_for_tap_query(tmp_path, lookup):
         for query, kwargs in lookup
         if query != module._TAP_QUERY
     )
+
+
+def test_mana_restriction_claim_gets_second_lookup_after_required_tap(tmp_path, lookup):
+    run(
+        tmp_path,
+        "{T}: Add one mana of any color. Spend this mana only to cast a legendary spell.",
+        [
+            "Kinnan adds unrestricted additional mana when this taps for mana.",
+            "Tap-symbol cost: this creature needs continuous control or haste.",
+        ],
+    )
+    assert [query for query, _ in lookup] == [module._TAP_QUERY, module._MANA_QUERY]
+    assert [kwargs["limit"] for _, kwargs in lookup] == [2, 6]
+
+
+def test_ordinary_mana_payment_does_not_request_mana_engine_rules(tmp_path, lookup):
+    run(tmp_path, "{3}{U}: Draw a card.", ["Pay four mana to draw a card."])
+    assert not lookup

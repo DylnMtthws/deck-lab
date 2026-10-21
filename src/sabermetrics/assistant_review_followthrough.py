@@ -83,8 +83,47 @@ def narrow_unverified_findings(
             continue
         if atomic and kept and " — " in original[index]:
             prefix = original[index].split(" — ", 1)[0]
+            # Keep unresolved prerequisites visible without promoting them to
+            # facts or letting favorable prose lose its qualification. A patched
+            # condition may be shown only as unverified, with its exact visible
+            # text; known-false uncorrected statements are never restored.
+            conditional = re.compile(
+                r"^(?:needs?|requires?|if|unless|without|depends? on|only works? if)\b|\bmust (?:be|have|remain)\b",
+                re.IGNORECASE,
+            )
+            conditions = []
+            for unit, judgment in rejected:
+                if not conditional.search(unit["claim"]):
+                    continue
+                text = judgment.get("rendered_claim", unit["claim"])
+                if (
+                    atomic
+                    and matching_judgment(unit, judgment)
+                    and (
+                        judgment.get("verdict") in {"unverified", "supported"}
+                        or judgment.get("correction_applied")
+                    )
+                    and isinstance(text, str)
+                    and len(text) <= 500
+                    and text in corrected[index]
+                ):
+                    conditions.append(text)
+            # Missing conditions can be phrased arbitrarily. Qualification
+            # must not depend on the wording recognizer used for optional quotes.
+            qualification = (
+                "Fit assessment remains conditional; some claims remain unverified. "
+            )
+            unknowns = " ".join(
+                "Unverified prerequisite statement: “" + text + "”"
+                for text in conditions[:2]
+            )
             result[index] = (
-                prefix + " — " + " ".join(kept) + " Further claims remain unverified."
+                prefix
+                + " — "
+                + qualification
+                + " ".join(kept)
+                + (" " + unknowns if unknowns else "")
+                + " Further claims remain unverified."
             )
             narrowed.extend(
                 {

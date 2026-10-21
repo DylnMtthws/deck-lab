@@ -189,3 +189,138 @@ def test_a_patch_cannot_mark_another_contradicted_fragment_corrected():
     _, receipt = review_claims(MixedReviewer(), PARTS, [SOURCE], "draw")
     assert receipt["claim_judgments"][0]["correction_applied"]
     assert not receipt["claim_judgments"][1]["correction_applied"]
+
+
+def test_unknown_prerequisites_remain_visible_without_becoming_supported():
+    parts = [
+        "Lead",
+        "Engine ({B}) — A useful recursive body. Needs a counter at death and another counter before a later death.",
+    ]
+    units = fragment_units(parts, set())
+    judgments = [
+        {
+            **u,
+            "verdict": "supported" if i == 0 else "unverified",
+            "rendered_claim": u["claim"],
+            "unverified_remainder": i == 1,
+        }
+        for i, u in enumerate(units)
+    ]
+    receipt = {"claim_unit_version": VERSION, "claim_judgments": judgments}
+    output, result = narrow_unverified_findings(parts, parts, [], receipt)
+    assert "Fit assessment remains conditional" in output[1]
+    assert "Unverified prerequisite statement: “Needs a counter at death" in output[1]
+    assert result["claim_judgments"] == judgments
+    assert result["claim_judgments"][1]["verdict"] == "unverified"
+
+
+def test_corrected_but_qualified_prerequisite_is_retained_only_as_unverified():
+    parts = [
+        "Lead",
+        "Engine ({B}) — A useful recursive body. Needs to return with a renewed counter.",
+    ]
+    units = fragment_units(parts, set())
+    fixed = "Needs a counter at death and a new one before another death."
+    corrected = [parts[0], parts[1].replace(units[1]["claim"], fixed)]
+    judgments = [
+        {**units[0], "verdict": "supported", "rendered_claim": units[0]["claim"]},
+        {
+            **units[1],
+            "verdict": "contradicted",
+            "correction_applied": True,
+            "unverified_remainder": True,
+            "rendered_claim": fixed,
+        },
+    ]
+    output, _ = narrow_unverified_findings(
+        parts,
+        corrected,
+        [],
+        {"claim_unit_version": VERSION, "claim_judgments": judgments},
+    )
+    assert "Unverified prerequisite statement: “" + fixed + "”" in output[1]
+    assert "return with a renewed counter" not in output[1]
+    judgments[1]["correction_applied"] = False
+    output, _ = narrow_unverified_findings(
+        parts, parts, [], {"claim_unit_version": VERSION, "claim_judgments": judgments}
+    )
+    assert "renewed counter" not in output[1]
+    assert "Unverified prerequisite statement" not in output[1]
+
+
+def test_unbound_prerequisite_text_is_not_restored_as_a_quoted_condition():
+    parts = ["Lead", "Engine ({B}) — A useful recursive body. Requires an outlet."]
+    units = fragment_units(parts, set())
+    judgments = [
+        {
+            **u,
+            "verdict": "supported" if i == 0 else "unverified",
+            "rendered_claim": u["claim"],
+        }
+        for i, u in enumerate(units)
+    ]
+    judgments[1]["part_sha256"] = "stale"
+    output, _ = narrow_unverified_findings(
+        parts, parts, [], {"claim_unit_version": VERSION, "claim_judgments": judgments}
+    )
+    assert "Fit assessment remains conditional" in output[1]
+    assert "Unverified prerequisite statement" not in output[1]
+
+
+def test_every_mixed_fit_row_remains_conditional_across_prerequisite_wordings():
+    for prerequisite in (
+        "Needs a +1/+1 counter at death.",
+        "A +1/+1 counter must be present when it dies.",
+        "Only works if it has a +1/+1 counter when it dies.",
+        "Its repeated execution depends upon a resource that was not assessed.",
+    ):
+        parts = ["Lead", "Engine ({B}) — A useful recursive body. " + prerequisite]
+        units = fragment_units(parts, set())
+        judgments = [
+            {
+                **u,
+                "verdict": "supported" if i == 0 else "unverified",
+                "rendered_claim": u["claim"],
+            }
+            for i, u in enumerate(units)
+        ]
+        output, _ = narrow_unverified_findings(
+            parts,
+            parts,
+            [],
+            {"claim_unit_version": VERSION, "claim_judgments": judgments},
+        )
+        assert "Fit assessment remains conditional" in output[1]
+        if "must be" in prerequisite or prerequisite.startswith("Only works"):
+            assert (
+                "Unverified prerequisite statement: “" + prerequisite + "”" in output[1]
+            )
+
+
+def test_printed_quotation_keeps_cost_effect_and_restriction_in_one_unit():
+    quote = "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell cannot be countered."
+    parts = [
+        "Lead",
+        "Engine ({G}) — A mana engine. Printed card text (ability availability unverified): “"
+        + quote
+        + "”",
+    ]
+    units = fragment_units(parts, set())
+    assert len(units) == 2
+    assert quote in units[1]["claim"]
+    assert all(
+        parts[u["part_index"]][u["start"] : u["end"]] == u["claim"] for u in units
+    )
+    assert not any(u["claim"].startswith("Spend this mana") for u in units)
+
+
+def test_nested_quoted_level_context_is_not_split_into_available_abilities():
+    quote = "Level up {1}{G} ({1}{G}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-4\n1/2\n{T}: Add {G}{G}.\nLEVEL 5+\n1/4\nElves you control have “{T}: Add {G}{G}.”"
+    parts = [
+        "Lead",
+        "Engine ({G}) — Printed card text (ability availability unverified): “"
+        + quote
+        + "”",
+    ]
+    assert len(fragment_units(parts, set())) == 1
+    assert quote in fragment_units(parts, set())[0]["claim"]

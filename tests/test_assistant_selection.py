@@ -584,6 +584,18 @@ def test_runtime_publishes_bound_review_cards_before_global_completion(
         conn.commit()
     monkeypatch.setattr("sabermetrics.assistant_runtime.MAX_TOOL_CALLS", 1)
     publications = []
+    from sabermetrics import assistant_targeted_evidence
+
+    targeted_claims = []
+    original_finalist = assistant_targeted_evidence.finalist_evidence
+
+    def capture_finalist(*args, **kwargs):
+        targeted_claims.extend(kwargs.get("claims", []))
+        return original_finalist(*args, **kwargs)
+
+    monkeypatch.setattr(
+        assistant_targeted_evidence, "finalist_evidence", capture_finalist
+    )
 
     class BoundReviewer:
         def __init__(self):
@@ -651,6 +663,9 @@ def test_runtime_publishes_bound_review_cards_before_global_completion(
         on_event=observe,
     )
     assert result["answer_review"]["progressive_review"]["enabled"]
+    assert targeted_claims
+    assert not any("Application note:" in claim for claim in targeted_claims)
+    assert any("Activation cost:" in claim for claim in targeted_claims)
     assert len(reviewer.calls) == 1
     assert {record["card_id"] for count, record in publications if count == 0} == {
         "incoming-0",

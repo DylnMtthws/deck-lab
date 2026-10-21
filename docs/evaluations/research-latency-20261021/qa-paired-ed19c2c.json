@@ -1,0 +1,1627 @@
+{
+  "purpose": "Paired QA diagnostic, not an independent broad quality benchmark",
+  "baseline_sha": "7e77bdd272260fce1f4184cbb59261301001082b",
+  "candidate_sha": "ed19c2cbbcfc59e700cba429abb954d6b2a5f101",
+  "qa_url": "https://qa.decklab.studio",
+  "production_unchanged": true,
+  "protocol": {
+    "prompts_identical": true,
+    "fresh_disposable_deck_fixtures": true,
+    "runs_per_case_per_build": 1,
+    "poll_seconds": 1.5,
+    "order": "baseline Marchesa, baseline Kinnan, initial candidate Marchesa/Kinnan, final Marchesa, final Kinnan",
+    "controls": "Same server, configured provider, corpus/index and harness. No steering or model settings changes. Candidate image uses an earlier verified base with matching dependency declarations after newest base exceeded mount depth; all three native smokes passed.",
+    "limits": [
+      "Stochastic generations and network/server load uncontrolled",
+      "The intermediate cd5a65b candidate was additionally inspected in native browser; final ed19c2c used the API harness only",
+      "Timings are poll-observed, not latency percentiles",
+      "First supported means a claim-scoped printed fact or reviewed finding, not verified deck strength",
+      "No unseen recommendation-quality claims established"
+    ]
+  },
+  "builds": {
+    "baseline": {
+      "raw_artifact_sha256": "b9fc869d6651d201a679d32118dcd8032d33e4aaf3e5e35f05b43a4a537edb92",
+      "raw_artifact": "/Users/dylan/Projects/mtg/deck-lab/infra/.private/research-latency-20261021/baseline/results.json",
+      "cleanup": {
+        "created": 2,
+        "all_removed": true
+      },
+      "cases": [
+        {
+          "case": "marchesa",
+          "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+          "first_source_seconds": 13.3,
+          "first_supported_seconds": 146.443,
+          "elapsed_seconds": 236.405,
+          "configured_cost_usd": 0.014939000000000001,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 6,
+          "review_call_count": 4,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000382,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 5100,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003271,
+              "prompt_version": "assistant-selection.v4",
+              "latency_ms": 41732,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003234,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 40281,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.001914,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 30468,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003187,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 46199,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.002951,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 37466,
+              "phase_timings": []
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Repeatable draw creatures: Mystic Archaeologist ({1}{U}) \u2014 Casting {1}{U}; activation {3}{U}{U} draws two cards repeatably if mana is paid. Mystic Archaeologist outranks Azure Mage because its five-mana activation draws two cards, while Azure Mage's four-mana activation draws only one. Relevant deck support remains unconfirmed. Activation cost: {3}{U}{U}. Further claims remain unverified.\n- Repeatable draw creatures: Azure Mage ({1}{U}) \u2014 Casting {1}{U}; activation {3}{U} draws one card repeatably if mana is paid. Azure Mage outranks Roil Cartographer because it needs only mana, while Roil requires six energy and a tap before drawing three. Relevant deck support remains unconfirmed. Activation cost: {3}{U}. Further claims remain unverified.\n- Repeatable draw creatures: Roil Cartographer ({1}{U}) \u2014 Casting {1}{U}; activation {T} plus six {E} draws three cards if energy is supplied. Roil Cartographer is last because its six-energy tap activation is conditional, though it draws three when supplied. Relevant deck support remains unconfirmed. Activation cost: {T}, Pay six {E}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 15,
+            "unresolved": [
+              "c4: Mana/activation-cost resources are evidenced, but timing availability is not.",
+              "c9: Mana/activation-cost resources are evidenced, but timing availability is not."
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": true,
+              "evidence_bytes_sent": 12382,
+              "full_evidence_bytes": 6653,
+              "global_review_complete": true,
+              "input_chars": 37935,
+              "job_count": 3,
+              "job_limit": 3,
+              "jobs": [
+                {
+                  "bound": false,
+                  "claim_ids": [
+                    "c3"
+                  ],
+                  "evidence_bytes_sent": 0,
+                  "evidence_indices": [],
+                  "reason": "ModelValidationError",
+                  "review_model": {
+                    "claim_count": 1,
+                    "elapsed_seconds": 42.007,
+                    "evidence_bytes_sent": 5640,
+                    "evidence_hash": "8a16e261ca5738c7228b9dc534a9ca3911970bc34e8e6f076f5b431c60a0bfcc",
+                    "evidence_source_count": 13,
+                    "input_chars": 9460,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "local",
+                  "status": "unverified"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c13",
+                    "c14",
+                    "c8"
+                  ],
+                  "evidence_bytes_sent": 5729,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 3,
+                    "elapsed_seconds": 73.378,
+                    "evidence_bytes_sent": 5729,
+                    "evidence_hash": "c55d427c624b39e99f27599ff44b7e89aab3ca1b3698dc2b6e2c3dcf617c4799",
+                    "evidence_source_count": 13,
+                    "input_chars": 11162,
+                    "output_chars": 561,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "local",
+                  "status": "unverified"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6653,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 12,
+                    "elapsed_seconds": 46.822,
+                    "evidence_bytes_sent": 6653,
+                    "evidence_hash": "79ec67f68d1c7335cdc69e622997cff67b76f1917f7e2b7e1694192524746310",
+                    "evidence_source_count": 14,
+                    "input_chars": 17313,
+                    "output_chars": 1972,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 2,
+              "output_token_limit": 12288
+            }
+          },
+          "exact_judgments": 0,
+          "runtime": {
+            "elapsed_seconds": 234.235,
+            "model_calls": [
+              {
+                "elapsed_seconds": 6.108,
+                "end_seconds": 7.994693,
+                "evidence_hash": "b0c462dc83c5edf02af007ef43c213ee494735bde9e708d7009891a4415aa9b8",
+                "input_chars": 1196,
+                "output_token_budget": 2048,
+                "preference_count": 0,
+                "retained_candidate_ids": [],
+                "route": "planner",
+                "start_seconds": 1.886526,
+                "step": 0
+              },
+              {
+                "elapsed_seconds": 42.409,
+                "end_seconds": 69.428244,
+                "evidence_hash": "185e96830e3d8df57de6cb460d6826a6369bcd466083c2b15d8ad15a1954d524",
+                "input_chars": 22939,
+                "output_token_budget": 4096,
+                "preference_count": 0,
+                "retained_candidate_ids": [
+                  "3cd7ef87-4cb4-42ff-842f-e9a465dab165",
+                  "b77dfe2a-ebc9-46b0-9134-2ecb2abdd8be",
+                  "6024cb2d-a6e7-4adc-8b34-7f4e0cac16ce",
+                  "4d2e233c-0173-417f-82a0-1e692a400ae1",
+                  "4243baf6-9ac2-4f87-988d-3ebf5e177f3b",
+                  "bbf9fd47-10e1-4749-b06f-4fe72200afc7",
+                  "862798c6-1c38-4bb9-b4a1-3ef1fcf8f7f7",
+                  "1cfc7b12-a595-492d-81ee-bd100ba7de6a"
+                ],
+                "route": "selection",
+                "start_seconds": 27.018837,
+                "step": 1
+              }
+            ],
+            "prompt_version": "build-conversation.v34",
+            "stages": [
+              {
+                "cache_hit": false,
+                "elapsed_seconds": 18.188,
+                "end_seconds": 26.315424,
+                "name": "search_card_functions",
+                "stage": "tool",
+                "start_seconds": 8.127205
+              },
+              {
+                "elapsed_seconds": 0.113,
+                "end_seconds": 26.611273,
+                "input_chars": 22939,
+                "retained_candidates": 8,
+                "stage": "selection_evidence",
+                "start_seconds": 26.498262
+              },
+              {
+                "elapsed_seconds": 0.001,
+                "end_seconds": 69.598044,
+                "stage": "render_and_validate",
+                "start_seconds": 69.597179
+              },
+              {
+                "elapsed_seconds": 0.390841,
+                "finalist_count": 3,
+                "finalists_omitted": 0,
+                "hits_retained": 6,
+                "lookup_count": 2,
+                "queries": [
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "energy counters player pay energy cost proliferate",
+                    "rulings_status": "available",
+                    "status": "available"
+                  },
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "tap symbol activated ability summoning sickness haste",
+                    "rulings_status": "available",
+                    "status": "available"
+                  }
+                ],
+                "queries_omitted": 0,
+                "scope": "Bounded local evidence retrieval only. Missing sources remain unverified; source matching does not establish rules correctness.",
+                "sources": [
+                  {
+                    "content_sha256": "f52f69a42ea0768f157d03db025254c57fb1b79f77081d03283202d4c3f7de6c",
+                    "kind": "rule",
+                    "source_id": "CR 701.34a",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "041670b51ab3c09fd19fcbbd0b9b9a3492823d2f91864ac71de7d32fb1e3ec35",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:98819",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2024-06-07"
+                  },
+                  {
+                    "content_sha256": "24129044d8e76e1d1ed5531e4238ca7b4f7d4ec1ce477b619eb9f52cf6980c5e",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:98816",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2024-06-07"
+                  },
+                  {
+                    "content_sha256": "c432b8106e4836fc5d2797943fb8bd6354596ca7a01add481e41986e8bad5a1a",
+                    "kind": "rule",
+                    "source_id": "CR 302.6",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "7e5f9c02980af8fb7846182128fcb28924974cebef0a5128574a44c20f9842e9",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:98825",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2024-11-08"
+                  },
+                  {
+                    "content_sha256": "13142a1c4160113664f53b6ccdc9a81755bdf682a14fa28952b48ec735fa15dc",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:98826",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2024-11-08"
+                  }
+                ],
+                "stage": "finalist_evidence"
+              },
+              {
+                "elapsed_seconds": 0.697,
+                "end_seconds": 70.528306,
+                "refreshed_cards": 4,
+                "stage": "review_evidence",
+                "start_seconds": 69.831075
+              },
+              {
+                "elapsed_seconds": 122.694,
+                "end_seconds": 193.222742,
+                "stage": "answer_review",
+                "start_seconds": 70.528309,
+                "status": "unverified"
+              },
+              {
+                "elapsed_seconds": 40.417,
+                "end_seconds": 233.829791,
+                "lookups": 2,
+                "stage": "corrective_review",
+                "start_seconds": 193.412531,
+                "status": "unverified"
+              },
+              {
+                "attachment_status": "not_attached",
+                "deck_entries": 64,
+                "dependency_count": 67,
+                "elapsed_seconds": 0.118129,
+                "end_seconds": 234.211229,
+                "input_sha256": "9c8ad5af17e9bd596f32ae48237850211e541c0e5aecd3ced2ee4e201741e92c",
+                "maximum_episode_chars": 12000,
+                "minimum_receipt_chars": 13237,
+                "persistence_status": "not_applicable",
+                "reason": "required_receipt_exceeds_budget",
+                "stage": "memory_capture",
+                "start_seconds": 234.092999,
+                "status": "skipped"
+              }
+            ],
+            "timing_coverage": {
+              "covered_wall_seconds": 230.747,
+              "intervals": 9,
+              "overlapping_interval_seconds": 0.0,
+              "rows_without_intervals": 1,
+              "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+              "unattributed_wall_seconds": 3.488
+            },
+            "tool_calls": 1
+          },
+          "corrective": {
+            "status": null,
+            "lookup_count": null,
+            "review_elapsed_seconds": null,
+            "elapsed_seconds": 1.086786,
+            "new_evidence_count": null,
+            "stop_reason": "new_complete_evidence"
+          }
+        },
+        {
+          "case": "kinnan",
+          "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+          "first_source_seconds": 15.22,
+          "first_supported_seconds": 125.84,
+          "elapsed_seconds": 125.84,
+          "configured_cost_usd": 0.007271,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 3,
+          "review_call_count": 1,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000471,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 7429,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003345,
+              "prompt_version": "assistant-selection.v4",
+              "latency_ms": 56196,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003455,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 37754,
+              "phase_timings": []
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Low-cost mana-producing creatures: Elvish Mystic ({G}) \u2014 Elvish Mystic is a one-mana green dork whose tap for {G} becomes two mana with Kinnan, helping cast Kinnan and ramp early. Requires the creature to be untapped and under your control; its only drawback is producing just green and being a fragile one-toughness body. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Fyndhorn Elves ({G}) \u2014 Fyndhorn Elves mirrors Elvish Mystic as a one-mana green dork that Kinnan doubles to two green mana for early ramp. Requires the creature to be untapped and under your control; its drawback is identical to Elvish Mystic, offering no extra utility beyond green mana. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Delighted Halfling ({G}) \u2014 Delighted Halfling is a one-mana dork that taps for {C} or any color for a legendary spell, and Kinnan adds an extra mana of the produced type. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 16,
+            "unresolved": [
+              "c11: Uncertainty statement; no evidence establishes that these checks remain outstanding."
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": false,
+              "evidence_bytes_sent": 6480,
+              "full_evidence_bytes": 6480,
+              "global_review_complete": true,
+              "input_chars": 18711,
+              "job_count": 1,
+              "job_limit": 3,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c13",
+                    "c14",
+                    "c15",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6480,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 16,
+                    "elapsed_seconds": 38.489,
+                    "evidence_bytes_sent": 6480,
+                    "evidence_hash": "bf96b0bd826103c3b41e8b89a6c73e68026300e227b8a02835a0268765200fc6",
+                    "evidence_source_count": 14,
+                    "input_chars": 18711,
+                    "output_chars": 2556,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 2,
+              "output_token_limit": 12288
+            }
+          },
+          "exact_judgments": 0,
+          "runtime": {
+            "elapsed_seconds": 124.499,
+            "model_calls": [
+              {
+                "elapsed_seconds": 7.787,
+                "end_seconds": 11.094278,
+                "evidence_hash": "b1f5d3bbca778559c12360afbbd46c98a0124223e12b26744f08ede87f22bb6a",
+                "input_chars": 1216,
+                "output_token_budget": 2048,
+                "preference_count": 0,
+                "retained_candidate_ids": [],
+                "route": "planner",
+                "start_seconds": 3.307512,
+                "step": 0
+              },
+              {
+                "elapsed_seconds": 56.904,
+                "end_seconds": 81.907822,
+                "evidence_hash": "63b6aa44670cb1f608f80fbc0d2d05d34d85fccbc2d22131a7b770bb9d252f19",
+                "input_chars": 23954,
+                "output_token_budget": 4096,
+                "preference_count": 1,
+                "retained_candidate_ids": [
+                  "a3ce0fa9-8742-4e2c-a8a0-00fc009f998a",
+                  "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+                  "215fd0b4-5817-4335-a0ed-1694e44bde41",
+                  "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+                  "df317532-7d36-40fd-938f-e972749c8792",
+                  "2fcc69ff-8ab5-4e14-afe3-db892049a872",
+                  "a011aefe-5853-4435-b686-179e931ba897",
+                  "eb2ff7f2-b7fd-4984-a4e8-cf57b619c1a5"
+                ],
+                "route": "selection",
+                "start_seconds": 25.004276,
+                "step": 1
+              }
+            ],
+            "prompt_version": "build-conversation.v34",
+            "stages": [
+              {
+                "cache_hit": false,
+                "elapsed_seconds": 12.96,
+                "end_seconds": 24.239212,
+                "name": "search_card_functions",
+                "stage": "tool",
+                "start_seconds": 11.279086
+              },
+              {
+                "elapsed_seconds": 0.106,
+                "end_seconds": 24.700289,
+                "input_chars": 23954,
+                "retained_candidates": 8,
+                "stage": "selection_evidence",
+                "start_seconds": 24.593803
+              },
+              {
+                "elapsed_seconds": 0.001,
+                "end_seconds": 82.0922,
+                "stage": "render_and_validate",
+                "start_seconds": 82.090773
+              },
+              {
+                "elapsed_seconds": 0.201058,
+                "finalist_count": 3,
+                "finalists_omitted": 0,
+                "hits_retained": 6,
+                "lookup_count": 1,
+                "queries": [
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "tap symbol activated ability summoning sickness haste",
+                    "rulings_status": "available",
+                    "status": "available"
+                  }
+                ],
+                "queries_omitted": 0,
+                "scope": "Bounded local evidence retrieval only. Missing sources remain unverified; source matching does not establish rules correctness.",
+                "sources": [
+                  {
+                    "content_sha256": "c432b8106e4836fc5d2797943fb8bd6354596ca7a01add481e41986e8bad5a1a",
+                    "kind": "rule",
+                    "source_id": "CR 302.6",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "00c40c32015f05891c421fc1c2ef3c881927618112251dc399e90996e98de4d6",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123608",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  },
+                  {
+                    "content_sha256": "7c5a9092f7c2e9a8fbef3747b4c89a3009a4325f34771cb05805744e30006230",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:157182",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2023-06-16"
+                  },
+                  {
+                    "content_sha256": "be5451d8c93e70d437105a46fed0a451dbcf34cfede94dc7cf49e87c35a0d776",
+                    "kind": "rule",
+                    "source_id": "CR 106.12",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "53104b4a72905104833b6cdd0e3fd811d25aa8dc2d853bc2b2879f71fb8e0180",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123605",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  },
+                  {
+                    "content_sha256": "53bbd4130796cee57cd3512d475e79e711d21d5ac597e2c81025f316baf1f543",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123606",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  }
+                ],
+                "stage": "finalist_evidence"
+              },
+              {
+                "elapsed_seconds": 0.599,
+                "end_seconds": 83.30876,
+                "refreshed_cards": 4,
+                "stage": "review_evidence",
+                "start_seconds": 82.709919
+              },
+              {
+                "elapsed_seconds": 40.415,
+                "end_seconds": 123.723406,
+                "stage": "answer_review",
+                "start_seconds": 83.308763,
+                "status": "unverified"
+              },
+              {
+                "elapsed_seconds": 0.265,
+                "end_seconds": 124.168482,
+                "lookups": 0,
+                "stage": "corrective_review",
+                "start_seconds": 123.902996,
+                "status": "not_needed"
+              },
+              {
+                "attachment_status": "not_attached",
+                "deck_entries": 63,
+                "dependency_count": 66,
+                "elapsed_seconds": 0.101771,
+                "end_seconds": 124.473062,
+                "input_sha256": "3389db6ded9f07e06562673529b02577bbbc324edeb4d499842b5a1d8aaba92e",
+                "maximum_episode_chars": 12000,
+                "minimum_receipt_chars": 13920,
+                "persistence_status": "not_applicable",
+                "reason": "required_receipt_exceeds_budget",
+                "stage": "memory_capture",
+                "start_seconds": 124.371201,
+                "status": "skipped"
+              }
+            ],
+            "timing_coverage": {
+              "covered_wall_seconds": 119.139,
+              "intervals": 9,
+              "overlapping_interval_seconds": 0.0,
+              "rows_without_intervals": 1,
+              "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+              "unattributed_wall_seconds": 5.36
+            },
+            "tool_calls": 1
+          },
+          "corrective": {
+            "status": null,
+            "lookup_count": null,
+            "review_elapsed_seconds": null,
+            "elapsed_seconds": 0.265391,
+            "new_evidence_count": null,
+            "stop_reason": "no_resolvable_gaps"
+          }
+        }
+      ]
+    },
+    "final": {
+      "raw_artifact_sha256": "71c2b1136a328c86f7278e8aa8a966cc06469fb958b03f2e899e5e81891bbe7b",
+      "raw_artifact": "/Users/dylan/Projects/mtg/deck-lab/infra/.private/research-latency-20261021/final/results.json",
+      "cleanup": {
+        "created": 2,
+        "all_removed": true
+      },
+      "cases": [
+        {
+          "case": "marchesa",
+          "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+          "first_source_seconds": 19.608,
+          "first_supported_seconds": 137.733,
+          "elapsed_seconds": 172.742,
+          "configured_cost_usd": 0.010158,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 4,
+          "review_call_count": 2,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.00044,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 9709,
+              "phase_timings": [
+                {
+                  "duration_ms": 94.64888414368033,
+                  "finished_monotonic": 3561397.854185325,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561397.759536441
+                },
+                {
+                  "duration_ms": 0.014831777662038803,
+                  "finished_monotonic": 3561398.169207336,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561398.169192504
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 9668.392929714173,
+                  "finished_monotonic": 3561407.94535555,
+                  "phase": "transport",
+                  "started_monotonic": 3561398.27696262
+                }
+              ]
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003309,
+              "prompt_version": "assistant-selection.v5",
+              "latency_ms": 47888,
+              "phase_timings": [
+                {
+                  "duration_ms": 25.82861389964819,
+                  "finished_monotonic": 3561437.081471042,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561437.055642428
+                },
+                {
+                  "duration_ms": 0.01313304528594017,
+                  "finished_monotonic": 3561437.191189272,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561437.191176139
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 47769.909540656954,
+                  "finished_monotonic": 3561485.122951613,
+                  "phase": "transport",
+                  "started_monotonic": 3561437.353042072
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003327,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 35885,
+              "phase_timings": [
+                {
+                  "duration_ms": 702.1534331142902,
+                  "finished_monotonic": 3561488.861704755,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561488.159551322
+                },
+                {
+                  "duration_ms": 0.014176126569509506,
+                  "finished_monotonic": 3561490.072810235,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561490.072796059
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 35499.069219920784,
+                  "finished_monotonic": 3561526.158164963,
+                  "phase": "transport",
+                  "started_monotonic": 3561490.659095743
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003082,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 33105,
+              "phase_timings": [
+                {
+                  "duration_ms": 175.14918791130185,
+                  "finished_monotonic": 3561529.947651785,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561529.772502597
+                },
+                {
+                  "duration_ms": 0.015316065400838852,
+                  "finished_monotonic": 3561530.487914159,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561530.487898843
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 32998.34055220708,
+                  "finished_monotonic": 3561563.652140724,
+                  "phase": "transport",
+                  "started_monotonic": 3561530.653800172
+                }
+              ]
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\nApplication note: Listed costs are printed costs; current mana, resources and legal timing are not assumed. Additional untaps are not assumed.\n\n- Repeatable draw creatures: Phantasmal Shieldback ({U}) \u2014 One-mana death-trigger draw that recurs via Marchesa only if it keeps a +1/+1 counter. Requires dying with a +1/+1 counter and Marchesa's return trigger; targeting it forces sacrifice, and returning does not renew counters. Potential deck support: Yawgmoth, Thran Physician (sacrifice). Further claims remain unverified.\n- Repeatable draw creatures: Surveilling Sprite ({1}{U}) \u2014 Two-mana flying death-trigger draw with optional draw, a clean low-cost recursive body under Marchesa. Potential deck support: Yawgmoth, Thran Physician (sacrifice). Further claims remain unverified.\n- Repeatable draw creatures: Palace Familiar ({1}{U}) \u2014 Two-mana flying death-trigger draw that offers evasion and a straightforward recursive draw role. Requires dying with a +1/+1 counter and Marchesa's return trigger; the draw is mandatory, and returning does not itself renew counters. Potential deck support: Yawgmoth, Thran Physician (sacrifice).\n\nSome claims remain unverified; see the individual findings and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 10,
+            "unresolved": [
+              "c5: Marchesa requires the counter before death; returning does not renew counters.",
+              "c3: The sacrifice-cost portion is supported, but the token/nontoken difference is not established by the"
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": false,
+              "evidence_bytes_sent": 7987,
+              "exact_fact_count": 0,
+              "full_evidence_bytes": 7987,
+              "global_review_complete": true,
+              "input_chars": 19772,
+              "job_count": 1,
+              "job_limit": 1,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 7987,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14
+                  ],
+                  "method": "semantic_model_review",
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 10,
+                    "elapsed_seconds": 38.69,
+                    "evidence_bytes_sent": 7987,
+                    "evidence_hash": "687462ee724e9beba2ab8bfd8e93457234494c9e34010f5a6ca68c8c3be4c235",
+                    "evidence_source_count": 15,
+                    "input_chars": 19772,
+                    "output_chars": 1818,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 0,
+              "method": "exact_cost_then_one_semantic_review",
+              "model_job_count": 1,
+              "output_token_limit": 4096,
+              "semantic_recheck": null
+            }
+          },
+          "exact_judgments": 0,
+          "runtime": {
+            "elapsed_seconds": 169.75,
+            "model_calls": [
+              {
+                "elapsed_seconds": 10.581,
+                "end_seconds": 13.188248,
+                "evidence_hash": "b0c462dc83c5edf02af007ef43c213ee494735bde9e708d7009891a4415aa9b8",
+                "input_chars": 1196,
+                "output_token_budget": 2048,
+                "preference_count": 0,
+                "retained_candidate_ids": [],
+                "route": "planner",
+                "start_seconds": 2.606911,
+                "step": 0
+              },
+              {
+                "elapsed_seconds": 48.377,
+                "end_seconds": 90.417147,
+                "evidence_hash": "1fa44fdcae066851656b492d01fd0f1a287df768fe9a39446db12e9841d61952",
+                "input_chars": 23813,
+                "output_token_budget": 4096,
+                "preference_count": 1,
+                "retained_candidate_ids": [
+                  "8e514bc9-7c8c-4257-9dbc-19a78f61df05",
+                  "fee73267-b0ef-4f43-a0bd-7728691d6f17",
+                  "e793ede9-044a-44e9-bc9c-99b0034503eb",
+                  "dab9e40f-b73a-4c55-8bb3-63b32c23f07b",
+                  "df4569d7-ee75-4ba0-bbc3-7766ac686523",
+                  "e7b88da3-7dd1-45f8-b555-98ad838b2917",
+                  "e51f5b41-5465-4b1d-b96a-544762657ca5",
+                  "449142ff-7190-471b-99a5-f77095a827dd"
+                ],
+                "route": "selection",
+                "start_seconds": 42.039662,
+                "step": 1
+              }
+            ],
+            "prompt_version": "build-conversation.v34",
+            "stages": [
+              {
+                "cache_hit": false,
+                "elapsed_seconds": 28.151,
+                "end_seconds": 41.488263,
+                "name": "search_card_functions",
+                "stage": "tool",
+                "start_seconds": 13.337479
+              },
+              {
+                "elapsed_seconds": 0.094,
+                "end_seconds": 41.803615,
+                "input_chars": 23813,
+                "retained_candidates": 8,
+                "stage": "selection_evidence",
+                "start_seconds": 41.709674
+              },
+              {
+                "elapsed_seconds": 0.001,
+                "end_seconds": 90.603557,
+                "stage": "render_and_validate",
+                "start_seconds": 90.602274
+              },
+              {
+                "elapsed_seconds": 0.50216,
+                "evidence_dependencies": {
+                  "tap_symbol": {
+                    "limitations": [],
+                    "required": [
+                      "continuous_control",
+                      "haste_activation"
+                    ],
+                    "retained": [
+                      "continuous_control",
+                      "haste_activation"
+                    ],
+                    "scope": "Sources only; dependency coverage is not an automatic rule verdict."
+                  }
+                },
+                "finalist_count": 3,
+                "finalists_omitted": 0,
+                "hits_retained": 6,
+                "limitations": [
+                  "Retrieved text is evidence, not instructions or certified rules execution.",
+                  "Snapshot identity does not prove it is the newest published edition.",
+                  "No matching ruling does not establish that no ruling exists."
+                ],
+                "lookup_count": 2,
+                "queries": [
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "tap symbol activated ability summoning sickness haste",
+                    "query_failures": [],
+                    "rules_snapshot": {
+                      "content_sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca",
+                      "rules_count": 3165,
+                      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                      "source_version": "2026-09-25"
+                    },
+                    "rulings_status": "available",
+                    "status": "available"
+                  },
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "zone change new object counters retained return counter renewal",
+                    "query_failures": [],
+                    "rules_snapshot": {
+                      "content_sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca",
+                      "rules_count": 3165,
+                      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                      "source_version": "2026-09-25"
+                    },
+                    "rulings_status": "available",
+                    "status": "available"
+                  }
+                ],
+                "queries_omitted": 4,
+                "scope": "Bounded local evidence retrieval only. Missing sources remain unverified; source matching does not establish rules correctness.",
+                "sources": [
+                  {
+                    "content_sha256": "cc60da1ffedaf1cc1f3a99daf6c65dfa2e437d7fe4a70ac22609a70c22e6edee",
+                    "kind": "rule",
+                    "source_id": "CR 107.5",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "b8bd7dc0cbe03767534b41e63802eab6bb074c4db141c2ca2e3913d094a50491",
+                    "kind": "rule",
+                    "source_id": "CR 702.10c",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "53d5b2bc666537ad1f285f9de6f01073455e296ef9407dce5f8ccb8c51b718df",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123995",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2024-11-08"
+                  },
+                  {
+                    "content_sha256": "b2bdfbc945b315dba2da24762d18176b6003b5979f00f647c1108b3f47e6f577",
+                    "kind": "rule",
+                    "source_id": "CR 122.2",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "cecd4e29bd49598e6b268456385ca119beff77fc43dac8121de5fcdeb5024e98",
+                    "kind": "rule",
+                    "source_id": "CR 400.7",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "c200d73672a08cafcee35992ba3962f4e2a7dd28b3f13b59c8c419b4e053337a",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:87193",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2014-05-29"
+                  }
+                ],
+                "stage": "finalist_evidence"
+              },
+              {
+                "elapsed_seconds": 1.166,
+                "end_seconds": 92.110993,
+                "refreshed_cards": 8,
+                "stage": "review_evidence",
+                "start_seconds": 90.945092
+              },
+              {
+                "elapsed_seconds": 40.706,
+                "end_seconds": 132.816648,
+                "stage": "answer_review",
+                "start_seconds": 92.110998,
+                "status": "unverified"
+              },
+              {
+                "elapsed_seconds": 36.218,
+                "end_seconds": 169.232505,
+                "lookups": 2,
+                "stage": "corrective_review",
+                "start_seconds": 133.014566,
+                "status": "unverified"
+              },
+              {
+                "attachment_status": "not_attached",
+                "deck_entries": 64,
+                "dependency_count": 67,
+                "elapsed_seconds": 0.211993,
+                "end_seconds": 169.703617,
+                "input_sha256": "98239ef17213ea816e46cd49c90471aea93aa36fd228686790ad9efa3b79564f",
+                "maximum_episode_chars": 12000,
+                "minimum_receipt_chars": 14973,
+                "persistence_status": "not_applicable",
+                "reason": "required_receipt_exceeds_budget",
+                "stage": "memory_capture",
+                "start_seconds": 169.491506,
+                "status": "skipped"
+              }
+            ],
+            "timing_coverage": {
+              "covered_wall_seconds": 165.506,
+              "intervals": 9,
+              "overlapping_interval_seconds": 0.0,
+              "rows_without_intervals": 1,
+              "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+              "unattributed_wall_seconds": 4.243
+            },
+            "tool_calls": 1
+          },
+          "corrective": {
+            "status": null,
+            "lookup_count": null,
+            "review_elapsed_seconds": null,
+            "elapsed_seconds": 1.096697,
+            "new_evidence_count": null,
+            "stop_reason": "new_complete_evidence"
+          }
+        },
+        {
+          "case": "kinnan",
+          "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+          "first_source_seconds": 13.168,
+          "first_supported_seconds": 67.852,
+          "elapsed_seconds": 148.2,
+          "configured_cost_usd": 0.009883,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 4,
+          "review_call_count": 2,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000413,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 6516,
+              "phase_timings": [
+                {
+                  "duration_ms": 78.7896909750998,
+                  "finished_monotonic": 3561577.659634675,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561577.580844984
+                },
+                {
+                  "duration_ms": 0.017442740499973297,
+                  "finished_monotonic": 3561577.759446466,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561577.759429023
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 6480.302406940609,
+                  "finished_monotonic": 3561584.344878033,
+                  "phase": "transport",
+                  "started_monotonic": 3561577.864575626
+                }
+              ]
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003342,
+              "prompt_version": "assistant-selection.v5",
+              "latency_ms": 40290,
+              "phase_timings": [
+                {
+                  "duration_ms": 56.711181066930294,
+                  "finished_monotonic": 3561598.051673563,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561597.994962382
+                },
+                {
+                  "duration_ms": 0.013870187103748322,
+                  "finished_monotonic": 3561598.16525549,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561598.16524162
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 40203.295822720975,
+                  "finished_monotonic": 3561638.467246337,
+                  "phase": "transport",
+                  "started_monotonic": 3561598.263950514
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003413,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 36997,
+              "phase_timings": [
+                {
+                  "duration_ms": 110.97764084115624,
+                  "finished_monotonic": 3561641.680322682,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561641.569345041
+                },
+                {
+                  "duration_ms": 0.010475050657987595,
+                  "finished_monotonic": 3561641.954944875,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561641.9549344
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 36823.165202047676,
+                  "finished_monotonic": 3561679.0014769,
+                  "phase": "transport",
+                  "started_monotonic": 3561642.178311698
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.002715,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 38894,
+              "phase_timings": [
+                {
+                  "duration_ms": 80.0162018276751,
+                  "finished_monotonic": 3561681.847191081,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3561681.767174879
+                },
+                {
+                  "duration_ms": 0.013513956218957901,
+                  "finished_monotonic": 3561682.265677216,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3561682.265663702
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 38840.245908126235,
+                  "finished_monotonic": 3561721.211830193,
+                  "phase": "transport",
+                  "started_monotonic": 3561682.371584285
+                }
+              ]
+            }
+          ],
+          "final_status": "done",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\nApplication note: Listed costs are printed costs; current mana, resources and legal timing are not assumed. Additional untaps are not assumed.\n\n- Low-cost mana-producing creatures: Elvish Mystic ({G}) \u2014 A one-mana green dork that taps for green, triggering Kinnan to add an extra green for two unrestricted mana. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste. Further claims remain unverified.\n- Low-cost mana-producing creatures: Delighted Halfling ({G}) \u2014 A one-mana dork whose colorless or legendary-restricted mana triggers Kinnan for an extra unrestricted mana of the same type. The any-color mode only casts legendary spells and cannot pay activation costs, so Kinnan's own ability can still help pay activation costs through Kinnan's unrestricted additional mana, though the restricted mana itself cannot. Potential deck support: Kinnan, Bonder Prodigy. Spend this mana only to cast a legendary spell, and that spell can't be countered.\u201d Tap-symbol cost: this creature needs continuous control or haste. Further claims remain unverified.\n- Low-cost mana-producing creatures: Omen Hawker ({U}) \u2014 A one-mana blue dork that taps for two ability-restricted mana, triggering Kinnan for an extra unrestricted mana of either type. Its two mana can only activate abilities, so it cannot cast spells or pay non-ability costs, and it needs untapping for further uses. Potential deck support: Kinnan, Bonder Prodigy. Printed card text (ability availability unverified): \u201c{T}: Add {C}{U}. Spend this mana only to activate abilities.\u201d Tap-symbol cost: this creature needs continuous control or haste.\n\nSome claims remain unverified; see the individual findings and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "unknown",
+            "claim_count": 15,
+            "unresolved": [
+              "c1: The rules prerequisite is supported, but 'weakest topdeck later' is an unsupported comparative/stre}",
+              "c8: The quoted printed text is truncated and omits the legendary-spell restriction on the any-color mode"
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": true,
+              "evidence_bytes_sent": 6689,
+              "exact_fact_count": 1,
+              "full_evidence_bytes": 6689,
+              "global_review_complete": true,
+              "input_chars": 19202,
+              "job_count": 1,
+              "job_limit": 1,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c3"
+                  ],
+                  "evidence_bytes_sent": 0,
+                  "evidence_indices": [
+                    12
+                  ],
+                  "method": "EXACT_source_check",
+                  "reason": null,
+                  "stage": "exact",
+                  "status": "no_supported_correction"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c13",
+                    "c14",
+                    "c2",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6689,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "method": "semantic_model_review",
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 14,
+                    "elapsed_seconds": 38.077,
+                    "evidence_bytes_sent": 6689,
+                    "evidence_hash": "88a76c825bbf04c77adc4e187b5a9f40bcde38b073e2f1f796c7189e8251a825",
+                    "evidence_source_count": 14,
+                    "input_chars": 19202,
+                    "output_chars": 2395,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 0,
+              "method": "exact_cost_then_one_semantic_review",
+              "model_job_count": 1,
+              "output_token_limit": 4096,
+              "semantic_recheck": null
+            }
+          },
+          "exact_judgments": 1,
+          "runtime": {
+            "elapsed_seconds": 146.988,
+            "model_calls": [
+              {
+                "elapsed_seconds": 7.106,
+                "end_seconds": 9.314261,
+                "evidence_hash": "b1f5d3bbca778559c12360afbbd46c98a0124223e12b26744f08ede87f22bb6a",
+                "input_chars": 1216,
+                "output_token_budget": 2048,
+                "preference_count": 0,
+                "retained_candidate_ids": [],
+                "route": "planner",
+                "start_seconds": 2.208142,
+                "step": 0
+              },
+              {
+                "elapsed_seconds": 40.706,
+                "end_seconds": 63.41752,
+                "evidence_hash": "d46b9e618602b9b121203654f8a4335d4135b79ed48548417d427b11a3e5e52a",
+                "input_chars": 23978,
+                "output_token_budget": 4096,
+                "preference_count": 0,
+                "retained_candidate_ids": [
+                  "a3ce0fa9-8742-4e2c-a8a0-00fc009f998a",
+                  "f9d3b046-0b95-4103-a630-4b3fb88bb60b",
+                  "215fd0b4-5817-4335-a0ed-1694e44bde41",
+                  "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+                  "df317532-7d36-40fd-938f-e972749c8792",
+                  "2fcc69ff-8ab5-4e14-afe3-db892049a872",
+                  "a011aefe-5853-4435-b686-179e931ba897",
+                  "eb2ff7f2-b7fd-4984-a4e8-cf57b619c1a5"
+                ],
+                "route": "selection",
+                "start_seconds": 22.711121,
+                "step": 1
+              }
+            ],
+            "prompt_version": "build-conversation.v34",
+            "stages": [
+              {
+                "cache_hit": false,
+                "elapsed_seconds": 12.616,
+                "end_seconds": 22.116273,
+                "name": "search_card_functions",
+                "stage": "tool",
+                "start_seconds": 9.500616
+              },
+              {
+                "elapsed_seconds": 0.115,
+                "end_seconds": 22.435706,
+                "input_chars": 23978,
+                "retained_candidates": 8,
+                "stage": "selection_evidence",
+                "start_seconds": 22.32034
+              },
+              {
+                "elapsed_seconds": 0.002,
+                "end_seconds": 63.588557,
+                "stage": "render_and_validate",
+                "start_seconds": 63.586872
+              },
+              {
+                "elapsed_seconds": 0.200399,
+                "evidence_dependencies": {
+                  "tap_symbol": {
+                    "limitations": [],
+                    "required": [
+                      "continuous_control",
+                      "haste_activation"
+                    ],
+                    "retained": [
+                      "continuous_control",
+                      "haste_activation"
+                    ],
+                    "scope": "Sources only; dependency coverage is not an automatic rule verdict."
+                  }
+                },
+                "finalist_count": 3,
+                "finalists_omitted": 0,
+                "hits_retained": 6,
+                "limitations": [
+                  "Retrieved text is evidence, not instructions or certified rules execution.",
+                  "Snapshot identity does not prove it is the newest published edition.",
+                  "No matching ruling does not establish that no ruling exists."
+                ],
+                "lookup_count": 1,
+                "queries": [
+                  {
+                    "limitations": [
+                      "Retrieved text is evidence, not instructions or certified rules execution.",
+                      "Snapshot identity does not prove it is the newest published edition.",
+                      "No matching ruling does not establish that no ruling exists."
+                    ],
+                    "query": "tap symbol activated ability summoning sickness haste",
+                    "query_failures": [],
+                    "rules_snapshot": {
+                      "content_sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca",
+                      "rules_count": 3165,
+                      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                      "source_version": "2026-09-25"
+                    },
+                    "rulings_status": "available",
+                    "status": "available"
+                  }
+                ],
+                "queries_omitted": 0,
+                "scope": "Bounded local evidence retrieval only. Missing sources remain unverified; source matching does not establish rules correctness.",
+                "sources": [
+                  {
+                    "content_sha256": "cc60da1ffedaf1cc1f3a99daf6c65dfa2e437d7fe4a70ac22609a70c22e6edee",
+                    "kind": "rule",
+                    "source_id": "CR 107.5",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "b8bd7dc0cbe03767534b41e63802eab6bb074c4db141c2ca2e3913d094a50491",
+                    "kind": "rule",
+                    "source_id": "CR 702.10c",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "00c40c32015f05891c421fc1c2ef3c881927618112251dc399e90996e98de4d6",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123608",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  },
+                  {
+                    "content_sha256": "be5451d8c93e70d437105a46fed0a451dbcf34cfede94dc7cf49e87c35a0d776",
+                    "kind": "rule",
+                    "source_id": "CR 106.12",
+                    "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+                    "text_truncated": false,
+                    "version": "2026-09-25"
+                  },
+                  {
+                    "content_sha256": "53104b4a72905104833b6cdd0e3fd811d25aa8dc2d853bc2b2879f71fb8e0180",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123605",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  },
+                  {
+                    "content_sha256": "53bbd4130796cee57cd3512d475e79e711d21d5ac597e2c81025f316baf1f543",
+                    "kind": "card_ruling",
+                    "source_id": "ruling:123606",
+                    "source_url": "https://data.scryfall.io/rulings/rulings-20261020210033.jsonl.gz",
+                    "text_truncated": false,
+                    "version": "2020-04-17"
+                  }
+                ],
+                "stage": "finalist_evidence"
+              },
+              {
+                "elapsed_seconds": 0.768,
+                "end_seconds": 64.703436,
+                "refreshed_cards": 4,
+                "stage": "review_evidence",
+                "start_seconds": 63.935556
+              },
+              {
+                "elapsed_seconds": 40.015,
+                "end_seconds": 104.718604,
+                "stage": "answer_review",
+                "start_seconds": 64.703452,
+                "status": "unverified"
+              },
+              {
+                "elapsed_seconds": 41.61,
+                "end_seconds": 146.519606,
+                "lookups": 1,
+                "stage": "corrective_review",
+                "start_seconds": 104.909288,
+                "status": "unverified"
+              },
+              {
+                "attachment_status": "not_attached",
+                "deck_entries": 63,
+                "dependency_count": 66,
+                "elapsed_seconds": 0.102178,
+                "end_seconds": 146.884059,
+                "input_sha256": "5606bbb53f5b4c73cba7e45804c8ff6664d4043c5be52bd9dedcbb9c2b378977",
+                "maximum_episode_chars": 12000,
+                "minimum_receipt_chars": 14501,
+                "persistence_status": "not_applicable",
+                "reason": "required_receipt_exceeds_budget",
+                "stage": "memory_capture",
+                "start_seconds": 146.781754,
+                "status": "skipped"
+              }
+            ],
+            "timing_coverage": {
+              "covered_wall_seconds": 143.041,
+              "intervals": 9,
+              "overlapping_interval_seconds": 0.0,
+              "rows_without_intervals": 1,
+              "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+              "unattributed_wall_seconds": 3.947
+            },
+            "tool_calls": 1
+          },
+          "corrective": {
+            "status": null,
+            "lookup_count": null,
+            "review_elapsed_seconds": null,
+            "elapsed_seconds": 1.181099,
+            "new_evidence_count": null,
+            "stop_reason": "new_complete_evidence"
+          }
+        }
+      ]
+    }
+  },
+  "comparisons": [
+    {
+      "case": "marchesa",
+      "completion_reduction_percent": 26.9,
+      "first_supported_reduction_percent": 5.9,
+      "cost_reduction_percent": 32.0
+    },
+    {
+      "case": "kinnan",
+      "completion_reduction_percent": -17.8,
+      "first_supported_reduction_percent": 46.1,
+      "cost_reduction_percent": -35.9
+    }
+  ],
+  "browser_evidence_runtime_sha": "cd5a65bcfce5fb515be207c15ea00e58a221de06",
+  "browser_early": {
+    "url": "https://qa.decklab.studio/build/deck/9f9a3adfa6b0400e913fcf2197422d26",
+    "timestamp": "2026-10-21T03:12:07.770Z",
+    "scripts": [
+      "https://qa.decklab.studio/static/deck-lab-assistant-sidebar.js?v=cd5a65bcfce5fb515be207c15ea00e58a221de06"
+    ],
+    "badge": "Research running",
+    "cardCount": 16,
+    "composerEnabled": true,
+    "sourceStates": [
+      "Morbid OpportunistRetrieved \u00b7 fit unverified \u00b7 version 1Printed card facts \u00b7 deck fit unverifiedMorbid Opportunist{2}{B}Creature \u2014 Human RogueWhenever one or more other creatures die, draw a card. This ability triggers only once each turn.Corrections and historyPinExcludePrioritize",
+      "The Unagi of Kyoshi IslandRetrieved \u00b7 fit unverified \u00b7 version 1Printed card facts \u00b7 deck fit unverifiedThe Unagi of Kyoshi Island{3}{U}{U}Legendary Creature \u2014 SerpentFlash\nWard\u2014Waterbend {4}. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {4}. They can tap their artifacts and creatures to help. Each one pays for {1}.)\nWhenever an opponent draws their second card each turn, you draw two cards.Corrections and historyPinExcludePrioritize"
+    ]
+  },
+  "acceptance": "Partial: faster Marchesa completion; Kinnan completion and cost worsened, while first supported cost fact arrived earlier. These findings drove a further guarded scope/quotation/rendering fix; this is not the latest runtime acceptance."
+}

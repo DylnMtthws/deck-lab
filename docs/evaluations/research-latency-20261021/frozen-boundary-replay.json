@@ -1,0 +1,16 @@
+{
+  "purpose": "Frozen-input regression replay, no model calls or latency claim",
+  "runtime_before_fix": "ed19c2cbbcfc59e700cba429abb954d6b2a5f101",
+  "marchesa_queries_before": [
+    "tap symbol activated ability summoning sickness haste",
+    "zone change new object counters retained return counter renewal"
+  ],
+  "marchesa_queries_after": [
+    "zone change new object counters retained return counter renewal",
+    "sacrifice dies return graveyard zone change new object delayed triggered ability token"
+  ],
+  "sprite_qualified_output": "Repeatable draw creatures: Surveilling Sprite ({1}{U}) \u2014 Fit assessment remains conditional; some claims remain unverified. Two-mana flying death-trigger draw with optional draw, a clean low-cost recursive body under Marchesa. Potential deck support: Yawgmoth, Thran Physician (sacrifice). Unverified prerequisite statement: \u201cNeeds a death event and Marchesa return with a a +1/+1 counter at death; optional draw avoids forced decking but still requires the same setup.\u201d Further claims remain unverified.",
+  "claim_judgments_unchanged": true,
+  "halfling_complete_quote_atomic": true,
+  "halfling_atomic_claim_sha256": "e75cdfa39b62f06c72ab9b43a32fe5238b14b3262ff30cf7d6a0a5bb0d19b397"
+}

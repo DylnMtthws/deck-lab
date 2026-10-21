@@ -177,8 +177,196 @@ def test_render_over_budget_source_abstains_without_clipping_restrictions():
 
 def test_render_no_activation_does_not_add_an_activation_claim():
     rendered = render_fit_reason(profile("Whenever a creature dies, draw a card."))
-    assert "Activation" not in rendered
-    assert "Printed card text" not in rendered
+    assert "triggered rather than activated; no draw activation cost" in rendered
+    assert "Activation cost:" not in rendered
+
+
+YAWGMOTH_ABILITY = (
+    "Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one "
+    "target creature and draw a card."
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "nuance"),
+    [
+        (
+            "Phantasmal Shieldback",
+            "When this creature becomes the target of a spell or ability, sacrifice it.\n"
+            "When this creature dies, draw a card.",
+            "mandatory",
+        ),
+        (
+            "Surveilling Sprite",
+            "Flying\nWhen this creature dies, you may draw a card.",
+            "optional",
+        ),
+        (
+            "Palace Familiar",
+            "Flying\nWhen this creature dies, draw a card.",
+            "mandatory",
+        ),
+    ],
+)
+def test_render_frozen_marchesa_death_draw_and_named_operating_cost(name, text, nuance):
+    # Exact printed text from marchesa-final-frozen.json; no private fixture dependency.
+    index = deck_support_index(
+        {
+            "entries": [
+                {
+                    "name": "Yawgmoth, Thran Physician",
+                    "zone_name": "Library",
+                    "type_line": "Legendary Creature — Human Cleric",
+                    "oracle_text": "Protection from Humans\n"
+                    + YAWGMOTH_ABILITY
+                    + "\n{B}{B}, Discard a card: Proliferate.",
+                }
+            ]
+        }
+    )
+    result = candidate_suitability(
+        {"name": name, "oracle_text": text, "type_line": "Creature"}, index
+    )
+    rendered = render_fit_reason(result)
+    assert f"“{text.splitlines()[-1]}”" in rendered
+    assert "triggered rather than activated; no draw activation cost" in rendered
+    assert f"({nuance} draw)" in rendered
+    assert (
+        f"Printed support ability — Yawgmoth, Thran Physician: “{YAWGMOTH_ABILITY}”"
+        in rendered
+    )
+    assert "Availability and repeatability remain unverified" not in rendered
+    assert rendered.count("Printed support ability") == 1
+    assert "net card advantage" not in rendered
+    assert "Token fodder" not in rendered
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'Creatures you control have "When this creature dies, draw a card."',
+        'Enchanted creature has "When this creature dies, draw a card."',
+        "When this creature dies, you may pay {1}. If you do, draw a card.",
+        "When this creature dies, draw a card unless an opponent pays {2}.",
+        "When this creature dies, draw a card. You lose 1 life.",
+        "Cycling {2}",
+        "Flying",
+    ],
+)
+def test_render_death_draw_abstains_on_grants_trigger_payments_and_keywords(text):
+    rendered = render_fit_reason(profile(text))
+    assert "no draw activation cost" not in rendered
+    assert "no activated abilities" not in rendered
+
+
+@pytest.mark.parametrize("other", ["Cycling {2}", "{T}: Draw a card.", "Flying"])
+def test_render_death_draw_explanation_is_local_to_trigger(other):
+    rendered = render_fit_reason(
+        profile("When this creature dies, draw a card.\n" + other)
+    )
+    assert "For this ability, draw is triggered rather than activated" in rendered
+    assert "no activated abilities" not in rendered
+    assert "mandatory draw" in rendered
+
+
+@pytest.mark.parametrize(
+    "fields", [{"oracle_text_truncated": True}, {"card_faces": [{}]}]
+)
+def test_render_death_draw_requires_complete_source(fields):
+    rendered = render_fit_reason(
+        profile("When this creature dies, draw a card.", **fields)
+    )
+    assert "no draw activation cost" not in rendered
+
+
+def test_nontoken_death_condition_is_quoted_without_fodder_caution():
+    text = "Whenever a nontoken creature you control dies, you may draw a card."
+    result = profile(text, name="Phantasmal Shieldback")
+    rendered = render_fit_reason(result)
+    assert f"“{text}”" in rendered
+    assert "optional draw" in rendered
+    assert "Token fodder" not in rendered
+    cost_profile = profile("Sacrifice another nontoken creature: Draw a card.")
+    assert any(
+        "Token fodder" in caution
+        for caution in cost_profile["strategic_judgment"]["awkwardness"]
+    )
+    effect_profile = profile("When this creature dies, sacrifice a nontoken creature.")
+    assert not any(
+        "Token fodder" in caution
+        for caution in effect_profile["strategic_judgment"]["awkwardness"]
+    )
+
+
+def provider_profile(record):
+    result = profile("When this creature dies, draw a card.")
+    result["strategic_judgment"]["support"] = [
+        {
+            "dimension": "sacrifice",
+            "cards": [record],
+        }
+    ]
+    return result
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source_quote": None},
+        {"source_quote": "Pay 1 life, Sacrifice another creature"},
+        {"source_quote": "Pay 1 life, Sacrifice another creature:"},
+        {"source_quote": YAWGMOTH_ABILITY[:-1]},
+        {"source_quote": [YAWGMOTH_ABILITY]},
+        {"source_quote": YAWGMOTH_ABILITY + "\nActivate only as a sorcery."},
+        {"source_quote": 'Creatures have "' + YAWGMOTH_ABILITY + '"'},
+        {"source_quote": "When this creature dies, sacrifice a creature: Draw a card."},
+        {"source_quote": YAWGMOTH_ABILITY + " Extra context." * 40},
+        {"oracle_complete": False},
+        {"oracle_text_truncated": True},
+    ],
+)
+def test_render_provider_abstains_on_absent_incomplete_or_ambiguous_quote(changes):
+    record = {
+        "name": "Yawgmoth, Thran Physician",
+        "source_quote": YAWGMOTH_ABILITY,
+        **changes,
+    }
+    rendered = render_fit_reason(provider_profile(record))
+    assert "Printed support ability" not in rendered
+
+
+def test_render_provider_quote_keeps_actual_name_cost_effect_and_restrictions():
+    quote = YAWGMOTH_ABILITY + " Activate only once each turn."
+    result = provider_profile({"name": "Different outlet", "source_quote": quote})
+    before = copy.deepcopy(result)
+    rendered = render_fit_reason(result)
+    assert f"Printed support ability — Different outlet: “{quote}”" in rendered
+    assert "Yawgmoth" not in rendered
+    assert result == before
+
+
+def test_render_provider_missing_quote_does_not_invent_operating_cost():
+    rendered = render_fit_reason(
+        provider_profile({"name": "Yawgmoth, Thran Physician"})
+    )
+    assert "Printed support ability" not in rendered
+    assert "Pay 1 life" not in rendered
+
+
+def test_render_provider_quotes_at_most_one_of_multiple_named_supports():
+    result = provider_profile(
+        {"name": "First outlet", "source_quote": YAWGMOTH_ABILITY}
+    )
+    result["strategic_judgment"]["support"].append(
+        {
+            "dimension": "recursion",
+            "cards": [{"name": "Second outlet", "source_quote": YAWGMOTH_ABILITY}],
+        }
+    )
+    rendered = render_fit_reason(result)
+    assert "Second outlet (recursion)" in rendered
+    assert rendered.count("Printed support ability") == 1
+    assert rendered.count(f"“{YAWGMOTH_ABILITY}”") == 1
 
 
 def test_sacrifice_draw_does_not_claim_net_card_advantage():

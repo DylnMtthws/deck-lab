@@ -19,6 +19,7 @@ _RECURSION = (
 _RECURSION_QUERY = "sacrifice dies return graveyard zone change new object delayed triggered ability token"
 _RENEWAL_QUERY = "zone change new object counters retained return counter renewal"
 _TAP_QUERY = "tap symbol activated ability summoning sickness haste"
+_MANA_QUERY = "mana ability triggered additional mana restriction spend this mana"
 _RESTRICTION_QUERY = "activation restriction only once each turn sorcery timing"
 _SACRIFICE_QUERY = "sacrifice cost dies death triggered ability token"
 
@@ -57,6 +58,13 @@ def _queries(text: str, claims: list[str]) -> list[str]:
             queries.append(_RENEWAL_QUERY)
         if recursion:
             queries.append(_RECURSION_QUERY)
+        if re.search(
+            r"\b(?:extra|additional|unrestricted|restricted)\b[^.!?;]*\bmana\b|"
+            r"\bmana\b[^.!?;]*\b(?:trigger\w*|restrict\w*|extra|additional|unrestricted)\b|"
+            r"spend this mana only",
+            fragment,
+        ):
+            queries.append(_MANA_QUERY)
         if counters:
             queries.append(_counter_query(fragment))
         if re.search(r"\{t\}|\b(?:un)?tap\w*|\bhaste\b|summoning sickness", fragment):
@@ -109,7 +117,11 @@ def finalist_evidence(
             db_path,
             query,
             cards=scoped,
-            limit=4 if "zone change" in query else 3,
+            limit=(
+                2
+                if query == _TAP_QUERY
+                else 6 if query == _MANA_QUERY else 4 if "zone change" in query else 3
+            ),
             deadline_seconds=0.35,
             **({"required_tap_only": True} if query == _TAP_QUERY else {}),
         ).model_dump()

@@ -3517,7 +3517,10 @@ def run_turn(
                                 for c in document.get("entries", [])
                                 if c.get("is_commander")
                             ],
-                            claims=parts,
+                            # Selection's fixed lead/application cautions are
+                            # not assertions (the claim reviewer also excludes
+                            # part 0). Do not spend rule lookups on them.
+                            claims=parts[1:],
                         )
                         tools.check()
                         stage_timings.append(targeted_receipt)

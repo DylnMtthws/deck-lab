@@ -78,5 +78,26 @@
       "adversarial_delta": "No proven consequential finding; static review only"
     },
     "live_read_only_probe": "Three required-mode reads retained complete CR107.5 and702.10c and removed false missing warning. No wall-time speed claim: optional ruling checks remain under cooperative deadline."
+  },
+  "final_boundary_fixes": {
+    "contracts": [
+      "Fixed application lead is excluded consistently from claim review and targeted rule retrieval; generated body assertions remain included",
+      "Every mixed retained/rejected candidate row qualifies its fit assessment as conditional regardless of prerequisite wording",
+      "Exact-bound unresolved prerequisite statements may remain explicitly unverified; known-false uncorrected or stale statements are never restored and no verdict is promoted",
+      "Printed ability quotations stay atomic with their effects, spending restrictions, level bands and nested quotations; all still undergo semantic review",
+      "Source-bound direct death-draw explanations distinguish triggered draw from activated costs and preserve optional/mandatory nuance",
+      "At most one bounded named sacrifice-outlet source quotation explains potential support costs without claiming availability",
+      "Nontoken sacrifice-input cautions require an actual input restriction; irrelevant token speculation is removed",
+      "Mana-engine and spending-restriction claims receive a targeted local query; ordinary mana payment does not. Two-lookups and six final hits remain the bounds"
+    ],
+    "adversarial_final": "Bounded clearance; 39 local checks passed. No live quality or latency claim from code review.",
+    "frozen_input_replay": "frozen-boundary-replay.json",
+    "validation": {
+      "full_suite_passed": 4148,
+      "skipped": 34,
+      "warnings": 53,
+      "seconds": 171.44,
+      "black_ruff_mypy_diff": "passed"
+    }
   }
 }
