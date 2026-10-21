@@ -1,0 +1,30 @@
+{
+  "build_sha": "7e77bdd272260fce1f4184cbb59261301001082b",
+  "fixture": "disposable Marchesa diagnostic deck",
+  "protocol": "Single unsteered research request plus presentation-only pin. Existing catalog/index. Poll-observed timings, not production percentiles or controlled latency A/B.",
+  "first_source_seconds": 15.274,
+  "first_supported_review_seconds": 115.905,
+  "elapsed_seconds": 200.81,
+  "configured_cost_usd": 0.012174,
+  "logged_model_calls": 6,
+  "reviewed_claims_published_while_busy": true,
+  "review_jobs": 3,
+  "review_evidence_bytes_sent": 17114,
+  "one_full_evidence_set_bytes": 6653,
+  "review_input_chars": 37278,
+  "corrective_subset_review_seconds": 24.587,
+  "answer_status": "incomplete",
+  "review_status": "unverified",
+  "fulfillment": "partial",
+  "workspace_status": "partial",
+  "return_projection_identical": true,
+  "deck_unchanged": true,
+  "fixture_removed": true,
+  "production_container_unchanged": true,
+  "adversarial_artifact_review": "No blocking findings; checked all 15 fragment bindings and source manifests. Saved-case consistency only.",
+  "limitations": [
+    "Final review remains slow. Progressive jobs increased aggregate context and calls; no end-to-end speedup established.",
+    "Early review covers bounded printed cost/ability facts; broad strategic assessments remain in the combined final review.",
+    "Final answer remains partial and unverified; early supported facts do not establish recommendation quality."
+  ]
+}

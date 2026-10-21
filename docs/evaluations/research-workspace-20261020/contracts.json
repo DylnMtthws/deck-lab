@@ -23,7 +23,8 @@
     "Concurrency and cost admission are process-local; the current deployment uses one application process.",
     "In-flight provider transport cannot be interrupted. Ledger waiters and retries check cancellation; paid responses remain accounted and stale publications are rejected.",
     "Restart recovery of interrupted work requires explicit user retry. Queued dispatch is request/worker driven, not an autonomous external job service.",
-    "Synthetic tests and one bounded QA probe do not establish production latency percentiles or improved recommendation quality."
+    "Synthetic tests and one bounded QA probe do not establish production latency percentiles or improved recommendation quality.",
+    "Latest single QA probe: source 15.274s, supported cost facts 115.905s, completion 200.810s; progressive review adds aggregate context and does not establish a total latency improvement."
   ],
   "adversarial_fixes": [
     "prior-generation capacity exhaustion",
@@ -39,6 +40,12 @@
   "verification": {
     "full_suite": "4004 passed, 34 skipped, TZ=UTC; opt-in dependencies not exercised",
     "static_checks": "Ruff and Black passed for 26 changed Python files; mypy passed for 10 source modules; sidebar JavaScript syntax and git diff checks passed",
-    "qa": "pending deployment/live acceptance"
+    "qa": {
+      "build_sha": "7e77bdd272260fce1f4184cbb59261301001082b",
+      "native_smokes": "passed",
+      "live_probes": "Completed steering and progressive-publication probes; disposable fixtures removed",
+      "production_container_unchanged": true
+    },
+    "final_delta": "113 related tests passed after adding exact renderer forms; Ruff, Black and diff checks passed. Full baseline suite: 4004 passed, 34 skipped."
   }
 }
