@@ -61,5 +61,7 @@
     "https://docs.typesafe.ai/llms.txt",
     "https://docs.typesafe.ai/cookbooks/sde_cascade"
   ],
-  "jev": "No calls: user previously waitlisted. A typed gate remains a future measured option, not a required dependency."
+  "jev": "No calls: user previously waitlisted. A typed gate remains a future measured option, not a required dependency.",
+  "qa_diagnostic": "qa-diagnostic.json",
+  "live_acceptance": "Architecture accepted within bounds; quality noninferiority NOT established. New Kinnan answer has material remaining information loss and misleading strategic conclusions."
 }
