@@ -2644,6 +2644,14 @@ def run_turn(
                 if owned_concise_gateway is None:
                     concise_model = settings.model.model_copy(
                         update={
+                            # Whole-deck synthesis has a larger complete evidence
+                            # set. One bounded attempt avoids repeatedly discarding
+                            # the same slow generation at the ordinary 60s cutoff.
+                            **(
+                                {"timeout_seconds": 120.0, "max_retries": 0}
+                                if deck_review_packet is not None
+                                else {}
+                            ),
                             "modes": {
                                 **settings.model.modes,
                                 ReasoningMode.EXPLAIN.value: settings.model.mode_profile(
@@ -2651,7 +2659,7 @@ def run_turn(
                                 ).model_copy(
                                     update={"max_output_tokens": 4096}
                                 ),
-                            }
+                            },
                         }
                     )
                     owned_concise_gateway = build_gateway(
@@ -2724,6 +2732,18 @@ def run_turn(
                         **timing_window(started, call_started),
                         "input_chars": len(encoded),
                         "output_token_budget": output_budget,
+                        **(
+                            {
+                                "transport_policy": {
+                                    "timeout_seconds": 120.0,
+                                    "max_retries": 0,
+                                }
+                            }
+                            if owns_gateway
+                            and concise_answer
+                            and deck_review_packet is not None
+                            else {}
+                        ),
                         "evidence_hash": request.evidence_hash,
                         "retained_candidate_ids": [
                             row.card_id for row in session.ledger.candidates
@@ -2762,7 +2782,24 @@ def run_turn(
                         **timing_window(started, call_started),
                         "input_chars": len(encoded),
                         "output_token_budget": output_budget,
+                        **(
+                            {
+                                "transport_policy": {
+                                    "timeout_seconds": 120.0,
+                                    "max_retries": 0,
+                                }
+                            }
+                            if owns_gateway
+                            and concise_answer
+                            and deck_review_packet is not None
+                            else {}
+                        ),
                         "evidence_hash": request.evidence_hash,
+                        "provider_error_type": (
+                            type(exc.__cause__).__name__
+                            if isinstance(exc, ModelProviderError) and exc.__cause__
+                            else type(exc).__name__
+                        ),
                         "outcome": (
                             "schema_invalid"
                             if isinstance(exc, ModelValidationError)
@@ -5040,7 +5077,7 @@ def run_turn(
             or "provider returned 503" in detail
         ):
             reason = "provider_busy"
-            message = "The AI provider is busy after three bounded attempts. Please retry your message shortly. Confirmed tool receipts remain available; no preview was applied to the original deck."
+            message = "The AI provider is busy after its bounded attempt budget. Please retry your message shortly. Confirmed tool receipts remain available; no preview was applied to the original deck."
         elif "provider returned 401" in detail or "provider returned 403" in detail:
             reason = "provider_access_denied"
             message = "The AI provider could not authorize this request. Ask the Deck Lab administrator to check provider access; no unconfirmed action has been substituted."

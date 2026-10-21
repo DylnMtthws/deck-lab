@@ -387,7 +387,7 @@ class DeepSeekGateway:
         raise ModelProviderError(
             f"model provider call failed after {model.max_retries + 1} "
             f"attempts: {last}"
-        )
+        ) from last
 
     @staticmethod
     def _content(response: dict[str, Any]) -> str:

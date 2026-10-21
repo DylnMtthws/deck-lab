@@ -557,3 +557,91 @@ def test_global_review_keeps_rules_after_sixth_hit():
     ]
     sources = whole_deck_evidence_sources(SourceEvidence(), [], {"hits": hits})
     assert all(any(h["text"] in s for s in sources) for h in hits)
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_owned_whole_deck_synthesis_uses_one_longer_attempt(
+    prepared, monkeypatch, failure
+):
+    from types import SimpleNamespace
+
+    import httpx
+
+    from sabermetrics.cedh.errors import ModelProviderError
+    from sabermetrics.cedh.model_gateway import ReasoningMode
+    from sabermetrics.cedh.provider_deepseek import DeepSeekGateway
+
+    service, path, owner, deck, _, _ = prepared
+    complete_sources(path)
+    question = "Review this deck and explain its win condition."
+    profiles = []
+    captures = []
+
+    class RecordingGateway(Gateway):
+        def generate(self, request):
+            body = DeepSeekGateway._body(
+                SimpleNamespace(_model_id="nonsecret-test-model"),
+                request,
+                profiles[-1].mode_profile(request.mode),
+            )
+            captures.append(
+                {
+                    "body_bytes": len(json.dumps(body).encode()),
+                    "user_bytes": len(request.user.encode()),
+                    "max_tokens": body["max_tokens"],
+                    "schema_name": body["response_format"]["json_schema"]["name"],
+                }
+            )
+            return super().generate(request)
+
+    def build(settings, **kwargs):
+        profiles.append(settings.model)
+        if settings.model.timeout_seconds == 120:
+            if not failure:
+                return RecordingGateway(
+                    [
+                        AssistantAnswerStep(
+                            content="The available evidence does not establish a lethal sequence.",
+                            findings=[
+                                "A printed mana ability alone does not establish lethal damage."
+                            ],
+                        )
+                    ]
+                )
+            error = ModelProviderError("sensitive response must not be published")
+            error.__cause__ = httpx.ReadTimeout("sensitive transport detail")
+            return RecordingGateway([error])
+        return RecordingGateway([explain_plan(question)])
+
+    monkeypatch.setattr("sabermetrics.assistant_runtime.build_gateway", build)
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": question}],
+        request_planner=True,
+        whole_deck_reviews=True,
+        answer_review_gateway=Gateway(
+            [
+                AnswerReviewDecision(
+                    fulfillment="partial", unresolved=["Lethal remains unknown."]
+                )
+            ]
+        ),
+        experiment_service=service,
+    )
+    assert [(p.timeout_seconds, p.max_retries) for p in profiles] == [(60, 2), (120, 0)]
+    assert profiles[-1].mode_profile(ReasoningMode.EXPLAIN).max_output_tokens == 4096
+    assert len(captures) == 2
+    assert captures[-1]["schema_name"] == "AssistantAnswerStep"
+    assert captures[-1]["body_bytes"] > captures[-1]["user_bytes"]
+    call = result["research"]["runtime"]["model_calls"][-1]
+    assert "sensitive" not in json.dumps(result)
+    if failure:
+        assert call["provider_error_type"] == "ReadTimeout"
+        assert call["outcome"] == "provider_failed"
+        assert result["status"] == "provider_error"
+        assert result.get("answer_review") is None
+    else:
+        assert result["answer_review"]["fulfillment"] == "partial"
+        assert result["status"] == "incomplete"
