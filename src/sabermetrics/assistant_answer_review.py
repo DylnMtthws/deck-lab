@@ -60,7 +60,7 @@ class SourceEvidence(list[str]):
 
 
 def whole_deck_evidence_sources(
-    base: list[str], cards: list[dict[str, Any]]
+    base: list[str], cards: list[dict[str, Any]], rules: dict[str, Any] | None = None
 ) -> SourceEvidence:
     """Complete global source coverage with shared metadata labels.
 
@@ -128,6 +128,19 @@ def whole_deck_evidence_sources(
     # Replace duplicate card renderings; retain rules, facts and omissions.
     covered = {"Card: " + _card_name(c) for c in cards}
     result.extend(s for s in base if s.split("\n", 1)[0] not in covered)
+    for hit in (rules or {}).get("hits", []):
+        text = str(hit.get("text") or "")
+        if text and not any("\n" + text in source for source in result):
+            result.append(
+                "Rule source: "
+                + str(hit.get("source_id"))
+                + "\n"
+                + text
+                + "\nSource metadata: "
+                + json.dumps(
+                    {k: v for k, v in hit.items() if k != "text"}, ensure_ascii=False
+                )
+            )
     result.append(
         "Shared source provenance: " + json.dumps(provenance, ensure_ascii=False)
     )

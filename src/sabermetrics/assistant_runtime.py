@@ -102,7 +102,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v38"
+PROMPT_VERSION = "build-conversation.v39"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -1296,6 +1296,51 @@ def _deck_review_context(
     packet: dict[str, Any], state: dict[str, Any], request: str
 ) -> str | None:
     """Whole records bypass display compaction; overflow keeps normal research."""
+    rules = deepcopy(state.get("rules_evidence", {}))
+    hits = rules.get("hits", [])
+    for action in rules.get("engine_evidence_dependencies", {}).get("actions", []):
+        refs = []
+        for source in action.pop("sources", []):
+            index = next(
+                (
+                    i
+                    for i, hit in enumerate(hits)
+                    if all(hit.get(k) == v for k, v in source.items())
+                ),
+                None,
+            )
+            refs.append(index if index is not None else source)
+        action["source_refs"] = refs
+    if rules.get("engine_evidence_dependencies"):
+        rules["engine_source_ref_encoding"] = (
+            "Integer source_refs index hits, which retain complete text, identity, version, hash and provenance; unmatched source objects remain inline. Diagnostic metadata remains in the run receipt."
+        )
+    if "engine_evidence_omissions" in rules:
+        rules["engine_evidence_omissions"] = [
+            {
+                k: v
+                for k, v in row.items()
+                if k
+                in {
+                    "kind",
+                    "source_id",
+                    "version",
+                    "content_sha256",
+                    "origin",
+                    "reason",
+                }
+            }
+            for row in rules["engine_evidence_omissions"]
+        ]
+    if "engine_lookups" in rules:
+        rules["engine_lookups"] = [
+            {
+                k: v
+                for k, v in row.items()
+                if k in {"query", "status", "rulings_status", "query_failures"}
+            }
+            for row in rules["engine_lookups"]
+        ]
     payload = {
         "current_user_request": request,
         "deck_evidence": packet,
@@ -1304,7 +1349,7 @@ def _deck_review_context(
         "constraints": state.get("constraints", {}),
         "conversation_context": state.get("conversation_context", {}),
         "consulted_cards": state.get("consulted_cards", []),
-        "rules_evidence": state.get("rules_evidence", {}),
+        "rules_evidence": rules,
         "answer_repair_feedback": state.get("answer_repair_feedback"),
     }
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -3934,7 +3979,7 @@ def run_turn(
                         )
 
                         review_sources = whole_deck_evidence_sources(
-                            review_sources, deck_review_source_cards
+                            review_sources, deck_review_source_cards, review_rules
                         )
                     expand_review_sources(review_sources, shared_strategic_evidence)
                     from sabermetrics.assistant_answer_review import _card_source

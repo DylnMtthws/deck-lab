@@ -488,3 +488,72 @@ def test_packet_currentness_checks_do_not_reload_full_document_per_card(
         experiment_service=service,
     )
     assert len(checks) < 15
+
+
+def test_engine_wire_deduplicates_metadata_without_losing_rule_evidence():
+    from copy import deepcopy
+
+    from sabermetrics.assistant_runtime import _deck_review_context
+
+    hit = {
+        "source_id": "CR 701.44a",
+        "version": "snapshot",
+        "content_sha256": "a" * 64,
+        "source_url": "https://example.invalid/rules",
+        "text": "Complete rule body with all conditions.",
+        "text_truncated": False,
+    }
+    source = {k: v for k, v in hit.items() if k != "text"}
+    rules = {
+        "hits": [hit],
+        "engine_evidence_dependencies": {
+            "actions": [
+                {
+                    "term": "explore",
+                    "status": "candidate_evidence",
+                    "sources": [source],
+                    "semantics_verified": False,
+                }
+            ]
+        },
+        "engine_evidence_omissions": [{**source, "reason": "incompatible_snapshot"}],
+        "engine_lookups": [
+            {
+                "query": "explore",
+                "status": "available",
+                "query_failures": [],
+                "elapsed_seconds": 3,
+            }
+        ],
+    }
+    original = deepcopy(rules)
+    wire = json.loads(
+        _deck_review_context(
+            {"entries": []}, {"rules_evidence": rules}, "Review this deck."
+        )
+    )["rules_evidence"]
+    assert rules == original
+    assert wire["hits"] == rules["hits"]
+    action = wire["engine_evidence_dependencies"]["actions"][0]
+    assert action["source_refs"] == [0]
+    assert action["semantics_verified"] is False
+    assert wire["engine_evidence_omissions"][0]["reason"] == "incompatible_snapshot"
+    assert wire["engine_lookups"][0]["query_failures"] == []
+
+
+def test_global_review_keeps_rules_after_sixth_hit():
+    from sabermetrics.assistant_answer_review import (
+        SourceEvidence,
+        whole_deck_evidence_sources,
+    )
+
+    hits = [
+        {
+            "source_id": "CR " + str(i),
+            "text": "Complete relevant rule " + str(i) + ".",
+            "text_truncated": False,
+        }
+        for i in range(8)
+    ]
+    sources = whole_deck_evidence_sources(SourceEvidence(), [], {"hits": hits})
+    assert all(any(h["text"] in s for s in sources) for h in hits)
