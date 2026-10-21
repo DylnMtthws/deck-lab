@@ -55,10 +55,22 @@ _LOCAL_FACT = re.compile(
     rf")(?:,? without tapping)?[.!]?",
     re.IGNORECASE,
 )
+# render_fit_reason appends these isolated clauses from ability compatibility
+# and candidate_suitability. Keep the label, punctuation and fixed tap wording
+# exact; arbitrary Oracle cost prose or appended strategy is not a local form.
+_RENDERED_LOCAL_FACT = re.compile(
+    rf"(?:Activation cost: (?:{_MANA}|\{{T\}}, Pay six \{{E\}})\."
+    r"|Tap-symbol cost: this creature needs continuous control or haste; "
+    r"untapping is not assumed\.)"
+)
 
 
 def _local_fact(claim: str) -> bool:
-    return _LOCAL_FACT.fullmatch(claim.strip()) is not None
+    claim = claim.strip()
+    return (
+        _LOCAL_FACT.fullmatch(claim) is not None
+        or _RENDERED_LOCAL_FACT.fullmatch(claim) is not None
+    )
 
 
 def _local_rows(parts, sources, protected, context, units):

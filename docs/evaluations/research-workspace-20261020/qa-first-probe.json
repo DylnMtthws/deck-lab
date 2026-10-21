@@ -1,0 +1,20 @@
+{
+  "build_sha": "8e9af6bfc480e9e37e1b12801d3f5d8219d3b196",
+  "fixture": "disposable Marchesa diagnostic deck",
+  "protocol": "Mid-run pin/exclusion with acknowledged new generation. Includes replacement planning; not a controlled latency A/B.",
+  "first_source_seconds": 17.231,
+  "first_supported_review_seconds": 163.196,
+  "elapsed_seconds": 163.196,
+  "configured_cost_usd": 0.007464,
+  "pin_while_busy": true,
+  "steering_idempotent": true,
+  "return_projection_identical": true,
+  "deck_unchanged": true,
+  "fixture_removed": true,
+  "answer_status": "incomplete",
+  "fulfillment": "partial",
+  "review_status": "unverified",
+  "progressive_review_enabled": false,
+  "finding": "Early source inspection and steering worked. Reviewed output arrived only at completion because the gate missed exact application-rendered cost facts. A focused integration correction and repeat probe follow.",
+  "production_container_unchanged": true
+}

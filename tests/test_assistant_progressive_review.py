@@ -534,3 +534,161 @@ def test_explicit_local_facts_keep_useful_subset_review(claim):
     )
     assert all(r["fulfillment"] == "unknown" for r in published)
     assert receipt["fulfillment"] == "complete"
+
+
+def test_frozen_qa_style_renderer_clauses_enable_only_bounded_local_review():
+    # Frozen app-style paragraphs, rather than simplified standalone draw facts.
+    # Strategy remains global even when adjacent renderer clauses are local.
+    names = ["Mystic Archaeologist", "Azure Mage", "Roil Cartographer"]
+    costs = ["{3}{U}{U}", "{3}{U}", "{T}, Pay six {E}"]
+    tap = (
+        "Tap-symbol cost: this creature needs continuous control or haste; "
+        "untapping is not assumed."
+    )
+    parts = [
+        "Selected repeatable draw engines",
+        "Draw: Mystic Archaeologist ({1}{U}) — A mana sink that converts late-game "
+        "mana into cards while leaving the creature available for combat. "
+        "Potential deck support: Marchesa, the Black Rose (counter support). "
+        "Activation cost: {3}{U}{U}. "
+        "Casting, timing and activation resources still need to be available. "
+        "Mystic Archaeologist is the priciest selected engine.",
+        "Draw: Azure Mage ({1}{U}) — A reusable draw outlet that lets the deck "
+        "hold mana for interaction before committing to another card. "
+        "Relevant deck support remains unconfirmed. Activation cost: {3}{U}. "
+        "Casting, timing and activation resources still need to be available. "
+        "Azure Mage is the cheapest engine and outperforms the alternatives.",
+        "Draw: Roil Cartographer ({1}{U}) — An energy outlet whose draw plan "
+        "depends on accumulating enough counters and preserving the creature. "
+        "Relevant deck support remains unconfirmed. "
+        "Activation cost: {T}, Pay six {E}. " + tap + " "
+        "Roil Cartographer is the sole energy draw engine. "
+        "All selected engines share sufficient resources for a repeatable loop.",
+    ]
+    oracles = [
+        "{3}{U}{U}: Draw two cards.",
+        "{3}{U}: Draw a card.",
+        "{T}, Pay six {E}: Draw three cards.",
+    ]
+    rules = (
+        "Rule 302.6\nA creature's activated ability with the tap symbol requires "
+        "continuous control since the beginning of its controller's most recent turn.",
+        "Rule 702.10\nHaste permits activation of a creature's tap-symbol ability "
+        "without continuous control.",
+        "Rule 602.2\nThe source must be untapped to pay a tap-symbol cost; "
+        "further activations require it to untap.",
+    )
+    sources = [
+        f"Card: {name}\nOracle text:\n{oracle}" for name, oracle in zip(names, oracles)
+    ] + list(rules)
+    packets = [
+        {"incoming": name, "activation_costs": [cost], "coverage": {}}
+        for name, cost in zip(names, costs)
+    ]
+    context = {
+        "task": {"kind": "discover", "evidence_scope": "candidate_discovery"},
+        "recommendation_packets": packets,
+    }
+    units = progressive.claim_units(parts, set())
+    expected_local = {
+        u["claim_id"]
+        for u in units
+        if u["claim"] in {*(f"Activation cost: {cost}." for cost in costs), tap}
+    }
+    assert len(expected_local) == 4
+
+    class RendererReviewer(Reviewer):
+        def generate(self, request):
+            payload = json.loads(request.user)
+            with self.lock:
+                self.calls.append(payload)
+            records = {r["source_index"] for r in payload["source_records"]}
+            judgments = []
+            for unit in payload["claims"]:
+                index = unit["part_index"] - 1
+                assert index in records  # Complete original Oracle record retained.
+                citations = [{"source_index": index, "quote": oracles[index]}]
+                if unit["claim"] == tap:
+                    assert {3, 4, 5} <= records
+                    citations = [
+                        {"source_index": i, "quote": sources[i].split("\n", 1)[1]}
+                        for i in (3, 4, 5)
+                    ]
+                judgments.append(
+                    {
+                        "claim_id": unit["claim_id"],
+                        "category": (
+                            "rules_interaction"
+                            if unit["claim"] == tap
+                            else "printed_fact"
+                        ),
+                        "verdict": (
+                            "supported"
+                            if unit["claim_id"] in expected_local
+                            else "unverified"
+                        ),
+                        "citations": citations,
+                    }
+                )
+            return SimpleNamespace(
+                value={"fulfillment": "partial", "judgments": judgments}
+            )
+
+    reviewer = RendererReviewer()
+    published = []
+    corrected, receipt = progressive.progressive_review(
+        reviewer,
+        parts,
+        sources,
+        "Find repeatable draw engines",
+        research_context=context,
+        on_reviewed=lambda corrected, result: published.append(result),
+    )
+    assert corrected == parts
+    assert receipt["progressive_review"]["enabled"]
+    jobs = receipt["progressive_review"]["jobs"]
+    assert [job["stage"] for job in jobs] == ["local", "local", "global"]
+    assert all(job["bound"] for job in jobs)
+    assert {
+        u["claim_id"] for call in reviewer.calls[:-1] for u in call["claims"]
+    } == expected_local
+    assert {u["claim_id"] for u in reviewer.calls[-1]["claims"]} == {
+        u["claim_id"] for u in units
+    } - expected_local
+    counts = Counter(u["claim_id"] for call in reviewer.calls for u in call["claims"])
+    assert counts == {u["claim_id"]: 1 for u in units}
+    for call in reviewer.calls[:-1]:
+        selected_names = {names[u["part_index"] - 1] for u in call["claims"]}
+        assert call["research_context"]["recommendation_packets"] == [
+            p for p in packets if p["incoming"] in selected_names
+        ]
+        assert {r["source_index"] for r in call["source_records"]} == {
+            names.index(name) for name in selected_names
+        } | {3, 4, 5}
+        assert all(u["claim_id"] in expected_local for u in call["claims"])
+    assert len(published) == 2
+    assert all(r["fulfillment"] == "unknown" for r in published)
+    assert all(
+        reviewed_claim_text(r, j, parts)
+        for r in published
+        for j in r["claim_judgments"]
+    )
+    assert receipt["fulfillment"] == "partial"
+    assert receipt["source_sha256"] == [progressive.text_hash(s) for s in sources]
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "Activation cost: {3}{U}{U}, the priciest option.",
+        "Activation cost: {3}{U}, cheaper than all alternatives.",
+        "Activation cost: {T}, Pay six {E}, without other resources.",
+        "Activation cost: {3}{U}. It outperforms every alternative.",
+        "Activation cost: sacrifice another creature.",
+        "Activation cost: {T}, Pay six {E} for a repeatable loop.",
+        "Tap-symbol cost: this creature needs continuous control or haste; untapping is assumed.",
+        "Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed, unlike the alternatives.",
+    ],
+)
+def test_renderer_local_forms_reject_qualifiers_and_freeform_costs(claim):
+    assert not progressive._local_fact(claim)
