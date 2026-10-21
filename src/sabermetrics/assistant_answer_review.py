@@ -127,20 +127,37 @@ def whole_deck_evidence_sources(
         result.card_names.append(_card_name(card))
     # Replace duplicate card renderings; retain rules, facts and omissions.
     covered = {"Card: " + _card_name(c) for c in cards}
-    result.extend(s for s in base if s.split("\n", 1)[0] not in covered)
-    for hit in (rules or {}).get("hits", []):
-        text = str(hit.get("text") or "")
-        if text and not any("\n" + text in source for source in result):
-            result.append(
-                "Rule source: "
-                + str(hit.get("source_id"))
-                + "\n"
-                + text
-                + "\nSource metadata: "
-                + json.dumps(
-                    {k: v for k, v in hit.items() if k != "text"}, ensure_ascii=False
-                )
+    hits = [hit for hit in (rules or {}).get("hits", []) if hit.get("text")]
+    # Replace only exact legacy renderings of supplied typed hits. Identical
+    # wording from different cards/editions still has distinct provenance.
+    legacy_rules = {
+        "Rule source: "
+        + str(hit.get("source_id") or "Retrieved rule")
+        + (" (excerpt)" if hit.get("text_truncated") else "")
+        + "\n"
+        + str(hit["text"])
+        for hit in hits
+    }
+    result.extend(
+        s for s in base if s.split("\n", 1)[0] not in covered and s not in legacy_rules
+    )
+    rendered_rules = set()
+    for hit in hits:
+        rendered = (
+            "Rule source: "
+            + str(hit.get("source_id"))
+            + "\n"
+            + str(hit["text"])
+            + "\nSource metadata: "
+            + json.dumps(
+                {k: v for k, v in hit.items() if k != "text"},
+                ensure_ascii=False,
+                sort_keys=True,
             )
+        )
+        if rendered not in rendered_rules:
+            result.append(rendered)
+            rendered_rules.add(rendered)
     result.append(
         "Shared source provenance: " + json.dumps(provenance, ensure_ascii=False)
     )

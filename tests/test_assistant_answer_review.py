@@ -516,3 +516,37 @@ def test_titled_split_faces_and_full_joined_names_still_guard_real_card_mentions
             review("incorrect claim", replacement, quote),
             known_names=["Life // Death", "Never // Return", "Fire // Ice"],
         )
+
+
+def test_whole_deck_rules_preserve_distinct_same_text_attribution():
+    from sabermetrics.assistant_answer_review import whole_deck_evidence_sources
+
+    hits = [
+        {
+            "source_id": f"ruling:{i}",
+            "card_oracle_id": f"card-{i}",
+            "text": f"Complete ruling {i}.",
+            "text_truncated": False,
+        }
+        for i in range(8)
+    ]
+    hits[7]["text"] = hits[6]["text"]
+    rules = {"hits": hits}
+    base = evidence_sources({"entries": []}, [], ["Deck explanation."], rules)
+    unmatched = "Rule source: counterevidence\nA different complete source."
+    base.append(unmatched)
+    sources = whole_deck_evidence_sources(base, [], rules)
+    typed = [s for s in sources if "\nSource metadata: " in s]
+    assert len(typed) == 8
+    for hit in hits:
+        assert any(
+            s.startswith("Rule source: " + hit["source_id"] + "\n" + hit["text"])
+            and json.loads(s.split("\nSource metadata: ", 1)[1])["card_oracle_id"]
+            == hit["card_oracle_id"]
+            for s in typed
+        )
+    assert unmatched in sources
+    assert not sources.omitted
+    assert len(
+        whole_deck_evidence_sources(base, [], {"hits": hits + [hits[7]]})
+    ) == len(sources)
