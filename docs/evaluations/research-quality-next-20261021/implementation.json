@@ -38,7 +38,7 @@
     "Permissioned independently expert-reviewed strategic material",
     "Independent human benchmark authorship/adjudication"
   ],
-  "runtime_measurement_status": "Pilot and follow-up are both recorded; neither demonstrates a speed gain. Blind AI reviews preferred follow-up explanations overall but both cases remain partial. Actual Kinnan selector omitted shared aid; a final compact positional-wire fix is awaiting live verification.",
+  "runtime_measurement_status": "QA d05218e verifies actual selector evidence inclusion (5bounded rows,8retained,23478chars). Earlier and final samples do not establish latency reduction; all remain partial/unverified. Human-independent evaluation and expert sources remain absent.",
   "frozen_development_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
   "regression_checks": {
     "full_suite_before_final_cache_fixes": {
@@ -63,7 +63,8 @@
     "adversarial_local_preservation": "two rounds; final bounded clearance, 91 targeted tests",
     "adversarial_selection_context": "final bounded clearance; tiny probes and source inspection",
     "latest_packing_targeted_tests": 94,
-    "latest_packing_mypy": "3 source modules passed"
+    "latest_packing_mypy": "3 source modules passed",
+    "final_packing_adversarial": "52 targeted checks; bounded clearance"
   },
   "local_preservation_wire": {
     "same_user_payload": true,
@@ -95,5 +96,6 @@
     "retained_candidates": 8,
     "whole_sources_and_contracts_unchanged": true,
     "near_full_omission_disclosed": true
-  }
+  },
+  "qa_runtime_sha": "d05218ee59bea426a70c144dac5f25afc310bd49"
 }
