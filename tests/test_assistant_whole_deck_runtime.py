@@ -443,3 +443,48 @@ def test_dedicated_context_preserves_retained_card_evidence():
         ]
         == state["consulted_cards"]
     )
+
+
+def test_packet_currentness_checks_do_not_reload_full_document_per_card(
+    prepared, monkeypatch
+):
+    from sabermetrics.assistant_tools import AssistantTools
+
+    service, path, owner, deck, _, _ = prepared
+    checks = []
+    original = AssistantTools.check
+
+    def counted(self):
+        checks.append(True)
+        return original(self)
+
+    def packet(*args, check_current, **kwargs):
+        for _ in range(100):
+            check_current()
+        return None, {}, {"status": "fallback", "reason": "bounded_probe"}
+
+    monkeypatch.setattr(AssistantTools, "check", counted)
+    monkeypatch.setattr(
+        "sabermetrics.assistant_deck_review.build_deck_review_packet", packet
+    )
+    question = "Review this deck and its win condition."
+    gateway = Gateway(
+        [
+            explain_plan(question),
+            AssistantAnswerStep(
+                content="The inspected list does not establish a winning sequence.",
+                findings=["The required payoff remains unknown."],
+            ),
+        ]
+    )
+    run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": question}],
+        gateway=gateway,
+        request_planner=True,
+        whole_deck_reviews=True,
+        experiment_service=service,
+    )
+    assert len(checks) < 15

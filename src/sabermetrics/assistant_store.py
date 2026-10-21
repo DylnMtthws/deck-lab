@@ -273,12 +273,24 @@ class AssistantStore:
         from sabermetrics.assistant_jobs import PROCESS_ID, expired
 
         with db.connect(self.db_path) as conn:
-            p = self._load(conn, owner_id, deck_id)
-            row = self._job(conn, owner_id, deck_id, turn_id)
+            row = conn.execute(
+                "SELECT s.payload_json, j.state, j.lease_owner, j.lease_deadline "
+                "FROM deck_documents d "
+                "LEFT JOIN build_assistant_sessions s "
+                "ON s.deck_id=d.id AND s.owner_id=d.owner_id "
+                "LEFT JOIN build_assistant_jobs j "
+                "ON j.deck_id=d.id AND j.owner_id=d.owner_id AND j.id=? "
+                "WHERE d.id=? AND d.owner_id=?",
+                (turn_id, deck_id, owner_id),
+            ).fetchone()
+            if row is None:
+                raise DeckNotFound("Deck not found.")
+            if row["payload_json"] is None:
+                return False
+            p = json.loads(row["payload_json"])
             return bool(
                 p["busy"]
                 and p["turn_id"] == turn_id
-                and row
                 and row["state"] in {"queued", "running"}
                 and not expired(row)
                 and (row["state"] == "queued" or row["lease_owner"] == PROCESS_ID)

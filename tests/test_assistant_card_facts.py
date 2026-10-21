@@ -250,3 +250,34 @@ def test_malformed_stream_suffix_never_changes_current_snapshot(evidence):
     with pytest.raises(ValueError):
         import_snapshot(db, snapshot)
     assert card_facts(db, "printing")["provenance"]["content_hash"] == previous
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        None,
+        sqlite3.Row,
+        lambda cursor, row: dict(zip([c[0] for c in cursor.description], row)),
+    ],
+)
+@pytest.mark.parametrize("kind", ["canonical", "catalog", "missing", "mismatch"])
+def test_connection_reader_preserves_api_factory_and_transaction(
+    evidence, factory, kind
+):
+    from sabermetrics.assistant_card_facts import card_facts_from_connection
+
+    db, snapshot, _ = evidence
+    if kind != "catalog":
+        import_snapshot(db, snapshot)
+    if kind == "mismatch":
+        with sqlite3.connect(db) as writer:
+            writer.execute("UPDATE cards SET name='changed'")
+    card_id = "absent" if kind == "missing" else "printing"
+    expected = card_facts(db, card_id)
+    with sqlite3.connect(db) as connection:
+        connection.row_factory = factory
+        connection.execute("BEGIN")
+        assert card_facts_from_connection(connection, card_id) == expected
+        assert connection.row_factory is factory
+        assert connection.in_transaction
+        assert card_facts_from_connection(connection, card_id) == expected

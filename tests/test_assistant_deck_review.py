@@ -218,7 +218,9 @@ def test_normalized_alias_and_repeated_identity_preserve_all_entries(deck):
 def test_entry_limit_before_any_reads(deck, monkeypatch):
     db, document, _, _ = deck
     document["entries"] = [{**document["entries"][0], "id": str(i)} for i in range(129)]
-    monkeypatch.setattr(review, "card_facts", lambda *a: pytest.fail("must not read"))
+    monkeypatch.setattr(
+        review, "card_facts_from_connection", lambda *a: pytest.fail("must not read")
+    )
     fallback(review.build_deck_review_packet(db, document), "entry_limit")
 
 
@@ -245,7 +247,9 @@ def test_unresolved_or_conflicting_zone_scope_abstains_before_reads(
             "is_commander": commander,
         }
     )
-    monkeypatch.setattr(review, "card_facts", lambda *a: pytest.fail("must not read"))
+    monkeypatch.setattr(
+        review, "card_facts_from_connection", lambda *a: pytest.fail("must not read")
+    )
     fallback(review.build_deck_review_packet(db, document), "unsupported_scope")
 
 
@@ -404,7 +408,7 @@ def test_face_mechanics_comparison_excludes_only_metadata(
 
 def test_conflicting_duplicate_oracle_records_abstain(deck, monkeypatch):
     db, document, _, _ = deck
-    original = review.card_facts
+    original = review.card_facts_from_connection
     document["entries"][1]["oracle_id"] = "oracle-0"
 
     def read(path, card_id):
@@ -414,7 +418,7 @@ def test_conflicting_duplicate_oracle_records_abstain(deck, monkeypatch):
             result["card"]["oracle_text"] = "Conflicting printed ability."
         return result
 
-    monkeypatch.setattr(review, "card_facts", read)
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
     fallback(review.build_deck_review_packet(db, document), "duplicate_conflict")
 
 
@@ -442,14 +446,14 @@ def test_cancellation_propagates_between_reads_and_closes_observer(
     deck, monkeypatch, exception
 ):
     db, document, _, _ = deck
-    original = review.card_facts
+    original = review.card_facts_from_connection
     calls = []
 
     def read(*args):
         calls.append(args[1])
         return original(*args)
 
-    monkeypatch.setattr(review, "card_facts", read)
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
 
     def check():
         if len(calls) == 2:
@@ -464,7 +468,9 @@ def test_cancellation_propagates_between_reads_and_closes_observer(
 
 def test_generation_change_abstains_and_no_cache_across_calls(deck, monkeypatch):
     db, document, _, _ = deck
-    original = review.card_facts
+    with sqlite3.connect(db) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+    original = review.card_facts_from_connection
     calls = []
 
     def read(*args):
@@ -477,12 +483,12 @@ def test_generation_change_abstains_and_no_cache_across_calls(deck, monkeypatch)
                 )
         return result
 
-    monkeypatch.setattr(review, "card_facts", read)
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
     fallback(review.build_deck_review_packet(db, document), "source_changed")
-    assert len(calls) == 2
+    assert len(calls) == 25
     packet, _, receipt = review.build_deck_review_packet(db, document)
     assert packet and receipt["status"] == "ready"
-    assert len(calls) == 27
+    assert len(calls) == 50
 
 
 def test_database_errors_are_controlled_without_raw_details(tmp_path):
@@ -612,7 +618,7 @@ def test_metadata_urls_null_empty_unicode_and_nonstandard_values_round_trip(
         rulings_uri="https://api.scryfall.com/relative/path/é",
     )
     install()
-    original = review.card_facts
+    original = review.card_facts_from_connection
 
     def read(*args):
         evidence = original(*args)
@@ -620,7 +626,7 @@ def test_metadata_urls_null_empty_unicode_and_nonstandard_values_round_trip(
             evidence["card"].update(scryfall_uri=None, rulings_uri="")
         return evidence
 
-    monkeypatch.setattr(review, "card_facts", read)
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
     packet, sources, receipt = review.build_deck_review_packet(db, document)
     assert receipt["status"] == "ready"
     for row in review.decode_deck_review_packet(packet):
@@ -636,14 +642,14 @@ def test_maximum_scope_keeps_all_128_entries_and_reads_each(deck, monkeypatch):
     document["entries"] = [
         {**originals[i % len(originals)], "id": f"scope-entry-{i}"} for i in range(128)
     ]
-    original = review.card_facts
+    original = review.card_facts_from_connection
     reads = []
 
     def read(path, card_id):
         reads.append(card_id)
         return original(path, card_id)
 
-    monkeypatch.setattr(review, "card_facts", read)
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
     packet, sources, receipt = review.build_deck_review_packet(db, document)
     assert receipt["status"] == "ready"
     decoded = review.decode_deck_review_packet(packet, sources)
@@ -653,3 +659,172 @@ def test_maximum_scope_keeps_all_128_entries_and_reads_each(deck, monkeypatch):
     assert [e["quantity"] for e in decoded] == [
         e["quantity"] for e in document["entries"]
     ]
+
+
+def test_wal_unrelated_writes_do_not_invalidate_and_all_reads_share_snapshot(
+    deck, monkeypatch
+):
+    db, document, _, _ = deck
+    with sqlite3.connect(db) as writer:
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE assistant_sessions (id INTEGER, cost REAL)")
+    original = review.card_facts_from_connection
+    connections = []
+
+    def read(connection, card_id):
+        assert connection.in_transaction
+        assert connection.execute("PRAGMA query_only").fetchone()[0] == 0
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            connection.execute("UPDATE cards SET name=name")
+        connections.append(connection)
+        with sqlite3.connect(db) as writer:
+            writer.execute("INSERT INTO assistant_sessions VALUES (1,0.1)")
+            # Even changes to canonical tables outside this deck are irrelevant.
+            writer.execute(
+                "INSERT OR REPLACE INTO assistant_card_fact_current VALUES ('outside','other')"
+            )
+        return original(connection, card_id)
+
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
+    packet, sources, receipt = review.build_deck_review_packet(db, document)
+    assert receipt["status"] == "ready"
+    assert packet and len(sources) == len(connections) == 25
+    assert all(connection is connections[0] for connection in connections)
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        connections[0].execute("SELECT 1")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "pointer",
+        "remove_pointer",
+        "remove_catalog",
+        "catalog_identity",
+        "catalog_mechanics",
+        "payload",
+        "remove_payload",
+        "metadata",
+        "remove_metadata",
+        "pointer_aba_mutated_payload",
+    ],
+)
+def test_wal_canonical_changes_fail_closed_without_mixed_facts(
+    deck, monkeypatch, change
+):
+    db, document, _, _ = deck
+    with sqlite3.connect(db) as writer:
+        writer.execute("PRAGMA journal_mode=WAL")
+    before = {
+        entry["card_id"]: card_facts(db, entry["card_id"])
+        for entry in document["entries"]
+    }
+    original = review.card_facts_from_connection
+    reads = []
+
+    def read(connection, card_id):
+        evidence = original(connection, card_id)
+        reads.append((card_id, evidence))
+        if len(reads) == 2:
+            with sqlite3.connect(db) as writer:
+                snapshot_hash = writer.execute(
+                    "SELECT snapshot_hash FROM assistant_card_fact_current WHERE card_id='card-3'"
+                ).fetchone()[0]
+                if change == "pointer":
+                    writer.execute(
+                        "UPDATE assistant_card_fact_current SET snapshot_hash='other' WHERE card_id='card-3'"
+                    )
+                elif change == "remove_pointer":
+                    writer.execute(
+                        "DELETE FROM assistant_card_fact_current WHERE card_id='card-3'"
+                    )
+                elif change == "remove_catalog":
+                    writer.execute("DELETE FROM cards WHERE id='card-3'")
+                elif change == "catalog_identity":
+                    writer.execute("UPDATE cards SET name='changed' WHERE id='card-3'")
+                elif change == "catalog_mechanics":
+                    writer.execute(
+                        "UPDATE cards SET oracle_text='changed' WHERE id='card-3'"
+                    )
+                elif change in {"payload", "pointer_aba_mutated_payload"}:
+                    payload = json.loads(
+                        writer.execute(
+                            "SELECT payload FROM assistant_card_facts WHERE card_id='card-3' AND snapshot_hash=?",
+                            (snapshot_hash,),
+                        ).fetchone()[0]
+                    )
+                    payload["oracle_text"] = "Changed ability."
+                    writer.execute(
+                        "UPDATE assistant_card_facts SET payload=? WHERE card_id='card-3' AND snapshot_hash=?",
+                        (json.dumps(payload), snapshot_hash),
+                    )
+                    if change == "pointer_aba_mutated_payload":
+                        writer.execute(
+                            "UPDATE assistant_card_fact_current SET snapshot_hash='other' WHERE card_id='card-3'"
+                        )
+                        writer.commit()
+                        writer.execute(
+                            "UPDATE assistant_card_fact_current SET snapshot_hash=? WHERE card_id='card-3'",
+                            (snapshot_hash,),
+                        )
+                elif change == "remove_payload":
+                    writer.execute(
+                        "DELETE FROM assistant_card_facts WHERE card_id='card-3' AND snapshot_hash=?",
+                        (snapshot_hash,),
+                    )
+                elif change == "metadata":
+                    writer.execute(
+                        "UPDATE assistant_fact_snapshots SET version='changed' WHERE content_hash=?",
+                        (snapshot_hash,),
+                    )
+                else:
+                    writer.execute(
+                        "DELETE FROM assistant_fact_snapshots WHERE content_hash=?",
+                        (snapshot_hash,),
+                    )
+        return evidence
+
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
+    fallback(review.build_deck_review_packet(db, document), "source_changed")
+    assert len(reads) == 25
+    assert all(evidence == before[card_id] for card_id, evidence in reads)
+
+
+def test_database_path_replacement_abstains_even_with_identical_content(
+    deck, monkeypatch
+):
+    import shutil
+
+    db, document, _, _ = deck
+    replacement = db.with_name("replacement.db")
+    shutil.copyfile(db, replacement)
+    original = review.card_facts_from_connection
+    reads = []
+
+    def read(connection, card_id):
+        result = original(connection, card_id)
+        reads.append(card_id)
+        if len(reads) == 2:
+            replacement.replace(db)
+        return result
+
+    monkeypatch.setattr(review, "card_facts_from_connection", read)
+    fallback(review.build_deck_review_packet(db, document), "source_changed")
+    assert len(reads) == 2
+
+
+def test_oversized_raw_payload_abstains_before_reader(deck, monkeypatch):
+    db, document, _, _ = deck
+    with sqlite3.connect(db) as writer:
+        writer.execute(
+            "UPDATE assistant_card_facts SET payload=? WHERE card_id='card-0'",
+            ("x" * (review.MAX_SOURCE_VALUE_BYTES + 1),),
+        )
+    monkeypatch.setattr(
+        review,
+        "card_facts_from_connection",
+        lambda *args: pytest.fail("unbounded reader"),
+    )
+    fallback(
+        review.build_deck_review_packet(db, document), "invalid_or_unavailable_source"
+    )

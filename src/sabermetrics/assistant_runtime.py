@@ -14,6 +14,7 @@ import re
 import sqlite3
 import time
 from collections.abc import Callable
+from contextlib import closing
 from copy import deepcopy
 from pathlib import Path
 from typing import Annotated, Any
@@ -1825,6 +1826,28 @@ def run_turn(
             value, check_current=check_provider, on_checkpoint=on_event
         )
 
+    def check_deck_review_current():
+        # The packet reader calls this between source reads. Rebuilding and
+        # validating the entire deck here would turn a bounded SQL scan into
+        # hundreds of full document loads. Keep cancellation/owner/revision
+        # checks current while leaving document validation at the turn boundary.
+        if stopped():
+            raise ToolStopped("The request changed during source preparation.")
+        with closing(
+            sqlite3.connect(
+                Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, timeout=0.2
+            )
+        ) as conn:
+            row = conn.execute(
+                "SELECT revision FROM deck_documents WHERE id=? AND owner_id=?",
+                (deck_id, owner_id),
+            ).fetchone()
+        if row is None:
+            raise DeckNotFound()
+        if int(row[0]) != result["revision"]:
+            raise RevisionConflict(int(row[0]))
+        return True
+
     progress_stage = ""
 
     def announce(stage: str, content: str) -> None:
@@ -3077,7 +3100,7 @@ def run_turn(
                 previous_rules = state.get("rules_evidence")
                 try:
                     packet, deck_source_map, packet_receipt = build_deck_review_packet(
-                        Path(db_path), document, check_current=tools.check
+                        Path(db_path), document, check_current=check_deck_review_current
                     )
                     if packet is not None and any(
                         not any(
@@ -3106,7 +3129,7 @@ def run_turn(
                             Path(db_path),
                             deck_sources,
                             state.get("rules_evidence") or {},
-                            check_current=tools.check,
+                            check_current=check_deck_review_current,
                         )
                         previous_rules = state.get("rules_evidence")
                         state["rules_evidence"] = rules

@@ -258,6 +258,20 @@ def import_snapshot(
 def card_facts(db_path: str | Path, card_id: str) -> dict[str, Any]:
     with sqlite3.connect(db_path) as db:
         db.row_factory = sqlite3.Row
+        return card_facts_from_connection(db, card_id)
+
+
+def card_facts_from_connection(
+    connection: sqlite3.Connection, card_id: str
+) -> dict[str, Any]:
+    """Read in the caller's transaction, preserving its connection row factory.
+
+    Cursor-local named rows support tuple and custom connection factories.
+    Connection and transaction lifetime remain the caller's responsibility.
+    """
+    db = connection.cursor()
+    db.row_factory = sqlite3.Row
+    try:
         row = db.execute("SELECT * FROM cards WHERE id=?", (card_id,)).fetchone()
         if row is None:
             return {"card_id": card_id, "status": "missing"}
@@ -378,6 +392,8 @@ def card_facts(db_path: str | Path, card_id: str) -> dict[str, Any]:
                 "catalog_fields": ["image_uri", "is_legal_in_99", "roles"],
             }
         )
+    finally:
+        db.close()
 
 
 def _instant(value: str) -> datetime:

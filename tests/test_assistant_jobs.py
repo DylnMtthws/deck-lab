@@ -2,12 +2,14 @@
 
 import json
 import time
+from contextlib import contextmanager
 
 import pytest
 
 from sabermetrics import db
 from sabermetrics.assistant_store import AssistantStore, QueueFull, validate_constraints
 from sabermetrics.assistant_workspace import catalog_card_record, workspace_event
+from sabermetrics.deck_documents import DeckDocumentRepo, DeckNotFound
 from tests.test_resimulate_delta import _client, _seed_deck
 
 
@@ -309,3 +311,113 @@ def test_finish_atomically_retires_job_when_deck_revision_changes(state):
     assert result["research_workspace"]["job"]["state"] == "superseded"
     assert [m["content"] for m in result["messages"]] == ["Original"]
     assert store.claim(owner, deck) is None
+
+
+@pytest.mark.parametrize("session", ["missing", "queued", "running", "legacy"])
+def test_active_is_read_only_and_never_creates_or_migrates_session(
+    state, monkeypatch, session
+):
+    _, path, owner, deck, store = state
+    token = "missing"
+    if session != "missing":
+        token = store.begin(owner, deck, "Research", 0)["turn_id"]
+    if session == "running":
+        store.claim(owner, deck)
+    if session == "legacy":
+        with db.connect(path) as conn:
+            conn.execute("DELETE FROM build_assistant_jobs")
+            conn.commit()
+    connect = db.connect
+    reads = []
+
+    @contextmanager
+    def read_only(*args, **kwargs):
+        with connect(*args, **kwargs) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            yield conn
+            reads.append(conn.total_changes)
+
+    with connect(path) as observer:
+        before = observer.execute(
+            "SELECT payload_json, version FROM build_assistant_sessions"
+        ).fetchall()
+        version = observer.execute("PRAGMA data_version").fetchone()[0]
+        monkeypatch.setattr(db, "connect", read_only)
+        for _ in range(5):
+            assert store.active(owner, deck, token) is (
+                session in {"queued", "running"}
+            )
+        assert observer.execute("PRAGMA data_version").fetchone()[0] == version
+        assert (
+            observer.execute(
+                "SELECT payload_json, version FROM build_assistant_sessions"
+            ).fetchall()
+            == before
+        )
+    assert reads == [0] * 5
+
+
+def test_active_preserves_owner_scope_and_missing_deck_errors(state):
+    _, path, owner, deck, store = state
+    token = store.begin(owner, deck, "Private", 0)["turn_id"]
+    with pytest.raises(DeckNotFound):
+        store.active("someone-else", deck, token)
+    with pytest.raises(DeckNotFound):
+        store.active(owner, "missing", token)
+    other_deck = _seed_deck(path, owner)
+    assert not store.active(owner, other_deck, token)
+    DeckDocumentRepo(path).delete(owner, deck)
+    with pytest.raises(DeckNotFound):
+        store.active(owner, deck, token)
+
+
+@pytest.mark.parametrize(
+    "job_state,lease_owner,deadline,expected",
+    [
+        ("queued", "other", -1, True),
+        ("running", "self", 100, True),
+        ("running", "self", -1, False),
+        ("running", "self", None, False),
+        ("running", "other", 100, False),
+        ("completed", "self", 100, False),
+        ("stopped", "self", 100, False),
+        ("superseded", "self", 100, False),
+    ],
+)
+def test_active_checks_current_lease_and_state_each_time(
+    state, job_state, lease_owner, deadline, expected
+):
+    from sabermetrics.assistant_jobs import PROCESS_ID
+
+    _, path, owner, deck, store = state
+    token = store.begin(owner, deck, "Research", 0)["turn_id"]
+    assert store.active(owner, deck, token)
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE build_assistant_jobs SET state=?,lease_owner=?,lease_deadline=? WHERE id=?",
+            (
+                job_state,
+                PROCESS_ID if lease_owner == "self" else PROCESS_ID + "-other",
+                time.time() + deadline if deadline is not None else None,
+                token,
+            ),
+        )
+        conn.commit()
+    assert store.active(owner, deck, token) is expected
+
+
+def test_active_rechecks_replacement_generation_and_owner_scoped_job(state):
+    _, path, owner, deck, store = state
+    first = store.begin(owner, deck, "Original", 0)
+    store.claim(owner, deck)
+    assert store.active(owner, deck, first["turn_id"])
+    replacement = store.steer(owner, deck, steering("message", message="Replace"), 0)
+    assert not store.active(owner, deck, first["turn_id"])
+    assert store.active(owner, deck, replacement["turn_id"])
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE build_assistant_jobs SET owner_id='someone-else' WHERE id=?",
+            (replacement["turn_id"],),
+        )
+        conn.commit()
+    assert not store.active(owner, deck, replacement["turn_id"])

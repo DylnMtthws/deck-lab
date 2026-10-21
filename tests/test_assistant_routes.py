@@ -1,6 +1,8 @@
 """Conversation ownership, cancellation, provider failures and persistence."""
 
 import threading
+import time
+from contextlib import contextmanager
 
 import pytest
 
@@ -620,3 +622,133 @@ def test_partial_evidence_review_is_not_reported_as_failed_action(
     assert "Could not complete this action" not in review["content"]
     assert session["messages"][-1]["status"] == "incomplete"
     assert session["research_workspace"]["status"] == "partial"
+
+
+def test_worker_stale_revision_blocks_runtime_without_loading_document(
+    setup, monkeypatch
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, _owner, deck, executor = setup
+    client.post(
+        f"/api/decks/{deck}/assistant/messages",
+        json={"message": "Research", "expected_revision": 0},
+    )
+    with db.connect(path) as conn:
+        conn.execute("UPDATE deck_documents SET revision=1 WHERE id=?", (deck,))
+        conn.commit()
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Stale work must not load the document or enter the model runtime")
+
+    monkeypatch.setattr(DeckDocumentRepo, "get", forbidden)
+    monkeypatch.setattr(assistant_runtime, "run_turn", forbidden)
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    with db.connect(path) as conn:
+        assert conn.execute("SELECT state FROM build_assistant_jobs").fetchone()[0] == (
+            "superseded"
+        )
+
+
+@pytest.mark.parametrize(
+    "change", ["revision", "replacement", "lease", "owner", "deleted"]
+)
+def test_worker_stop_checks_are_read_only_bounded_and_recheck_authority(
+    setup, monkeypatch, change
+):
+    from sabermetrics import assistant_runtime
+
+    client, path, owner, deck, executor = setup
+    client.post(
+        f"/api/decks/{deck}/assistant/messages",
+        json={"message": "Research", "expected_revision": 0},
+    )
+    connect = db.connect
+    statements = []
+    verified = []
+
+    @contextmanager
+    def read_only(*args, **kwargs):
+        with connect(*args, **kwargs) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            conn.set_trace_callback(statements.append)
+            yield conn
+            assert conn.total_changes == 0
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Stop checks must not hydrate a deck document")
+
+    monkeypatch.setattr(DeckDocumentRepo, "get", forbidden)
+
+    def run(*_args, **kwargs):
+        stopped = kwargs["should_stop"]
+        with connect(path) as observer:
+            version = observer.execute("PRAGMA data_version").fetchone()[0]
+            with monkeypatch.context() as patch:
+                patch.setattr(db, "connect", read_only)
+                for _ in range(5):
+                    assert not stopped()
+            assert observer.execute("PRAGMA data_version").fetchone()[0] == version
+        assert len(statements) == 10
+        assert all(sql.startswith("SELECT ") for sql in statements)
+        assert not any(
+            "snapshot_json" in sql or "deck_entries" in sql for sql in statements
+        )
+        if change == "replacement":
+            AssistantStore(path).steer(
+                owner,
+                deck,
+                {
+                    "action": "message",
+                    "message": "Replacement",
+                    "expected_generation": 1,
+                    "client_request_id": "stop-check-replacement",
+                },
+                0,
+            )
+        else:
+            with connect(path) as conn:
+                if change == "revision":
+                    conn.execute(
+                        "UPDATE deck_documents SET revision=1 WHERE id=?", (deck,)
+                    )
+                elif change == "lease":
+                    conn.execute(
+                        "UPDATE build_assistant_jobs SET lease_deadline=? WHERE deck_id=?",
+                        (time.time() - 1, deck),
+                    )
+                elif change == "owner":
+                    conn.execute(
+                        "UPDATE deck_documents SET owner_id='someone-else' WHERE id=?",
+                        (deck,),
+                    )
+                else:
+                    conn.execute("DELETE FROM deck_documents WHERE id=?", (deck,))
+                conn.commit()
+        with monkeypatch.context() as patch:
+            patch.setattr(db, "connect", read_only)
+            assert stopped()
+            with pytest.raises(RuntimeError, match="no longer active"):
+                kwargs["on_event"](
+                    {
+                        "type": "provider_checkpoint",
+                        "state": "started",
+                        "call_id": "blocked",
+                    }
+                )
+        verified.append(change)
+        return {"content": "Stale output"}
+
+    monkeypatch.setattr(assistant_runtime, "run_turn", run)
+    if change in {"owner", "deleted"}:
+        # Isolate stop checks from unrelated missing-deck terminalization.
+        monkeypatch.setattr(AssistantStore, "invalidate", lambda *a, **kw: None)
+    function, args, kwargs = executor.jobs.pop()
+    function(*args, **kwargs)
+    assert verified == [change]
+    if change == "replacement":
+        current = AssistantStore(path).get(owner, deck)
+        assert current["busy"]
+        assert current["research_workspace"]["generation"] == 2
+        assert all(m["role"] == "user" for m in current["messages"])

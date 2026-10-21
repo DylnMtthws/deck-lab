@@ -18,7 +18,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from sabermetrics.assistant_card_facts import CARD_FIELDS, card_facts
+from sabermetrics.assistant_card_facts import CARD_FIELDS, card_facts_from_connection
 from sabermetrics.deck_documents import _is_public_library_zone
 
 MAX_ENTRIES = 128
@@ -183,6 +183,82 @@ def decode_deck_review_packet(
     return result
 
 
+# Inspect at most MAX_ENTRIES keyed identities, never the whole database.
+MAX_SOURCE_VALUE_BYTES = 256_000
+_OVERSIZED = "__deck_review_oversized_source__"
+
+
+def _database_identity(path: Path) -> tuple[str, int, int]:
+    resolved = path.resolve(strict=True)
+    stat = resolved.stat()
+    return str(resolved), stat.st_dev, stat.st_ino
+
+
+def _source_records(connection: sqlite3.Connection, card_ids: set[str]) -> str:
+    """Hash raw scoped records, retaining missing vs present and raw payloads.
+
+    These reads share the caller's SQLite snapshot. A bounded projection keeps
+    oversized values out of Python; no global database generation is consulted.
+    """
+    digest = hashlib.sha256()
+
+    def record(query: str, parameters: tuple[str, ...]) -> tuple[Any, ...] | None:
+        with closing(connection.execute(query, parameters)) as cursor:
+            names = tuple(column[0] for column in cursor.description)
+            rows = cursor.fetchmany(2)
+        if len(rows) > 1:
+            raise _Fallback("invalid_or_unavailable_source")
+        row = tuple(rows[0]) if rows else None
+        if row and any(value == _OVERSIZED for value in row):
+            raise _Fallback("invalid_or_unavailable_source")
+        digest.update(_json((names, row)).encode("utf-8"))
+        return row
+
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(cards)")}
+    fields = [
+        field
+        for field in (*CARD_FIELDS, "image_uri", "is_legal_in_99", "roles")
+        if field in columns
+    ]
+
+    def bounded(field: str) -> str:
+        return (
+            f'CASE WHEN length(CAST("{field}" AS BLOB)) > {MAX_SOURCE_VALUE_BYTES} '
+            f"THEN '{_OVERSIZED}' "
+            f'ELSE "{field}" END AS "{field}"'
+        )
+
+    catalog_fields = ",".join(bounded(field) for field in fields)
+    snapshot_fields = ",".join(
+        bounded(field)
+        for field in (
+            "content_hash",
+            "version",
+            "observed_at",
+            "retrieved_at",
+            "imported_at",
+        )
+    )
+    for card_id in sorted(card_ids):
+        record(f"SELECT {catalog_fields} FROM cards WHERE id=?", (card_id,))
+        current = record(
+            f"SELECT {bounded('snapshot_hash')} FROM assistant_card_fact_current WHERE card_id=?",
+            (card_id,),
+        )
+        if current:
+            snapshot_hash = current[0]
+            record(
+                f"SELECT {bounded('payload')} FROM assistant_card_facts "
+                "WHERE snapshot_hash=? AND card_id=?",
+                (snapshot_hash, card_id),
+            )
+            record(
+                f"SELECT {snapshot_fields} FROM assistant_fact_snapshots WHERE content_hash=?",
+                (snapshot_hash,),
+            )
+    return digest.hexdigest()
+
+
 def build_deck_review_packet(
     db_path: str | Path,
     document: dict[str, Any],
@@ -198,8 +274,14 @@ def build_deck_review_packet(
 
     check_current is called between reads and before delivery. Its exceptions,
     including cancellation, propagate unchanged. Other failures abstain without
-    exposing database messages. A read-only data_version observer detects writes
-    across the canonical reader's separate local connections.
+    exposing database messages. All evidence comes from one read-only SQLite
+    snapshot. A fresh scoped read validates catalog rows, current pointers, raw
+    payloads and snapshot metadata before delivery; unrelated writes do not
+    invalidate it. This verifies local evidence, never upstream freshness.
+
+    Without a persistent canonical change log, a change fully restored before
+    validation (ABA) cannot be distinguished from no change. Immutable snapshot
+    records are compared too, including in-place edits without pointer changes.
     """
 
     def check() -> None:
@@ -300,20 +382,23 @@ def build_deck_review_packet(
             return copy.deepcopy(value)
 
         scope_entries = []
-        uri = Path(db_path).resolve().as_uri() + "?mode=ro"
+        path = Path(db_path)
+        identity = _database_identity(path)
+        uri = Path(identity[0]).as_uri() + "?mode=ro"
         with closing(sqlite3.connect(uri, uri=True, timeout=0.2)) as observer:
-            generation = observer.execute("PRAGMA data_version").fetchone()[0]
+            observer.execute("BEGIN")
+            expected = _source_records(observer, {entry[2] for entry in entries})
 
             def stable() -> None:
                 check()
-                if observer.execute("PRAGMA data_version").fetchone()[0] != generation:
+                if _database_identity(path) != identity:
                     raise _Fallback("source_changed")
 
             for raw, entry_id, card_id, quantity, commander in entries:
                 stable()
                 # Read every eligible entry, including repeated identities; never
                 # reuse a partial response or select a preferred printing.
-                evidence = card_facts(db_path, card_id)
+                evidence = card_facts_from_connection(observer, card_id)
                 stable()
                 if evidence.get("status") != "canonical_snapshot":
                     raise _Fallback("missing_or_unsupported_source")
@@ -447,6 +532,14 @@ def build_deck_review_packet(
             if size > MAX_PACKET_BYTES:
                 raise _Fallback("packet_size_limit")
             stable()
+            # End assembly's snapshot to observe committed WAL changes. The
+            # validation read is itself atomic across every scoped record.
+            observer.rollback()
+            observer.execute("BEGIN")
+            if _source_records(observer, set(sources)) != expected:
+                raise _Fallback("source_changed")
+            if _database_identity(path) != identity:
+                raise _Fallback("source_changed")
         return (
             packet,
             sources,

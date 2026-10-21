@@ -12,6 +12,7 @@ from uuid import uuid4
 from flask import Blueprint, abort, current_app, g, jsonify, request
 from flask_login import current_user
 
+from sabermetrics import db
 from sabermetrics.assistant_store import AssistantStore, QueueFull
 from sabermetrics.cedh.settings import load_cedh_settings
 from sabermetrics.deck_documents import (
@@ -163,13 +164,15 @@ def _work(path, owner, deck_id, turn, app):
     token = turn["turn_id"]
 
     def stopped():
-        if not store.active(owner, deck_id, token):
-            return True
         try:
-            return (
-                DeckDocumentRepo(path).get(owner, deck_id)["revision"]
-                != turn["revision"]
-            )
+            if not store.active(owner, deck_id, token):
+                return True
+            with db.connect(path) as conn:
+                row = conn.execute(
+                    "SELECT revision FROM deck_documents WHERE id=? AND owner_id=?",
+                    (deck_id, owner),
+                ).fetchone()
+            return row is None or row["revision"] != turn["revision"]
         except DeckNotFound:
             return True
 
