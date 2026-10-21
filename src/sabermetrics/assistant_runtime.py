@@ -3826,7 +3826,7 @@ def run_turn(
                         step = step.model_copy(
                             update={
                                 "next_action": step.next_action
-                                + " Some mechanical details remain unverified; check the cited card text and conditions before relying on them."
+                                + " Some claims remain unverified; see the individual findings and conditions before relying on them."
                             }
                         )
                 else:

@@ -60,5 +60,23 @@
       "JavaScript syntax",
       "git diff --check"
     ]
+  },
+  "qa_driven_followup": {
+    "reason": "Mixed paired outcome: initial Kinnan tap query unavailable and old renderer flattened LEVEL/reminder/multiple ability costs.",
+    "cause_of_original_query_failure": "Unproven. Three subsequent read-only queries succeeded under 0.35s. Failure diagnostics were absent at failure time.",
+    "changes": [
+      "Direct required-tap-only lane bypasses broad concept/FTS work while preserving snapshot/hash/deadline and scoped-ruling guards",
+      "Redundant validated rule sources no longer create false missing-dependency diagnostics; applicability still semantic",
+      "Structured SQLite failure stage/error-name/deadline diagnostics, without SQL or exception message disclosure",
+      "Complete bounded printed context for complex/multiple abilities; no malformed or unscoped flattened costs",
+      "Unverified footer refers to claims rather than assuming uncertainty is mechanical"
+    ],
+    "validation": {
+      "targeted_passed": 289,
+      "skipped": 1,
+      "black_ruff_mypy_diff": "passed",
+      "adversarial_delta": "No proven consequential finding; static review only"
+    },
+    "live_read_only_probe": "Three required-mode reads retained complete CR107.5 and702.10c and removed false missing warning. No wall-time speed claim: optional ruling checks remain under cooperative deadline."
   }
 }

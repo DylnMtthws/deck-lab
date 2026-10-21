@@ -50,6 +50,137 @@ def test_complex_hand_accounting_abstains(text):
     assert profile(text)["resource_accounting"]["status"] == "unknown"
 
 
+@pytest.mark.parametrize(
+    ("text", "cost"),
+    [
+        ("{T}: Draw a card.", "{T}"),
+        ("{3}{U}: Draw two cards.", "{3}{U}"),
+        ("{T}: Add {G}.", "{T}"),
+        ("{2}, {T}: Scry 2.", "{2}, {T}"),
+    ],
+)
+def test_render_standalone_activation_preserves_costcheck_form(text, cost):
+    result = profile(text)
+    # Rendering must use the literal source, not a stale compatibility cost.
+    result["ability_compatibility"]["abilities"][0]["activation_cost"] = "{99}"
+    before = copy.deepcopy(result)
+    rendered = render_fit_reason(result)
+    assert f"Activation cost: {cost}." in rendered
+    assert "{99}" not in rendered
+    assert result == before
+
+
+def test_render_joraga_preserves_actual_frozen_printed_context():
+    # Literal workspacecard.printed.oracle_text from
+    # infra/.private/research-latency-20261021/kinnan-candidate-frozen.json,
+    # first_supported_cards: Joraga Treespeaker. No private fixture dependency.
+    text = (
+        "Level up {1}{G} ({1}{G}: Put a level counter on this. "
+        "Level up only as a sorcery.)\n"
+        "LEVEL 1-4\n1/2\n{T}: Add {G}{G}.\nLEVEL 5+\n1/4\n"
+        'Elves you control have "{T}: Add {G}{G}."'
+    )
+    rendered = render_fit_reason(profile(text, name="Joraga Treespeaker"))
+    assert f"“{text}”" in rendered
+    assert "ability availability unverified" in rendered
+    assert "Activation cost:" not in rendered
+    assert "Additional activation costs" not in rendered
+
+
+def test_render_chemister_pairs_each_cost_with_its_printed_effect():
+    text = (
+        "{U}, {T}: Draw two cards.\n"
+        "{R}, {T}, Discard a card: Mercurial Chemister deals damage to target "
+        "creature equal to the discarded card's mana value."
+    )
+    rendered = render_fit_reason(profile(text, name="Mercurial Chemister"))
+    assert f"“{text}”" in rendered
+    assert "Activation cost:" not in rendered
+    assert "ability availability unverified" in rendered
+
+
+def test_render_halfling_keeps_color_restriction_with_its_ability():
+    text = (
+        "{T}: Add {C}.\n"
+        "{T}: Add one mana of any color. Spend this mana only to cast a "
+        "legendary spell, and that spell can't be countered."
+    )
+    rendered = render_fit_reason(profile(text, name="Delighted Halfling"))
+    assert f"“{text}”" in rendered
+    assert "Activation cost:" not in rendered
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "{T}: Draw a card. Activate only as a sorcery.",
+        "{T}: Draw a card.\nActivate only once each turn.",
+        "{T}: Add one mana of any color. Spend this mana only to cast creature spells.",
+        'Creatures you control have "{T}: Add {G}."',
+        'Enchanted creature has "{T}: Draw a card."',
+        "{1}{U}: Level 2\nCreatures you control get +1/+1.",
+        "Class\n{1}{U}: Level 2\nWhenever you draw a card, gain 1 life.",
+        "Reminder ({T}: Add {G}.)",
+        "{T}: If you control an Elf, draw a card.",
+        "{T}: Draw a card.\n{U}: Scry 1.\n{R}: Discard a card.",
+        ": Draw a card.",
+        "{T}:",
+        "{TT}: Draw a card.",
+        "{T}: Draw a card",
+    ],
+)
+def test_render_contextual_or_malformed_colons_quote_source_without_flattening(text):
+    rendered = render_fit_reason(profile(text))
+    assert f"“{text}”" in rendered
+    assert "Activation cost:" not in rendered
+    assert "Additional activation costs" not in rendered
+
+
+@pytest.mark.parametrize(
+    "facts",
+    [
+        {},
+        {"oracle_text": None, "oracle_complete": True},
+        {"oracle_text": ["{T}: Draw a card."], "oracle_complete": True},
+        {"oracle_text": "{T}: Draw a card.", "oracle_complete": False},
+        {"oracle_text": "{T}: Draw a card."},
+    ],
+)
+def test_render_missing_or_incomplete_source_does_not_fall_back_to_parsed_cost(facts):
+    result = profile("{T}: Draw a card.")
+    result["printed_facts"] = facts
+    rendered = render_fit_reason(result)
+    assert "complete printed text is required" in rendered
+    assert "Activation cost:" not in rendered
+    assert "{T}" not in rendered
+
+
+@pytest.mark.parametrize(
+    "fields", [{"oracle_text_truncated": True}, {"card_faces": [{"name": "Back"}]}]
+)
+def test_render_incomplete_card_abstains(fields):
+    rendered = render_fit_reason(profile("{T}: Draw a card.", **fields))
+    assert "complete printed text is required" in rendered
+    assert "Activation cost:" not in rendered
+
+
+def test_render_over_budget_source_abstains_without_clipping_restrictions():
+    text = "{T}: Draw a card. " + "Long printed context. " * 40
+    text += "Activate only once each turn."
+    rendered = render_fit_reason(profile(text))
+    assert "Activation summary omitted: full printed context is needed" in rendered
+    assert "ability availability is unverified" in rendered
+    assert "Activation cost:" not in rendered
+    assert "Long printed context" not in rendered
+    assert len(rendered) < 400
+
+
+def test_render_no_activation_does_not_add_an_activation_claim():
+    rendered = render_fit_reason(profile("Whenever a creature dies, draw a card."))
+    assert "Activation" not in rendered
+    assert "Printed card text" not in rendered
+
+
 def test_sacrifice_draw_does_not_claim_net_card_advantage():
     result = profile("Pay 1 life, Sacrifice another creature: Draw a card.")
     accounting = result["resource_accounting"]

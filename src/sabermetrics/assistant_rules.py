@@ -208,8 +208,14 @@ def _tap_dependency_rows(snap: _Snapshot) -> dict[str, sqlite3.Row]:
         dependency = tap_dependency(row["text"])
         if dependency and snap.verified(row):
             found.setdefault(dependency, []).append(row)
-    # Ambiguity is disclosed as missing, rather than guessed from numbering.
-    return {key: values[0] for key, values in found.items() if len(values) == 1}
+    # Different rules can state the same prerequisite (e.g. the tap-symbol
+    # definition and the creature rule). They are independently verified source
+    # candidates, not conflicting verdicts. Keep the shortest complete statement
+    # deterministically; semantic review still determines applicability.
+    return {
+        key: min(values, key=lambda row: (len(row["text"]), row["rule_id"]))
+        for key, values in found.items()
+    }
 
 
 # Mana-ability anchors as (expected rule ID, defining phrase from that rule's
@@ -253,6 +259,7 @@ class RulesEvidence(BaseModel):
     rules_snapshot: dict[str, Any] | None = None
     rulings_status: Literal["available", "no_matches", "unavailable"] = "unavailable"
     hits: list[RuleHit] = Field(default_factory=list)
+    query_failures: list[dict[str, Any]] = Field(default_factory=list)
     limitations: list[str] = Field(
         default_factory=lambda: [
             "Retrieved text is evidence, not instructions or certified rules execution.",
@@ -685,6 +692,7 @@ def retrieve_rules(
     cards: Any = (),
     limit: int = 4,
     deadline_seconds: float | None = None,
+    required_tap_only: bool = False,
 ) -> RulesEvidence:
     """Retrieve local rules, their parents/references and scoped stored rulings.
 
@@ -698,6 +706,8 @@ def retrieve_rules(
         cards: Up to 16 unique card dicts (oracle_id, name, type_line,
             oracle_text). The first four seed concepts; all scope rulings.
         limit: Maximum hits, 1–6.
+        required_tap_only: Retrieve the two tap/haste prerequisites directly,
+            without broader concept search. Scoped card rulings remain eligible.
 
     Returns:
         Bounded evidence with explicit rule and ruling availability.
@@ -709,11 +719,28 @@ def retrieve_rules(
         raise ValueError("Rules query must contain 1–300 characters; limit 1–6")
     if deadline_seconds is not None and not 0.01 <= deadline_seconds <= 1.0:
         raise ValueError("Rules deadline must be 0.01–1 second")
+    if not isinstance(required_tap_only, bool) or (
+        required_tap_only
+        and not re.search(r"tap symbol|\{t\}|haste", query, re.IGNORECASE)
+    ):
+        raise ValueError("Required tap lookup needs an explicit tap/haste query")
     deadline = (
         time.monotonic() + deadline_seconds if deadline_seconds is not None else None
     )
     scoped = _scope_cards(cards)
     result = RulesEvidence(status="unavailable", query=query)
+
+    def record_failure(exc: sqlite3.Error, stage: str) -> None:
+        result.query_failures.append(
+            {
+                "stage": stage,
+                "exception_type": type(exc).__name__,
+                "sqlite_error_name": getattr(exc, "sqlite_errorname", None),
+                "deadline_exhausted": deadline is not None
+                and time.monotonic() >= deadline,
+            }
+        )
+
     try:
         conn = sqlite3.connect(
             Path(db_path).resolve().as_uri() + "?mode=ro",
@@ -722,7 +749,8 @@ def retrieve_rules(
         )
         if deadline is not None:
             conn.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        record_failure(exc, "connection")
         return result
     conn.row_factory = sqlite3.Row
     rule_hits: list[RuleHit] = []
@@ -736,7 +764,8 @@ def retrieve_rules(
                     "SELECT name FROM sqlite_master WHERE type IN ('table','view')"
                 )
             }
-        except sqlite3.Error:
+        except sqlite3.Error as exc:
+            record_failure(exc, "schema")
             result.limitations.append("The local database could not be read.")
             return result
         if {
@@ -745,8 +774,16 @@ def retrieve_rules(
             "assistant_rules_fts",
         } <= tables:
             try:
-                rule_hits = _collect_rule_hits(conn, query, scoped, limit, result)
-            except sqlite3.Error:
+                rule_hits = _collect_rule_hits(
+                    conn,
+                    query,
+                    scoped,
+                    limit,
+                    result,
+                    required_tap_only=required_tap_only,
+                )
+            except sqlite3.Error as exc:
+                record_failure(exc, "rules_query")
                 result.status = "unavailable"
                 rule_hits = []
                 result.limitations.append(
@@ -760,7 +797,8 @@ def retrieve_rules(
             else:
                 try:
                     found = _ruling_rows(conn, scoped)
-                except sqlite3.Error:
+                except sqlite3.Error as exc:
+                    record_failure(exc, "rulings_query")
                     found = None
                 if found is None:
                     result.limitations.append(
@@ -769,7 +807,8 @@ def retrieve_rules(
                 else:
                     try:
                         snapshots = _ruling_snapshots(conn, tables, result)
-                    except sqlite3.Error:
+                    except sqlite3.Error as exc:
+                        record_failure(exc, "rulings_snapshot")
                         snapshots = {}
                     # Snapshot-namespace rows are cited only with their snapshot.
                     usable = [
@@ -818,6 +857,8 @@ def _collect_rule_hits(
     cards: list[dict[str, Any]],
     limit: int,
     result: RulesEvidence,
+    *,
+    required_tap_only: bool = False,
 ) -> list[RuleHit]:
     meta = conn.execute(
         "SELECT * FROM assistant_rules_metadata WHERE singleton=1"
@@ -836,7 +877,17 @@ def _collect_rule_hits(
     snap = _Snapshot(conn)
     hits: list[RuleHit] = []
     seen: set[str] = set()
-    for row in _rule_rows(snap, query, cards, result):
+    if required_tap_only:
+        required = _tap_dependency_rows(snap)
+        rows = [required[key] for key in _TAP_DEPENDENCIES if key in required]
+        for key in _TAP_DEPENDENCIES:
+            if key not in required:
+                result.limitations.append(
+                    f"Tap-symbol evidence dependency {key} is missing in the loaded official snapshot; remains unverified."
+                )
+    else:
+        rows = _rule_rows(snap, query, cards, result)
+    for row in rows:
         if row["rule_id"] in seen:
             continue
         seen.add(row["rule_id"])

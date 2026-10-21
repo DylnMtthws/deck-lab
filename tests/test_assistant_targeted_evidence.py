@@ -601,3 +601,91 @@ def test_fresh_valid_dependency_replaces_rejected_old_evidence(
     ]
     assert not any("is missing" in note for note in rules["limitations"])
     assert HASTE in review_sources(rules)
+
+
+def test_required_tap_lookup_avoids_broad_search_and_accepts_redundant_rule_sources(
+    tmp_path, monkeypatch
+):
+    from sabermetrics import assistant_rules as rules
+
+    path = tmp_path / "rules.db"
+    redundant = CONTROL.replace("302.6.", "107.5.")
+    rules.ingest_rules(
+        path,
+        "100.1. Fixture QA.\n\n" + redundant + "\n\n" + CONTROL + "\n\n" + HASTE,
+        source_url=OFFICIAL_URL,
+        version="fixture-edition",
+    )
+
+    def no_broad_search(*args, **kwargs):
+        raise AssertionError(
+            "Required dependencies must not wait for broad FTS/card-concept search"
+        )
+
+    monkeypatch.setattr(rules, "_rule_rows", no_broad_search)
+    result = rules.retrieve_rules(
+        path,
+        "tap symbol activated ability summoning sickness haste",
+        cards=[{"oracle_id": "creature", "oracle_text": "Level up {1}{G}."}],
+        required_tap_only=True,
+        deadline_seconds=0.35,
+        limit=3,
+    )
+    assert {rules.tap_dependency(hit.text) for hit in result.hits} == {
+        "continuous_control",
+        "haste_activation",
+    }
+    assert not any(
+        "missing" in note or "ambiguous" in note for note in result.limitations
+    )
+    assert not result.query_failures
+
+
+def test_rule_query_failure_records_cause_without_assuming_deadline(
+    tmp_path, monkeypatch
+):
+    import sqlite3
+
+    from sabermetrics import assistant_rules as rules
+
+    path = tmp_path / "rules.db"
+    rules.ingest_rules(
+        path,
+        "100.1. Fixture QA.\n\n" + CONTROL + "\n\n" + HASTE,
+        source_url=OFFICIAL_URL,
+        version="fixture-edition",
+    )
+
+    def fail(*args, **kwargs):
+        exc = sqlite3.OperationalError("synthetic private SQL is not exposed")
+        exc.sqlite_errorname = "SQLITE_ERROR"
+        raise exc
+
+    monkeypatch.setattr(rules, "_collect_rule_hits", fail)
+    result = rules.retrieve_rules(
+        path, "tap symbol haste", required_tap_only=True, deadline_seconds=0.35
+    )
+    assert result.status == "unavailable"
+    assert result.query_failures == [
+        {
+            "stage": "rules_query",
+            "exception_type": "OperationalError",
+            "sqlite_error_name": "SQLITE_ERROR",
+            "deadline_exhausted": False,
+        }
+    ]
+    assert "synthetic private SQL" not in str(result.model_dump())
+
+
+def test_finalist_uses_required_only_mode_for_tap_query(tmp_path, lookup):
+    run(
+        tmp_path,
+        "{T}: Draw a card. Remove a counter: Draw a card.",
+        ["Tap-symbol cost: this creature needs continuous control or haste."],
+    )
+    assert lookup[0][1]["required_tap_only"] is True
+    assert all(
+        "required_tap_only" not in kwargs
+        for query, kwargs in lookup
+        if query != module._TAP_QUERY
+    )

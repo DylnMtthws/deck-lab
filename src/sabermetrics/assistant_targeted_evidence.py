@@ -111,6 +111,7 @@ def finalist_evidence(
             cards=scoped,
             limit=4 if "zone change" in query else 3,
             deadline_seconds=0.35,
+            **({"required_tap_only": True} if query == _TAP_QUERY else {}),
         ).model_dump()
         fresh.extend(result["hits"])
         receipts.append(
@@ -120,6 +121,7 @@ def finalist_evidence(
                 "rulings_status": result["rulings_status"],
                 "limitations": result["limitations"],
                 "rules_snapshot": result.get("rules_snapshot"),
+                "query_failures": result.get("query_failures", []),
             }
         )
     unique: dict[tuple[Any, ...], dict[str, Any]] = {}

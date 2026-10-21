@@ -440,6 +440,46 @@ def synthesis_fit_context(
     }
 
 
+def _render_activation_source(profile: dict[str, Any]) -> str:
+    """Render source context, never treat parsed colons as accessible abilities.
+
+    Only a standalone, symbol-cost ability gets the legacy cost-only form.
+    Otherwise keep the entire source together: lines and sentences can carry
+    level bands, grants, reminder text or restrictions for another clause.
+    Do not truncate that context to fit the rendering budget.
+    """
+    facts = profile.get("printed_facts", {})
+    raw = facts.get("oracle_text")
+    parsed = profile.get("ability_compatibility", {}).get("abilities", [])
+    if not isinstance(raw, str) or not raw.strip():
+        return (
+            " Activation summary unavailable: complete printed text is required."
+            if parsed
+            else ""
+        )
+    if ":" not in raw and not parsed:
+        return ""
+    if facts.get("oracle_complete") is not True:
+        return " Activation summary unavailable: complete printed text is required."
+    # A full-source quotation is deliberately bounded, including for malformed
+    # or unusually large inputs. No inferred costs survive an omitted source.
+    if len(raw) > 600:
+        return " Activation summary omitted: full printed context is needed; ability availability is unverified."
+    simple = re.fullmatch(
+        r"(?P<cost>\{(?:[0-9]+|[WUBRGCXYZST])\}"
+        r"(?:,? ?\{(?:[0-9]+|[WUBRGCXYZST])\})*)"
+        r": [^\n\r:.!?()\"“”]+\.",
+        raw,
+    )
+    if simple and not re.search(
+        r"\b(?:if|unless|only|activate|spend|level|class|have|has|gain|gains)\b",
+        raw,
+        re.IGNORECASE,
+    ):
+        return " Activation cost: " + simple["cost"] + "."
+    return " Printed card text (ability availability unverified): “" + raw + "”"
+
+
 def render_fit_reason(profile: dict[str, Any]) -> str:
     """Render transparent ingredient support without requiring model invention."""
     judgment = profile["strategic_judgment"]
@@ -456,12 +496,7 @@ def render_fit_reason(profile: dict[str, Any]) -> str:
         if support
         else "Relevant deck support remains unconfirmed."
     )
-    # Costs are rendered from supplied text as well as retained for the model.
-    abilities = profile.get("ability_compatibility", {}).get("abilities", [])
-    for ability in abilities[:2]:
-        text += " Activation cost: " + ability["activation_cost"] + "."
-    if len(abilities) > 2:
-        text += " Additional activation costs are in the full card text."
+    text += _render_activation_source(profile)
     if judgment["awkwardness"]:
         text += " " + judgment["awkwardness"][0]
     elif judgment["setup_gaps"]:
