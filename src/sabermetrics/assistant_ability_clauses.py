@@ -100,6 +100,14 @@ def ability_clauses(card: dict[str, Any]) -> dict[str, Any]:
         unknowns.append("multiface")
     if "•" in raw:
         unknowns.append("modal")
+    if (
+        str(card.get("layout") or "").lower() in {"leveler", "class"}
+        or re.search(r"\blevel\b|\bclass\b", raw, re.IGNORECASE)
+        or re.search(r"\bclass\b", str(card.get("type_line") or ""), re.IGNORECASE)
+    ):
+        # Line boundaries do not retain progression prerequisites. Keep the
+        # exact clauses for inspection, but never match their detached effects.
+        unknowns.append("unsupported_progression_scope")
     rows = []
     for i, line in enumerate(raw.splitlines()):
         if not line.strip():

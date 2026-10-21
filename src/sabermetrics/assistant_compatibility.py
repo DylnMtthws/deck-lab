@@ -10,6 +10,21 @@ VERSION = "assistant-compatibility.v1"
 _CONDITIONAL = re.compile(
     r"\bif\b|\bunless\b|\bfor each\b|\bchosen\b|\bonly\b|\bexcept\b", re.IGNORECASE
 )
+_LEVEL_CLASS = re.compile(r"\blevel\b|\bclass\b", re.IGNORECASE)
+_QUOTED_GRANTED = re.compile(r'["“”]|\b(?:have|has)\b', re.IGNORECASE)
+
+
+def _resource_supported(card: dict[str, Any]) -> bool:
+    # Line splitting cannot retain level bands or Class progression scopes.
+    return _complete(card) and not (
+        str(card.get("layout") or "").lower() in {"leveler", "class"}
+        or _LEVEL_CLASS.search(str(card.get("oracle_text") or ""))
+        or re.search(r"\bclass\b", str(card.get("type_line") or ""), re.IGNORECASE)
+    )
+
+
+def _unresolved_context(text: str) -> bool:
+    return bool(_CONDITIONAL.search(text) or _QUOTED_GRANTED.search(text))
 
 
 def _complete(card: dict[str, Any]) -> bool:
@@ -30,7 +45,11 @@ def _identity(card: dict[str, Any]) -> str:
 
 
 def _clauses(card: dict[str, Any]) -> list[str]:
-    return str(card.get("oracle_text") or "").splitlines() if _complete(card) else []
+    return (
+        str(card.get("oracle_text") or "").splitlines()
+        if _resource_supported(card)
+        else []
+    )
 
 
 @lru_cache(maxsize=8192)
@@ -78,15 +97,35 @@ def _tokens(clause: str, required: str) -> bool:
 
 @lru_cache(maxsize=2048)
 def fixed_mana(cost: str) -> int | None:
-    """Only fixed ordinary mana symbols; variable, hybrid and special costs abstain."""
-    symbols = [
-        s for s in re.findall(r"\{([^}]+)\}", cost.upper()) if s not in {"T", "Q"}
-    ]
-    if any(not (s.isdigit() or s in "WUBRGC" and len(s) == 1) for s in symbols):
+    """Count mana only after every comma-separated cost is fully recognized.
+
+    This small grammar retains ordinary symbols and explicit resource costs;
+    residual prose, variable/hybrid symbols and unsupported costs abstain.
+    """
+    if _LEVEL_CLASS.search(cost) or _unresolved_context(cost):
         return None
-    if re.search(r"\bmana\b", cost, re.IGNORECASE):
-        return None
-    return sum(int(s) if s.isdigit() else 1 for s in symbols)
+    total = 0
+    count = r"(?:a|an|one|two|three|four|five|[0-9]+)"
+    resource = (
+        r"(?:sacrifice (?:another|an?|this) "
+        r"(?:creature|artifact|permanent|land|enchantment|elf|zombie|soldier|"
+        r"goblin|vampire|wizard|human|spirit|saproling|beast)(?: you control)?"
+        r"|discard " + count + r" cards?"
+        r"|pay [0-9]+ life"
+        r"|remove " + count + r" (?:[+-][0-9]+/[+-][0-9]+|[a-z]+) counters? "
+        r"from this (?:creature|artifact|permanent))"
+    )
+    for component in cost.strip().split(","):
+        component = component.strip()
+        if re.fullmatch(r"(?:\{(?:[0-9]+|[WUBRGCTQ])\}\s*)+", component, re.IGNORECASE):
+            symbols = re.findall(r"\{([^}]+)\}", component.upper())
+            total += sum(
+                int(s) if s.isdecimal() else 0 if s in {"T", "Q"} else 1
+                for s in symbols
+            )
+        elif not re.fullmatch(resource, component, re.IGNORECASE):
+            return None
+    return total
 
 
 @lru_cache(maxsize=16384)
@@ -147,6 +186,7 @@ def ability_compatibility(
     requirements: list[dict[str, Any]] = []
     abilities = []
     providers = [c for c in entries if _identity(c) != _identity(card) and _complete(c)]
+    candidate_unresolved = _unresolved_context(str(card.get("oracle_text") or ""))
     for line in _clauses(card):
         cost, effect = line.split(":", 1) if ":" in line else (None, line)
         if cost is not None:
@@ -154,7 +194,9 @@ def ability_compatibility(
                 {
                     "source_quote": line,
                     "activation_cost": cost.strip(),
-                    "fixed_mana_per_activation": fixed_mana(cost),
+                    "fixed_mana_per_activation": (
+                        None if candidate_unresolved else fixed_mana(cost)
+                    ),
                     "consumes_source": bool(
                         re.search(
                             r"\bsacrifice (?:this (?:creature|artifact|permanent)|"
@@ -231,8 +273,10 @@ def ability_compatibility(
                         "oracle_id": provider.get("oracle_id"),
                         "source_quote": quote,
                     }
-                    if _CONDITIONAL.search(quote) or any(
-                        x in quote for x in ("•", "—")
+                    if (
+                        candidate_unresolved
+                        or _unresolved_context(str(provider.get("oracle_text") or ""))
+                        or any(x in quote for x in ("•", "—"))
                     ):
                         unresolved.append(record)
                     else:
@@ -252,7 +296,9 @@ def ability_compatibility(
             )
     return {
         "version": VERSION,
-        "status": "bounded_printed_matching" if _complete(card) else "unknown",
+        "status": (
+            "bounded_printed_matching" if _resource_supported(card) else "unknown"
+        ),
         "casting_cost": card.get("mana_cost"),
         "printed_initial_resources": [
             line
@@ -290,6 +336,8 @@ def compatibility_summary(profile: dict[str, Any]) -> dict[str, Any]:
 def compare_candidates(cards: list[dict[str, Any]]) -> None:
     """Attach one bounded comparison of fixed activation mana; no dominance claim."""
     for card in cards[:8]:
+        # Recomputing after a source/profile change must not retain old credit.
+        card.pop("functional_comparison", None)
         own = (
             card.get("suitability", {})
             .get("ability_compatibility", {})

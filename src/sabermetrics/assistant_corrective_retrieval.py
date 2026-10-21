@@ -91,6 +91,9 @@ def corrective_evidence(
             evidence_hashes.add(_hash(source.split("\n", 1)[1]))
     results: dict[str, list[str]] = {}
     appended: dict[str, str] = {}
+    source_indices: dict[str, int] = {}
+    indices_by_claim: dict[str, list[int]] = {}
+    source_diagnostics: list[dict[str, Any]] = []
     for judgment in receipt.get("claim_judgments", []):
         if judgment.get("verdict") not in {
             "unknown",
@@ -103,11 +106,16 @@ def corrective_evidence(
             continue
         guard()
         claim = _bound_claim(judgment, parts)
-        reason = str(judgment.get("reason") or "Missing applicable evidence")
+        reason = str(judgment.get("reason") or "")
+        descriptor = judgment.get("retrieval_gap")
+        descriptor = descriptor if isinstance(descriptor, dict) else {}
+        proposition = descriptor.get("missing_proposition")
+        proposition = proposition.strip() if isinstance(proposition, str) else ""
         category = judgment.get("category")
         gap: dict[str, Any] = {
             "claim_id": judgment.get("claim_id"),
-            "missing_proposition": claim or str(judgment.get("reviewed_claim") or ""),
+            "missing_proposition": proposition,
+            "kind": descriptor.get("kind"),
             "evidence_type": (
                 "official_rule_or_ruling"
                 if category == "rules_interaction"
@@ -125,14 +133,15 @@ def corrective_evidence(
         ):
             gap["status"] = "stale_receipt"
             continue
-        combined = (claim + " " + reason).lower()
-        if category != "rules_interaction" or re.search(
-            r"\bfuture\b|\bsurviv\w*\b|\balive\b|\bwill (?:win|still|remain|always)\b"
-            r"|\bopponent will\b|\bstrateg\w*\b|\binfinite\b|\bunbounded\b"
-            r"|\bguarantee\w*\b|\b(?:next|following) (?:turn|combat)\b"
-            r"|\bwin.rate\b|\boptimal\b|\bremain\w* on (?:the )?battlefield\b",
-            combined,
-        ):
+        if not descriptor.get("kind") or not proposition or len(proposition) > 180:
+            gap["status"] = "unspecified_review_gap"
+            continue
+        if judgment.get("verdict") == "unknown":
+            gap["status"] = "unknown_review_verdict"
+            continue
+        if descriptor.get("kind") != "missing_rule":
+            continue
+        if category != "rules_interaction":
             continue
         scoped = [
             c
@@ -146,7 +155,9 @@ def corrective_evidence(
         gap["target"] = [c.get("oracle_id") or c["name"] for c in scoped]
         gap["targets_omitted"] = max(0, len(scoped) - 16)
         gap["resolvable"] = True  # retrievable candidate evidence, not proof
-        query = " ".join((claim + " " + reason).split())[:300]
+        # The identified dependency gets the budget before surrounding prose.
+        # A long claim must not truncate away the very rule we need to find.
+        query = " ".join((proposition + " " + claim).split())[:300]
         key = query.lower()
         gap["query"] = query
         if key in results:
@@ -155,6 +166,9 @@ def corrective_evidence(
             )
             if results[key] and judgment["claim_id"] not in affected:
                 affected.append(judgment["claim_id"])
+                indices_by_claim[judgment["claim_id"]] = sorted(
+                    {source_indices[source] for source in results[key]}
+                )
             continue
         if key in seen:
             gap["status"] = "query_already_seen"
@@ -205,6 +219,20 @@ def corrective_evidence(
             )
             binding = f" | card {card_name} ({card_id})" if card_id else ""
             source = f"Rule source: {hit['source_id']} | {hit.get('version')} | {hit.get('source_url')}{binding} | {hit.get('source')} | sha256 {digest}\n{text}"
+            index = len(existing_sources) + len(sources)
+            source_indices[source] = index
+            source_diagnostics.append(
+                {
+                    "source_index": index,
+                    "source_id": hit["source_id"],
+                    "kind": hit.get("kind"),
+                    "version": hit.get("version"),
+                    "source_url": hit.get("source_url"),
+                    "card_oracle_id": card_id,
+                    "content_sha256": digest,
+                    "source_sha256": _hash(source),
+                }
+            )
             sources.append(source)
             fresh.append(source)
             relevant.append(source)
@@ -218,12 +246,19 @@ def corrective_evidence(
                 "limitations": result["limitations"],
                 "new_complete_records": len(fresh),
                 "relevant_new_records": len(set(relevant)),
+                "new_source_indices": [source_indices[source] for source in fresh],
+                "candidate_source_indices": sorted(
+                    {source_indices[source] for source in relevant}
+                ),
                 "omitted": omitted,
             }
         )
         gap["status"] = "candidate_evidence" if relevant else "no_new_complete_evidence"
         if relevant and judgment["claim_id"] not in affected:
             affected.append(judgment["claim_id"])
+            indices_by_claim[judgment["claim_id"]] = sorted(
+                {source_indices[source] for source in relevant}
+            )
     judged_ids = {g["claim_id"] for g in gaps}
     for claim_id in receipt.get("missing_claim_ids", []):
         if claim_id not in judged_ids:
@@ -243,6 +278,8 @@ def corrective_evidence(
     return {
         "additional_sources": sources,
         "affected_claim_ids": affected,
+        "new_source_indices_by_claim": indices_by_claim,
+        "lookup_sources": source_diagnostics,
         "gaps": gaps,
         "lookups": lookups,
         "stop_reason": (

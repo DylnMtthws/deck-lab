@@ -54,6 +54,10 @@ def test_retrieval_and_mechanics_have_separate_evidence_scopes(tmp_path):
                 "verdict": "conflict",
                 "category": "rules_interaction",
                 "reason": "Missing zone-change rule",
+                "retrieval_gap": {
+                    "kind": "missing_rule",
+                    "missing_proposition": "Rule 122.2: counters are not retained across zone changes.",
+                },
             }
         ],
     }

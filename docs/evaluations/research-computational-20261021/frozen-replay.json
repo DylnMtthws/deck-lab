@@ -1,0 +1,54 @@
+{
+  "basis_sha": "1638ee8",
+  "artifact_sha256": "f748e7f91d587ebe57b2d9b8b7eaf72886b581bb1735360fea75ef7205f8fbcc",
+  "scope": "Artifact-derived identical semantic input fixtures, not live provider latency or recommendation quality",
+  "cases": [
+    {
+      "case": "marchesa",
+      "before": {
+        "user_bytes": 21216,
+        "system_bytes": 3314,
+        "schema_bytes": 1537
+      },
+      "after": {
+        "user_bytes": 18436,
+        "system_bytes": 3958,
+        "schema_bytes": 2091
+      },
+      "semantic_input_and_local_binding_identical": true,
+      "wire_reduction_percent": 13.1,
+      "total_system_user_schema_bytes_before": 26067,
+      "total_system_user_schema_bytes_after": 24485,
+      "total_serialized_bytes_reduction_percent": 6.1
+    },
+    {
+      "case": "kinnan",
+      "before": {
+        "user_bytes": 20592,
+        "system_bytes": 3314,
+        "schema_bytes": 1537
+      },
+      "after": {
+        "user_bytes": 17848,
+        "system_bytes": 3958,
+        "schema_bytes": 2091
+      },
+      "semantic_input_and_local_binding_identical": true,
+      "wire_reduction_percent": 13.3,
+      "total_system_user_schema_bytes_before": 25443,
+      "total_system_user_schema_bytes_after": 23897,
+      "total_serialized_bytes_reduction_percent": 6.1
+    }
+  ],
+  "frozen_kinnan_gap": {
+    "lookup_count": 0,
+    "model_calls": 0,
+    "judgments_unchanged": true,
+    "fulfillment_unchanged": true,
+    "gap_statuses": [
+      "unspecified_review_gap"
+    ],
+    "prior_corrective_stage_seconds": 31.188,
+    "interpretation": "A saved unspecified gap is no longer retried; 31.188s is historical avoidable work in this frozen trace, not a measured end-to-end speedup."
+  }
+}

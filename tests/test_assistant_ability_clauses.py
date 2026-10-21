@@ -132,3 +132,23 @@ def test_parse_cache_contains_only_bounded_immutable_values():
         _line_parts("{T}: Target creature gains indestructible until end of turn.")
     )
     assert _line_parts.cache_info().maxsize == 4096
+
+
+def test_progression_scope_is_preserved_as_unknown_and_never_protection_credit():
+    from sabermetrics.assistant_engine_graph import local_support_edges
+
+    recipient = card("Engine", "{T}: Draw a card.")
+    source_text = (
+        "Level up {1}{G} ({1}{G}: Put a level counter on this. Level up only as a sorcery.)\n"
+        "LEVEL 2-4\n{T}: Target creature gains hexproof until end of turn."
+    )
+    for kw in ({}, {"layout": "leveler"}, {"type_line": "Enchantment — Class"}):
+        provider = card("Shield", source_text, **kw)
+        parsed = ability_clauses(provider)
+        assert parsed["coverage"] == "unknown"
+        assert "unsupported_progression_scope" in parsed["unknowns"]
+        assert all(row["coverage"] == "unknown" for row in parsed["clauses"])
+        assert (
+            "\n".join(row["source_quote"] for row in parsed["clauses"]) == source_text
+        )
+        assert local_support_edges(recipient, [provider]) == []

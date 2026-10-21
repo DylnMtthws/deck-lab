@@ -13,6 +13,7 @@ from sabermetrics.assistant_answer_review import (
 )
 from sabermetrics.assistant_claim_review import focused_sources, review_claims
 from sabermetrics.assistant_corrective_retrieval import corrective_evidence
+from sabermetrics.assistant_review_gap import corrective_scope
 
 
 def corrective_review(
@@ -31,6 +32,10 @@ def corrective_review(
     protected_parts: set[int] | None = None,
     research_context: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str], dict[str, Any]]:
+    check_current()
+    # A receipt is allowed only one corrective retrieval/review round.
+    if "corrective_retrieval" in receipt:
+        return corrected, sources, receipt
     lookup = corrective_evidence(
         db_path,
         receipt,
@@ -54,6 +59,8 @@ def corrective_review(
     expanded.extend([*sources, *additional])
     expanded.omitted = list(getattr(sources, "omitted", []))
     expanded.card_names = list(getattr(sources, "card_names", []))
+    indices, context, scope = corrective_scope(expanded, research_context)
+    lookup["evidence_scope"] = scope
     _, followup = review_claims(
         gateway,
         parts,
@@ -61,7 +68,8 @@ def corrective_review(
         user_request,
         claim_ids=ids,
         protected_parts=protected_parts,
-        research_context=research_context,
+        research_context=context,
+        evidence_indices=indices,
     )
     check_current()
     lookup["review_status"] = followup.get("status", "unverified")
@@ -71,6 +79,24 @@ def corrective_review(
     # A failed or incomplete call cannot discard the prior evidence-bound result.
     if {j["claim_id"] for j in new_judgments} != ids:
         lookup["review_status"] = "incomplete_review"
+        return corrected, sources, result
+    originals = {j["claim_id"]: j for j in receipt["claim_judgments"]}
+    binding_fields = (
+        "part_index",
+        "start",
+        "end",
+        "reviewed_claim",
+        "part_sha256",
+        "claim_sha256",
+    )
+    if any(
+        j["claim_id"] not in originals
+        or any(
+            j.get(key) != originals[j["claim_id"]].get(key) for key in binding_fields
+        )
+        for j in new_judgments
+    ):
+        lookup["review_status"] = "stale_followup"
         return corrected, sources, result
     replacements = {j["claim_id"]: j for j in new_judgments}
     judgments = [replacements.get(j["claim_id"], j) for j in receipt["claim_judgments"]]

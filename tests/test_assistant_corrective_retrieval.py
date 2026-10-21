@@ -25,6 +25,10 @@ def review(claims, *, category="rules_interaction"):
             "category": category,
             "verdict": "unverified",
             "reason": "Missing ruling",
+            "retrieval_gap": {
+                "kind": "missing_rule",
+                "missing_proposition": claim[:180],
+            },
         }
         for i, claim in enumerate(claims)
     ]
@@ -94,6 +98,7 @@ def test_future_unknown_and_strategy_skip(monkeypatch, claim, category):
         corrective, "retrieve_rules", lambda *a, **k: pytest.fail("lookup")
     )
     parts, receipt = review([claim], category=category)
+    receipt["claim_judgments"][0]["retrieval_gap"]["kind"] = "missing_state"
     result = invoke(parts, receipt)
     assert result["gaps"][0]["resolvable"] is False
     assert not result["additional_sources"] and not result["lookups"]
@@ -264,7 +269,9 @@ def test_future_board_state_is_not_a_rule_lookup(monkeypatch, claim):
     monkeypatch.setattr(
         corrective, "retrieve_rules", lambda *a, **k: pytest.fail("lookup")
     )
-    result = invoke(*review([claim]))
+    parts, receipt = review([claim])
+    receipt["claim_judgments"][0]["retrieval_gap"]["kind"] = "missing_state"
+    result = invoke(parts, receipt)
     assert not result["gaps"][0]["resolvable"]
 
 
@@ -307,3 +314,114 @@ def test_same_new_record_can_affect_two_different_claims_without_duplicate_appen
     assert len(result["additional_sources"]) == 1
     assert result["lookups"][1]["new_complete_records"] == 0
     assert result["lookups"][1]["relevant_new_records"] == 1
+
+
+@pytest.mark.parametrize(
+    "descriptor",
+    [
+        None,
+        {},
+        {"kind": "missing_rule"},
+        {"kind": "missing_rule", "missing_proposition": "  "},
+    ],
+)
+def test_blank_reason_and_unspecified_gap_never_dispatch(monkeypatch, descriptor):
+    monkeypatch.setattr(
+        corrective, "retrieve_rules", lambda *a, **k: pytest.fail("lookup")
+    )
+    parts, receipt = review(["Kinnan produces additional mana."])
+    judgment = receipt["claim_judgments"][0]
+    judgment.update(reason="", retrieval_gap=descriptor, verdict="unknown")
+    result = invoke(parts, receipt)
+    assert result["gaps"][0]["status"] == "unspecified_review_gap"
+    assert result["gaps"][0]["missing_proposition"] == ""
+    assert result["gaps"][0]["reason"] == ""
+    assert not result["lookups"] and not result["affected_claim_ids"]
+    assert judgment["verdict"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "missing_state",
+        "strategic_uncertainty",
+        "conflicting_evidence",
+        "reviewer_uncertainty",
+    ],
+)
+def test_non_rule_gap_is_not_rule_searchable(monkeypatch, kind):
+    monkeypatch.setattr(
+        corrective, "retrieve_rules", lambda *a, **k: pytest.fail("lookup")
+    )
+    parts, receipt = review(["Widget creates mana."])
+    receipt["claim_judgments"][0]["retrieval_gap"]["kind"] = kind
+    result = invoke(parts, receipt)
+    assert not result["lookups"] and not result["gaps"][0]["resolvable"]
+
+
+def test_source_diagnostics_bind_append_only_indices_and_hashes(monkeypatch):
+    record = hit()
+    monkeypatch.setattr(
+        corrective,
+        "retrieve_rules",
+        lambda *a, **k: RulesEvidence(status="available", query=a[1], hits=[record]),
+    )
+    result = invoke(
+        *review(["Rule 400.7 creates a new object."]),
+        existing_sources=["Opaque evidence", "Rule source: old\nDifferent evidence."],
+    )
+    assert result["new_source_indices_by_claim"] == {"c0": [2]}
+    diagnostic = result["lookup_sources"][0]
+    assert diagnostic["source_index"] == 2
+    assert diagnostic["source_id"] == record.source_id
+    assert diagnostic["content_sha256"] == record.content_sha256
+    assert diagnostic["source_sha256"] == digest(result["additional_sources"][0])
+    assert result["gaps"][0]["status"] == "candidate_evidence"
+
+
+def test_explicit_missing_rule_does_not_guess_strategy_from_loop_keyword(monkeypatch):
+    calls = []
+
+    def retrieve(*a, **k):
+        calls.append(a[1])
+        return RulesEvidence(status="no_matches", query=a[1])
+
+    monkeypatch.setattr(corrective, "retrieve_rules", retrieve)
+    parts, receipt = review(["Widget can form an infinite loop."])
+    receipt["claim_judgments"][0]["retrieval_gap"][
+        "missing_proposition"
+    ] = "Whether a zone change resets the counter restriction."
+    result = invoke(parts, receipt)
+    assert len(calls) == 1
+    assert "Whether a zone change resets" in calls[0]
+    assert not result["affected_claim_ids"]
+    assert receipt["claim_judgments"][0]["verdict"] == "unverified"
+
+
+def test_unknown_with_explicit_gap_is_never_upgraded(monkeypatch):
+    monkeypatch.setattr(
+        corrective, "retrieve_rules", lambda *a, **k: pytest.fail("lookup")
+    )
+    parts, receipt = review(["Widget creates mana."])
+    receipt["claim_judgments"][0]["verdict"] = "unknown"
+    result = invoke(parts, receipt)
+    assert result["gaps"][0]["status"] == "unknown_review_verdict"
+    assert not result["affected_claim_ids"]
+
+
+def test_long_claim_keeps_explicit_missing_dependency_in_query(monkeypatch):
+    claim = "A supported object changes zones. " * 20
+    parts, receipt = review([claim])
+    receipt["claim_judgments"][0]["retrieval_gap"][
+        "missing_proposition"
+    ] = "CR 400.7: a returned permanent is a new object."
+    queries = []
+
+    def retrieve(db, query, **kwargs):
+        queries.append(query)
+        return RulesEvidence(query=query, status="available", hits=[hit()])
+
+    monkeypatch.setattr(corrective, "retrieve_rules", retrieve)
+    invoke(parts, receipt)
+    assert len(queries[0]) <= 300
+    assert queries[0].startswith("CR 400.7: a returned permanent is a new object.")

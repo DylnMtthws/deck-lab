@@ -140,6 +140,153 @@ def test_fixed_mana_abstains_on_variable_or_alternative_symbols(cost, expected):
     assert fixed_mana(cost) == expected
 
 
+@pytest.mark.parametrize(
+    "cost,expected",
+    [
+        ("{0}", 0),
+        ("{12}{W}{U}{B}{R}{G}{C}", 18),
+        (" {2}{u}, {T} ", 3),
+        ("{Q}", 0),
+        ("{1}, Sacrifice another creature", 1),
+        ("{T}, Sacrifice an artifact", 0),
+        ("{R}, {T}, Discard a card", 1),
+        ("Discard two cards", 0),
+        ("{2}, Pay 2 life", 2),
+        ("{T}, Remove a charge counter from this artifact", 0),
+        ("Remove a +1/+1 counter from this creature", 0),
+    ],
+)
+def test_fixed_mana_full_supported_cost_grammar(cost, expected):
+    assert fixed_mana(cost) == expected
+
+
+@pytest.mark.parametrize(
+    "cost",
+    [
+        "",
+        " ",
+        "{T},",
+        ",{1}",
+        "{1},, {T}",
+        "LEVEL 1-4 {T}",
+        "Level up {1}{G} ({1}{G}",
+        "{1}{G} trailing text",
+        "prefix {2}",
+        "{2",
+        "{2}}",
+        "{{2}}",
+        "{S}",
+        "{U/P}",
+        "{∞}",
+        "{١}",
+        'Creatures you control have "{T}',
+        '"{T}',
+        "“{T}",
+        "{T} if you control an Elf",
+        "{T}, Activate only as a sorcery",
+        "Sacrifice another creature if you control an artifact",
+        "Discard a card with mana value {2}",
+        "Pay X life",
+        "{1}, Sacrifice any number of creatures",
+        "Remove a level counter from this creature",
+    ],
+)
+def test_fixed_mana_rejects_every_unsupported_residual(cost):
+    assert fixed_mana(cost) is None
+
+
+TREE_SPEAKER_TEXT = (
+    "Level up {1}{G} ({1}{G}: Put a level counter on this. "
+    "Level up only as a sorcery.)\nLEVEL 1-4\n1/2\n{T}: Add {G}{G}.\n"
+    'LEVEL 5+\n1/4\nElves you control have "{T}: Add {G}{G}."'
+)
+
+
+@pytest.mark.parametrize(
+    "text,fields",
+    [
+        (TREE_SPEAKER_TEXT, {}),
+        ("LEVEL 1–4\n{T}: Add {G}{G}.", {}),
+        ("LEVEL 5+\nSacrifice another creature: Draw a card.", {}),
+        ("{T}: Add {G}{G}.", {"layout": "leveler"}),
+        ("{T}: Add {G}.", {"type_line": "Enchantment — Class"}),
+        ("{1}{G}: Level 2\nCreate a 1/1 Elf creature token.", {}),
+    ],
+)
+def test_level_class_resource_features_abstain_without_changing_source(text, fields):
+    candidate = card("Scoped", text)
+    candidate.update(fields)
+    before = dict(candidate)
+    result = ability_compatibility(
+        candidate, [card("Tokens", "Create a Treasure token.")]
+    )
+    assert result["status"] == "unknown"
+    assert result["abilities"] == result["requirements"] == []
+    assert candidate == before and candidate["oracle_text"] == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'Creatures you control have "{T}: Draw a card."',
+        "Enchanted creature has “{T}: Draw a card.”",
+        "{T}: Draw a card. Activate only as a sorcery.",
+        "{T}: Draw a card.\nActivate only once each turn.",
+        "{T}: If you control an artifact, draw a card.",
+    ],
+)
+def test_scoped_activations_do_not_get_fixed_mana_comparisons(text):
+    cards = [card("Scoped", text), card("Ordinary", "{2}: Draw a card.")]
+    for c in cards:
+        c["suitability"] = {"ability_compatibility": ability_compatibility(c, [])}
+    assert (
+        cards[0]["suitability"]["ability_compatibility"]["abilities"][0][
+            "fixed_mana_per_activation"
+        ]
+        is None
+    )
+    compare_candidates(cards)
+    assert all("functional_comparison" not in c for c in cards)
+
+
+def test_provider_scope_changes_cannot_reuse_warmed_resource_credit():
+    candidate = card("Candidate", "Sacrifice another creature: Draw a card.")
+    source = card("Source", "Create a 1/1 Elf creature token.")
+    assert ability_compatibility(candidate, [source])["requirements"][0]["providers"]
+    for fields in (
+        {"oracle_text": "LEVEL 1-4\nCreate a 1/1 Elf creature token."},
+        {"oracle_text": "Create a 1/1 Elf creature token.", "layout": "leveler"},
+        {"layout": "normal", "type_line": "Enchantment — Class"},
+    ):
+        source.update(fields)
+        assert not ability_compatibility(candidate, [source])["requirements"][0][
+            "providers"
+        ]
+    source.update(type_line="Creature", layout="normal")
+    restored = ability_compatibility(candidate, [source])
+    assert restored["requirements"][0]["providers"]
+    restored["requirements"][0]["providers"].clear()
+    assert ability_compatibility(candidate, [source])["requirements"][0]["providers"]
+    source["oracle_text"] = 'Creatures have "{T}: Create a 1/1 Elf creature token."'
+    row = ability_compatibility(candidate, [source])["requirements"][0]
+    assert not row["providers"] and row["conditional_leads"]
+
+
+def test_recomparison_clears_stale_credit_after_source_mutation():
+    cards = [card("Low", "{T}: Draw a card."), card("High", "{2}: Draw a card.")]
+    for c in cards:
+        c["suitability"] = {"ability_compatibility": ability_compatibility(c, [])}
+    compare_candidates(cards)
+    assert all("functional_comparison" in c for c in cards)
+    cards[0]["oracle_text"] = TREE_SPEAKER_TEXT
+    cards[0]["suitability"]["ability_compatibility"] = ability_compatibility(
+        cards[0], []
+    )
+    compare_candidates(cards)
+    assert all("functional_comparison" not in c for c in cards)
+    assert [c["id"] for c in cards] == ["Low", "High"]
+
+
 def test_comparison_preserves_full_cost_and_does_not_claim_dominance():
     cards = [
         card("Low", "{1}, Sacrifice another creature: Draw a card."),

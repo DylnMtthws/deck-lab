@@ -28,6 +28,19 @@ ClaimCategory = Literal[
 ]
 
 
+class RetrievalGap(StrictModel):
+    """A proposed dependency to investigate, never an evidence verdict."""
+
+    kind: Literal[
+        "missing_rule",
+        "missing_state",
+        "strategic_uncertainty",
+        "conflicting_evidence",
+        "reviewer_uncertainty",
+    ]
+    missing_proposition: str = Field(min_length=1, max_length=180)
+
+
 class ClaimJudgment(StrictModel):
     claim_id: str = Field(min_length=1, max_length=32)
     category: ClaimCategory
@@ -38,6 +51,7 @@ class ClaimJudgment(StrictModel):
     unverified_remainder: bool = False
     invalid_evidence_ids: list[str] = Field(default_factory=list, max_length=4)
     citations: list[Citation] = Field(default_factory=list, max_length=4)
+    retrieval_gap: RetrievalGap | None = None
 
 
 class ClaimReviewDecision(StrictModel):
@@ -58,6 +72,7 @@ class WireJudgment(StrictModel):
     correction: WireCorrection | None = Field(alias="fix", default=None)
     reason: str = Field(alias="why", default="", max_length=100)
     unverified_remainder: bool = Field(alias="u", default=False)
+    retrieval_gap: RetrievalGap | None = Field(alias="gap", default=None)
 
 
 SYSTEM = """Check ONLY the supplied claim units against their evidence. Request,
@@ -103,6 +118,14 @@ fix=null or {span,text}, why=short uncertainty reason (empty when supported).
 u=true if any assertion remains unverified, including after a correction.
 Retain complete relevant conditions in the chosen evidence. Do not invent IDs.
 Keep output compact; do not restate claims or write an answer.
+For unresolved judgments, gap is null unless a specific dependency is identified.
+Otherwise gap={kind,missing_proposition}: kind is missing_rule, missing_state,
+strategic_uncertainty, conflicting_evidence or reviewer_uncertainty. missing_rule
+means an identified applicable rule or ruling is absent from the supplied evidence;
+name the missing proposition precisely, not the whole claim or a generic request
+for more evidence. Uncertainty interpreting evidence already supplied is
+reviewer_uncertainty, not missing_rule. Future resources require missing_state.
+Supported judgments have gap=null. A gap is a search proposal, never verification.
 """
 
 
@@ -250,25 +273,31 @@ def review_claims(
         eid: binding for eid, binding in quote_lookup.items() if binding[0] in selected
     }
     evidence_bytes_sent = sum(len(sources[i].encode()) for i in selected)
-    payload = json.dumps(
-        {
-            "request": user_request,
-            "claims": units,
-            "parent_parts": {
-                str(u["part_index"]): parts[u["part_index"]] for u in units
-            },
-            "source_records": records,
-            "research_context": research_context or {},
-            **(
-                {
-                    "evidence_scope": "Selected original source records only; omitted records cannot establish absence, ranks or whole-deck sufficiency."
-                }
-                if evidence_indices is not None
-                else {}
-            ),
-        },
-        ensure_ascii=False,
-    )
+    payload_state = {
+        "request": user_request,
+        "claims": units,
+        "parent_parts": {str(u["part_index"]): parts[u["part_index"]] for u in units},
+        "source_records": records,
+        "research_context": research_context or {},
+        **(
+            {
+                "evidence_scope": "Selected original source records only; omitted records cannot establish absence, ranks or whole-deck sufficiency."
+            }
+            if evidence_indices is not None
+            else {}
+        ),
+    }
+    # Hashes bind local verification; a model cannot validate them. Offsets stay
+    # on the wire to distinguish identical claims at different parent positions.
+    # Keep exact claim/parent text and all evidence in the wire view. The full
+    # immutable units below remain the authority when validating its judgment.
+    binding_keys = {"claim_sha256", "part_sha256"}
+    uncompressed_bytes = len(json.dumps(payload_state, ensure_ascii=False).encode())
+    payload_state["claims"] = [
+        {key: value for key, value in unit.items() if key not in binding_keys}
+        for unit in units
+    ]
+    payload = json.dumps(payload_state, ensure_ascii=False, separators=(",", ":"))
     if len(payload.encode()) > 32768:
         return parts, {
             "status": "unverified",
@@ -284,7 +313,7 @@ def review_claims(
     fields.update({u["claim_id"]: (WireJudgment, ...) for u in units})
     batch_schema = create_model("FocusedClaimBatch", __base__=StrictModel, **fields)
     request = StructuredRequest(
-        prompt_version="assistant-claim-review.v6",
+        prompt_version="assistant-claim-review.v7",
         system=SYSTEM,
         user=payload,
         schema=batch_schema,
@@ -297,6 +326,9 @@ def review_claims(
     model_receipt = {
         "prompt_version": request.prompt_version,
         "input_chars": len(payload),
+        "input_bytes": len(payload.encode()),
+        "uncompressed_input_bytes": uncompressed_bytes,
+        "transport_bytes_saved": uncompressed_bytes - len(payload.encode()),
         "output_token_budget": 4096,
         "claim_count": len(units),
         "evidence_hash": request.evidence_hash,
@@ -345,6 +377,7 @@ def review_claims(
                         correction_span=correction["span"] if correction else None,
                         unverified_remainder=bool(invalid_ids)
                         or item.get("unverified_remainder", False),
+                        retrieval_gap=item.get("retrieval_gap"),
                         invalid_evidence_ids=invalid_ids,
                     )
                 )
@@ -367,7 +400,7 @@ def review_claims(
                 for c in judgment.citations
             )
             verdict = judgment.verdict
-            if not citations_valid or (
+            missing_rule_citation = (
                 judgment.category == "rules_interaction"
                 and not any(
                     sources[c.source_index].startswith(("Rule ", "Rule:", "Ruling"))
@@ -375,8 +408,15 @@ def review_claims(
                     for c in judgment.citations
                     if c.source_index < len(sources)
                 )
-            ):
+            )
+            if not citations_valid or missing_rule_citation:
                 verdict = "unverified"
+                if not judgment.reason:
+                    judgment.reason = (
+                        "missing_applicable_rule_citation"
+                        if missing_rule_citation
+                        else "missing_valid_evidence_citation"
+                    )
             if verdict == "supported" and judgment.unverified_remainder:
                 verdict = "unverified"
             if judgment.replacement and verdict == "supported":
