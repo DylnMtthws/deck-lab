@@ -100,7 +100,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
 MAX_TURN_SECONDS = 480
-PROMPT_VERSION = "build-conversation.v36"
+PROMPT_VERSION = "build-conversation.v37"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
 research real cards, inspect the current list, consult recorded evidence, run
@@ -2816,13 +2816,22 @@ def run_turn(
                         if reference_key(name)
                         and reference_key(name) in reference_key(current_request)
                     ]
-                    if normalized_task.evidence_scope == "named_cards_only":
+                    deck_context_requested = (
+                        normalized_task.kind in {"explain", "compare", "auto"}
+                        and not normalized_task.discovery_lists
+                        and normalized_task.evidence_scope != "candidate_discovery"
+                        and bool(re.search(r"\bdeck\b", current_request, re.IGNORECASE))
+                    )
+                    if (
+                        normalized_task.evidence_scope == "named_cards_only"
+                        or deck_context_requested
+                    ):
                         normalized_task = normalized_task.model_copy(
                             update={"named_cards": grounded_names}
                         )
-                    if normalized_task.evidence_scope == "named_cards_only" and (
-                        not grounded_names
-                        or re.search(r"\bdeck\b", current_request, re.IGNORECASE)
+                    if deck_context_requested or (
+                        normalized_task.evidence_scope == "named_cards_only"
+                        and not grounded_names
                     ):
                         # Contextual commanders are not explicit user references.
                         # They cannot narrow a whole-deck question to themselves.

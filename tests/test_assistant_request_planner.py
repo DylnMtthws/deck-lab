@@ -725,7 +725,10 @@ def test_planner_repair_preserves_deadline_reserve(prepared, monkeypatch):
     assert result["reason"] == "planning_schema_invalid"
 
 
-def test_context_commanders_cannot_narrow_whole_deck_review(prepared):
+@pytest.mark.parametrize(
+    "planner_scope", ["named_cards_only", "existing_candidates", "unknown"]
+)
+def test_context_commanders_cannot_narrow_whole_deck_review(prepared, planner_scope):
     service, path, owner, deck, _, _ = prepared
     request = "Review this deck. Tell me what its win condition is."
     gateway = Gateway(
@@ -733,7 +736,7 @@ def test_context_commanders_cannot_narrow_whole_deck_review(prepared):
             plan(
                 request,
                 named=["Francisco, Fowl Marauder", "Rograkh, Son of Rohgahh"],
-                scope="named_cards_only",
+                scope=planner_scope,
                 route="answer",
             ),
             AssistantStep(
