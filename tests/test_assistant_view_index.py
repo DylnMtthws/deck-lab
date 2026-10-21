@@ -1,18 +1,29 @@
 """Bounded synthetic acceptance tests; no model download or training."""
 
+import hashlib
 import json
+import math
 import sqlite3
+import struct
 from pathlib import Path
 
 import pytest
 
-from sabermetrics.assistant_card_views import build_card_views
+from sabermetrics.assistant_card_views import (
+    build_card_views,
+    prepare_card_view_vectors,
+)
 from sabermetrics.assistant_knowledge_refresh import iter_card_file
 from sabermetrics.assistant_retrieval_context import (
     MAX_ARTIFACT_BYTES,
     recall_view_scores,
 )
-from sabermetrics.assistant_view_index import ViewQuerySession, refresh_view_index
+from sabermetrics.assistant_view_index import (
+    ViewQuerySession,
+    _blob,
+    _unblob,
+    refresh_view_index,
+)
 from tests.test_assistant_card_views import Encoder
 
 
@@ -257,3 +268,121 @@ def test_streaming_card_inputs_and_record_bound(tmp_path):
     path.write_text('[{"name":"' + "x" * (MAX_TEXT_BYTES + 1))
     with pytest.raises(ValueError, match="bound"):
         list(iter_card_file(path))
+
+
+@pytest.mark.parametrize(
+    "vector", [[float("nan"), 1], [float("inf"), 1], [-float("inf"), 1], [0, 0]]
+)
+def test_hash_valid_invalid_float32_rows_abstain_and_reencode(tmp_path, vector):
+    path = tmp_path / "views.sqlite"
+    current = list(cards())
+    encoder = Encoder()
+    refresh_view_index(current, path, encoder=encoder)
+    blob = struct.pack("<ff", *vector)
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "UPDATE vectors SET vector=?,vector_sha256=?",
+            (blob, hashlib.sha256(blob).hexdigest()),
+        )
+    with pytest.raises(ValueError, match="invalid float32 vector"):
+        _unblob(blob, 2)
+    session = ViewQuerySession(path, "resource conversion", encoder=encoder)
+    try:
+        assert session.similarities(build_card_views(current[0])) == {}
+    finally:
+        session.close()
+    repaired = refresh_view_index(current, path, encoder=encoder)
+    assert repaired["counts"]["encoded_rows"] == 3
+    assert repaired["counts"]["reused_rows"] == 0
+
+
+@pytest.mark.parametrize("vector", [[1e39, 1], [1e-50, -1e-50]])
+def test_blob_rejects_float32_overflow_and_all_zero_underflow(vector):
+    with pytest.raises(ValueError):
+        _blob(vector)
+
+
+@pytest.mark.parametrize("dimensions", [0, 1, 3, 8193])
+def test_unblob_rejects_wrong_or_unbounded_dimensions(dimensions):
+    with pytest.raises(ValueError, match="row length"):
+        _unblob(struct.pack("<ff", 1, 0), dimensions)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["source_hash", "view_hash", "text_sha256", "vector_sha256"],
+)
+def test_well_sized_incorrect_hashes_abstain(tmp_path, field):
+    path = tmp_path / "views.sqlite"
+    current = list(cards())
+    encoder = Encoder()
+    refresh_view_index(current, path, encoder=encoder)
+    with sqlite3.connect(path) as db:
+        db.execute(f"UPDATE vectors SET {field}=?", ("0" * 64,))
+    session = ViewQuerySession(path, "resource conversion", encoder=encoder)
+    try:
+        assert session.similarities(build_card_views(current[0])) == {}
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize(
+    "vector",
+    [
+        [True, 0],
+        ["1", 0],
+        [None, 1],
+        [float("nan"), 1],
+        [float("inf"), 1],
+        [0, 0],
+        [1, 0, 0],
+        [],
+        {"0": 1},
+    ],
+)
+def test_legacy_json_never_trusts_injected_validation_or_norm(vector):
+    current = list(cards())
+    encoder = Encoder()
+    artifact = prepare_card_view_vectors(current, encoder=encoder)
+    for row in artifact["records"]:
+        row.update(vector=vector, validated=True, norm=1.0, _norm=1.0)
+    # Exercise the JSON representation, including non-finite historical values.
+    artifact = json.loads(json.dumps(artifact))
+    session = ViewQuerySession(artifact, "resource conversion", encoder=encoder)
+    try:
+        assert session.similarities(build_card_views(current[0])) == {}
+    finally:
+        session.close()
+
+
+def test_sqlite_and_legacy_scores_preserve_python_arithmetic(tmp_path):
+    class VariedEncoder(Encoder):
+        def embed(self, text):
+            offset = sum(text.encode())
+            return [math.sin(i + offset) for i in range(384)]
+
+    current = list(cards())
+    encoder = VariedEncoder()
+    path = tmp_path / "views.sqlite"
+    refresh_view_index(current, path, encoder=encoder)
+    legacy = prepare_card_view_vectors(current, encoder=encoder)
+    views = build_card_views(current[0])
+    query = encoder.embed("resource conversion")
+    query_norm = math.sqrt(sum(x * x for x in query))
+    for artifact in (path, legacy):
+        expected = {}
+        for row in legacy["records"]:
+            vector = row["vector"]
+            if artifact == path:
+                vector = _unblob(_blob(vector), len(vector))
+            # These fields must be ignored even when the JSON vector is valid.
+            row.update(validated=True, norm=9999, _norm=9999)
+            denom = math.sqrt(sum(x * x for x in vector)) * query_norm
+            expected[row["view"]] = max(
+                0.0, min(1.0, sum(a * b for a, b in zip(vector, query)) / denom)
+            )
+        session = ViewQuerySession(artifact, "resource conversion", encoder=encoder)
+        try:
+            assert session.similarities(views) == expected
+        finally:
+            session.close()

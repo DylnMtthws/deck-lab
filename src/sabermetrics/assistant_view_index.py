@@ -71,12 +71,20 @@ def _blob(vector: Any, dimensions: int | None = None) -> bytes:
 
 
 def _unblob(blob: bytes, dimensions: int) -> list[float]:
+    return _unblob_with_norm(blob, dimensions)[0]
+
+
+def _unblob_with_norm(blob: bytes, dimensions: int) -> tuple[list[float], float]:
+    """Decode float32 storage and retain the validated norm for this lookup only."""
     if not 1 <= dimensions <= MAX_DIMENSIONS or len(blob) != dimensions * 4:
         raise ValueError("invalid float32 row length")
     vector = list(struct.unpack("<" + "f" * dimensions, blob))
-    if not _valid_vector(vector):
+    # Unpacking guarantees floats. A finite positive sum of squares rejects
+    # NaN, infinity and zero without repeating Python type/element checks.
+    squared_norm = sum(x * x for x in vector)
+    if not math.isfinite(squared_norm) or squared_norm <= 0:
         raise ValueError("invalid float32 vector")
-    return vector
+    return vector, math.sqrt(squared_norm)
 
 
 def informative(views: dict[str, Any], name: str) -> bool:
@@ -402,6 +410,9 @@ class ViewQuerySession:
     def similarities(self, views: dict[str, Any]) -> dict[str, float]:
         oid = str(views["views"]["printed_effect"]["facts"].get("oracle_id") or "")
         rows = self.rows
+        # Only norms computed from this SQLite lookup belong here. Never read
+        # purported validation flags or norms from untrusted legacy JSON rows.
+        norms: dict[tuple[str, str], float] = {}
         if self.db is not None:
             rows = {}
             for (
@@ -422,7 +433,9 @@ class ViewQuerySession:
                 ):
                     continue
                 try:
-                    decoded_vector = _unblob(blob, self.meta["dimensions"])
+                    decoded_vector, norm = _unblob_with_norm(
+                        blob, self.meta["dimensions"]
+                    )
                 except ValueError:
                     continue
                 rows[(source_hash, name)] = {
@@ -431,6 +444,7 @@ class ViewQuerySession:
                     "text_sha256": text_hash,
                     "vector": decoded_vector,
                 }
+                norms[(source_hash, name)] = norm
         result = {}
         for name, view in views["views"].items():
             if not informative(views, name):
@@ -442,11 +456,17 @@ class ViewQuerySession:
                 or row.get("view_hash") != view["view_hash"]
                 or row.get("text_sha256")
                 != hashlib.sha256(_view_text(views, name).encode()).hexdigest()
-                or not _valid_vector(vector)
-                or len(vector) != len(self.query)
             ):
                 continue
-            denom = math.sqrt(sum(x * x for x in vector)) * self.norm
+            if self.db is not None:
+                if not isinstance(vector, list) or len(vector) != len(self.query):
+                    continue
+                norm = norms[(views["source_hash"], name)]
+            else:
+                if not _valid_vector(vector) or len(vector) != len(self.query):
+                    continue
+                norm = math.sqrt(sum(x * x for x in vector))
+            denom = norm * self.norm
             result[name] = max(
                 0.0, min(1.0, sum(a * b for a, b in zip(vector, self.query)) / denom)
             )
