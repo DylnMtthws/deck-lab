@@ -155,7 +155,7 @@
     {
       "id": "W02",
       "title": "Extraction quality and dependency governance",
-      "status": "bounded_implementation_open_validation",
+      "status": "development_benchmark_accepted_independent_validation_open",
       "depends_on": [],
       "acceptance": [
         "Version registry of supported/unsupported mechanics with source-backed positive/negative examples.",
@@ -740,5 +740,62 @@
       "first_step": "Prepare one frozen anchor replay with full attempt capture; do not treat it as independent recommendation-quality evidence."
     },
     "location_note": "Moved from draft evaluation protocol; case/run results stay under docs/evaluations. No observations or thresholds were changed by consolidation."
+  },
+  "active_execution": {
+    "started": "2026-11-03",
+    "scope": "First bounded W01/W02 implementation batch; other workstreams not started by implication.",
+    "assignments": [
+      {
+        "work_item": "W01",
+        "provider": "codex",
+        "model": "gpt-6.1-sol",
+        "reasoning": "medium",
+        "task_suffix": "research-w01-sol-implementation-20261103-r1",
+        "status": "R3_fixes_implemented_pending_R4_review",
+        "planned_adversarial_reviewer": "Claude Code Opus 5.5 medium",
+        "focused_tests_passed": 66,
+        "adversarial_review_task_suffix": "research-w01-opus-adversarial-20261103-r4",
+        "review_status": "R4_running",
+        "fix_task_suffix": "research-w01-sol-fixes-20261103-r3",
+        "open_findings": [
+          "Undeclared paired retry/deadline budget confound",
+          "Deadline exhaustion must close slots without extra violating retries",
+          "Timeout provenance and empty anchor consistency",
+          "Per-arm and completed-pair summaries",
+          "Known secret-shaped prefixes in error labels"
+        ],
+        "timing_review_disposition": "Transport timeout is not a hard end-to-end deadline. Preserve observed late/failure outcomes; separately report explicit overall-budget compliance."
+      },
+      {
+        "work_item": "W02",
+        "provider": "claudeAgent",
+        "model": "claude-opus-5-5",
+        "reasoning": "medium",
+        "task_suffix": "research-w02-opus-implementation-20261103-r1",
+        "status": "accepted_development_diagnostic_only",
+        "planned_adversarial_reviewer": "Codex Sol medium",
+        "focused_tests_passed": 83,
+        "adversarial_review_task_suffix": "research-w02-sol-adversarial-20261103-r3",
+        "review_status": "R3_bounded_clearance",
+        "reported_values": {
+          "scoring_version": 2,
+          "correct": 156,
+          "wrong": 5,
+          "unknown": 128,
+          "total": 289,
+          "unjudged_predictions": 2
+        },
+        "qualification": "AI-authored development fixtures informed by grammar; not independent extraction precision or live quality evidence",
+        "reported_compiler_gap": "Lowercase put after triggered comma not interpreted; preserve pre-fix baseline.",
+        "fix_task_suffix": "research-w02-opus-fixes-20261103-r2",
+        "open_findings": [],
+        "reported_values_status": "All scored dimensions correct is a partial diagnostic. Full clause semantic correctness is not judged; unread semantic fields disclosed.",
+        "acceptance_limits": "83 tests and reproducible report; grammar-informed AI development labels, unread semantic fields unjudged, no independent expert or live quality inference."
+      }
+    ],
+    "review_policy": "Use a fresh alternate-provider delegated task after each implementation result, retain concrete findings and regression evidence, and never count cross-model agreement as independent domain qualification.",
+    "knowledge_inventory": "docs/evaluations/research-viability-20261103/knowledge-inventory.json",
+    "live_execution": "No new live assistant turns or deployments yet; capture preparation precedes feasibility replay.",
+    "workspace_note": "Concurrent cost-control application edits are outside ownership and remain untouched."
   }
 }

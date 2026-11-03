@@ -23,6 +23,17 @@
   "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
   "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
   "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
-  "canonical_spec_sha256": "ee8ecbe4958a5b8c08306ce8f56be0a3f985cb292b7876ebaf6d102f2d5f1485",
-  "protocol_section": "measurement_protocol"
+  "canonical_spec_sha256": "48fa22435a9f66468df65d43a1d0e6058b01162ba08835284a1e0047e910f0c3",
+  "protocol_section": "measurement_protocol",
+  "extraction_development": {
+    "status": "bounded_diagnostic_accepted",
+    "report": "extraction-results.json",
+    "cases": "extraction-development-cases.json",
+    "alternate_provider_review": "Sol medium R3 bounded clearance after Opus implementation/fixes",
+    "tests_passed": 83,
+    "correct": 156,
+    "wrong": 5,
+    "unknown": 128,
+    "qualification": "Scored representation dimensions only; unjudged fields remain. AI-authored development fixtures, no expert validation or live quality evidence."
+  }
 }

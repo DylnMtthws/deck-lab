@@ -1,0 +1,1940 @@
+{
+  "schema": "inference-extraction-development-cases.v2",
+  "authorship": {
+    "author": "AI-authored (Claude Opus 5.5) for W02 development diagnostics",
+    "date": "2026-11-03",
+    "split": "development",
+    "independent": false,
+    "expert_reviewed": false,
+    "statement": "Synthetic, renamed cards and rule text written by the implementing AI. Not independent, not expert-reviewed, not held out; gold values are the author's reading of the supplied text and may be wrong."
+  },
+  "canonical_plan": "../../specs/research-assistant/deck-inference-v1.json#work_items/W02",
+  "vocabulary": {
+    "scope": "fact kind for printed unconditional abilities (activated|triggered|spell|rule_definition); any other string names a scope v1 does not represent",
+    "trigger": "['<event>:<subject>'] of a triggered ability's trigger event",
+    "actor": "sorted actors of the clause's effects in compiler vocabulary (self = this object, you = its controller); null = explicitly unjudged",
+    "recipient": "sorted recipients of output events",
+    "combat": "trigger:combat_only|trigger:any_damage and output:combat|output:noncombat",
+    "multiplicity": "exact 'Once per ...' compiler condition strings",
+    "quantity": "sorted '<event>:<quantity>' over inputs and outputs",
+    "costs": "exact compiler cost objects",
+    "restrictions": "activation/timing restriction tokens; [] = unrestricted",
+    "zone_moves": "sorted '<event>:<from>-><to>'",
+    "finite_fuel": "true when the clause consumes finite supplied fuel without renewal",
+    "output_events": "sorted '<event>:<subject>' of the clause's effects. Effects outside the compiler's event vocabulary (pump, gain_keyword, counter, reveal, level_up, cast, return) use a descriptive token so an interpreted fact that omits or renames them scores wrong.",
+    "null": "any non-scope dimension may be null: explicitly unjudged by the label author; reported as unjudged, never scored, and blocks all_scored_dimensions_correct"
+  },
+  "cases": [
+    {
+      "case_id": "trigger_multiplicity_and_recipient",
+      "purpose": "Per-card versus per-batch discard triggers, correlated versus fixed quantity, and recipient restriction.",
+      "cards": [
+        {
+          "oracle_id": "payoff-single",
+          "name": "Amber Spark",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard a card, this creature deals 1 damage to each opponent."
+        },
+        {
+          "oracle_id": "payoff-batch",
+          "name": "Amber Torrent",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard one or more cards, this creature deals that many damage to each opponent."
+        },
+        {
+          "oracle_id": "payoff-batch-fixed",
+          "name": "Amber Drizzle",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard one or more cards, this creature deals 1 damage to each opponent."
+        },
+        {
+          "oracle_id": "payoff-any-target",
+          "name": "Amber Needle",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard a card, this creature deals 1 damage to any target."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "per_card_payoff",
+          "source_ref": "card:payoff-single",
+          "record_sha256": "59ebaae18e66ca385d4acae8a4fbf442677bf440583e8ecb815c8761d32b1703",
+          "text_sha256": "84ad46922956633768dd94e48cc8caebda0d809a4eeabebacaf4c9e4e19f2c54",
+          "start": 0,
+          "end": 75,
+          "quote": "Whenever you discard a card, this creature deals 1 damage to each opponent.",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "recipient",
+            "quantity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discarded card."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:1"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "per_batch_payoff",
+          "source_ref": "card:payoff-batch",
+          "record_sha256": "c143c076f7060e5bdd4d2cbe7512bf04c5aea560f1328ea6698c2b15ced47a20",
+          "text_sha256": "5ead5bd99e06185de4b12aec528734230bb68fc70abdf83cce5a9eb73241ed79",
+          "start": 0,
+          "end": 94,
+          "quote": "Whenever you discard one or more cards, this creature deals that many damage to each opponent.",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "recipient",
+            "quantity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discard batch."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:discarded_card_count",
+              "discard:one_or_more"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "batch_fixed_quantity",
+          "source_ref": "card:payoff-batch-fixed",
+          "record_sha256": "cce726dacf9997252fbcaecf7b3eeb7a2ebb060afa5cbc73b565794adf8f77fa",
+          "text_sha256": "2c786e50c100236f8372574b4ec91f2ebba0229fb025ab0ecff0452009aaf7b4",
+          "start": 0,
+          "end": 86,
+          "quote": "Whenever you discard one or more cards, this creature deals 1 damage to each opponent.",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "quantity"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discard batch."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:one_or_more"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          },
+          "note": "Batch trigger with fixed damage is outside the v1 correlated-quantity vocabulary."
+        },
+        {
+          "label_id": "any_target_recipient",
+          "source_ref": "card:payoff-any-target",
+          "record_sha256": "40611636d054fea5fc86db76f0f0c21a19119506cdae8bf02552f9011c9720c3",
+          "text_sha256": "d27531a4483dede4b16edfed3feb4ff12c27029800cb71107fcd21c11f2e4648",
+          "start": 0,
+          "end": 72,
+          "quote": "Whenever you discard a card, this creature deals 1 damage to any target.",
+          "mechanisms": [
+            "recipient"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discarded card."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:1"
+            ],
+            "recipient": [
+              "any target"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "combat_and_actor",
+      "purpose": "Combat-only versus any-damage triggers, controller of the damaging sources, and noncombat payoff damage joins.",
+      "cards": [
+        {
+          "oracle_id": "payoff-single",
+          "name": "Amber Spark",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard a card, this creature deals 1 damage to each opponent."
+        },
+        {
+          "oracle_id": "combat-draw",
+          "name": "Lapis Signal",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever one or more Pirates you control deal combat damage to a player, draw a card."
+        },
+        {
+          "oracle_id": "any-damage-draw",
+          "name": "Lapis Echo",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever one or more Pirates you control deal damage to a player, draw a card."
+        },
+        {
+          "oracle_id": "opponent-damage-draw",
+          "name": "Lapis Mirror",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever one or more Pirates an opponent controls deal damage to a player, draw a card."
+        },
+        {
+          "oracle_id": "self-combat-draw",
+          "name": "Lapis Courier",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever this creature deals combat damage to a player, draw a card."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "noncombat_payoff",
+          "source_ref": "card:payoff-single",
+          "record_sha256": "59ebaae18e66ca385d4acae8a4fbf442677bf440583e8ecb815c8761d32b1703",
+          "text_sha256": "84ad46922956633768dd94e48cc8caebda0d809a4eeabebacaf4c9e4e19f2c54",
+          "start": 0,
+          "end": 75,
+          "quote": "Whenever you discard a card, this creature deals 1 damage to each opponent.",
+          "mechanisms": [
+            "combat",
+            "recipient"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discarded card."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:1"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "combat_only_trigger",
+          "source_ref": "card:combat-draw",
+          "record_sha256": "80d248ec091a15ef55cf4c126338496c21d910801b8c6724fa81fe9c4acc2c1f",
+          "text_sha256": "b01a46bb580624e17d67c2985d89497112190432905c8f48a68f688b4bf4dc41",
+          "start": 0,
+          "end": 85,
+          "quote": "Whenever one or more Pirates you control deal combat damage to a player, draw a card.",
+          "mechanisms": [
+            "combat",
+            "actor"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "combat": [
+              "trigger:combat_only"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per qualifying damage event; one or more sources."
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "damage:unknown",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:one or more sources you control"
+            ],
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "any_damage_trigger",
+          "source_ref": "card:any-damage-draw",
+          "record_sha256": "4132a6055b206a87a78a7be74e87efc0f9876d0ca077ec7e5e7a6db34a68585f",
+          "text_sha256": "78b2d1d8b9867adaee93b37c90a951fbc102a1cd88b7fafb581380e0f0c27839",
+          "start": 0,
+          "end": 78,
+          "quote": "Whenever one or more Pirates you control deal damage to a player, draw a card.",
+          "mechanisms": [
+            "combat",
+            "actor"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "combat": [
+              "trigger:any_damage"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per qualifying damage event; one or more sources."
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "damage:unknown",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:one or more sources you control"
+            ],
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "opponent_sources_trigger",
+          "source_ref": "card:opponent-damage-draw",
+          "record_sha256": "3172be24f31b1d34b2e1fb24aea6ca6dd1c475699bfcd592593f7f334baf3795",
+          "text_sha256": "8d37f335f73ab8caf9f21bdc4390a495a853b8c3665399b0ba3cf97ae3cd9d2e",
+          "start": 0,
+          "end": 87,
+          "quote": "Whenever one or more Pirates an opponent controls deal damage to a player, draw a card.",
+          "mechanisms": [
+            "actor"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "combat": [
+              "trigger:any_damage"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per qualifying damage event; one or more sources."
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "damage:unknown",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:one or more sources an opponent controls"
+            ],
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "self_combat_trigger",
+          "source_ref": "card:self-combat-draw",
+          "record_sha256": "7bc4e5582088000993ea4d408438cfe05991ceda0228d33df89368ff3c3eb398",
+          "text_sha256": "ec03ee3ee160b0c95493395988afc795aab712133da58643742094a06c4a9bb2",
+          "start": 0,
+          "end": 68,
+          "quote": "Whenever this creature deals combat damage to a player, draw a card.",
+          "mechanisms": [
+            "combat"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "combat": [
+              "trigger:combat_only"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per combat damage event."
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "damage:unknown",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:self"
+            ],
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        }
+      ],
+      "connections": {
+        "expected": [
+          {
+            "from": "card:payoff-single",
+            "to": "card:any-damage-draw",
+            "join_kind": "event"
+          }
+        ],
+        "forbidden": [
+          {
+            "from": "card:payoff-single",
+            "to": "card:combat-draw",
+            "join_kind": "event"
+          },
+          {
+            "from": "card:payoff-single",
+            "to": "card:opponent-damage-draw",
+            "join_kind": "event"
+          }
+        ],
+        "expect_cycle": false
+      }
+    },
+    {
+      "case_id": "costs_and_finite_fuel",
+      "purpose": "Printed symbol, discard, sacrifice and unsupported exile costs; consumed hand/battlefield fuel; hand-card resource joins.",
+      "cards": [
+        {
+          "oracle_id": "payoff-single",
+          "name": "Amber Spark",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard a card, this creature deals 1 damage to each opponent."
+        },
+        {
+          "oracle_id": "discard-draw",
+          "name": "Copper Ledger",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: Draw a card."
+        },
+        {
+          "oracle_id": "sac-draw",
+          "name": "Copper Furnace",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "{2}, Sacrifice a creature: Draw two cards."
+        },
+        {
+          "oracle_id": "tap-impulse",
+          "name": "Copper Lens",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "{T}: Put the top card of your library into your hand."
+        },
+        {
+          "oracle_id": "exile-gy-draw",
+          "name": "Copper Urn",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "{1}, Exile a card from your graveyard: Draw a card."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "costs_case_payoff",
+          "source_ref": "card:payoff-single",
+          "record_sha256": "59ebaae18e66ca385d4acae8a4fbf442677bf440583e8ecb815c8761d32b1703",
+          "text_sha256": "84ad46922956633768dd94e48cc8caebda0d809a4eeabebacaf4c9e4e19f2c54",
+          "start": 0,
+          "end": 75,
+          "quote": "Whenever you discard a card, this creature deals 1 damage to each opponent.",
+          "mechanisms": [
+            "trigger_multiplicity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discarded card."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:1"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "discard_cost_draw",
+          "source_ref": "card:discard-draw",
+          "record_sha256": "15066282c2d933671e322690c4f07b869de70bd26bca5507513c493bae8a4395",
+          "text_sha256": "fce990d63eed74027d986b39119f3d49a81fba55d2d8687d2d27963f3a2a0842",
+          "start": 0,
+          "end": 28,
+          "quote": "Discard a card: Draw a card.",
+          "mechanisms": [
+            "costs",
+            "finite_fuel",
+            "zone_moves"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "discard:1",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "discard:hand->graveyard",
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "sacrifice_cost_draw",
+          "source_ref": "card:sac-draw",
+          "record_sha256": "edc885d863496e0f8eb85963ac0d3e0670f8332ec3bf841b9af9ccf9a60fcc52",
+          "text_sha256": "9fda3769591523bd91524c5699281e43bf961255284fa647be4861f589b96097",
+          "start": 0,
+          "end": 42,
+          "quote": "{2}, Sacrifice a creature: Draw two cards.",
+          "mechanisms": [
+            "costs",
+            "finite_fuel",
+            "quantity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{2}"
+              },
+              {
+                "kind": "sacrifice",
+                "quantity": 1,
+                "text": "Sacrifice a creature"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:2",
+              "sacrifice:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "draw:library->hand",
+              "sacrifice:battlefield->graveyard"
+            ]
+          },
+          "note": "AI-authored judgment: a sacrificed creature is consumed finite fuel like a discarded card."
+        },
+        {
+          "label_id": "tap_put_into_hand",
+          "source_ref": "card:tap-impulse",
+          "record_sha256": "af3912bf3d67707431a504c8294797695044f1cb95c6af48ace3ed737c5f26e6",
+          "text_sha256": "4145a691575c3657f7bc22f05bb797c087ef6ba69e85d9e5763b40a72bfafef2",
+          "start": 0,
+          "end": 53,
+          "quote": "{T}: Put the top card of your library into your hand.",
+          "mechanisms": [
+            "costs",
+            "zone_moves"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{T}"
+              }
+            ],
+            "output_events": [
+              "put_into_hand:top card"
+            ],
+            "quantity": [
+              "put_into_hand:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "put_into_hand:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "exile_graveyard_cost",
+          "source_ref": "card:exile-gy-draw",
+          "record_sha256": "d77b1cee095b059cc32b7fe094ec8999f21b2005abff7c6cb5c06c90e37e6dcf",
+          "text_sha256": "7436fe478302dff80f8a3271606d4a6193470a205c8cab79e28b484814679adc",
+          "start": 0,
+          "end": 51,
+          "quote": "{1}, Exile a card from your graveyard: Draw a card.",
+          "mechanisms": [
+            "costs",
+            "finite_fuel"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{1}"
+              },
+              {
+                "kind": "exile",
+                "quantity": 1,
+                "text": "Exile a card from your graveyard"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:1",
+              "exile:1"
+            ],
+            "scope": "activated",
+            "zone_moves": [
+              "draw:library->hand",
+              "exile:graveyard->exile"
+            ]
+          }
+        }
+      ],
+      "connections": {
+        "expected": [
+          {
+            "from": "card:discard-draw",
+            "to": "card:payoff-single",
+            "join_kind": "event"
+          },
+          {
+            "from": "card:tap-impulse",
+            "to": "card:discard-draw",
+            "join_kind": "resource"
+          }
+        ],
+        "forbidden": [
+          {
+            "from": "card:discard-draw",
+            "to": "card:discard-draw",
+            "join_kind": "event"
+          }
+        ],
+        "expect_cycle": false
+      }
+    },
+    {
+      "case_id": "restrictions",
+      "purpose": "Activation restrictions on a following line or the same line versus an unrestricted control.",
+      "cards": [
+        {
+          "oracle_id": "once-per-turn",
+          "name": "Silver Scope",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "{1}, Discard a card: Draw a card.\nActivate only once each turn."
+        },
+        {
+          "oracle_id": "sorcery-speed",
+          "name": "Silver Gauge",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: This creature gets +2/+2 until end of turn. Activate only as a sorcery."
+        },
+        {
+          "oracle_id": "unrestricted-pump",
+          "name": "Silver Brace",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: This creature gets +2/+2 until end of turn."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "once_each_turn",
+          "source_ref": "card:once-per-turn",
+          "record_sha256": "3d86a37172269d5b15cef74203196a1a73afc03379a7dccd4bb787a4622b10df",
+          "text_sha256": "19b36c74cc206e01d7f78fd2433766f04158a444514998fe8c1d0de8b38841e3",
+          "start": 0,
+          "end": 63,
+          "quote": "{1}, Discard a card: Draw a card.\nActivate only once each turn.",
+          "mechanisms": [
+            "restrictions",
+            "costs"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{1}"
+              },
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "draw:card"
+            ],
+            "restrictions": [
+              "activate_only_once_each_turn"
+            ],
+            "scope": "activated",
+            "zone_moves": [
+              "discard:hand->graveyard",
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "sorcery_speed",
+          "source_ref": "card:sorcery-speed",
+          "record_sha256": "1c1de2cda7ab2d4a970ffb8cc183b6fac7517c3c910460034d1f3b990e98f7fa",
+          "text_sha256": "e9c70236b1e7c1b5c7380ebdbc6f0064dfc4cf935489c98f0c8727628cae8158",
+          "start": 0,
+          "end": 87,
+          "quote": "Discard a card: This creature gets +2/+2 until end of turn. Activate only as a sorcery.",
+          "mechanisms": [
+            "restrictions"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "pump:self"
+            ],
+            "restrictions": [
+              "activate_only_as_sorcery"
+            ],
+            "scope": "activated"
+          }
+        },
+        {
+          "label_id": "unrestricted_control",
+          "source_ref": "card:unrestricted-pump",
+          "record_sha256": "82456ac828b93900ebd038af7457e29c2d9e618aa361b4d5e2413291889c1760",
+          "text_sha256": "b301dead8d03fa28987fddc34ef97c918410a1597dfbd0137ff9d23123e3b193",
+          "start": 0,
+          "end": 59,
+          "quote": "Discard a card: This creature gets +2/+2 until end of turn.",
+          "mechanisms": [
+            "restrictions",
+            "costs",
+            "finite_fuel"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "pump:self"
+            ],
+            "quantity": [
+              "discard:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "zone_moves_return_versus_cast",
+      "purpose": "Dies triggers versus any-zone graveyard moves, returning to the battlefield versus casting from the graveyard.",
+      "cards": [
+        {
+          "oracle_id": "ally-death-draw",
+          "name": "Bone Tally",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever another creature you control dies, draw a card."
+        },
+        {
+          "oracle_id": "self-death-impulse",
+          "name": "Bone Lantern",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever this creature dies, put the top card of your library into your hand."
+        },
+        {
+          "oracle_id": "any-zone-graveyard",
+          "name": "Bone Sieve",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever a creature card is put into your graveyard from anywhere, draw a card."
+        },
+        {
+          "oracle_id": "reanimate",
+          "name": "Bone Summons",
+          "type_line": "Sorcery",
+          "oracle_text": "Return target creature card from your graveyard to the battlefield."
+        },
+        {
+          "oracle_id": "cast-from-graveyard",
+          "name": "Bone Wanderer",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "You may cast this card from your graveyard."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "ally_dies",
+          "source_ref": "card:ally-death-draw",
+          "record_sha256": "5165b06376206a4b4e955851a12533b65709382831f043f08774591b7a62be55",
+          "text_sha256": "16b09499da79bf93b61d40a83a5a5b23d9942b8621700ad7611dd86a7b77b238",
+          "start": 0,
+          "end": 56,
+          "quote": "Whenever another creature you control dies, draw a card.",
+          "mechanisms": [
+            "zone_moves",
+            "trigger_multiplicity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per creature death."
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "death:1",
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "death:another creature you control"
+            ],
+            "zone_moves": [
+              "death:battlefield->graveyard",
+              "draw:library->hand"
+            ]
+          },
+          "note": "Multiplicity is true of the text; v1 encodes it only as trigger quantity, so it is expected unknown."
+        },
+        {
+          "label_id": "self_dies",
+          "source_ref": "card:self-death-impulse",
+          "record_sha256": "4851e83c664e3255382a011985ff941734564f604f48def2a19ba0f6bbaaf568",
+          "text_sha256": "685e1ee9f5d89d5239dbf21691dac705af6adb4792aec6b3f2458696c0a4c323",
+          "start": 0,
+          "end": 77,
+          "quote": "Whenever this creature dies, put the top card of your library into your hand.",
+          "mechanisms": [
+            "zone_moves"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [],
+            "output_events": [
+              "put_into_hand:top card"
+            ],
+            "quantity": [
+              "death:1",
+              "put_into_hand:1"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "death:self"
+            ],
+            "zone_moves": [
+              "death:battlefield->graveyard",
+              "put_into_hand:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "graveyard_from_anywhere",
+          "source_ref": "card:any-zone-graveyard",
+          "record_sha256": "df66f93ee43a1ecabd385d8dd693abc34ae1933f409ad425a6a6546cceec96e8",
+          "text_sha256": "a5a3e22e8e60fdc3c99df168aea857230cb1965300c808bb9883c0b6cd7554db",
+          "start": 0,
+          "end": 79,
+          "quote": "Whenever a creature card is put into your graveyard from anywhere, draw a card.",
+          "mechanisms": [
+            "zone_moves"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "scope": "triggered",
+            "trigger": [
+              "move_to_graveyard:creature card"
+            ],
+            "zone_moves": [
+              "draw:library->hand",
+              "move_to_graveyard:anywhere->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "return_to_battlefield",
+          "source_ref": "card:reanimate",
+          "record_sha256": "75ab72b891387c3df696fbbe7fb4db73c132a48851c12f83d959c8f95b4bbf37",
+          "text_sha256": "4266896af29a04ba976d96bedc6e481924da46e136ca72aec19c6094756bdf58",
+          "start": 0,
+          "end": 67,
+          "quote": "Return target creature card from your graveyard to the battlefield.",
+          "mechanisms": [
+            "zone_moves",
+            "return_versus_cast"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "output_events": [
+              "return:target creature card"
+            ],
+            "scope": "spell",
+            "zone_moves": [
+              "return:graveyard->battlefield"
+            ]
+          }
+        },
+        {
+          "label_id": "cast_from_graveyard",
+          "source_ref": "card:cast-from-graveyard",
+          "record_sha256": "83ccd6b3516d40a9098bc4ce9988c21c12d91cd79274685c9dd95f7fadac6e45",
+          "text_sha256": "3184f00a0869d0c2ce272ae28c352149ea713a30e67f8d238712c6349f9bab76",
+          "start": 0,
+          "end": 43,
+          "quote": "You may cast this card from your graveyard.",
+          "mechanisms": [
+            "zone_moves",
+            "return_versus_cast"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "output_events": [
+              "cast:self"
+            ],
+            "scope": "static_permission",
+            "zone_moves": [
+              "cast:graveyard->stack"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "granted_and_level_scope",
+      "purpose": "Granted, level-gated and conditional abilities versus a printed control.",
+      "cards": [
+        {
+          "oracle_id": "granted-loot",
+          "name": "Gilt Banner",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Creatures you control have \"Discard a card: Draw a card.\""
+        },
+        {
+          "oracle_id": "level-loot",
+          "name": "Gilt Apprentice",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Level up {2}\nLEVEL 1-3\n2/3\nDiscard a card: Draw a card.",
+          "layout": "leveler"
+        },
+        {
+          "oracle_id": "conditional-grant",
+          "name": "Gilt Engine",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "As long as you control an artifact, this creature has \"{T}: Draw a card.\""
+        },
+        {
+          "oracle_id": "printed-tap-draw",
+          "name": "Gilt Scribe",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "{T}: Draw a card."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "granted_to_others",
+          "source_ref": "card:granted-loot",
+          "record_sha256": "58b9ebc83101a6253345f315654b0bd758ca96ecdd9b3ee434c8fe28d0a24faf",
+          "text_sha256": "66e14558c43fdfd5182061b7a9766365bf7bf3e18d3271167f646fe6ea059022",
+          "start": 0,
+          "end": 57,
+          "quote": "Creatures you control have \"Discard a card: Draw a card.\"",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "scope": "granted_activated",
+            "zone_moves": [
+              "discard:hand->graveyard",
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "level_gated",
+          "source_ref": "card:level-loot",
+          "record_sha256": "ef8ecd3095339455bd7feff81f2e25a6a13830aa645368883b8c4a102590b53b",
+          "text_sha256": "fbebf1c4506a86de304ef018bbb79111d55d11def401acf54aa4c660923ccadf",
+          "start": 0,
+          "end": 55,
+          "quote": "Level up {2}\nLEVEL 1-3\n2/3\nDiscard a card: Draw a card.",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "draw:card",
+              "level_up:self"
+            ],
+            "scope": "level_conditional_activated"
+          }
+        },
+        {
+          "label_id": "conditional_grant",
+          "source_ref": "card:conditional-grant",
+          "record_sha256": "c8945a95d5830ec1d97e7256e315a51e1d75e7f55bc5f4f1bbddbbfb61101b39",
+          "text_sha256": "9a094d2d3b6c9269f7966524c98e524cf62554a2be7e578d488628203ed5ffaf",
+          "start": 0,
+          "end": 73,
+          "quote": "As long as you control an artifact, this creature has \"{T}: Draw a card.\"",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{T}"
+              }
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "scope": "conditional_granted_activated"
+          }
+        },
+        {
+          "label_id": "printed_control",
+          "source_ref": "card:printed-tap-draw",
+          "record_sha256": "8f11fb5c293ac4f7f198b6b82e313889985a859f104320cc79c6ea8619f763ed",
+          "text_sha256": "c4a1e992c8d254ce2a4320de1f257e1a51a566c60b42bcb64f58e5f3b75fc1eb",
+          "start": 0,
+          "end": 17,
+          "quote": "{T}: Draw a card.",
+          "mechanisms": [
+            "granted_level_scope",
+            "costs"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [
+              {
+                "kind": "printed_symbols",
+                "text": "{T}"
+              }
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "conflicting_rules_and_sources",
+      "purpose": "Two editions of one logical rule identity and two conflicting records of one card identity.",
+      "cards": [
+        {
+          "oracle_id": "explorer",
+          "name": "Violet Navigator",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever one or more Pirates you control deal damage to a player, this creature explores."
+        },
+        {
+          "oracle_id": "duplicate",
+          "name": "Ochre Twin",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: Draw a card."
+        },
+        {
+          "oracle_id": "duplicate",
+          "name": "Ochre Twin",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: Draw two cards."
+        }
+      ],
+      "rules": [
+        {
+          "kind": "rule",
+          "source": "Explicitly synthetic development source",
+          "source_id": "development-explore",
+          "version": "development-v1",
+          "complete": true,
+          "text": "Certain spells and abilities instruct a permanent to explore. To do so, that permanent’s controller reveals the top card of their library. If a land card is revealed this way, that player puts that card into their hand. Otherwise, that player puts a +1/+1 counter on the exploring permanent and may put the revealed card into their graveyard."
+        },
+        {
+          "kind": "rule",
+          "source": "Explicitly synthetic development source",
+          "source_id": "development-explore",
+          "version": "development-v1",
+          "complete": true,
+          "text": "To explore, a creature's controller reveals the top card of their library. If a land card is revealed this way, they put it into their hand. Otherwise, they put a +1/+1 counter on the creature, then they may put the revealed card into their graveyard."
+        }
+      ],
+      "labels": [
+        {
+          "label_id": "explore_trigger",
+          "source_ref": "card:explorer",
+          "record_sha256": "84856f5ad7a3304f8b6dcb9876db65f1539fa3d49033ef03fc7874ca00ad6614",
+          "text_sha256": "6beafbedd9b4980ca5a7403551e5cf47a859426b626e39bda5a0f86377940b7c",
+          "start": 0,
+          "end": 89,
+          "quote": "Whenever one or more Pirates you control deal damage to a player, this creature explores.",
+          "mechanisms": [
+            "conflicting_rules",
+            "combat"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": null,
+            "combat": [
+              "trigger:any_damage"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per qualifying damage event; one or more sources."
+            ],
+            "output_events": [
+              "explore:self"
+            ],
+            "quantity": [
+              "damage:unknown"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:one or more sources you control"
+            ],
+            "zone_moves": []
+          },
+          "note": "Card clause itself is literal; its explore dependency must remain unresolved."
+        },
+        {
+          "label_id": "rule_permanent_edition",
+          "source_ref": "rule:development-explore",
+          "record_sha256": "299ef0747b063c3d76090b062ceef44fe1b8c92c1eb739d454f3916dd80d7ab3",
+          "text_sha256": "7ccf2b0054a5f24deca848be6c9d982aa65f0771900caf449e44e8705abea2d2",
+          "start": 0,
+          "end": 342,
+          "quote": "Certain spells and abilities instruct a permanent to explore. To do so, that permanent’s controller reveals the top card of their library. If a land card is revealed this way, that player puts that card into their hand. Otherwise, that player puts a +1/+1 counter on the exploring permanent and may put the revealed card into their graveyard.",
+          "mechanisms": [
+            "conflicting_rules",
+            "zone_moves",
+            "finite_fuel"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "permanent controller"
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "counter:exploring permanent",
+              "move_to_graveyard:revealed top card",
+              "put_into_hand:revealed top card",
+              "reveal:top card"
+            ],
+            "quantity": [
+              "move_to_graveyard:1",
+              "put_into_hand:1"
+            ],
+            "scope": "rule_definition",
+            "zone_moves": [
+              "move_to_graveyard:library->graveyard",
+              "put_into_hand:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "rule_creature_edition",
+          "source_ref": "rule:development-explore",
+          "record_sha256": "7fc47f1b3472fa00f15daab176e7f9015d365e0b8686ad43279682248321e5bb",
+          "text_sha256": "c706858a3c548c104f4f2963c18571e1ef7d69f1c6bfa96ebbfa773d252b867b",
+          "start": 0,
+          "end": 251,
+          "quote": "To explore, a creature's controller reveals the top card of their library. If a land card is revealed this way, they put it into their hand. Otherwise, they put a +1/+1 counter on the creature, then they may put the revealed card into their graveyard.",
+          "mechanisms": [
+            "conflicting_rules",
+            "zone_moves",
+            "finite_fuel"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "creature controller"
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "counter:creature",
+              "move_to_graveyard:revealed top card",
+              "put_into_hand:revealed top card",
+              "reveal:top card"
+            ],
+            "quantity": [
+              "move_to_graveyard:1",
+              "put_into_hand:1"
+            ],
+            "scope": "rule_definition",
+            "zone_moves": [
+              "move_to_graveyard:library->graveyard",
+              "put_into_hand:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "duplicate_draw_one",
+          "source_ref": "card:duplicate",
+          "record_sha256": "7da83f550027e4d674ea4b5da4cdb25732faa9a330bf85b2f80752dfa2c9c7b0",
+          "text_sha256": "fce990d63eed74027d986b39119f3d49a81fba55d2d8687d2d27963f3a2a0842",
+          "start": 0,
+          "end": 28,
+          "quote": "Discard a card: Draw a card.",
+          "mechanisms": [
+            "conflicting_rules",
+            "costs"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "discard:1",
+              "draw:1"
+            ],
+            "scope": "activated"
+          }
+        },
+        {
+          "label_id": "duplicate_draw_two",
+          "source_ref": "card:duplicate",
+          "record_sha256": "f27b15e0564f010fe4bf54dd97908070304e3e2cc673487212b168265ef58f10",
+          "text_sha256": "5ca18d08a99d99b748caeeaf66ae53e3040824ce8523b2483415dffef64a2de2",
+          "start": 0,
+          "end": 31,
+          "quote": "Discard a card: Draw two cards.",
+          "mechanisms": [
+            "conflicting_rules",
+            "costs"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "discard:1",
+              "draw:2"
+            ],
+            "scope": "activated"
+          }
+        }
+      ],
+      "connections": {
+        "expected": [],
+        "forbidden": [],
+        "expect_cycle": false,
+        "dependency_gaps": [
+          "explore"
+        ]
+      }
+    },
+    {
+      "case_id": "finite_fuel_cycle",
+      "purpose": "A superficially cyclic discard/damage/explore chain whose fuel is finite hand and library cards.",
+      "cards": [
+        {
+          "oracle_id": "outlet",
+          "name": "Copper Sail",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Discard a card: This creature gains flying until end of turn."
+        },
+        {
+          "oracle_id": "payoff-single",
+          "name": "Amber Spark",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever you discard a card, this creature deals 1 damage to each opponent."
+        },
+        {
+          "oracle_id": "conversion",
+          "name": "Violet Navigator",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Whenever one or more Pirates you control deal damage to a player, this creature explores."
+        }
+      ],
+      "rules": [
+        {
+          "kind": "rule",
+          "source": "Explicitly synthetic development source",
+          "source_id": "development-explore",
+          "version": "development-v1",
+          "complete": true,
+          "text": "Certain spells and abilities instruct a permanent to explore. To do so, that permanent’s controller reveals the top card of their library. If a land card is revealed this way, that player puts that card into their hand. Otherwise, that player puts a +1/+1 counter on the exploring permanent and may put the revealed card into their graveyard."
+        }
+      ],
+      "labels": [
+        {
+          "label_id": "cycle_outlet",
+          "source_ref": "card:outlet",
+          "record_sha256": "03fa8cb24e6b2b326437c496b0c7deb4229a03ad5020c28f3034b86e00f3a17f",
+          "text_sha256": "e36b58d042cae6e37e1138741fb196b1c8ee394018f98ada0248a1202f5aa86e",
+          "start": 0,
+          "end": 61,
+          "quote": "Discard a card: This creature gains flying until end of turn.",
+          "mechanisms": [
+            "finite_fuel",
+            "costs"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "costs": [
+              {
+                "kind": "discard",
+                "quantity": 1,
+                "text": "Discard a card"
+              }
+            ],
+            "finite_fuel": true,
+            "output_events": [
+              "gain_keyword:self"
+            ],
+            "quantity": [
+              "discard:1"
+            ],
+            "restrictions": [],
+            "scope": "activated",
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "cycle_payoff",
+          "source_ref": "card:payoff-single",
+          "record_sha256": "59ebaae18e66ca385d4acae8a4fbf442677bf440583e8ecb815c8761d32b1703",
+          "text_sha256": "84ad46922956633768dd94e48cc8caebda0d809a4eeabebacaf4c9e4e19f2c54",
+          "start": 0,
+          "end": 75,
+          "quote": "Whenever you discard a card, this creature deals 1 damage to each opponent.",
+          "mechanisms": [
+            "finite_fuel",
+            "trigger_multiplicity"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "self"
+            ],
+            "combat": [
+              "output:noncombat"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per discarded card."
+            ],
+            "output_events": [
+              "damage:self"
+            ],
+            "quantity": [
+              "damage:1",
+              "discard:1"
+            ],
+            "recipient": [
+              "each opponent"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "discard:card"
+            ],
+            "zone_moves": [
+              "discard:hand->graveyard"
+            ]
+          }
+        },
+        {
+          "label_id": "cycle_conversion",
+          "source_ref": "card:conversion",
+          "record_sha256": "4e2c0c6ba0a39561af04d3884b27aab0178593b4e18c638d3bab6051e809dba3",
+          "text_sha256": "6beafbedd9b4980ca5a7403551e5cf47a859426b626e39bda5a0f86377940b7c",
+          "start": 0,
+          "end": 89,
+          "quote": "Whenever one or more Pirates you control deal damage to a player, this creature explores.",
+          "mechanisms": [
+            "finite_fuel",
+            "combat"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": null,
+            "combat": [
+              "trigger:any_damage"
+            ],
+            "costs": [],
+            "multiplicity": [
+              "Once per qualifying damage event; one or more sources."
+            ],
+            "output_events": [
+              "explore:self"
+            ],
+            "quantity": [
+              "damage:unknown"
+            ],
+            "restrictions": [],
+            "scope": "triggered",
+            "trigger": [
+              "damage:one or more sources you control"
+            ],
+            "zone_moves": []
+          }
+        },
+        {
+          "label_id": "cycle_explore_rule",
+          "source_ref": "rule:development-explore",
+          "record_sha256": "299ef0747b063c3d76090b062ceef44fe1b8c92c1eb739d454f3916dd80d7ab3",
+          "text_sha256": "7ccf2b0054a5f24deca848be6c9d982aa65f0771900caf449e44e8705abea2d2",
+          "start": 0,
+          "end": 342,
+          "quote": "Certain spells and abilities instruct a permanent to explore. To do so, that permanent’s controller reveals the top card of their library. If a land card is revealed this way, that player puts that card into their hand. Otherwise, that player puts a +1/+1 counter on the exploring permanent and may put the revealed card into their graveyard.",
+          "mechanisms": [
+            "finite_fuel",
+            "zone_moves"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "permanent controller"
+            ],
+            "costs": [],
+            "finite_fuel": true,
+            "output_events": [
+              "counter:exploring permanent",
+              "move_to_graveyard:revealed top card",
+              "put_into_hand:revealed top card",
+              "reveal:top card"
+            ],
+            "quantity": [
+              "move_to_graveyard:1",
+              "put_into_hand:1"
+            ],
+            "restrictions": [],
+            "scope": "rule_definition",
+            "zone_moves": [
+              "move_to_graveyard:library->graveyard",
+              "put_into_hand:library->hand"
+            ]
+          }
+        }
+      ],
+      "connections": {
+        "expected": [
+          {
+            "from": "card:outlet",
+            "to": "card:payoff-single",
+            "join_kind": "event"
+          },
+          {
+            "from": "card:payoff-single",
+            "to": "card:conversion",
+            "join_kind": "event"
+          },
+          {
+            "from": "card:conversion",
+            "to": "rule:development-explore",
+            "join_kind": "event"
+          },
+          {
+            "from": "rule:development-explore",
+            "to": "card:outlet",
+            "join_kind": "resource"
+          }
+        ],
+        "forbidden": [
+          {
+            "from": "rule:development-explore",
+            "to": "card:payoff-single",
+            "join_kind": "event"
+          }
+        ],
+        "expect_cycle": true,
+        "dependency_gaps": []
+      }
+    },
+    {
+      "case_id": "quantities_and_spell_actor",
+      "purpose": "Fixed versus variable quantities and who draws, plus a bare effect printed on a non-spell.",
+      "cards": [
+        {
+          "oracle_id": "draw-three",
+          "name": "Indigo Study",
+          "type_line": "Sorcery",
+          "oracle_text": "Draw three cards."
+        },
+        {
+          "oracle_id": "draw-x",
+          "name": "Indigo Torrent",
+          "type_line": "Sorcery",
+          "oracle_text": "Draw X cards."
+        },
+        {
+          "oracle_id": "each-player-draws",
+          "name": "Indigo Commons",
+          "type_line": "Sorcery",
+          "oracle_text": "Each player draws a card."
+        },
+        {
+          "oracle_id": "opponent-draws",
+          "name": "Indigo Gift",
+          "type_line": "Instant",
+          "oracle_text": "Target opponent draws two cards."
+        },
+        {
+          "oracle_id": "creature-bare-draw",
+          "name": "Indigo Golem",
+          "type_line": "Creature — Pirate",
+          "oracle_text": "Draw a card."
+        }
+      ],
+      "rules": [],
+      "labels": [
+        {
+          "label_id": "draw_three",
+          "source_ref": "card:draw-three",
+          "record_sha256": "4e958491188745f4307a29f0bbfbcf4a81fdff423675a844b93cfc0470016809",
+          "text_sha256": "6ea8f033e803a4e83921c0924330565fabee293907e460719cb3ceb48c217552",
+          "start": 0,
+          "end": 17,
+          "quote": "Draw three cards.",
+          "mechanisms": [
+            "quantity",
+            "actor"
+          ],
+          "v1_expectation": "interpret",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "costs": [],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:3"
+            ],
+            "restrictions": [],
+            "scope": "spell",
+            "zone_moves": [
+              "draw:library->hand"
+            ]
+          }
+        },
+        {
+          "label_id": "draw_x",
+          "source_ref": "card:draw-x",
+          "record_sha256": "415613198e1a6ec3e9d88976432daeaadde9c7a5698d2ead96bef4ded9bf7e41",
+          "text_sha256": "8b473e0c57b847ecc575c46c2d8b9ab4b8d204f5e18ddbafa67800ad855d6b6b",
+          "start": 0,
+          "end": 13,
+          "quote": "Draw X cards.",
+          "mechanisms": [
+            "quantity"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "you"
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:X"
+            ],
+            "scope": "spell"
+          }
+        },
+        {
+          "label_id": "each_player_draws",
+          "source_ref": "card:each-player-draws",
+          "record_sha256": "cd9467b359847f849174acfdc79178c14e2a69d0f9245ea79e0a20012e9ddab0",
+          "text_sha256": "c10f55c33322fd4fc767f0e86ea1b6519e3630d415f040363f8108c495f9692f",
+          "start": 0,
+          "end": 25,
+          "quote": "Each player draws a card.",
+          "mechanisms": [
+            "actor"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "each player"
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:1"
+            ],
+            "scope": "spell"
+          }
+        },
+        {
+          "label_id": "opponent_draws",
+          "source_ref": "card:opponent-draws",
+          "record_sha256": "2674918531b3c106be383173137aa4283c1f4c1d2801258244151b9d8a323eae",
+          "text_sha256": "743a2bc229f2ba0795dde2bb7fc4130a3e9825818920f8cec632a7596576055f",
+          "start": 0,
+          "end": 32,
+          "quote": "Target opponent draws two cards.",
+          "mechanisms": [
+            "actor",
+            "recipient"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "actor": [
+              "target opponent"
+            ],
+            "output_events": [
+              "draw:card"
+            ],
+            "quantity": [
+              "draw:2"
+            ],
+            "scope": "spell"
+          }
+        },
+        {
+          "label_id": "bare_text_on_creature",
+          "source_ref": "card:creature-bare-draw",
+          "record_sha256": "3edb862d4af884e86a3787917f011a050228bdea1794e7a0226cf036626e1288",
+          "text_sha256": "d401a9f9c403b4cb8a137097388ce735cef7c3bac714baab5a15bdd67d24c1d3",
+          "start": 0,
+          "end": 12,
+          "quote": "Draw a card.",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "v1_expectation": "abstain",
+          "gold": {
+            "output_events": [
+              "draw:card"
+            ],
+            "scope": "unsupported_bare_text_on_permanent"
+          },
+          "note": "Malformed-by-design printed text; any interpretation would invent a scope."
+        }
+      ]
+    }
+  ],
+  "label_revisions": {
+    "scoring_version": 2,
+    "date": "2026-11-03",
+    "author": "AI-authored (Claude Opus 5.5), same author as the original labels; not independent",
+    "reason": "Scoring v1 never compared output events and ignored extracted dimensions with no gold key, so corrupted explore outputs left every score unchanged (alternate-provider review R1, P1).",
+    "added": "output_events gold on all 40 labels, written from the quoted text, including effects the compiler vocabulary lacks (pump, gain_keyword, +1/+1 counter, reveal).",
+    "changed": [
+      {
+        "label_id": "unrestricted_control",
+        "dimension": "actor",
+        "before": [],
+        "after": [
+          "self"
+        ]
+      },
+      {
+        "label_id": "explore_trigger",
+        "dimension": "actor",
+        "before": "<absent>",
+        "after": null
+      },
+      {
+        "label_id": "explore_trigger",
+        "dimension": "zone_moves",
+        "before": "<absent>",
+        "after": []
+      },
+      {
+        "label_id": "cycle_outlet",
+        "dimension": "actor",
+        "before": [],
+        "after": [
+          "self"
+        ]
+      },
+      {
+        "label_id": "cycle_conversion",
+        "dimension": "actor",
+        "before": "<absent>",
+        "after": null
+      },
+      {
+        "label_id": "cycle_conversion",
+        "dimension": "zone_moves",
+        "before": "<absent>",
+        "after": []
+      },
+      {
+        "label_id": "cycle_explore_rule",
+        "dimension": "costs",
+        "before": "<absent>",
+        "after": []
+      },
+      {
+        "label_id": "cycle_explore_rule",
+        "dimension": "restrictions",
+        "before": "<absent>",
+        "after": []
+      }
+    ],
+    "notes": {
+      "explore actor": "Ambiguous: the creature explores but the rule says its controller reveals and moves; compiler says you. Left null (explicitly unjudged) rather than adopting the compiler answer.",
+      "explore zone_moves": "The card clause itself moves no card; moves are labelled on the separate explore rule labels, consistent with the existing quantity gold.",
+      "pump/flying actor": "Changed [] to [self]: [] meant no compiler event outputs (grammar-informed); the text has an effect performed on this creature, matching the self convention for damage.",
+      "reveal token": "Revealing is a game action in the rule text; a reader could argue it is not an output event. It is included and contestable."
+    }
+  }
+}
