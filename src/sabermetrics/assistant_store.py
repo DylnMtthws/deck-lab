@@ -79,6 +79,16 @@ class AssistantStore:
                 "deck_id TEXT PRIMARY KEY REFERENCES deck_documents(id) ON DELETE CASCADE, "
                 "owner_id TEXT NOT NULL, payload_json TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 0)"
             )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS assistant_submissions (owner TEXT, request_id TEXT, fingerprint TEXT NOT NULL, PRIMARY KEY(owner, request_id))"
+            )
+            columns = {
+                r[1] for r in conn.execute("PRAGMA table_info(assistant_submissions)")
+            }
+            if "turn_id" not in columns:
+                conn.execute(
+                    "ALTER TABLE assistant_submissions ADD COLUMN turn_id TEXT"
+                )
             jobs.initialize(conn)
             conn.commit()
 
@@ -220,7 +230,9 @@ class AssistantStore:
 
         return self._update_transaction(owner_id, deck_id, change)
 
-    def _begin(self, conn, owner, deck, p, message, revision, previous=None):
+    def _begin(
+        self, conn, owner, deck, p, message, revision, previous=None, admission=None
+    ):
         from sabermetrics.assistant_workspace import create_workspace
 
         # Admission and invalidation share one SQLite transaction.
@@ -230,6 +242,8 @@ class AssistantStore:
         ).fetchone()[0]
         if count >= 4:
             raise QueueFull("The assistant is busy. Please try shortly.")
+        binding = admission() if admission else None
+        p["cost_turn"] = binding
         self._cancel(conn, p, "superseded")
         generation = (p.get("research_workspace") or {}).get("generation", 0) + 1
         token = uuid.uuid4().hex
@@ -251,8 +265,34 @@ class AssistantStore:
             (token, owner, deck, generation, json.dumps(p), time.time(), time.time()),
         )
 
-    def begin(self, owner_id, deck_id, message, revision):
+    def begin(
+        self, owner_id, deck_id, message, revision, *, request_id=None, admission=None
+    ):
         def change(p, conn):
+            fingerprint = json.dumps(
+                [deck_id, message, revision, p["mode"], p["constraints"]],
+                sort_keys=True,
+            )
+            if request_id:
+                prior = conn.execute(
+                    "SELECT fingerprint, turn_id FROM assistant_submissions WHERE owner=? AND request_id=?",
+                    (owner_id, request_id),
+                ).fetchone()
+                if prior:
+                    if prior[0] != fingerprint:
+                        raise ValueError(
+                            "Submission ID was already used with different deck, revision or settings."
+                        )
+                    if prior[1] == p.get("turn_id"):
+                        return p
+                    job = self._job(conn, owner_id, deck_id, prior[1])
+                    if job:
+                        result = json.loads(job["snapshot_json"])
+                        result["busy"] = job["state"] in {"queued", "running"}
+                        return result
+                    raise ValueError(
+                        "Original submission is no longer available; use a new submission ID."
+                    )
             if p["busy"]:
                 raise ValueError(
                     "The assistant is already working. Stop it before sending another request."
@@ -265,7 +305,13 @@ class AssistantStore:
                 message,
                 revision,
                 previous=p.get("research_workspace"),
+                admission=admission,
             )
+            if request_id:
+                conn.execute(
+                    "INSERT INTO assistant_submissions(owner,request_id,fingerprint,turn_id) VALUES (?,?,?,?)",
+                    (owner_id, request_id, fingerprint, p["turn_id"]),
+                )
 
         return self._update_transaction(owner_id, deck_id, change)
 
@@ -380,8 +426,8 @@ class AssistantStore:
             calls = json.loads(row["checkpoint_json"]).get("calls", {})
             state = "interrupted" if "started" in calls.values() else "completed"
             conn.execute(
-                "UPDATE build_assistant_jobs SET state=?,updated_at=? WHERE id=?",
-                (state, time.time(), turn_id),
+                "UPDATE build_assistant_jobs SET state=?,updated_at=?,snapshot_json=? WHERE id=?",
+                (state, time.time(), json.dumps(p), turn_id),
             )
 
         return self._update_transaction(owner_id, deck_id, change)
@@ -503,7 +549,7 @@ class AssistantStore:
             snapshot["research_workspace"] = p["research_workspace"]
             return snapshot
 
-    def steer(self, owner_id, deck_id, body, revision):
+    def steer(self, owner_id, deck_id, body, revision, *, admission=None):
         request_id = body.get("client_request_id")
         if not isinstance(request_id, str) or not 1 <= len(request_id) <= 200:
             raise ValueError("A client request ID is required.")
@@ -610,7 +656,14 @@ class AssistantStore:
                 )
                 p["constraints"] = validate_constraints(constraints)
                 self._begin(
-                    conn, owner_id, deck_id, p, text, revision, previous=workspace
+                    conn,
+                    owner_id,
+                    deck_id,
+                    p,
+                    text,
+                    revision,
+                    previous=workspace,
+                    admission=admission,
                 )
                 # Preserve steering metadata even if the reducer only copies cards.
                 p["research_workspace"].update(

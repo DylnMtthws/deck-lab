@@ -1,0 +1,16 @@
+{
+  "authorized": false,
+  "prices": [["REPLACE_WITH_APPROVED_MODEL_ID", 1, 1]],
+  "credentials": [
+    ["main", "deepseek", "DECKLAB_MAIN_DEEPSEEK_KEY"],
+    ["preview", "deepseek", "DECKLAB_PREVIEW_DEEPSEEK_KEY"]
+  ],
+  "monthly": 15000000,
+  "environments": [["main", 12000000, 500000, 10], ["preview", 3000000, 200000, 5]],
+  "turn_cost": 100000,
+  "attempts": 12,
+  "tools": 8,
+  "input_tokens": 32000,
+  "output_tokens": 2000,
+  "deadline": 180
+}

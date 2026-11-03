@@ -16,6 +16,8 @@ from typing import Any
 
 import httpx
 
+from sabermetrics.ai_cost_control import BudgetDenied, credential_name, paid_attempt
+
 MODEL = "jev-1.13.0"
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 VERSION = "assistant-jev-trial.v1"
@@ -114,7 +116,10 @@ def run_trial(
     transport: httpx.BaseTransport | None = None,
 ) -> dict[str, Any]:
     """One costed request, no retries, bounded IO, no payload/error logging."""
-    key = api_key or os.environ.get("TYPESAFE_API_KEY")
+    name = credential_name("jev", "TYPESAFE_API_KEY")
+    if api_key and name != "TYPESAFE_API_KEY":
+        raise BudgetDenied("protected credentials must come from trusted mapping")
+    key = api_key or os.environ.get(name)
     base: dict[str, Any] = {
         "version": VERSION,
         "mode": "shadow",
@@ -143,9 +148,15 @@ def run_trial(
     base["request_sha256"] = hashlib.sha256(payload).hexdigest()
     started = time.monotonic()
     try:
-        with httpx.Client(
-            timeout=8.0, transport=transport, follow_redirects=False, trust_env=False
-        ) as client:
+        with (
+            paid_attempt(MODEL, request, 2000),
+            httpx.Client(
+                timeout=8.0,
+                transport=transport,
+                follow_redirects=False,
+                trust_env=False,
+            ) as client,
+        ):
             response = client.post(
                 ENDPOINT,
                 headers={

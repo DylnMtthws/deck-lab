@@ -15,6 +15,7 @@
   var status = sidebar.querySelector("[data-assistant-status]");
   var busy = false;
   var sending = false;
+  var pendingSubmission = null;
   var sessionEpoch = 0;
   var refreshSequence = 0;
   var sessionRequestSequence = 0;
@@ -186,7 +187,11 @@
     }
     return fetch(url, options).then(function (response) {
       return response.json().catch(function () { return {}; }).then(function (body) {
-        if (!response.ok) throw new Error(body.message || body.detail || body.error || "Research Assistant request failed.");
+        if (!response.ok) {
+          var error = new Error(body.message || body.detail || body.error || "Research Assistant request failed.");
+          error.retryNewSubmission = body.retry_new_submission === true;
+          throw error;
+        }
         return body;
       });
     });
@@ -522,8 +527,9 @@
     if (!protectedDirty) protectedCards();
     var provider = sidebar.querySelector("[data-assistant-provider]");
     if (provider) {
-      provider.hidden = !(data.provider && data.provider.enabled === false);
-      provider.textContent = provider.hidden ? "" : "Assistant unavailable. Your conversation is saved.";
+      var quota = data.cost_control || {};
+      provider.hidden = false;
+      provider.textContent = quota.configured ? ("Daily research remaining: $" + (quota.remaining_micros / 1000000).toFixed(2) + " · " + quota.remaining_turns + " turns. Resets " + quota.daily_reset_at + (quota.kill_switch || (data.provider && data.provider.enabled === false) ? ". Paid AI unavailable; browsing and deck editing remain available." : "")) : (quota.message || "Paid research unavailable. Browsing and deck editing remain available.");
     }
     var stop = sidebar.querySelector("[data-assistant-stop]");
     if (stop) stop.hidden = !(data.busy || (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; }));
@@ -1453,9 +1459,13 @@
     if (!hasWorkspaceCards()) followingLatest = true;
     var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = true;
     var sequence = busy ? null : ++sessionRequestSequence;
-    var operation = busy ? steer("message", { message: message }) : request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, expected_revision: Number(state.revision || 0) }) }).then(function (next) { acceptMutation(next, sequence); return refresh(); });
-    operation.then(function () { if (input.value.trim() === message) input.value = ""; })
-      .catch(function (error) { status.textContent = error.message; })
+    var signature = JSON.stringify([message, state.revision, data.mode, data.constraints]);
+    if (!pendingSubmission || pendingSubmission.signature !== signature) pendingSubmission = {
+      signature: signature, id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "message-" + Date.now() + "-" + Math.random().toString(36).slice(2)
+    };
+    var operation = busy ? steer("message", { message: message, client_request_id: pendingSubmission.id }) : request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, client_request_id: pendingSubmission.id, expected_revision: Number(state.revision || 0) }) }).then(function (next) { acceptMutation(next, sequence); return refresh(); });
+    operation.then(function () { pendingSubmission = null; if (input.value.trim() === message) input.value = ""; })
+      .catch(function (error) { if (error.retryNewSubmission) pendingSubmission = null; status.textContent = error.message; })
       .finally(function () { sending = false; if (send) send.disabled = false; });
   });
   var stop = sidebar.querySelector("[data-assistant-stop]");

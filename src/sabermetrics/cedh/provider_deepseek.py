@@ -30,6 +30,7 @@ from typing import Any, Self, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from sabermetrics.ai_cost_control import BudgetDenied, credential_name, paid_attempt
 from sabermetrics.cedh.cost_ledger import (
     CostLedger,
     check_operation_current,
@@ -162,7 +163,8 @@ class DeepSeekGateway:
         if model.require_pinned_provider:
             self._assert_pinned(self._model_id)
 
-        token = os.environ.get(model.credential_env, "").strip()
+        self._credential_name = credential_name("deepseek", model.credential_env)
+        token = os.environ.get(self._credential_name, "").strip()
         if not token:
             raise ModelConfigurationError(
                 f"{model.credential_env} is not set. The cEDH model gateway "
@@ -361,12 +363,49 @@ class DeepSeekGateway:
     def _post(self, payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """POST with bounded backoff. Returns the body and the retry count."""
         model = self._settings.model
+        if credential_name("deepseek", model.credential_env) != self._credential_name:
+            raise BudgetDenied("client credential environment mismatch")
+        if (
+            payload.get("model") != self._model_id
+            or "max_completion_tokens" in payload
+            or type(payload.get("n", 1)) is not int
+            or payload.get("n", 1) != 1
+            or set(payload)
+            - {
+                "model",
+                "messages",
+                "max_tokens",
+                "temperature",
+                "response_format",
+                "reasoning_effort",
+                "n",
+            }
+        ):
+            raise BudgetDenied(
+                "provider payload overrides guarded model/output contract"
+            )
         last: Exception | None = None
         for attempt in range(model.max_retries + 1):
             check_operation_current()
             try:
-                with operation_phase("transport", attempt=attempt):
-                    response = self._client.post("/chat/completions", json=payload)
+                with (
+                    paid_attempt(
+                        self._model_id, payload, payload["max_tokens"]
+                    ) as receipt,
+                    operation_phase("transport", attempt=attempt),
+                ):
+                    timeout = (
+                        {
+                            "timeout": min(
+                                model.timeout_seconds, receipt.remaining_seconds
+                            )
+                        }
+                        if receipt
+                        else {}
+                    )
+                    response = self._client.post(
+                        "/chat/completions", json=payload, **timeout
+                    )
                 if response.status_code in _RETRYABLE_STATUS:
                     last = ModelProviderError(
                         f"provider returned {response.status_code}: "
@@ -378,15 +417,24 @@ class DeepSeekGateway:
                         f"{response.text[:400]}"
                     )
                 else:
-                    return response.json(), attempt
+                    data = response.json()
+                    usage = data.get("usage") or {}
+                    if (
+                        receipt
+                        and "prompt_tokens" in usage
+                        and "completion_tokens" in usage
+                    ):
+                        receipt.usage(
+                            usage["prompt_tokens"], usage["completion_tokens"]
+                        )
+                    return data, attempt
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last = exc
             if attempt < model.max_retries:
                 check_operation_current()
                 time.sleep(2**attempt)
         raise ModelProviderError(
-            f"model provider call failed after {model.max_retries + 1} "
-            f"attempts: {last}"
+            f"model provider call failed after {model.max_retries + 1} attempts: {last}"
         ) from last
 
     @staticmethod
@@ -394,7 +442,7 @@ class DeepSeekGateway:
         choices = response.get("choices") or []
         if not choices:
             raise ModelProviderError(
-                "provider returned no choices: " f"{json.dumps(response)[:400]}"
+                f"provider returned no choices: {json.dumps(response)[:400]}"
             )
         message = choices[0].get("message") or {}
         return str(message.get("content") or "")

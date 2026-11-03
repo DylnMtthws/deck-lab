@@ -662,6 +662,9 @@ class AssistantTools:
                 "Package composition requires suggest mode and two or three pairs."
             )
         document = self.check()
+        from sabermetrics.ai_cost_control import consume_tool_iteration
+
+        consume_tool_iteration()
         if self.package_results:
             return {
                 **next(iter(self.package_results.values())),
@@ -836,6 +839,12 @@ class AssistantTools:
     def execute(self, raw: ToolCall | dict[str, Any]) -> dict[str, Any]:
         call = TOOL_ADAPTER.validate_python(raw)
         document = self.check()
+        from sabermetrics.ai_cost_control import consume_tool_iteration
+
+        consume_tool_iteration()
+        return self._execute(call, document)
+
+    def _execute(self, call: ToolCall, document: dict[str, Any]) -> dict[str, Any]:
         args = call.arguments
         search_corrections = []
         if call.name == "research_comparable_decks":

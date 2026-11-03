@@ -18,6 +18,30 @@ from tests.test_resimulate_delta import RecordingExecutor, _client, _seed_deck
 def setup(tmp_path, monkeypatch):
     client, path, owner = _client(tmp_path)
     deck = _seed_deck(path, owner)
+    from uuid import uuid4
+
+    from sabermetrics.ai_cost_control import Authority, BudgetConfig
+
+    control = Authority(
+        str(tmp_path / "cost.sqlite"),
+        BudgetConfig(
+            prices=(("fake", 1, 1),),
+            credentials=(("main", "deepseek", "TEST_MAIN"),),
+            authorized=True,
+        ),
+        local=True,
+    )
+    client.application.extensions["ai_cost_authority"] = control
+    client.application.config["AI_COST_ENVIRONMENT"] = "main"
+    client.application.config["DECK_LAB_ASSISTANT_AI_ENABLED"] = True
+    post = client.post
+
+    def paid_post(url, **kwargs):
+        if url.endswith("/messages") and isinstance(kwargs.get("json"), dict):
+            kwargs["json"].setdefault("client_request_id", uuid4().hex)
+        return post(url, **kwargs)
+
+    monkeypatch.setattr(client, "post", paid_post)
     executor = RecordingExecutor()
     monkeypatch.setattr(assistant_routes, "_EXECUTOR", executor)
     monkeypatch.setattr(
@@ -346,7 +370,7 @@ def test_superseding_inflight_workers_leaves_new_generation_durably_queued(setup
 
 
 @pytest.mark.parametrize("entry", ["session", "messages"])
-def test_unrelated_request_drains_four_persisted_jobs_after_restart(
+def test_unrelated_request_drains_legacy_jobs_without_paid_admission(
     setup, monkeypatch, entry
 ):
     from sabermetrics import assistant_runtime
@@ -381,11 +405,14 @@ def test_unrelated_request_drains_four_persisted_jobs_after_restart(
         assert len(executor.jobs) <= 2
         function, args, kwargs = executor.jobs.pop(0)
         function(*args, **kwargs)
-    assert set(calls) == set(decks) and len(calls) == 4
+    # Legacy queued work has no durable budget admission. Drain it visibly,
+    # without executing a provider or silently creating a fresh allowance.
+    assert not calls
     for queued in decks:
         finished = AssistantStore(path).get(owner, queued)
         assert not finished["busy"]
         assert finished["research_workspace"]["job"]["state"] == "completed"
+        assert finished["messages"][-1]["status"] == "failed"
     assert (
         client.post(
             url + "/messages", json={"message": "New", "expected_revision": 0}
@@ -443,7 +470,8 @@ def test_global_drain_respects_provider_and_never_replays_expired_running(
     )
     function, args, kwargs = executor.jobs.pop()
     function(*args, **kwargs)
-    assert calls == [queued_deck] and not executor.jobs
+    assert not calls and not executor.jobs
+    assert store.get(owner, queued_deck)["messages"][-1]["status"] == "failed"
 
 
 def test_revision_change_after_final_stop_check_frees_slots_and_drains_queue(

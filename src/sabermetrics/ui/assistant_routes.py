@@ -6,6 +6,7 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,13 @@ from sabermetrics.deck_documents import (
     DeckNotFound,
     InvalidCommand,
     RevisionConflict,
+)
+from sabermetrics.ui.assistant_cost import (
+    CostUnavailable,
+    admission,
+    authority,
+    close_turn,
+    cost_status,
 )
 
 bp = Blueprint("assistant", __name__)
@@ -69,7 +77,28 @@ def context(deck_id):
 
 def provider_status():
     settings = load_cedh_settings()
-    configured = bool(os.environ.get(settings.model.credential_env, "").strip())
+    try:
+        control = authority()
+        environment = current_app.config.get("AI_COST_ENVIRONMENT") or os.environ.get(
+            "SABER_AI_ENV"
+        )
+        state = control.status()
+        names = [
+            name
+            for env, provider, name in control.config.credentials
+            if env == environment and provider == "deepseek"
+        ]
+        configured = bool(names) and all(
+            os.environ.get(name, "").strip() for name in names
+        )
+        configured = (
+            configured
+            and control.config.authorized
+            and not state["killed"]
+            and environment not in state.get("killed_environments", [])
+        )
+    except Exception:
+        configured = False
     enabled = bool(current_app.config.get("DECK_LAB_ASSISTANT_AI_ENABLED"))
     return {
         "enabled": enabled and configured,
@@ -118,6 +147,7 @@ def session(deck_id):
     _dispatch(path, owner, deck_id, store)
     payload = store.get(owner, deck_id)
     payload.update(
+        cost_control=cost_status(owner),
         provider=provider_status(),
         revision=document["revision"],
         experiments=experiment_service(path).list_for_deck(owner, deck_id),
@@ -154,17 +184,29 @@ def settings(deck_id):
             not isinstance(card, str) or card not in ids for card in protected
         ):
             raise ValueError("Protected cards must belong to this deck.")
-    return jsonify(
-        store.settings(owner, deck_id, body.get("mode", existing["mode"]), constraints)
+    result = store.settings(
+        owner, deck_id, body.get("mode", existing["mode"]), constraints
     )
+    if existing.get("busy") and not result.get("busy"):
+        close_turn(existing.get("cost_turn"), cancel=True)
+    return jsonify(result)
 
 
 def _work(path, owner, deck_id, turn, app):
-    store = AssistantStore(path)
+    store = None
     token = turn["turn_id"]
 
     def stopped():
         try:
+            if not app.config.get("DECK_LAB_ASSISTANT_AI_ENABLED"):
+                return True
+            binding = turn.get("cost_turn")
+            if binding:
+                state = authority(app).status()["turns"][binding["id"]]
+                import time
+
+                if state["closed"] or time.time() >= state["deadline"]:
+                    return True
             if not store.active(owner, deck_id, token):
                 return True
             with db.connect(path) as conn:
@@ -184,7 +226,6 @@ def _work(path, owner, deck_id, turn, app):
                 break
 
     heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
-    heartbeat_thread.start()
 
     def event(value):
         if value.get("type") == "provider_checkpoint":
@@ -237,21 +278,31 @@ def _work(path, owner, deck_id, turn, app):
         )
 
     try:
+        store = AssistantStore(path)
+        heartbeat_thread.start()
         from sabermetrics.assistant_runtime import run_turn
 
         if stopped():
             store.invalidate(owner, deck_id, token)
             return
-        result = run_turn(
-            path,
-            owner,
-            deck_id,
-            turn["messages"],
-            mode=turn["mode"],
-            constraints=turn["constraints"],
-            should_stop=stopped,
-            on_event=event,
-        )
+        binding = turn.get("cost_turn")
+        if not binding:
+            raise CostUnavailable(
+                "Research has no budget admission; submit a new request."
+            )
+        from sabermetrics.ai_cost_control import bind_turn
+
+        with bind_turn(authority(app), binding["id"], binding["owner"]):
+            result = run_turn(
+                path,
+                owner,
+                deck_id,
+                turn["messages"],
+                mode=turn["mode"],
+                constraints=turn["constraints"],
+                should_stop=stopped,
+                on_event=event,
+            )
         if stopped():
             store.invalidate(owner, deck_id, token)
             return
@@ -272,50 +323,98 @@ def _work(path, owner, deck_id, turn, app):
                 "reason": result.get("reason"),
             },
         )
-    except Exception:
+    except Exception as error:
         logger.exception("Build assistant turn failed")
+        from sabermetrics.ai_cost_control import BudgetDenied
+
+        content = "The assistant could not complete this request. Please retry. Your original deck was not changed."
+        if isinstance(error, BudgetDenied):
+            content = {
+                "budget exhausted": "Research stopped because a spending allowance was reached. Check your remaining daily allowance and daily/monthly reset times in the research status.",
+                "tool limit": "Research stopped at this turn's tool limit. Send a narrower follow-up to continue within your remaining daily allowance.",
+                "model/token limit": "Research stopped because this request exceeds the configured model or token limits. Try a narrower request.",
+                "turn unavailable": "Research stopped because this turn expired, was cancelled, or paid AI was disabled.",
+            }.get(
+                str(error),
+                "Research stopped because paid AI admission was denied. Browsing and deck editing remain available.",
+            )
         store.finish(
             owner,
             deck_id,
             token,
             {
                 "role": "assistant",
-                "content": "The assistant could not complete this request. Please retry. Your original deck was not changed.",
+                "content": content,
                 "status": "failed",
             },
         )
     finally:
+        replacement = None
+        try:
+            replacement = store.get(owner, deck_id) if store is not None else None
+        except Exception:
+            pass
+        if not (
+            replacement
+            and replacement.get("busy")
+            and replacement.get("turn_id") != token
+            and replacement.get("cost_turn") == turn.get("cost_turn")
+        ):
+            close_turn(turn.get("cost_turn"), app=app)
         heartbeat_stop.set()
-        heartbeat_thread.join(timeout=1)
+        if heartbeat_thread.ident is not None:
+            heartbeat_thread.join(timeout=1)
         _WORKER_SLOTS.release()
         with app.app_context():
-            _drain(path, store)
+            if store is not None:
+                _drain(path, store)
 
 
 @bp.post("/api/decks/<deck_id>/assistant/messages")
 def message(deck_id):
     path, owner, document, store = context(deck_id)
     body = body_object()
-    revision = expected_revision(body, document)
+    revision = body.get("expected_revision")
+    if type(revision) is not int:
+        raise TypeError("An integer deck revision is required.")
     text = body.get("message")
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 4000:
         raise ValueError("Enter a message between 1 and 4,000 characters.")
-    if not provider_status()["enabled"]:
-        return (
-            jsonify(
-                error="provider_unavailable",
-                message="Conversational AI is not configured in this environment.",
-            ),
-            503,
-        )
+    binding = None
+
+    def admit():
+        nonlocal binding
+        expected_revision(body, document)
+        if not provider_status()["enabled"]:
+            raise CostUnavailable(
+                "Conversational AI is not configured in this environment.", 503
+            )
+        binding = admission(owner, deck_id, request_id)
+        return binding
+
     try:
-        store.begin(owner, deck_id, text.strip(), revision)
+        request_id = body.get("client_request_id")
+        if not isinstance(request_id, str) or not 1 <= len(request_id) <= 200:
+            raise ValueError("A client request ID is required.")
+        payload = store.begin(
+            owner,
+            deck_id,
+            text.strip(),
+            revision,
+            request_id=request_id,
+            admission=admit,
+        )
     except QueueFull as exc:
+        close_turn(binding, cancel=True)
         return jsonify(error="busy", message=str(exc)), 429
     except ValueError as exc:
+        close_turn(binding, cancel=True)
         return jsonify(error="busy", message=str(exc)), 409
+    except Exception:
+        close_turn(binding, cancel=True)
+        raise
     _dispatch(path, owner, deck_id, store)
-    return jsonify(store.get(owner, deck_id)), 202
+    return jsonify(payload), 202
 
 
 def _drain(path, store):
@@ -348,7 +447,13 @@ def _dispatch(path, owner, deck_id, store):
         return
     try:
         _EXECUTOR.submit(
-            _work, path, owner, deck_id, turn, current_app._get_current_object()
+            copy_context().run,
+            _work,
+            path,
+            owner,
+            deck_id,
+            turn,
+            current_app._get_current_object(),
         )
     except RuntimeError:
         # No runtime started: release this claim back to the durable queue.
@@ -361,12 +466,35 @@ def steer(deck_id):
     path, owner, document, store = context(deck_id)
     body = body_object()
     revision = expected_revision(body, document)
-    if body.get("action") not in {"pin", "unpin"} and not provider_status()["enabled"]:
-        return jsonify(error="provider_unavailable"), 503
+    existing = store.get(owner, deck_id)
+    new_binding = None
+
+    def steering_admission():
+        nonlocal new_binding
+        if not provider_status()["enabled"]:
+            raise CostUnavailable(
+                "Conversational AI is not configured in this environment.", 503
+            )
+        binding = existing.get("cost_turn")
+        if binding:
+            state = authority().status()["turns"][binding["id"]]
+            import time
+
+            if not state["closed"] and time.time() < state["deadline"]:
+                return binding
+        new_binding = admission(owner, deck_id, body.get("client_request_id"))
+        return new_binding
+
     try:
-        payload = store.steer(owner, deck_id, body, revision)
+        payload = store.steer(
+            owner, deck_id, body, revision, admission=steering_admission
+        )
     except QueueFull as exc:
+        close_turn(new_binding, cancel=True)
         return jsonify(error="busy", message=str(exc)), 429
+    except Exception:
+        close_turn(new_binding, cancel=True)
+        raise
     _dispatch(path, owner, deck_id, store)
     payload.update(
         provider=provider_status(),
@@ -379,6 +507,7 @@ def steer(deck_id):
 @bp.post("/api/decks/<deck_id>/assistant/stop")
 def stop(deck_id):
     _path, owner, _document, store = context(deck_id)
+    close_turn(store.get(owner, deck_id).get("cost_turn"), cancel=True)
     return jsonify(store.stop(owner, deck_id))
 
 
@@ -436,3 +565,47 @@ def apply(deck_id):
             commands=prepared["commands"],
         )
     )
+
+
+@bp.errorhandler(CostUnavailable)
+def cost_unavailable(error):
+    return (
+        jsonify(
+            error="ai_budget_unavailable",
+            message=str(error),
+            retry_new_submission=error.retry_new_submission,
+        ),
+        error.status,
+    )
+
+
+@bp.get("/api/assistant/cost-status")
+def budget_status():
+    return jsonify(cost_status(str(current_user.id)))
+
+
+@bp.get("/api/admin/assistant/cost-control")
+@bp.post("/api/admin/assistant/cost-control")
+def budget_admin():
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    control = authority()
+    if request.method == "POST":
+        body = body_object()
+        if body.get("action") == "reset":
+            control.reset()  # Clears kill only; spend and reservations survive.
+        elif body.get("action") == "acknowledge" and isinstance(
+            body.get("alert_id"), str
+        ):
+            control.ack_alert(body["alert_id"])
+        elif body.get("action") == "kill" and isinstance(body.get("enabled"), bool):
+            environment = body.get("environment")
+            if environment is not None:
+                if environment not in {"main", "preview"}:
+                    raise ValueError("Unknown environment.")
+                control.set_kill_switch(body["enabled"], environment=environment)
+            else:
+                control.set_kill_switch(body["enabled"])
+        else:
+            raise ValueError("Choose reset or kill with a boolean enabled value.")
+    return jsonify(status=control.status(), alerts=control.alerts())

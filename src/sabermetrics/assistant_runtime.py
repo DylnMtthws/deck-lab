@@ -101,7 +101,7 @@ from sabermetrics.errors import LLMCostCeilingExceeded
 
 MAX_MODEL_CALLS = 5
 MAX_TOOL_CALLS = 8
-MAX_TURN_SECONDS = 480
+MAX_TURN_SECONDS = 180
 PROMPT_VERSION = "build-conversation.v39"
 SYSTEM = """You are Deck Lab's conversational Research Assistant inside Build.
 Talk naturally with the user across the supplied conversation. Use tools to
@@ -1835,6 +1835,10 @@ def run_turn(
     }
 
     def emit(event: dict[str, Any]) -> None:
+        if event.get("type") == "tool_started" and event.get("name") == "check_answer":
+            from sabermetrics.ai_cost_control import consume_tool_iteration
+
+            consume_tool_iteration()
         actions.append(event)
         if on_event:
             on_event(event)
@@ -2695,7 +2699,7 @@ def run_turn(
                     ReasoningMode.CLASSIFY if narrow_planning else ReasoningMode.EXPLAIN
                 ),
                 call_type="build:assistant",
-                max_output_tokens=output_budget,
+                max_output_tokens=min(output_budget, 2000),
                 evidence_hash=hashlib.sha256(encoded.encode()).hexdigest(),
                 metadata={
                     "deck_id": deck_id,
@@ -3647,14 +3651,16 @@ def run_turn(
                 and not package_research_attempted
                 and not final_call
                 and tool_count < MAX_TOOL_CALLS
-                and MAX_TURN_SECONDS - (time.monotonic() - started) >= 240
+                and MAX_TURN_SECONDS - (time.monotonic() - started)
+                >= min(240, MAX_TURN_SECONDS - 30)
             ):
                 package_research_attempted = True
                 tools.check()
                 if owns_gateway and package_research_gateway is None:
                     # Conversation calls disable schema repair. Composition gets
                     # one repair and no transport retry: at most two 60s calls,
-                    # within its 240s gate including bounded catalog lookup.
+                    # within the remaining turn deadline; every paid attempt
+                    # independently rechecks the shared deadline.
                     package_settings = settings.model_copy(
                         update={
                             "model": settings.model.model_copy(
@@ -4786,6 +4792,9 @@ def run_turn(
                         )
                     cache_key = json.dumps(call.model_dump(), sort_keys=True)
                     if call.name in cacheable and cache_key in read_cache:
+                        from sabermetrics.ai_cost_control import consume_tool_iteration
+
+                        consume_tool_iteration()
                         data = read_cache[cache_key]
                         if (
                             cache_key in cached_before_batch
