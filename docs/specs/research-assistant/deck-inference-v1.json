@@ -792,7 +792,7 @@
     "knowledge_inventory": "docs/evaluations/research-viability-20261103/knowledge-inventory.json",
     "live_execution": "E001 executed once on QA12af094; requested explanation not delivered.58.821s pollobserved completion, .004069 logged configuredcost, source discovery validationfailed and verification deadline-reserve skipped; cleanupverified. No comparison or expertquality claim.",
     "workspace_note": "Concurrent cost-control application edits are outside ownership and remain untouched.",
-    "next_milestone": "Diagnose E001 validation failure and preparation overhead; freeze a distinct follow-up hypothesis before another paid run.",
+    "next_milestone": "Implement reviewed sanitized response diagnostics in safely isolated source, then preregister a distinct discovery-validity experiment. No further guard variant without testing actual decode avoidance and safety equivalence.",
     "e001_preflight": {
       "status": "completed_diagnostic_requested_explanation_not_delivered",
       "implementation_task_suffix": "research-e001-sol-qa-preparation-20261103-r1",
@@ -880,6 +880,21 @@
         "experiment_controls": "No model, reasoning, token-cap, timeout, retry, prompt or billing arithmetic changes bundled with telemetry. Do not infer visible tokens from derived clamped billing split.",
         "validation": "E001-shaped empty/length response, absent/malformed fields, sentinel privacy/unknown nested keys, repair ordering, single ledger write, failed receipt propagation and backwards compatibility.",
         "recorded_gap": "Original design called this four files but spans five source files; no implementation made by design agent."
+      },
+      "guard_prototype_experiment": {
+        "id": "E002b",
+        "status": "closed_rejected_for_integration_negative_record_reviewed",
+        "task": "research-e002b-sol-guard-prototype-20261103-r1",
+        "hypothesis": "A fresh read-only projection retaining all controls reduces preparation cost versus full session decoding and repeated connection setup.",
+        "controls": "Same pinned guard semantics, inputs/cache/callbackcount, full guard/prototype/no-op arms, discarded warmup, measured ordering disclosed. No source/runtime changes.",
+        "acceptance": "At least50% lower pairedmedian preparation in matched synthetic fixtures AND no tested guard equivalence regressions; alternate-provider review required. Failure is retained.",
+        "safety": "Every original checkpoint and owner/revision/session/token/job/lease/process-owner check must remain. Canonical-source freshness remains separate open boundary work.",
+        "claim_boundary": "Not a production fix, actual E001 payload, QA causality or global latency gain.",
+        "review_task": "research-e002b-opus-prototype-adversarial-20261103-r1",
+        "result": "All six payload/cache cases failed>=50%gate; largerpayload prototype slower. No productionintegration.",
+        "interpretation": "Prototype computed unused projections plus full Python JSONdecode and retained3connections. Reject this variant, not projection-only designs. MissingDB/locking/concurrentreplacement equivalence remains unproven.",
+        "review_result": "Opus R1 bounded clearance: measurements valid for tested implementation; intended decode-avoidance mechanism NOT exercised.",
+        "next_step": "Stop this prototype branch. Resolve source-discovery response diagnostics and token-budget failure before another paid replay."
       }
     }
   }

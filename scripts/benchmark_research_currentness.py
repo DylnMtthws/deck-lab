@@ -103,7 +103,7 @@ def database_state(path):
     }
 
 
-def run_one(path, cards, warm, instrumented, noop=False):
+def run_one(path, cards, warm, instrumented, noop=False, active_factory=None):
     from sabermetrics import assistant_inference_facts as facts
     from sabermetrics import assistant_store as store_module
     from sabermetrics import db
@@ -115,6 +115,8 @@ def run_one(path, cards, warm, instrumented, noop=False):
 
     store = object.__new__(store_module.AssistantStore)
     store.db_path = path
+    if active_factory is not None:
+        store.active = active_factory(path, store.active)
     meter = Meter(instrumented)
     counts = defaultdict(int)
     original_connect = sqlite3.connect
