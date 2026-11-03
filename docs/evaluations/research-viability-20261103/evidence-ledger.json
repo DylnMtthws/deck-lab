@@ -1,6 +1,13 @@
 {
   "schema": "research-evidence-ledger.v1",
-  "live_runs": [],
+  "live_runs": [
+    {
+      "experiment": "E001",
+      "result": "e001-status.json",
+      "kind": "single_development_diagnostic",
+      "requested_explanation_delivered": false
+    }
+  ],
   "claims": [
     {
       "claim": "Implementation boundary checks pass",
@@ -23,7 +30,7 @@
   "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
   "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
   "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
-  "canonical_spec_sha256": "d4d6a75cc3a1a52cd6ab9c281741d218213a1565173540fd05dd483130d63015",
+  "canonical_spec_sha256": "91628732851e91a1d07bad177028d8b19f506599b548947ddc7ccd81f150394c",
   "protocol_section": "measurement_protocol",
   "extraction_development": {
     "status": "bounded_diagnostic_accepted",
@@ -48,5 +55,5 @@
       "No live latency observation"
     ]
   },
-  "e001_status": "Infrastructure blocked, not an assistant outcome; see e001-status.json"
+  "e001_status": "completed_diagnostic_requested_explanation_not_delivered"
 }
