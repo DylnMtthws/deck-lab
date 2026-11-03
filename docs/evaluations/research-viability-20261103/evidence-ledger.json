@@ -23,7 +23,7 @@
   "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
   "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
   "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
-  "canonical_spec_sha256": "7c0a2e2cd5a04fbbcfcb7d3386829b7eea604328279006ca425df0809a9d8860",
+  "canonical_spec_sha256": "d4d6a75cc3a1a52cd6ab9c281741d218213a1565173540fd05dd483130d63015",
   "protocol_section": "measurement_protocol",
   "extraction_development": {
     "status": "bounded_diagnostic_accepted",
@@ -47,5 +47,6 @@
       "No independently judged usefulness or quality",
       "No live latency observation"
     ]
-  }
+  },
+  "e001_status": "Infrastructure blocked, not an assistant outcome; see e001-status.json"
 }

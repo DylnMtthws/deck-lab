@@ -1,0 +1,20 @@
+{
+  "experiment": "E001",
+  "status": "blocked_qa_ssh_timeout",
+  "candidate_sha": "12af094c1a5adeeb2a90949b3a00f530b75f82f0",
+  "local_image_built": true,
+  "image_id": "sha256:6b05429a99226a0ee320d94253b10e065db4db6b624aa4a1279261f7564a0d6d",
+  "image_archive_sha256": "e98e23f2c757475f0d7340e2428ae54cda09bd966126c4c60b16bc08db75be65",
+  "source_archive_sha256": "79710e2b907744d96e6e162e371549823a83a999c95e665c9613cc920161f459",
+  "qa_image_uploaded": false,
+  "qa_deployed": false,
+  "live_turns_submitted": 0,
+  "paid_model_calls_submitted": 0,
+  "harness_review": "Opus5.5medium static bounded clearance; exact frozen hashes matched",
+  "failure_stage": "QA image upload over SSH",
+  "sanitized_error": "SSH connection to configured QA host port22 timed out; exit255",
+  "diagnostic": "One bounded SSH true probe also timed out. No repeated polling.",
+  "cleanup": "Temporary detached worktree removed; no clones, servers or watchers started. Local image and private replay artifacts retained.",
+  "claim_boundary": "Infrastructure failure; no assistant latency, cost or quality sample exists.",
+  "next_action": "Restore configured QA SSH connectivity, verify host identity, resume verified image upload/smokes and QA-only deployment before one frozen replay. Do not rebuild or silently change candidate."
+}

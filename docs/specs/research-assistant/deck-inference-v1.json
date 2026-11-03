@@ -790,8 +790,19 @@
     ],
     "review_policy": "Use a fresh alternate-provider delegated task after each implementation result, retain concrete findings and regression evidence, and never count cross-model agreement as independent domain qualification.",
     "knowledge_inventory": "docs/evaluations/research-viability-20261103/knowledge-inventory.json",
-    "live_execution": "No new live assistant turns or deployments yet; capture preparation precedes feasibility replay.",
+    "live_execution": "Local candidate image built; QA SSH upload and one bounded connectivity probe timed out. No deployment or paid assistant turn occurred.",
     "workspace_note": "Concurrent cost-control application edits are outside ownership and remain untouched.",
-    "next_milestone": "E001: freeze exact QA input/configuration and capture one real anchor replay through existing harness; keep failures. No benchmark improvement claim from one replay."
+    "next_milestone": "E001: freeze exact QA input/configuration and capture one real anchor replay through existing harness; keep failures. No benchmark improvement claim from one replay.",
+    "e001_preflight": {
+      "status": "local_image_built_blocked_qa_ssh_connectivity",
+      "implementation_task_suffix": "research-e001-sol-qa-preparation-20261103-r1",
+      "adversarial_review_task_suffix": "research-e001-opus-adversarial-20261103-r1",
+      "focused_tests_passed": 2,
+      "live_runs": 0,
+      "review_question": "Separate minimum safe exploratory QA replay requirements from missing telemetry that limits comparison but may remain explicitly unknown.",
+      "harness_review": "Opus bounded clearance",
+      "local_candidate_image": "sha256:6b05429a99226a0ee320d94253b10e065db4db6b624aa4a1279261f7564a0d6d",
+      "result": "docs/evaluations/research-viability-20261103/e001-status.json"
+    }
   }
 }
