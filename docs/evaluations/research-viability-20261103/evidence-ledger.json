@@ -30,7 +30,7 @@
   "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
   "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
   "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
-  "canonical_spec_sha256": "91628732851e91a1d07bad177028d8b19f506599b548947ddc7ccd81f150394c",
+  "canonical_spec_sha256": "2fd68dce25766ec7b4e840907edb95eacad2cdf41e31332d52ebf7cf5d5cbdb5",
   "protocol_section": "measurement_protocol",
   "extraction_development": {
     "status": "bounded_diagnostic_accepted",
@@ -55,5 +55,13 @@
       "No live latency observation"
     ]
   },
-  "e001_status": "completed_diagnostic_requested_explanation_not_delivered"
+  "e001_status": "completed_diagnostic_requested_explanation_not_delivered",
+  "currentness_profile": {
+    "experiment": "E002a",
+    "status": "accepted_synthetic_diagnostic",
+    "report": "currentness-profile.json",
+    "review": "Opus medium R2 bounded clearance",
+    "runs": 54,
+    "limits": "Synthetic source/session reconstruction, not measured E001 payload or QA causality. Minor ordering/reference-constant limitations recorded in canonical spec."
+  }
 }

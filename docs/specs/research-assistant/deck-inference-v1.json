@@ -802,7 +802,85 @@
       "review_question": "Separate minimum safe exploratory QA replay requirements from missing telemetry that limits comparison but may remain explicitly unknown.",
       "harness_review": "Opus bounded clearance",
       "local_candidate_image": "sha256:6b05429a99226a0ee320d94253b10e065db4db6b624aa4a1279261f7564a0d6d",
-      "result": "docs/evaluations/research-viability-20261103/e001-status.json"
+      "result": "docs/evaluations/research-viability-20261103/e001-status.json",
+      "acceptance": "Not accepted for live win-condition explanation; safety/honesty checks passed.",
+      "artifact_review": "Opus alternate-provider: scheduling failure confirmed; reasoning exhaustion strongly indicated, exact cause unproven."
+    },
+    "follow_up": {
+      "status": "offline_diagnosis_and_telemetry_in_progress",
+      "preparation_diagnosis_task": "research-e001-sol-preparation-diagnosis-20261103-r1",
+      "telemetry_implementation_task": "not_started_orchestrator_could_not_resolve_parent_checkout_commit",
+      "policy": "Read-only telemetry design while Sol diagnoses preparation. No paid rerun or shared provider edits; code implementation requires safe isolation from active cost controls.",
+      "hypotheses": [
+        "Preparation/check_current overhead may consume verification reserve.",
+        "Discovery reasoning allowance may leave no visible structured response; no finish reason saved so not proven."
+      ],
+      "limits": "One observed failed sample; not universal impossibility or comparative latency/quality evidence.",
+      "telemetry_design_task": "research-e002-opus-telemetry-design-20261103-r1",
+      "preparation_diagnosis_result": "Repeated DB/session currentness checks plausible; no repeated full-deck canonical hashing in inference callbacks. Causality unmeasured.",
+      "offline_experiment": {
+        "id": "E002a",
+        "task": "research-e002a-sol-currentness-profile-20261103-r1",
+        "hypothesis": "Currentness callback wall time dominates local inference preparation.",
+        "controls": "Pinned12af094 code, disposable SQLite fixtures, matched inputs/cache, wall+CPU, callback counts, instrumented vs uninstrumented overhead. Exact E001 reconstruction only if full original records available; otherwise disclose representative input.",
+        "decision": "No production guard optimization until measured attribution and adversarial freshness/cancellation tests.",
+        "status": "accepted_synthetic_profile_only",
+        "review_task": "research-e002a-opus-profile-adversarial-20261103-r2",
+        "focused_tests_passed": 4,
+        "local_findings": "Cold reconstruction445callbacks~98%wall, warm73callbacks~96%; local synthetic fixture, not attribution of QA15.409seconds.",
+        "validation_pending": null,
+        "review_result": "Opus R2 bounded clearance; no consequential timing, provenance or cleanup bug.",
+        "fix_task": "research-e002a-sol-profile-controls-20261103-r1",
+        "interpretation": "No-op subtraction corroborates callback cost under reconstruction. Payload scaling supports a bounded prototype experiment, not measured QA causality or production acceptance.",
+        "controls_added_before_next_measurement": [
+          "Discarded warmup",
+          "Pinned source/spec verification",
+          "Matched no-op callback baseline",
+          "29KB/1MB/5MB synthetic session payload sweep",
+          "Accurate hooked meter-overhead label",
+          "Single execution of each test"
+        ],
+        "reported_cold_callback_seconds_by_synthetic_payload": {
+          "29KB": 0.66,
+          "1MB": 1.34,
+          "5MB": 9.54
+        },
+        "validation": "4 pytest tests passed in55s; Ruff lint/format and Black previously passed.",
+        "minor_limits": [
+          "Mode order forward/reverse/forward, cold before warm, small payload before large; not fully randomized.",
+          "qa_scale reference .655 is historical hardcoded value, not derived from latest data.",
+          "Focused integration test runs full one-repeat sweep (~54s)."
+        ],
+        "next_step": "E002b experimental guard in synthetic fixtures only, retaining every control and fresh read; no production optimization yet."
+      },
+      "safety_gap": "Canonical scoped-source changes during inference are not established as guarded by revision checks. Add evidence-boundary validation before use/publication before claiming source freshness.",
+      "telemetry_design": {
+        "status": "design_reviewed_implementation_pending_safe_source_isolation",
+        "source_files": [
+          "src/sabermetrics/cedh/model_gateway.py",
+          "src/sabermetrics/cedh/provider_deepseek.py",
+          "src/sabermetrics/cedh/errors.py",
+          "src/sabermetrics/cedh/cost_ledger.py",
+          "src/sabermetrics/assistant_deck_inference.py"
+        ],
+        "required_fields": [
+          "sanitized known finish_reason or unknown",
+          "visible content character count and null/absent flag",
+          "explicit provider-reported visible tokens only, otherwise null with provenance",
+          "reported completion/reasoning token counts with missing distinct from zero",
+          "sanitized first validation type and schema-approved location/count",
+          "usage/diagnostics retained on failure as well as success"
+        ],
+        "privacy_constraints": [
+          "No raw response or str(ValidationError) in new diagnostics.",
+          "Unknown finish reasons cannot be copied verbatim as arbitrary model/provider text.",
+          "Validation locations allow only known schema field paths and bounded integer indices; unknown/extra property names redacted.",
+          "Existing error/log inclusion of raw validation snippets is a separately recorded privacy concern; do not claim new diagnostics sanitize all pre-existing logs."
+        ],
+        "experiment_controls": "No model, reasoning, token-cap, timeout, retry, prompt or billing arithmetic changes bundled with telemetry. Do not infer visible tokens from derived clamped billing split.",
+        "validation": "E001-shaped empty/length response, absent/malformed fields, sentinel privacy/unknown nested keys, repair ordering, single ledger write, failed receipt propagation and backwards compatibility.",
+        "recorded_gap": "Original design called this four files but spans five source files; no implementation made by design agent."
+      }
     }
   }
 }

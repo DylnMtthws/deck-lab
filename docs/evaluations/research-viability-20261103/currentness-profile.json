@@ -1,0 +1,5091 @@
+{
+  "experiment": "E002a",
+  "pinned_commit": "12af094c1a5adeeb2a90949b3a00f530b75f82f0",
+  "scope": "Synthetic callback-chain reconstruction; not actual full QA runtime or identical frozen E001 input.",
+  "hypothesis": "Currentness callbacks dominate measured preparation (>50% instrumented wall time).",
+  "repeats": 3,
+  "input_hash": "c225fe8318159eb03ecb0bffa5c7beb246d02014a33de158bf1f99ceed80cbdc",
+  "payload_sizes_bytes": [
+    29000,
+    1000000,
+    5000000
+  ],
+  "warmup_policy": "Before measurement discard one complete cold/warm pass of all three modes for each payload size; cold clears compilation cache only.",
+  "source_verification": "All listed prepared source files and canonical spec byte-compared with git show of pinned commit; fail on mismatch.",
+  "cache_state_hashes": {
+    "empty": "62d941abd90f787d5bacaf8a99fa3704f0c13e7d05650bf385e9688175608126",
+    "prepopulated_same_input": "33685dc5750386d547913a6316c7245234394cbf1cb010a1903b642bc4930e1b"
+  },
+  "cache_hash_note": "Logical controlled cache-state recipes, not serialized internal cache hashes.",
+  "canonical_spec_hash": "84dcb89c988638a08dbd17f3553a12f3ba1f18d5848c75357daf05809dbb4323",
+  "source_hashes": {
+    "assistant_store.py": "1281e1ac973050ed1f13b8390de0e89ec86836f466721526bb2981b4639bc58b",
+    "assistant_jobs.py": "5b311ecb219621e8a45e5baa84b86bcd7607d19b59a478b27c2b384161acae89",
+    "db.py": "f627b3fc7f2f45b121f7b79dd259561d653df128569f3b4e924d4c0298501c90",
+    "assistant_deck_inference.py": "8d4d731ba64af87b70e54a865342bd6c73096d421501035f01e39d1e5af4ee4d",
+    "assistant_inference_facts.py": "121a54b6f0484e2c7675938c12c7358c3f4212a3ea03d159ed94df23b11891a1",
+    "assistant_inference_search.py": "c7a687f5e36e19307c8ca16562d22995670ba143bd6ee2cd694e8ec90c2be200",
+    "assistant_runtime.py": "04b1864006d05ff22a33b28ddc6b25691df5b7fba60982746690ab7b14945dca",
+    "ui/assistant_routes.py": "4717abbb3c8ebc790873a837cdc7c61eccc62d44c61f076c2a04c7127bb8ba6f"
+  },
+  "limitations": [
+    "Low-branching graph fixture: search callback counts do not represent maximum expansions.",
+    "Wall subtraction is noisy and includes hook overhead; NO-OP removes callback work with unpatched compiler/search. No causal QA attribution.",
+    "No original E001 records; synthetic 100 sources/170 sentences (not necessarily compiler clauses) and synthetic session payload.",
+    "Cold means empty compilation cache, not OS disk cache; warmed OS pages throughout.",
+    "Attribution coverage includes explicitly named residual parent work; it is not evidence of complete low-level causal attribution. Compilation includes source validation without separate attribution.",
+    "Overhead ratios are noisy paired observations, may be negative, and are not corrected away.",
+    "Manifest is local bundle/search hashing, not full runtime packet assembly.",
+    "Canonical source/document validation and packet assembly are unmeasured, not zero; whole validation twice in runtime is outside probe.",
+    "Exclusive SQL includes Python wrapper overhead; meter-enabled versus meter-disabled overhead uses identical hooks; neither is an untouched baseline.",
+    "Canonical freshness gap remains separate open safety work; revision guard does not establish canonical-source freshness."
+  ],
+  "fixture_cleanup": true,
+  "runs": [
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.00873349979519844,
+      "cpu": 0.00873299999999988,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.6946040000766516,
+      "cpu": 0.6162760000000003,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.6979933343827724,
+      "cpu": 0.6349149999999999,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.05983307212591171,
+          "cpu": 0.059846000000006505,
+          "exclusive_wall": 0.05983307212591171,
+          "exclusive_cpu": 0.059846000000006505
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.28707979433238506,
+          "cpu": 0.25395099999999937,
+          "exclusive_wall": 0.28707979433238506,
+          "exclusive_cpu": 0.25395099999999937
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.17009790800511837,
+          "cpu": 0.1606689999999924,
+          "exclusive_wall": 0.17009790800511837,
+          "exclusive_cpu": 0.1606689999999924
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.00392858125269413,
+          "cpu": 0.0039149999999983365,
+          "exclusive_wall": 0.00392858125269413,
+          "exclusive_cpu": 0.0039149999999983365
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.0138347577303648,
+          "cpu": 0.01383100000000237,
+          "exclusive_wall": 0.0138347577303648,
+          "exclusive_cpu": 0.01383100000000237
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.10556400381028652,
+          "cpu": 0.08515699999998905,
+          "exclusive_wall": 0.10556400381028652,
+          "exclusive_cpu": 0.08515699999998905
+        },
+        "callback": {
+          "count": 445,
+          "wall": 0.6855134200304747,
+          "cpu": 0.6224370000000055,
+          "exclusive_wall": 0.045175302773714066,
+          "exclusive_cpu": 0.04506800000001743
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 0.5858548320829868,
+          "cpu": 0.5312289999999997,
+          "exclusive_wall": 0.00562630221247673,
+          "exclusive_cpu": 0.005622999999995049
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.5924341231584549,
+          "cpu": 0.53763,
+          "exclusive_wall": 0.003462165594100952,
+          "exclusive_cpu": 0.0034609999999997143
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.1043778732419014,
+          "cpu": 0.09610299999999983,
+          "exclusive_wall": 0.0022101085633039474,
+          "exclusive_cpu": 0.0022119999999996587
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011479556560516357,
+          "cpu": 0.001148000000000149,
+          "exclusive_wall": 0.0011479556560516357,
+          "exclusive_cpu": 0.001148000000000149
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.6979729998856783,
+          "cpu": 0.6348949999999998,
+          "exclusive_wall": 1.3047829270362854e-05,
+          "exclusive_cpu": 1.3999999999736445e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005310334265232086,
+      "cpu": 0.005309000000000008,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.11221274919807911,
+      "cpu": 0.09924799999999978,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.133584376424551,
+      "cpu": 0.12309499999999973,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.009916789829730988,
+          "cpu": 0.009926000000003654,
+          "exclusive_wall": 0.009916789829730988,
+          "exclusive_cpu": 0.009926000000003654
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.056332703679800034,
+          "cpu": 0.05095199999999922,
+          "exclusive_wall": 0.056332703679800034,
+          "exclusive_cpu": 0.05095199999999922
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.03278704732656479,
+          "cpu": 0.030969999999997277,
+          "exclusive_wall": 0.03278704732656479,
+          "exclusive_cpu": 0.030969999999997277
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.0006423220038414001,
+          "cpu": 0.0006409999999972271,
+          "exclusive_wall": 0.0006423220038414001,
+          "exclusive_cpu": 0.0006409999999972271
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.0022325143218040466,
+          "cpu": 0.0022259999999998392,
+          "exclusive_wall": 0.0022325143218040466,
+          "exclusive_cpu": 0.0022259999999998392
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.018521113321185112,
+          "cpu": 0.015263000000000027,
+          "exclusive_wall": 0.018521113321185112,
+          "exclusive_cpu": 0.015263000000000027
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.1278174314647913,
+          "cpu": 0.1173290000000029,
+          "exclusive_wall": 0.007384940981864929,
+          "exclusive_cpu": 0.0073510000000056586
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.005264248698949814,
+          "cpu": 0.005120999999999931,
+          "exclusive_wall": 0.0023727864027023315,
+          "exclusive_cpu": 0.0023719999999993746
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.1271448340266943,
+          "cpu": 0.11680099999999971,
+          "exclusive_wall": 0.002218864858150482,
+          "exclusive_cpu": 0.002220999999997364
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011379998177289963,
+          "cpu": 0.0011380000000000834,
+          "exclusive_wall": 0.0011379998177289963,
+          "exclusive_cpu": 0.0011380000000000834
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.13355924934148788,
+          "cpu": 0.12307000000000023,
+          "exclusive_wall": 1.2166798114776611e-05,
+          "exclusive_cpu": 1.0000000000509601e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.6793980430811644,
+      "cpu": 0.6168610000000001,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.05996477231383324,
+          "cpu": 0.059962000000005844,
+          "exclusive_wall": 0.05996477231383324,
+          "exclusive_cpu": 0.059962000000005844
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.2738170027732849,
+          "cpu": 0.24415199999998372,
+          "exclusive_wall": 0.2738170027732849,
+          "exclusive_cpu": 0.24415199999998372
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.1634162124246359,
+          "cpu": 0.15393500000000548,
+          "exclusive_wall": 0.1634162124246359,
+          "exclusive_cpu": 0.15393500000000548
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.003886975347995758,
+          "cpu": 0.003928000000007703,
+          "exclusive_wall": 0.003886975347995758,
+          "exclusive_cpu": 0.003928000000007703
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.013719528913497925,
+          "cpu": 0.013713000000003639,
+          "exclusive_wall": 0.013719528913497925,
+          "exclusive_cpu": 0.013713000000003639
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.1070723608136177,
+          "cpu": 0.08381200000001332,
+          "exclusive_wall": 0.1070723608136177,
+          "exclusive_cpu": 0.08381200000001332
+        },
+        "callback": {
+          "count": 445,
+          "wall": 0.6668626982718706,
+          "cpu": 0.6043220000000029,
+          "exclusive_wall": 0.04498584568500519,
+          "exclusive_cpu": 0.04481999999998321
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 0.5704989563673735,
+          "cpu": 0.5164559999999998,
+          "exclusive_wall": 0.005664091557264328,
+          "exclusive_cpu": 0.005659999999997556
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.5772122927010059,
+          "cpu": 0.522888,
+          "exclusive_wall": 0.0035207923501729965,
+          "exclusive_cpu": 0.0035210000000001074
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.10103346034884453,
+          "cpu": 0.09282199999999996,
+          "exclusive_wall": 0.0021981708705425262,
+          "exclusive_cpu": 0.002206999999999404
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011212490499019623,
+          "cpu": 0.0011209999999999276,
+          "exclusive_wall": 0.0011212490499019623,
+          "exclusive_cpu": 0.0011209999999999276
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.6793763320893049,
+          "cpu": 0.6168399999999998,
+          "exclusive_wall": 9.329989552497864e-06,
+          "exclusive_cpu": 8.999999999925734e-06
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.63613804243505,
+      "cpu": 0.5861239999999999,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.008946247398853302,
+      "cpu": 0.008945999999999898,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.1124207116663456,
+      "cpu": 0.1043649999999996,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.009866571053862572,
+          "cpu": 0.009879999999997224,
+          "exclusive_wall": 0.009866571053862572,
+          "exclusive_cpu": 0.009879999999997224
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.04446888156235218,
+          "cpu": 0.04022099999999629,
+          "exclusive_wall": 0.04446888156235218,
+          "exclusive_cpu": 0.04022099999999629
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.02462632767856121,
+          "cpu": 0.02399100000000054,
+          "exclusive_wall": 0.02462632767856121,
+          "exclusive_cpu": 0.02399100000000054
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.0006526149809360504,
+          "cpu": 0.0006570000000012399,
+          "exclusive_wall": 0.0006526149809360504,
+          "exclusive_cpu": 0.0006570000000012399
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.0022406764328479767,
+          "cpu": 0.0022360000000025693,
+          "exclusive_wall": 0.0022406764328479767,
+          "exclusive_cpu": 0.0022360000000025693
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.01741228625178337,
+          "cpu": 0.014267999999997727,
+          "exclusive_wall": 0.01741228625178337,
+          "exclusive_cpu": 0.014267999999997727
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.10664387792348862,
+          "cpu": 0.09859400000000385,
+          "exclusive_wall": 0.007376519963145256,
+          "exclusive_cpu": 0.007341000000008258
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.00568312406539917,
+          "cpu": 0.005497000000000085,
+          "exclusive_wall": 0.002385459840297699,
+          "exclusive_cpu": 0.0023850000000003035
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.10556349903345108,
+          "cpu": 0.097696,
+          "exclusive_wall": 0.0022172853350639343,
+          "exclusive_cpu": 0.0022139999999959414
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.001137666404247284,
+          "cpu": 0.0011370000000008318,
+          "exclusive_wall": 0.001137666404247284,
+          "exclusive_cpu": 0.0011370000000008318
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.1123957484960556,
+          "cpu": 0.1043409999999998,
+          "exclusive_wall": 1.1458992958068848e-05,
+          "exclusive_cpu": 1.0999999998873022e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.11941924691200256,
+      "cpu": 0.1071029999999995,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005335792899131775,
+      "cpu": 0.005335999999999785,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.008743207901716232,
+      "cpu": 0.008744000000000085,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.704417834058404,
+      "cpu": 0.5871529999999998,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.6510808747261763,
+      "cpu": 0.6135849999999996,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.06056292727589607,
+          "cpu": 0.06059400000000004,
+          "exclusive_wall": 0.06056292727589607,
+          "exclusive_cpu": 0.06059400000000004
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.2532688118517399,
+          "cpu": 0.2365159999999733,
+          "exclusive_wall": 0.2532688118517399,
+          "exclusive_cpu": 0.2365159999999733
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.1463425550609827,
+          "cpu": 0.14547800000000422,
+          "exclusive_wall": 0.1463425550609827,
+          "exclusive_cpu": 0.14547800000000422
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.003982061520218849,
+          "cpu": 0.0040060000000119445,
+          "exclusive_wall": 0.003982061520218849,
+          "exclusive_cpu": 0.0040060000000119445
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.013860777020454407,
+          "cpu": 0.013853000000003668,
+          "exclusive_wall": 0.013860777020454407,
+          "exclusive_cpu": 0.013853000000003668
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.10570811294019222,
+          "cpu": 0.08600499999999656,
+          "exclusive_wall": 0.10570811294019222,
+          "exclusive_cpu": 0.08600499999999656
+        },
+        "callback": {
+          "count": 445,
+          "wall": 0.6383547615259886,
+          "cpu": 0.6008780000000007,
+          "exclusive_wall": 0.05462951585650444,
+          "exclusive_cpu": 0.054426000000010966
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 0.5441346261650324,
+          "cpu": 0.5139120000000004,
+          "exclusive_wall": 0.0058895740658044815,
+          "exclusive_cpu": 0.0058699999999980434
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.5504816640168428,
+          "cpu": 0.5201019999999996,
+          "exclusive_wall": 0.00344112329185009,
+          "exclusive_cpu": 0.0034399999999985553
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.09942674823105335,
+          "cpu": 0.09231199999999973,
+          "exclusive_wall": 0.002222953364253044,
+          "exclusive_cpu": 0.0022260000000020597
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.001135416328907013,
+          "cpu": 0.001134999999999664,
+          "exclusive_wall": 0.001135416328907013,
+          "exclusive_cpu": 0.001134999999999664
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.6510596238076687,
+          "cpu": 0.6135650000000004,
+          "exclusive_wall": 1.5795230865478516e-05,
+          "exclusive_cpu": 1.600000000134827e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005354957655072212,
+      "cpu": 0.005354000000000525,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.10155570693314075,
+      "cpu": 0.09452499999999997,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 29000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 45056,
+          "sha256": "189f531abfb79f760db37e2404fe971ad2b4e223d7a8ae3efc4d3a3677b8aa07"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.11621462367475033,
+      "cpu": 0.10980900000000027,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.009865256026387215,
+          "cpu": 0.009873000000003351,
+          "exclusive_wall": 0.009865256026387215,
+          "exclusive_cpu": 0.009873000000003351
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.045643555000424385,
+          "cpu": 0.04291299999999776,
+          "exclusive_wall": 0.045643555000424385,
+          "exclusive_cpu": 0.04291299999999776
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.026789013296365738,
+          "cpu": 0.02641099999999863,
+          "exclusive_wall": 0.026789013296365738,
+          "exclusive_cpu": 0.02641099999999863
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.0006444957107305527,
+          "cpu": 0.0006580000000093733,
+          "exclusive_wall": 0.0006444957107305527,
+          "exclusive_cpu": 0.0006580000000093733
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.002251129597425461,
+          "cpu": 0.0022510000000020014,
+          "exclusive_wall": 0.002251129597425461,
+          "exclusive_cpu": 0.0022510000000020014
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.017849072813987732,
+          "cpu": 0.014592999999999634,
+          "exclusive_wall": 0.017849072813987732,
+          "exclusive_cpu": 0.014592999999999634
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.11042122542858124,
+          "cpu": 0.10400899999999602,
+          "exclusive_wall": 0.007378702983260155,
+          "exclusive_cpu": 0.007309999999985273
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.005319416522979736,
+          "cpu": 0.005175000000000374,
+          "exclusive_wall": 0.002370331436395645,
+          "exclusive_cpu": 0.002372000000000263
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.10970208421349525,
+          "cpu": 0.10344100000000012,
+          "exclusive_wall": 0.002229943871498108,
+          "exclusive_cpu": 0.002235000000004206
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.001161457970738411,
+          "cpu": 0.0011619999999998853,
+          "exclusive_wall": 0.001161457970738411,
+          "exclusive_cpu": 0.0011619999999998853
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.11619237624108791,
+          "cpu": 0.10978599999999972,
+          "exclusive_wall": 9.417533874511719e-06,
+          "exclusive_cpu": 7.999999999341867e-06
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.008794166147708893,
+      "cpu": 0.008793999999999969,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3256853353232145,
+      "cpu": 1.2769110000000001,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.4537090007215738,
+      "cpu": 1.2548150000000007,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.06358648836612701,
+          "cpu": 0.06336200000001035,
+          "exclusive_wall": 0.06358648836612701,
+          "exclusive_cpu": 0.06336200000001035
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.3868378419429064,
+          "cpu": 0.26460899999995924,
+          "exclusive_wall": 0.3868378419429064,
+          "exclusive_cpu": 0.26460899999995924
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.3362536299973726,
+          "cpu": 0.30947799999998793,
+          "exclusive_wall": 0.3362536299973726,
+          "exclusive_cpu": 0.30947799999998793
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.030947256833314896,
+          "cpu": 0.03094099999998967,
+          "exclusive_wall": 0.030947256833314896,
+          "exclusive_cpu": 0.03094099999998967
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.43119747936725616,
+          "cpu": 0.43115299999998946,
+          "exclusive_wall": 0.43119747936725616,
+          "exclusive_cpu": 0.43115299999998946
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.1414301823824644,
+          "cpu": 0.09202500000002267,
+          "exclusive_wall": 0.1414301823824644,
+          "exclusive_cpu": 0.09202500000002267
+        },
+        "callback": {
+          "count": 445,
+          "wall": 1.4400584362447262,
+          "cpu": 1.24115199999998,
+          "exclusive_wall": 0.04980555735528469,
+          "exclusive_cpu": 0.04958400000002072
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 1.2043001260608435,
+          "cpu": 1.0423010000000001,
+          "exclusive_wall": 0.006629014387726784,
+          "exclusive_cpu": 0.006639000000021156
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 1.2136679589748383,
+          "cpu": 1.051456,
+          "exclusive_wall": 0.0035032927989959717,
+          "exclusive_cpu": 0.0035039999999995075
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.23883203975856304,
+          "cpu": 0.20215099999999886,
+          "exclusive_wall": 0.002309255301952362,
+          "exclusive_cpu": 0.0023119999999980934
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011622514575719833,
+          "cpu": 0.0011620000000007735,
+          "exclusive_wall": 0.0011622514575719833,
+          "exclusive_cpu": 0.0011620000000007735
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.4536760821938515,
+          "cpu": 1.2547829999999998,
+          "exclusive_wall": 1.3832002878189087e-05,
+          "exclusive_cpu": 1.4000000000180535e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005334164947271347,
+      "cpu": 0.005333999999999506,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.214157372713089,
+      "cpu": 0.20566999999999958,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.23145566321909428,
+      "cpu": 0.2226120000000016,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.01033659279346466,
+          "cpu": 0.010337000000010477,
+          "exclusive_wall": 0.01033659279346466,
+          "exclusive_cpu": 0.010337000000010477
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.05885550007224083,
+          "cpu": 0.05382499999999624,
+          "exclusive_wall": 0.05885550007224083,
+          "exclusive_cpu": 0.05382499999999624
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.05397620052099228,
+          "cpu": 0.052947000000028055,
+          "exclusive_wall": 0.05397620052099228,
+          "exclusive_cpu": 0.052947000000028055
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.004997408017516136,
+          "cpu": 0.0050059999999980676,
+          "exclusive_wall": 0.004997408017516136,
+          "exclusive_cpu": 0.0050059999999980676
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.06989908777177334,
+          "cpu": 0.06990499999999145,
+          "exclusive_wall": 0.06989908777177334,
+          "exclusive_cpu": 0.06990499999999145
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.019673708826303482,
+          "cpu": 0.016918999999997908,
+          "exclusive_wall": 0.019673708826303482,
+          "exclusive_cpu": 0.016918999999997908
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.22552936151623726,
+          "cpu": 0.21668799999999777,
+          "exclusive_wall": 0.007790863513946533,
+          "exclusive_cpu": 0.007748999999975581
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.008686332032084465,
+          "cpu": 0.00849299999999964,
+          "exclusive_wall": 0.0024071242660284042,
+          "exclusive_cpu": 0.002406999999999826
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.2215454988181591,
+          "cpu": 0.21289600000000064,
+          "exclusive_wall": 0.0022953450679779053,
+          "exclusive_cpu": 0.0022940000000026828
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.001187000423669815,
+          "cpu": 0.001186999999999827,
+          "exclusive_wall": 0.001187000423669815,
+          "exclusive_cpu": 0.001186999999999827
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.23142874985933304,
+          "cpu": 0.2225849999999987,
+          "exclusive_wall": 9.918585419654846e-06,
+          "exclusive_cpu": 8.999999998593466e-06
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3183315005153418,
+      "cpu": 1.2616490000000002,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.06175780110061169,
+          "cpu": 0.06179099999999771,
+          "exclusive_wall": 0.06175780110061169,
+          "exclusive_cpu": 0.06179099999999771
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.30677429400384426,
+          "cpu": 0.28047300000004327,
+          "exclusive_wall": 0.30677429400384426,
+          "exclusive_cpu": 0.28047300000004327
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.3147594276815653,
+          "cpu": 0.3097509999999719,
+          "exclusive_wall": 0.3147594276815653,
+          "exclusive_cpu": 0.3097509999999719
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.030407512560486794,
+          "cpu": 0.030432999999977284,
+          "exclusive_wall": 0.030407512560486794,
+          "exclusive_cpu": 0.030432999999977284
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.42691395059227943,
+          "cpu": 0.4269159999999861,
+          "exclusive_wall": 0.42691395059227943,
+          "exclusive_cpu": 0.4269159999999861
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.11700065992772579,
+          "cpu": 0.09171200000001889,
+          "exclusive_wall": 0.11700065992772579,
+          "exclusive_cpu": 0.09171200000001889
+        },
+        "callback": {
+          "count": 445,
+          "wall": 1.3050751630216837,
+          "cpu": 1.2483760000000164,
+          "exclusive_wall": 0.04746151715517044,
+          "exclusive_cpu": 0.047300000000021214
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 1.0915115848183632,
+          "cpu": 1.043196,
+          "exclusive_wall": 0.006162969395518303,
+          "exclusive_cpu": 0.006181999999984811
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 1.1009110435843468,
+          "cpu": 1.0523559999999996,
+          "exclusive_wall": 0.0036265812814235687,
+          "exclusive_cpu": 0.003626000000000573
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.21623750030994415,
+          "cpu": 0.20811199999999985,
+          "exclusive_wall": 0.0022838301956653595,
+          "exclusive_cpu": 0.0022839999999977323
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011451691389083862,
+          "cpu": 0.0011449999999992855,
+          "exclusive_wall": 0.0011451691389083862,
+          "exclusive_cpu": 0.0011449999999992855
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.3183065000921488,
+          "cpu": 1.2616250000000004,
+          "exclusive_wall": 1.278705894947052e-05,
+          "exclusive_cpu": 1.2000000001677336e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3452985398471355,
+      "cpu": 1.2894360000000002,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.009041998535394669,
+      "cpu": 0.009041999999999106,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.2247514594346285,
+      "cpu": 0.21439699999999995,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.010669060051441193,
+          "cpu": 0.01053400000000515,
+          "exclusive_wall": 0.010669060051441193,
+          "exclusive_cpu": 0.01053400000000515
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.04982385225594044,
+          "cpu": 0.045468000000012054,
+          "exclusive_wall": 0.04982385225594044,
+          "exclusive_cpu": 0.045468000000012054
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.05634565092623234,
+          "cpu": 0.054103000000010226,
+          "exclusive_wall": 0.05634565092623234,
+          "exclusive_cpu": 0.054103000000010226
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.005032574757933617,
+          "cpu": 0.005018000000003298,
+          "exclusive_wall": 0.005032574757933617,
+          "exclusive_cpu": 0.005018000000003298
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.07022374868392944,
+          "cpu": 0.07023200000000607,
+          "exclusive_wall": 0.07022374868392944,
+          "exclusive_cpu": 0.07023200000000607
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.018873397260904312,
+          "cpu": 0.015261999999991005,
+          "exclusive_wall": 0.018873397260904312,
+          "exclusive_cpu": 0.015261999999991005
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.21874897740781307,
+          "cpu": 0.20839899999999112,
+          "exclusive_wall": 0.007780693471431732,
+          "exclusive_cpu": 0.007781999999963318
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.008333873003721237,
+          "cpu": 0.008077999999999363,
+          "exclusive_wall": 0.0024307463318109512,
+          "exclusive_cpu": 0.0024289999999993483
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.21520145796239376,
+          "cpu": 0.20510300000000115,
+          "exclusive_wall": 0.0023556072264909744,
+          "exclusive_cpu": 0.0023530000000100415
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011821258813142776,
+          "cpu": 0.0011820000000000164,
+          "exclusive_wall": 0.0011821258813142776,
+          "exclusive_cpu": 0.0011820000000000164
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.22472766786813736,
+          "cpu": 0.2143739999999994,
+          "exclusive_wall": 1.0211020708084106e-05,
+          "exclusive_cpu": 1.0999999998873022e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.2149377502501011,
+      "cpu": 0.2068059999999985,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.0055613331496715546,
+      "cpu": 0.005561999999999401,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.009000249207019806,
+      "cpu": 0.009000999999999593,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3260347489267588,
+      "cpu": 1.277099999999999,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3448400385677814,
+      "cpu": 1.263430999999997,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.06255876459181309,
+          "cpu": 0.06259099999994788,
+          "exclusive_wall": 0.06255876459181309,
+          "exclusive_cpu": 0.06259099999994788
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.3106276299804449,
+          "cpu": 0.2759159999998282,
+          "exclusive_wall": 0.3106276299804449,
+          "exclusive_cpu": 0.2759159999998282
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 0.31694658659398556,
+          "cpu": 0.31213400000000036,
+          "exclusive_wall": 0.31694658659398556,
+          "exclusive_cpu": 0.31213400000000036
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.030657626688480377,
+          "cpu": 0.03065299999999027,
+          "exclusive_wall": 0.030657626688480377,
+          "exclusive_cpu": 0.03065299999999027
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 0.4281938411295414,
+          "cpu": 0.4282000000000359,
+          "exclusive_wall": 0.4281938411295414,
+          "exclusive_cpu": 0.4282000000000359
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.13378499075770378,
+          "cpu": 0.09202800000005595,
+          "exclusive_wall": 0.13378499075770378,
+          "exclusive_cpu": 0.09202800000005595
+        },
+        "callback": {
+          "count": 445,
+          "wall": 1.3311770558357239,
+          "cpu": 1.2497639999999741,
+          "exclusive_wall": 0.04840761609375477,
+          "exclusive_cpu": 0.04824200000011558
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 1.1260082498192787,
+          "cpu": 1.0559960000000004,
+          "exclusive_wall": 0.006722290068864822,
+          "exclusive_cpu": 0.0067300000000187765
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 1.1351856254041195,
+          "cpu": 1.0648110000000024,
+          "exclusive_wall": 0.0034472085535526276,
+          "exclusive_cpu": 0.003448000000002338
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.20846641808748245,
+          "cpu": 0.19743099999999814,
+          "exclusive_wall": 0.002305489033460617,
+          "exclusive_cpu": 0.002300000000005298
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011552926152944565,
+          "cpu": 0.0011550000000006833,
+          "exclusive_wall": 0.0011552926152944565,
+          "exclusive_cpu": 0.0011550000000006833
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.3448175005614758,
+          "cpu": 1.2634089999999993,
+          "exclusive_wall": 1.0164454579353333e-05,
+          "exclusive_cpu": 1.1999999998124622e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005340626463294029,
+      "cpu": 0.0053400000000003445,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.25021229311823845,
+      "cpu": 0.2372269999999972,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 1000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 1015808,
+          "sha256": "efc656a18fde3de010536aa72ff2fe1bee7e3dc07adb9f99133a3a263b07e13b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.234372915700078,
+      "cpu": 0.22190300000000107,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.010212002322077751,
+          "cpu": 0.010222000000023712,
+          "exclusive_wall": 0.010212002322077751,
+          "exclusive_cpu": 0.010222000000023712
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.05998260714113712,
+          "cpu": 0.05231899999993317,
+          "exclusive_wall": 0.05998260714113712,
+          "exclusive_cpu": 0.05231899999993317
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.05511429347097874,
+          "cpu": 0.05405299999996416,
+          "exclusive_wall": 0.05511429347097874,
+          "exclusive_cpu": 0.05405299999996416
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.004991231486201286,
+          "cpu": 0.005006000000037147,
+          "exclusive_wall": 0.004991231486201286,
+          "exclusive_cpu": 0.005006000000037147
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.06981339864432812,
+          "cpu": 0.06981400000002225,
+          "exclusive_wall": 0.06981339864432812,
+          "exclusive_cpu": 0.06981400000002225
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.02056173048913479,
+          "cpu": 0.016843999999995418,
+          "exclusive_wall": 0.02056173048913479,
+          "exclusive_cpu": 0.016843999999995418
+        },
+        "callback": {
+          "count": 73,
+          "wall": 0.22843055054545403,
+          "cpu": 0.21596000000000615,
+          "exclusive_wall": 0.007755286991596222,
+          "exclusive_cpu": 0.007702000000030296
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.009049830958247185,
+          "cpu": 0.008735000000001492,
+          "exclusive_wall": 0.0024470407515764236,
+          "exclusive_cpu": 0.0024460000000026128
+        },
+        "search": {
+          "count": 1,
+          "wall": 0.2241427507251501,
+          "cpu": 0.21198800000000162,
+          "exclusive_wall": 0.002314990386366844,
+          "exclusive_cpu": 0.0023169999999943514
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011465009301900864,
+          "cpu": 0.001148000000000593,
+          "exclusive_wall": 0.0011465009301900864,
+          "exclusive_cpu": 0.001148000000000593
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 0.2343485839664936,
+          "cpu": 0.22187899999999772,
+          "exclusive_wall": 9.501352906227112e-06,
+          "exclusive_cpu": 7.999999994012796e-06
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.008961627259850502,
+      "cpu": 0.008961999999996806,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.630791377276182,
+      "cpu": 8.548896,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.495203543454409,
+      "cpu": 8.509005000000002,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.08054620400071144,
+          "cpu": 0.08052699999994672,
+          "exclusive_wall": 0.08054620400071144,
+          "exclusive_cpu": 0.08052699999994672
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.36415891349315643,
+          "cpu": 0.3017109999998553,
+          "exclusive_wall": 0.36415891349315643,
+          "exclusive_cpu": 0.3017109999998553
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 5.830118279904127,
+          "cpu": 5.352675000000076,
+          "exclusive_wall": 5.830118279904127,
+          "exclusive_cpu": 5.352675000000076
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.7163153011351824,
+          "cpu": 0.40425099999988134,
+          "exclusive_wall": 0.7163153011351824,
+          "exclusive_cpu": 0.40425099999988134
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 2.1538313198834658,
+          "cpu": 2.153745000000143,
+          "exclusive_wall": 2.1538313198834658,
+          "exclusive_cpu": 2.153745000000143
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.25527210533618927,
+          "cpu": 0.12149399999989186,
+          "exclusive_wall": 0.25527210533618927,
+          "exclusive_cpu": 0.12149399999989186
+        },
+        "callback": {
+          "count": 445,
+          "wall": 9.476734383031726,
+          "cpu": 8.490570999999946,
+          "exclusive_wall": 0.07649225927889347,
+          "exclusive_cpu": 0.07616800000015189
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 8.026523873209953,
+          "cpu": 7.163414000000003,
+          "exclusive_wall": 0.010944459587335587,
+          "exclusive_cpu": 0.010917000000027599
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 8.066771125420928,
+          "cpu": 7.2022600000000025,
+          "exclusive_wall": 0.003596331924200058,
+          "exclusive_cpu": 0.0035970000000062896
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.4272152073681355,
+          "cpu": 1.3055280000000025,
+          "exclusive_wall": 0.0027111582458019257,
+          "exclusive_cpu": 0.002703000000025213
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011711232364177704,
+          "cpu": 0.0011720000000039477,
+          "exclusive_wall": 0.0011711232364177704,
+          "exclusive_cpu": 0.0011720000000039477
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 9.49517079256475,
+          "cpu": 8.508972999999997,
+          "exclusive_wall": 1.3336539268493652e-05,
+          "exclusive_cpu": 1.2999999988494437e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.0054343752562999725,
+      "cpu": 0.005433999999993944,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.530447667464614,
+      "cpu": 1.4009999999999962,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 0,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.5893532522022724,
+      "cpu": 1.4101640000000017,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.01308622770011425,
+          "cpu": 0.013106999999919822,
+          "exclusive_wall": 0.01308622770011425,
+          "exclusive_cpu": 0.013106999999919822
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.06274948827922344,
+          "cpu": 0.04889899999999159,
+          "exclusive_wall": 0.06274948827922344,
+          "exclusive_cpu": 0.04889899999999159
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.9994019828736782,
+          "cpu": 0.8870370000000491,
+          "exclusive_wall": 0.9994019828736782,
+          "exclusive_cpu": 0.8870370000000491
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.11583269201219082,
+          "cpu": 0.06813599999997422,
+          "exclusive_wall": 0.11583269201219082,
+          "exclusive_cpu": 0.06813599999997422
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.3549453429877758,
+          "cpu": 0.35494400000000326,
+          "exclusive_wall": 0.3549453429877758,
+          "exclusive_cpu": 0.35494400000000326
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.02469637803733349,
+          "cpu": 0.019455999999991036,
+          "exclusive_wall": 0.02469637803733349,
+          "exclusive_cpu": 0.019455999999991036
+        },
+        "callback": {
+          "count": 73,
+          "wall": 1.582926407456398,
+          "cpu": 1.4037390000000016,
+          "exclusive_wall": 0.012214295566082,
+          "exclusive_cpu": 0.012160000000072557
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.045762207359075546,
+          "cpu": 0.04393900000000173,
+          "exclusive_wall": 0.002499205991625786,
+          "exclusive_cpu": 0.0024990000000073564
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.542402459308505,
+          "cpu": 1.3650360000000035,
+          "exclusive_wall": 0.0027390532195568085,
+          "exclusive_cpu": 0.0027369999999962147
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011475421488285065,
+          "cpu": 0.001148000000000593,
+          "exclusive_wall": 0.0011475421488285065,
+          "exclusive_cpu": 0.001148000000000593
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.5893219579011202,
+          "cpu": 1.4101319999999973,
+          "exclusive_wall": 9.749084711074829e-06,
+          "exclusive_cpu": 8.999999991488039e-06
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.625308876857162,
+      "cpu": 8.481857999999995,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.08061853796243668,
+          "cpu": 0.08063500000029933,
+          "exclusive_wall": 0.08061853796243668,
+          "exclusive_cpu": 0.08063500000029933
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.3558609541505575,
+          "cpu": 0.3015000000002601,
+          "exclusive_wall": 0.3558609541505575,
+          "exclusive_cpu": 0.3015000000002601
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 5.948412008583546,
+          "cpu": 5.322242000000173,
+          "exclusive_wall": 5.948412008583546,
+          "exclusive_cpu": 5.322242000000173
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.7040393352508545,
+          "cpu": 0.4028010000000961,
+          "exclusive_wall": 0.7040393352508545,
+          "exclusive_cpu": 0.4028010000000961
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 2.158673904836178,
+          "cpu": 2.15846700000003,
+          "exclusive_wall": 2.158673904836178,
+          "exclusive_cpu": 2.15846700000003
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.2824042811989784,
+          "cpu": 0.12139700000012965,
+          "exclusive_wall": 0.2824042811989784,
+          "exclusive_cpu": 0.12139700000012965
+        },
+        "callback": {
+          "count": 445,
+          "wall": 9.60685526765883,
+          "cpu": 8.463414,
+          "exclusive_wall": 0.07684624567627907,
+          "exclusive_cpu": 0.07637199999901156
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 7.9199943747371435,
+          "cpu": 7.09841200000001,
+          "exclusive_wall": 0.010991564020514488,
+          "exclusive_cpu": 0.010990000000006717
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 7.9590369164943695,
+          "cpu": 7.136030000000005,
+          "exclusive_wall": 0.0035203322768211365,
+          "exclusive_cpu": 0.0035209999999921138
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.6650551687926054,
+          "cpu": 1.344611999999998,
+          "exclusive_wall": 0.002724921330809593,
+          "exclusive_cpu": 0.0027170000000040773
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011737067252397537,
+          "cpu": 0.0011739999999917927,
+          "exclusive_wall": 0.0011737067252397537,
+          "exclusive_cpu": 0.0011739999999917927
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 9.625278918072581,
+          "cpu": 8.481828,
+          "exclusive_wall": 1.3126060366630554e-05,
+          "exclusive_cpu": 1.200000000523005e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.424205085262656,
+      "cpu": 8.514629,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.009031375870108604,
+      "cpu": 0.009030999999993128,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.711893292143941,
+      "cpu": 1.4588889999999992,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.013591764494776726,
+          "cpu": 0.013592999999914923,
+          "exclusive_wall": 0.013591764494776726,
+          "exclusive_cpu": 0.013592999999914923
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.058849526569247246,
+          "cpu": 0.05099799999997856,
+          "exclusive_wall": 0.058849526569247246,
+          "exclusive_cpu": 0.05099799999997856
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 1.1005301102995872,
+          "cpu": 0.9179870000000392,
+          "exclusive_wall": 1.1005301102995872,
+          "exclusive_cpu": 0.9179870000000392
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.13757045194506645,
+          "cpu": 0.07921700000001408,
+          "exclusive_wall": 0.13757045194506645,
+          "exclusive_cpu": 0.07921700000001408
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.3566467948257923,
+          "cpu": 0.3566500000000161,
+          "exclusive_wall": 0.3566467948257923,
+          "exclusive_cpu": 0.3566500000000161
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.02497151866555214,
+          "cpu": 0.020801000000048475,
+          "exclusive_wall": 0.02497151866555214,
+          "exclusive_cpu": 0.020801000000048475
+        },
+        "callback": {
+          "count": 73,
+          "wall": 1.7053199745714664,
+          "cpu": 1.4523190000000739,
+          "exclusive_wall": 0.01315980777144432,
+          "exclusive_cpu": 0.013073000000062507
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.03859524987637997,
+          "cpu": 0.03722299999999734,
+          "exclusive_wall": 0.002528538927435875,
+          "exclusive_cpu": 0.002527000000000612
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.6721050422638655,
+          "cpu": 1.4204760000000078,
+          "exclusive_wall": 0.0028517786413431168,
+          "exclusive_cpu": 0.0028529999999307165
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011490005999803543,
+          "cpu": 0.0011489999999980682,
+          "exclusive_wall": 0.0011490005999803543,
+          "exclusive_cpu": 0.0011489999999980682
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.7118601240217686,
+          "cpu": 1.4588600000000014,
+          "exclusive_wall": 1.0831281542778015e-05,
+          "exclusive_cpu": 1.1999999998124622e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.3856692500412464,
+      "cpu": 1.3095299999999952,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 1,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.0054540447890758514,
+      "cpu": 0.005453000000002817,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.00911429338157177,
+      "cpu": 0.009104000000007773,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.433124624192715,
+      "cpu": 8.502848,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": false,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 9.54738887399435,
+      "cpu": 8.514089999999996,
+      "callbacks": 445,
+      "compiler_cache_callbacks": 374,
+      "search_callbacks": 71,
+      "connections": 1335,
+      "readonly_connections": 445,
+      "cache_hit": false,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 1335,
+          "wall": 0.08029366843402386,
+          "cpu": 0.08034199999987379,
+          "exclusive_wall": 0.08029366843402386,
+          "exclusive_cpu": 0.08034199999987379
+        },
+        "pragma": {
+          "count": 3560,
+          "wall": 0.36322631128132343,
+          "cpu": 0.3005189999998663,
+          "exclusive_wall": 0.36322631128132343,
+          "exclusive_cpu": 0.3005189999998663
+        },
+        "sql_execute": {
+          "count": 1335,
+          "wall": 5.8828367330133915,
+          "cpu": 5.3487490000000975,
+          "exclusive_wall": 5.8828367330133915,
+          "exclusive_cpu": 5.3487490000000975
+        },
+        "sql_fetch": {
+          "count": 1335,
+          "wall": 0.7137008104473352,
+          "cpu": 0.4121309999998459,
+          "exclusive_wall": 0.7137008104473352,
+          "exclusive_cpu": 0.4121309999998459
+        },
+        "payload_decode": {
+          "count": 445,
+          "wall": 2.1563387531787157,
+          "cpu": 2.156281000000078,
+          "exclusive_wall": 2.1563387531787157,
+          "exclusive_cpu": 2.156281000000078
+        },
+        "connection_close": {
+          "count": 1335,
+          "wall": 0.25612147711217403,
+          "cpu": 0.12165199999972742,
+          "exclusive_wall": 0.25612147711217403,
+          "exclusive_cpu": 0.12165199999972742
+        },
+        "callback": {
+          "count": 445,
+          "wall": 9.528876647353172,
+          "cpu": 8.495577999999952,
+          "exclusive_wall": 0.07635889388620853,
+          "exclusive_cpu": 0.07590400000046316
+        },
+        "compiler_including_source_validation": {
+          "count": 1,
+          "wall": 8.083752250298858,
+          "cpu": 7.118986000000007,
+          "exclusive_wall": 0.011030727997422218,
+          "exclusive_cpu": 0.011032000000014364
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 8.124807834625244,
+          "cpu": 7.1589699999999965,
+          "exclusive_wall": 0.0035829152911901474,
+          "exclusive_cpu": 0.0035850000000010596
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.42136712372303,
+          "cpu": 1.35390799999999,
+          "exclusive_wall": 0.002684667706489563,
+          "exclusive_cpu": 0.0026830000000188647
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011666268110275269,
+          "cpu": 0.0011679999999927304,
+          "exclusive_wall": 0.0011666268110275269,
+          "exclusive_cpu": 0.0011679999999927304
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 9.547352956607938,
+          "cpu": 8.514057000000008,
+          "exclusive_wall": 1.1371448636054993e-05,
+          "exclusive_cpu": 1.1000000029071089e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": true,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 0.005417415872216225,
+      "cpu": 0.005419999999986658,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 0,
+      "readonly_connections": 0,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": false,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.6299396269023418,
+      "cpu": 1.3765599999999978,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {},
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    },
+    {
+      "repeat": 2,
+      "payload_bytes": 5000000,
+      "warm": true,
+      "instrumented": true,
+      "noop": false,
+      "database_before": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "database_after": {
+        "main": {
+          "exists": true,
+          "bytes": 5017600,
+          "sha256": "ff568062a06a12a9b48e175cec007b1fd83a160ec0fb50b1880bf89f76a7fc20"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "wall": 1.5524125825613737,
+      "cpu": 1.445202000000009,
+      "callbacks": 73,
+      "compiler_cache_callbacks": 2,
+      "search_callbacks": 71,
+      "connections": 219,
+      "readonly_connections": 73,
+      "cache_hit": true,
+      "bundle_coverage": {
+        "complete": false,
+        "input_sources": 100,
+        "clauses": 170,
+        "interpreted": 70,
+        "uninterpreted": 100,
+        "facts": 70
+      },
+      "manifest_hash": "43c6d1c32897173c9bb3f27d33ba51a8bcd0b5879e89ab7972dd516f8f29f590",
+      "timing": {
+        "connection_open": {
+          "count": 219,
+          "wall": 0.013297906145453453,
+          "cpu": 0.013282000000032212,
+          "exclusive_wall": 0.013297906145453453,
+          "exclusive_cpu": 0.013282000000032212
+        },
+        "pragma": {
+          "count": 584,
+          "wall": 0.06231066770851612,
+          "cpu": 0.05041799999995078,
+          "exclusive_wall": 0.06231066770851612,
+          "exclusive_cpu": 0.05041799999995078
+        },
+        "sql_execute": {
+          "count": 219,
+          "wall": 0.9548477865755558,
+          "cpu": 0.9128390000000621,
+          "exclusive_wall": 0.9548477865755558,
+          "exclusive_cpu": 0.9128390000000621
+        },
+        "sql_fetch": {
+          "count": 219,
+          "wall": 0.12385805323719978,
+          "cpu": 0.0764879999999124,
+          "exclusive_wall": 0.12385805323719978,
+          "exclusive_cpu": 0.0764879999999124
+        },
+        "payload_decode": {
+          "count": 73,
+          "wall": 0.3529098369181156,
+          "cpu": 0.35290200000000027,
+          "exclusive_wall": 0.3529098369181156,
+          "exclusive_cpu": 0.35290200000000027
+        },
+        "connection_close": {
+          "count": 219,
+          "wall": 0.026130471378564835,
+          "cpu": 0.020270000000138566,
+          "exclusive_wall": 0.026130471378564835,
+          "exclusive_cpu": 0.020270000000138566
+        },
+        "callback": {
+          "count": 73,
+          "wall": 1.5458416678011417,
+          "cpu": 1.4386379999999548,
+          "exclusive_wall": 0.01248694583773613,
+          "exclusive_cpu": 0.012438999999858424
+        },
+        "compilation_cache": {
+          "count": 1,
+          "wall": 0.04036341793835163,
+          "cpu": 0.03949900000000639,
+          "exclusive_wall": 0.0025651678442955017,
+          "exclusive_cpu": 0.0025660000000158334
+        },
+        "search": {
+          "count": 1,
+          "wall": 1.5108415000140667,
+          "cpu": 1.4044979999999896,
+          "exclusive_wall": 0.0027980823069810867,
+          "exclusive_cpu": 0.0027930000000253585
+        },
+        "manifest": {
+          "count": 1,
+          "wall": 0.0011588744819164276,
+          "cpu": 0.0011580000000037671,
+          "exclusive_wall": 0.0011588744819164276,
+          "exclusive_cpu": 0.0011580000000037671
+        },
+        "preparation": {
+          "count": 1,
+          "wall": 1.5523774567991495,
+          "cpu": 1.445169000000007,
+          "exclusive_wall": 1.36643648147583e-05,
+          "exclusive_cpu": 1.4000000007285962e-05
+        }
+      },
+      "fixture_unchanged": true,
+      "fixture_unchanged_scope": "Main database bytes only; WAL/SHM lifecycle and bytes captured separately, not asserted identical.",
+      "sidecars_unchanged": true,
+      "measured_connections_closed": true
+    }
+  ],
+  "qa_scale": {
+    "reference_cold_seconds": 0.655,
+    "reference_callbacks": 445,
+    "reference_ms_per_callback": 1.4719101123595506,
+    "qa_seconds": 15.4,
+    "required_ms_per_callback_if_all_qa_were_callbacks": 34.60674157303371,
+    "required_multiple_of_reference": 23.51145038167939,
+    "unmeasured_factors": [
+      "Actual QA payload size, graph branching, callback count and input shape",
+      "OS contention, storage/cache state",
+      "Canonical validation, runtime packet assembly, provider and other runtime work"
+    ],
+    "interpretation": "Synthetic scale comparison only; no causal QA attribution."
+  },
+  "record_change": "Instrumentation and control improvement; no product optimization or score improvement claim.",
+  "summary": [
+    {
+      "payload_bytes": 29000,
+      "warm": false,
+      "callback_wall_fraction": 0.9813941884977572,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": -0.0032860437437786105,
+      "callback_wall_subtraction_seconds": [
+        0.6858705002814531,
+        0.6271917950361967,
+        0.6956746261566877
+      ],
+      "inclusive_callback_seconds": [
+        0.6855134200304747,
+        0.6668626982718706,
+        0.6383547615259886
+      ],
+      "callback_mean_ms": 1.491184179646692,
+      "exclusive_attribution_coverage": 0.9999687960200625,
+      "dominates_measured_probe": true
+    },
+    {
+      "payload_bytes": 29000,
+      "warm": true,
+      "callback_wall_fraction": 0.9521362963261293,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": 0.08713409425754937,
+      "callback_wall_subtraction_seconds": [
+        0.10690241493284702,
+        0.11408345401287079,
+        0.09620074927806854
+      ],
+      "inclusive_callback_seconds": [
+        0.1278174314647913,
+        0.10664387792348862,
+        0.11042122542858124
+      ],
+      "callback_mean_ms": 1.5748060950541605,
+      "exclusive_attribution_coverage": 0.9998002933449897,
+      "dominates_measured_probe": true
+    },
+    {
+      "payload_bytes": 1000000,
+      "warm": false,
+      "callback_wall_fraction": 0.9901454792505376,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": 0.029987830175463248,
+      "callback_wall_subtraction_seconds": [
+        1.3168911691755056,
+        1.3362565413117409,
+        1.317034499719739
+      ],
+      "inclusive_callback_seconds": [
+        1.4400584362447262,
+        1.3050751630216837,
+        1.3311770558357239
+      ],
+      "callback_mean_ms": 3.0534162210502873,
+      "exclusive_attribution_coverage": 0.9999804568151922,
+      "dominates_measured_probe": true
+    },
+    {
+      "payload_bytes": 1000000,
+      "warm": true,
+      "callback_wall_fraction": 0.974121538573722,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": 0.016594287071673985,
+      "callback_wall_subtraction_seconds": [
+        0.20882320776581764,
+        0.20937641710042953,
+        0.24487166665494442
+      ],
+      "inclusive_callback_seconds": [
+        0.22552936151623726,
+        0.21874897740781307,
+        0.22843055054545403
+      ],
+      "callback_mean_ms": 3.0717300889018464,
+      "exclusive_attribution_coverage": 0.999891342558908,
+      "dominates_measured_probe": true
+    },
+    {
+      "payload_bytes": 5000000,
+      "warm": false,
+      "callback_wall_fraction": 0.9980663043418109,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": 0.006310707786836067,
+      "callback_wall_subtraction_seconds": [
+        9.621829750016332,
+        9.415173709392548,
+        9.424010330811143
+      ],
+      "inclusive_callback_seconds": [
+        9.476734383031726,
+        9.60685526765883,
+        9.528876647353172
+      ],
+      "callback_mean_ms": 21.432559024751857,
+      "exclusive_attribution_coverage": 0.9999965596693096,
+      "dominates_measured_probe": true
+    },
+    {
+      "payload_bytes": 5000000,
+      "warm": true,
+      "callback_wall_fraction": 0.9959677685295032,
+      "meter_enabled_vs_disabled_same_hooks_wall_ratio": 0.06766360679735639,
+      "callback_wall_subtraction_seconds": [
+        1.525013292208314,
+        1.3802152052521706,
+        1.6245222110301256
+      ],
+      "inclusive_callback_seconds": [
+        1.582926407456398,
+        1.7053199745714664,
+        1.5458416678011417
+      ],
+      "callback_mean_ms": 22.07346141474432,
+      "exclusive_attribution_coverage": 0.9999794818336136,
+      "dominates_measured_probe": true
+    }
+  ],
+  "next_decision": "A bounded disposable prototype experiment is justified to test callback-cost reduction; an automatic guard fix is not justified. Capture matched actual QA inputs and unmeasured factors before causal attribution.",
+  "scale_assessment": [
+    {
+      "payload_bytes": 29000,
+      "warm": false,
+      "measured_callback_ms": 1.491184179646692,
+      "additional_ms_per_callback_to_explain_all_qa": 33.115557393387014,
+      "qa_to_measured_callback_cost_ratio": 23.20755681651151
+    },
+    {
+      "payload_bytes": 29000,
+      "warm": true,
+      "measured_callback_ms": 1.5748060950541605,
+      "additional_ms_per_callback_to_explain_all_qa": 33.03193547797955,
+      "qa_to_measured_callback_cost_ratio": 21.97523979728026
+    },
+    {
+      "payload_bytes": 1000000,
+      "warm": false,
+      "measured_callback_ms": 3.0534162210502873,
+      "additional_ms_per_callback_to_explain_all_qa": 31.55332535198342,
+      "qa_to_measured_callback_cost_ratio": 11.33377799412161
+    },
+    {
+      "payload_bytes": 1000000,
+      "warm": true,
+      "measured_callback_ms": 3.0717300889018464,
+      "additional_ms_per_callback_to_explain_all_qa": 31.535011484131864,
+      "qa_to_measured_callback_cost_ratio": 11.266205223586468
+    },
+    {
+      "payload_bytes": 5000000,
+      "warm": false,
+      "measured_callback_ms": 21.432559024751857,
+      "additional_ms_per_callback_to_explain_all_qa": 13.174182548281852,
+      "qa_to_measured_callback_cost_ratio": 1.6146808009751594
+    },
+    {
+      "payload_bytes": 5000000,
+      "warm": true,
+      "measured_callback_ms": 22.07346141474432,
+      "additional_ms_per_callback_to_explain_all_qa": 12.53328015828939,
+      "qa_to_measured_callback_cost_ratio": 1.5677985850428329
+    }
+  ]
+}
