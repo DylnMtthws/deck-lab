@@ -136,7 +136,7 @@
     {
       "id": "W01",
       "title": "Live feasibility and controlled usefulness/speed evaluation",
-      "status": "open_capture_and_case_freeze",
+      "status": "capture_validator_accepted_live_replay_preparation_open",
       "depends_on": [],
       "acceptance": [
         "Freeze case/source/model/config manifests and balanced run order before capture.",
@@ -751,20 +751,15 @@
         "model": "gpt-6.1-sol",
         "reasoning": "medium",
         "task_suffix": "research-w01-sol-implementation-20261103-r1",
-        "status": "R3_fixes_implemented_pending_R4_review",
+        "status": "accepted_offline_capture_validator_only",
         "planned_adversarial_reviewer": "Claude Code Opus 5.5 medium",
         "focused_tests_passed": 66,
         "adversarial_review_task_suffix": "research-w01-opus-adversarial-20261103-r4",
-        "review_status": "R4_running",
+        "review_status": "R4_bounded_clearance",
         "fix_task_suffix": "research-w01-sol-fixes-20261103-r3",
-        "open_findings": [
-          "Undeclared paired retry/deadline budget confound",
-          "Deadline exhaustion must close slots without extra violating retries",
-          "Timeout provenance and empty anchor consistency",
-          "Per-arm and completed-pair summaries",
-          "Known secret-shaped prefixes in error labels"
-        ],
-        "timing_review_disposition": "Transport timeout is not a hard end-to-end deadline. Preserve observed late/failure outcomes; separately report explicit overall-budget compliance."
+        "open_findings": [],
+        "timing_review_disposition": "Transport timeout is not a hard end-to-end deadline. Preserve observed late/failure outcomes; separately report explicit overall-budget compliance.",
+        "acceptance_limits": "66 focused tests; offline observation import and structural/external digest checks, not acquisition authenticity/completeness, live performance or answer quality."
       },
       {
         "work_item": "W02",
@@ -796,6 +791,7 @@
     "review_policy": "Use a fresh alternate-provider delegated task after each implementation result, retain concrete findings and regression evidence, and never count cross-model agreement as independent domain qualification.",
     "knowledge_inventory": "docs/evaluations/research-viability-20261103/knowledge-inventory.json",
     "live_execution": "No new live assistant turns or deployments yet; capture preparation precedes feasibility replay.",
-    "workspace_note": "Concurrent cost-control application edits are outside ownership and remain untouched."
+    "workspace_note": "Concurrent cost-control application edits are outside ownership and remain untouched.",
+    "next_milestone": "E001: freeze exact QA input/configuration and capture one real anchor replay through existing harness; keep failures. No benchmark improvement claim from one replay."
   }
 }
