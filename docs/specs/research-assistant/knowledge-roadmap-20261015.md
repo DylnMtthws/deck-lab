@@ -1,5 +1,7 @@
 # Research Assistant: intelligence without model training
 
+> Working-plan consolidation (2026-11-03): Current priorities, open acceptance gates and the disposition of this historical document are tracked in [deck-inference-v1.json](deck-inference-v1.json). Retain this document as historical evidence/technical reference; do not start a parallel backlog here. Historical implementation or QA claims below are not fresh deployment or quality validation.
+
 Continue the QA Build assistant in `feat/goldfish-lab-20261010`. The older
 `research-assistant` branch is a historical headless prototype, not the deployed
 sidebar. The QA release at the start of this work was `28bf601`. This document

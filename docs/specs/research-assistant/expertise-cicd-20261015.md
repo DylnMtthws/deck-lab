@@ -1,5 +1,7 @@
 # Research Assistant expertise CI/CD
 
+> Working-plan consolidation (2026-11-03): Current priorities, open acceptance gates and the disposition of this historical document are tracked in [deck-inference-v1.json](deck-inference-v1.json). Retain this document as historical evidence/technical reference; do not start a parallel backlog here. Historical implementation or QA claims below are not fresh deployment or quality validation.
+
 ## Decision
 
 Use two independent release signals: ordinary software regression checks and a

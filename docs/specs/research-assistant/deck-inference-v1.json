@@ -1,6 +1,6 @@
 {
   "schema": "deck-inference-spec.v1",
-  "status": "implemented_pending_live_quality_and_latency_evaluation",
+  "status": "core_implemented_validation_and_extension_work_open",
   "purpose": "Discover and assess conditional explanations for unfamiliar existing decks without treating extraction, graph reachability, model agreement or source coverage as proof.",
   "non_goals": [
     "Full Magic simulator",
@@ -87,5 +87,658 @@
     "The verifier is a probabilistic model exposed to complete admitted sources and bounded hypotheses; it is not independent human review.",
     "Payload overflow and model failures return explicit partial facts and gaps rather than restarting a slower pipeline.",
     "At most eight exact card bodies are displayed; display omissions are disclosed even though both model calls retain the complete admitted inventory."
-  ]
+  ],
+  "working_plan": {
+    "updated": "2026-11-03",
+    "role": "Canonical research-assistant working plan; version this file rather than create parallel roadmaps.",
+    "scope": "Unfamiliar-deck explanations, grounded recommendations, measured experiments and the evidence required to qualify them. Existing v1 inference contracts and budgets remain unchanged.",
+    "change_policy": "Historical specs and results remain evidence and technical references; new scheduling, acceptance and status changes live here. Each item closes only with its named evidence. Implementation, validation, QA release and production release are separate states.",
+    "audit_scope": "Research-assistant specs, relevant mechanics/simulator handoffs and recorded quality/latency evaluations. This is not an audit of all product/UI specs or current remote deployment state.",
+    "next_item": "W01",
+    "production_release": "Not authorized by this plan."
+  },
+  "technology_decisions": {
+    "graph_retrieval": {
+      "current": "Source-bound mechanical facts and indexed conditional connection search, plus existing hybrid retrieval; Microsoft GraphRAG is not integrated.",
+      "decision": "Preserve mechanical graph semantics. Experiment with graph-assisted retrieval over permissioned strategy material only when corpus coverage warrants it. No automatic choice of GraphRAG or graph database.",
+      "evaluate_in": "W06",
+      "gate": "Recover relevant strategic evidence and missing plans without degrading exceptions, source fidelity, latency or cost; measure offline indexing separately."
+    },
+    "orchestration": {
+      "current": "Custom runtime and typed tools with existing fencing, budgets and accounting.",
+      "decision": "Retain current workflow during quality evaluation; assess a small LangGraph migration separately if persistence, replay and maintenance benefits justify it. No blanket rewrite or automatic agent loop.",
+      "evaluate_in": "W08",
+      "gate": "Equivalent requests and authority gates; fault-injection recovery, duplicate paid dispatch, trace completeness, overhead and maintenance complexity."
+    },
+    "governance": {
+      "current": "Source/version/hash/span checks, explicit unknowns, conflict guards and signed knowledge review tooling. Semantic extraction quality and expert corpus coverage remain unqualified.",
+      "decision": "Use existing import/audit/evaluation machinery; add mechanic-stratified extraction registry and source lineage before adopting a heavyweight metadata platform.",
+      "evaluate_in": [
+        "W02",
+        "W03"
+      ],
+      "gate": "Measure precision AND coverage, including actor, scope, quantity, zone, restrictions and invalidation."
+    },
+    "precomputation": {
+      "current": "Eligibility, lexical/semantic recall, heuristic ranking, deduplication, bounded compilation cache and indexed joins exist.",
+      "decision": "Expand offline versioned reusable features and indexes only with invariant candidate/evidence coverage. Do not promote heuristic scores to truth or prune using an unvalidated learned ranker.",
+      "evaluate_in": "W05",
+      "gate": "Identical eligible identities, tie behavior and source scope; cold/warm speed, memory, refresh and invalidation correctness."
+    },
+    "simulator_tools": {
+      "current": "Simulation and swap experiment tools already exist; start_experiment is Automate-gated. The bounded inference lane does not invoke them automatically.",
+      "decision": "Reuse existing services through explicit empirical-question routing after checking metric/mechanic coverage. Keep immutable snapshots, original deck unchanged, existing mode/owner/revision/constraint gates, and bounded work.",
+      "evaluate_in": "W04",
+      "gate": "Measure real service end-to-end latency and paired-seed outcomes; record unsupported mechanics and comparable metrics. No multiplayer win-rate or overall-strength claim from solo proxies."
+    }
+  },
+  "work_items": [
+    {
+      "id": "W01",
+      "title": "Live feasibility and controlled usefulness/speed evaluation",
+      "status": "open_capture_and_case_freeze",
+      "depends_on": [],
+      "acceptance": [
+        "Freeze case/source/model/config manifests and balanced run order before capture.",
+        "Run one fully captured QA anchor feasibility replay first; retain failures, all attempts, output and cost.",
+        "Pilot repeated baseline/candidate cases including unseen mechanisms; blind rubric and independently authored evidence before any confirmatory quality claim.",
+        "Report useful-answer latency, total latency, delivery rate, topic coverage, severe errors, cost per useful answer and uncertainty."
+      ],
+      "reuse": [
+        "scripts/benchmark_deck_inference.py",
+        "scripts/evaluate_assistant_expertise.py",
+        "scripts/strategy_review_tools.py",
+        "docs/evaluations/deck-inference-v1-20261021/development-results.json"
+      ],
+      "limits": "Existing regressions and saved stochastic samples do not establish live improvement. Reuse old qualification CLI and trust-root policy; do not create another evaluator without identifying an unmet contract."
+    },
+    {
+      "id": "W02",
+      "title": "Extraction quality and dependency governance",
+      "status": "bounded_implementation_open_validation",
+      "depends_on": [],
+      "acceptance": [
+        "Version registry of supported/unsupported mechanics with source-backed positive/negative examples.",
+        "Measure extraction precision and represented-clause coverage by scope, actor, recipient, quantity, timing, costs and restrictions.",
+        "Conflicting/changed sources invalidate dependent interpretations while preserving independent facts."
+      ],
+      "reuse": [
+        "src/sabermetrics/assistant_inference_facts.py",
+        "src/sabermetrics/assistant_inference_search.py",
+        "docs/specs/research-assistant/grounded-rag-contract-20261017.md"
+      ],
+      "limits": "Hashes and typed outputs establish binding, not entailment; unknown clauses remain available to discovery."
+    },
+    {
+      "id": "W03",
+      "title": "Permissioned expert corpus and independent benchmarks",
+      "status": "tooling_present_external_inputs_missing",
+      "depends_on": [],
+      "acceptance": [
+        "Inventory actual active sources, versions, permissions, embeddings and review classifications.",
+        "Import permissioned strategic material through existing signed review/audit workflow; authenticate expertise scopes and independence.",
+        "Obtain separately authored unseen cases, blinded domain assessments and target-user usefulness judgments."
+      ],
+      "reuse": [
+        "src/sabermetrics/strategy_review_workflow.py",
+        "src/sabermetrics/strategy_development_evaluation.py",
+        "docs/specs/research-assistant/expertise-cicd-20261015.md"
+      ],
+      "limits": "Last recorded expert-source count was zero; current live inventory must be refreshed. AI-authored development cases are not independent expert evidence. No external outreach authorized here."
+    },
+    {
+      "id": "W04",
+      "title": "Coverage-qualified simulation and swap measurement",
+      "status": "tools_present_inference_routing_open",
+      "depends_on": [
+        "W02"
+      ],
+      "acceptance": [
+        "Inventory current native capability and report versions; distinguish supported, partial, unsupported and inactive by metric dependency.",
+        "Benchmark actual API/service runtime including queue, export, trials and persistence; separate warm/cold and failures.",
+        "Route empirical questions to existing bounded simulation/experiment tools with immutable baseline and identical settings, paired seeds and unused-seed validation.",
+        "Preserve action authority and original-deck identity; unsupported effects yield inconclusive metrics, not measured upgrades."
+      ],
+      "reuse": [
+        "src/sabermetrics/assistant_tools.py",
+        "src/sabermetrics/assistant_experiments.py",
+        "docs/specs/research-assistant/mechanics-intelligence-20261014.json",
+        "docs/specs/research-assistant/rules-engine-evaluation-20261014.json",
+        "docs/specs/goldfish-diagnostics/implementation.md"
+      ],
+      "limits": "Old native CLI timings and partial Forge fixtures do not establish full swap-service speed or multiplayer validity. Arbitrary-state differential replay remains open; a general rules engine is not a prerequisite for every useful metric."
+    },
+    {
+      "id": "W05",
+      "title": "Versioned offline features, indexes and safe deduplication",
+      "status": "partially_implemented_extension_open",
+      "depends_on": [
+        "W02",
+        "W01"
+      ],
+      "acceptance": [
+        "Establish before/after identical candidate IDs/order/source facts and omission accounting.",
+        "Cache by full source/parser/index/settings versions with bounded storage and explicit refresh; no durable strategic-verdict reuse by paraphrase.",
+        "Measure cold/warm preparation, inference payload/tokens, total runtime and resource consumption; disclose cost moved offline."
+      ],
+      "reuse": [
+        "src/sabermetrics/assistant_functional_search.py",
+        "src/sabermetrics/assistant_deck_inference.py"
+      ],
+      "limits": "No ANN or scalar pruning without candidate-recall evidence; provenance-aware dedupe must retain distinct sources and conflicting versions."
+    },
+    {
+      "id": "W06",
+      "title": "Retrieval alternatives and strategic context",
+      "status": "experiment_not_implemented",
+      "depends_on": [
+        "W01",
+        "W03"
+      ],
+      "acceptance": [
+        "Compare current exact/lexical/vector retrieval with graph-assisted local strategic retrieval on frozen independent questions.",
+        "Measure required-evidence recall, missing-plan recovery, counterevidence, false connections, indexing cost and online latency.",
+        "Preserve complete parent context and rules exceptions; grounded facts remain distinct from source opinions and associations."
+      ],
+      "reuse": [
+        "docs/specs/research-assistant/rag-roadmap-20261017.md",
+        "docs/specs/research-assistant/knowledge-roadmap-20261015.md"
+      ],
+      "limits": "GraphRAG global/community summaries, HyDE and hierarchical guide retrieval remain deferred until a suitable corpus and demonstrated need exist."
+    },
+    {
+      "id": "W07",
+      "title": "Strategic recommendations, explanation preservation and coherent alternatives",
+      "status": "bounded_fixes_present_quality_open",
+      "depends_on": [
+        "W01",
+        "W02",
+        "W03"
+      ],
+      "acceptance": [
+        "Preserve supported contribution/drawback while withdrawing only unsupported scope; exact fallback cannot fabricate synergy.",
+        "Evaluate cross-resource tradeoffs, source versus bonus mana restrictions/riders, commander prerequisites and finite renewal.",
+        "Assess full candidate packages, lost roles, meaningful alternative diversity and cut quality against task-specific labels."
+      ],
+      "reuse": [
+        "docs/evaluations/research-quality-next-20261021/implementation.json",
+        "src/sabermetrics/assistant_mana_evidence.py",
+        "src/sabermetrics/assistant_review_followthrough.py"
+      ],
+      "limits": "Current tests do not close observed recommendation-quality gaps. State uncertainty; neither popularity nor user adoption establishes strength."
+    },
+    {
+      "id": "W08",
+      "title": "Orchestration migration decision",
+      "status": "deferred_until_specific_bottleneck",
+      "depends_on": [
+        "W01"
+      ],
+      "acceptance": [
+        "Identify an observed recovery/trace/maintenance gap first.",
+        "If justified, migrate one isolated workflow and compare fault recovery, state replay, duplicate side effects/charges, observability and overhead.",
+        "Retain all owner, mode, revision, cancellation and cost gates."
+      ],
+      "reuse": [
+        "src/sabermetrics/assistant_runtime.py"
+      ],
+      "limits": "LangChain/LangGraph are options, not commitments; model/retrieval intelligence and orchestration reliability are separate outcomes."
+    },
+    {
+      "id": "W09",
+      "title": "Freshness-aware knowledge and experiment memory",
+      "status": "bounded_tools_present_broader_reuse_deferred",
+      "depends_on": [
+        "W01",
+        "W02"
+      ],
+      "acceptance": [
+        "Reuse only identity/settings/source-matched experiment observations; invalidate changed decks and unknown coverage.",
+        "Separate preferences, adopted choices, failed hypotheses and source-backed facts.",
+        "Evaluate temporal association stability and cohort denominators before allowing those signals to influence strategic conclusions."
+      ],
+      "reuse": [
+        "docs/specs/research-assistant/knowledge-roadmap-20261015.md",
+        "docs/specs/research-assistant/knowledge-execution-20261014.md"
+      ],
+      "limits": "Do not persist model agreement as strategic truth; no cross-request semantic cache is added to the existing v1 lane."
+    }
+  ],
+  "legacy_spec_audit": {
+    "date": "2026-11-03",
+    "interpretation": "Recorded historical results are not rerun or remote-release verification. Partially implemented does not mean empirically qualified.",
+    "items": [
+      {
+        "source": "sidebar-20261013.md",
+        "disposition": "Historical UI/tool/authority reference; no new competing backlog.",
+        "carry_forward": [
+          "W04",
+          "W08"
+        ],
+        "open": "Revalidate current simulation/tool latency and routing; historical budgets are not current inference settings."
+      },
+      {
+        "source": "strategy-intelligence-20261014.md",
+        "disposition": "Historical bounded implementation, later superseded in parts; keep original evidence.",
+        "carry_forward": [
+          "W06",
+          "W07"
+        ],
+        "open": "Broader commander fit, coherent packages and independently judged strategic quality."
+      },
+      {
+        "source": "knowledge-execution-20261014.md",
+        "disposition": "Retained technical architecture/import/authority contracts.",
+        "carry_forward": [
+          "W02",
+          "W03",
+          "W04",
+          "W09"
+        ],
+        "open": "Source expansion, independent evaluation and coverage-qualified execution; no automatic new production imports."
+      },
+      {
+        "source": "mechanics-intelligence-20261014.json",
+        "disposition": "Bounded implementation results, not full mechanics completion; old QA-release-pending state requires current receipt check.",
+        "carry_forward": [
+          "W04"
+        ],
+        "open": "Unmodeled stack/combat/replacement/multiplier mechanics, broader combo corpus and arbitrary-state differential replay; prioritize only dependencies needed for measured tasks."
+      },
+      {
+        "source": "rules-engine-evaluation-20261014.json",
+        "disposition": "Historical fixture benchmark preserved, not proof of whole-engine equivalence.",
+        "carry_forward": [
+          "W02",
+          "W04"
+        ],
+        "open": "Expand independently derived scenarios and runtime comparisons where conclusions depend on them."
+      },
+      {
+        "source": "knowledge-roadmap-20261015.md",
+        "disposition": "Scheduling consolidated here; original architecture retained as reference.",
+        "carry_forward": [
+          "W02",
+          "W03",
+          "W05",
+          "W06",
+          "W07",
+          "W09"
+        ],
+        "open": "Corpus expansion, retrieval plans, graph semantics, recommendation packets and freshness-aware memory remain partially implemented or unvalidated."
+      },
+      {
+        "source": "expertise-cicd-20261015.md",
+        "disposition": "Reuse existing collector/blinding/qualification tooling; do not replace with a new evaluator.",
+        "carry_forward": [
+          "W01",
+          "W03"
+        ],
+        "open": "Real independent reviewers, ratified policy and observed qualification results; empty registries intentionally block qualification."
+      },
+      {
+        "source": "rag-roadmap-20261017.md",
+        "disposition": "All 24 options explicitly mapped below; selected items were not blanket completion claims.",
+        "carry_forward": [
+          "W02",
+          "W03",
+          "W04",
+          "W05",
+          "W06",
+          "W07",
+          "W09"
+        ],
+        "open": "Advanced retrieval proposals remain optional experiments, not twenty new implementation commitments."
+      },
+      {
+        "source": "grounded-rag-contract-20261017.md",
+        "disposition": "Retained interface/grounding reference; historical agent assignments are not current ownership.",
+        "carry_forward": [
+          "W02",
+          "W06",
+          "W07"
+        ],
+        "open": "Preserve current full-source delivery and evidence binding while testing broader retrieval."
+      },
+      {
+        "source": "grounded-rag-review-20261017.json",
+        "disposition": "Immutable historical engineering review; not independent MTG qualification.",
+        "carry_forward": [
+          "W01",
+          "W07"
+        ],
+        "open": "Global package search and functional quality remain distinct from fixed transport/delivery regressions."
+      }
+    ],
+    "rag_option_mapping": [
+      {
+        "original_option": 1,
+        "work_items": [
+          "W01",
+          "W02"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 2,
+        "work_items": [
+          "W02",
+          "W04"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 3,
+        "work_items": [
+          "W02",
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 4,
+        "work_items": [
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 5,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 6,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 7,
+        "work_items": [
+          "W02"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 8,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 9,
+        "work_items": [
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 10,
+        "work_items": [
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 11,
+        "work_items": [
+          "W03"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 12,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 13,
+        "work_items": [
+          "W09"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 14,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 15,
+        "work_items": [
+          "W02",
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 16,
+        "work_items": [
+          "W02",
+          "W06"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 17,
+        "work_items": [
+          "W04",
+          "W09"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 18,
+        "work_items": [
+          "W09"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 19,
+        "work_items": [
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 20,
+        "work_items": [
+          "W07"
+        ],
+        "disposition": "covered_by_work_item_not_claimed_complete"
+      },
+      {
+        "original_option": 21,
+        "work_items": [
+          "W05",
+          "W06"
+        ],
+        "disposition": "deferred_experiment"
+      },
+      {
+        "original_option": 22,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "deferred_experiment"
+      },
+      {
+        "original_option": 23,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "deferred_experiment"
+      },
+      {
+        "original_option": 24,
+        "work_items": [
+          "W06"
+        ],
+        "disposition": "deferred_experiment"
+      }
+    ]
+  },
+  "measurement_protocol": {
+    "schema": "research-viability-protocol.v1",
+    "status": "draft_before_case_freeze_canonical_in_this_spec",
+    "date": "2026-11-03",
+    "question": "Does computational augmentation help a cheap model explain unfamiliar decks usefully, correctly and quickly?",
+    "claim_boundary": "Evidence for defined tasks, decks, snapshots and provider settings; neither test success nor model agreement proves general intelligence or recommendation quality.",
+    "arms": {
+      "baseline": {
+        "commit": "530c9a82682998373b776192148a4545c14a34dd",
+        "description": "Previous whole-deck explanation architecture"
+      },
+      "candidate": {
+        "commit": "12af094c1a5adeeb2a90949b3a00f530b75f82f0",
+        "description": "Bounded source-first inference plus computational connections"
+      },
+      "conditional_ablation": {
+        "status": "not_implemented",
+        "description": "Same candidate pipeline and budgets without computational hypotheses. Run only after basic candidate feasibility passes; distinguishes architectural benefit from prompting/budget changes."
+      }
+    },
+    "hypotheses": [
+      {
+        "id": "H1",
+        "claim": "Candidate retains or improves useful correct explanations.",
+        "primary": "Expert-scored requested-topic coverage, conditional correctness and severe errors; report omissions separately."
+      },
+      {
+        "id": "H2",
+        "claim": "Candidate reduces time to a useful answer.",
+        "primary": "Paired end-to-end time to a substantive correct explanation; failures remain in denominator."
+      },
+      {
+        "id": "H3",
+        "claim": "Benefit transfers beyond familiar examples.",
+        "primary": "Performance on separately authored decks and mechanisms excluded from implementation tuning."
+      }
+    ],
+    "case_design": {
+      "development_anchor_decks": [
+        "GlintRog discard/resource renewal",
+        "Kinnan restricted versus additional mana",
+        "Marchesa recursion prerequisites"
+      ],
+      "pilot": "Six frozen cases: three anchors plus three contrasting independently authored cases; three paired repetitions each (36 attempted turns). If independent cases unavailable, run anchors as development diagnostics only.",
+      "contrasts": [
+        "finite resource chain versus superficially cyclic chain",
+        "source restriction versus separately generated resource",
+        "trigger multiplicity and recipient",
+        "return to battlefield versus cast",
+        "unsupported/level/granted scope",
+        "missing key source or contradictory evidence"
+      ],
+      "case_record": [
+        "case_id",
+        "exact prompt",
+        "deck inventory/quantities/roles",
+        "source snapshot hashes",
+        "required useful explanation topics",
+        "acceptable alternative plans",
+        "critical forbidden conclusions",
+        "evidence spans",
+        "author/reviewer identity and independence"
+      ],
+      "freeze": "Hash case manifests, labels, arm configurations and run schedule before first call. Protect evaluation labels from generation. Existing heldout labels are not opened for protocol drafting.",
+      "unit": "Deck/case is the generalization unit. Repeats estimate within-case variation; they are not independent decks."
+    },
+    "execution": {
+      "environment": "QA disposable clones only; no original deck/chat changes or production deployment.",
+      "controls": [
+        "Same frozen card/rules/deck snapshots, task, provider model identity and account region where observable.",
+        "Record full effective inference settings; existing arms have different time/output budgets, so primary comparison is systems-level, not causal attribution to graph search.",
+        "Seed and freeze balanced AB/BA ordering across pairs; serialize paid turns to avoid self-induced contention.",
+        "Cold and warm preparation reported separately; use identical cache policy across arms.",
+        "Store every attempt and its slot, failures, retry count and sanitized error class; no replacement of failures with successful reruns.",
+        "Record deploy SHA, snapshot and configuration before each run; mismatches invalidate the run without erasing its operational cost."
+      ],
+      "pilot_cost_cap_usd": 1.0,
+      "cap_note": "Local safety cap for an eventual pilot; not permission to contact reviewers or deploy production. Check spend between turns, stop on cap or critical safety failure, disclose incomplete schedule.",
+      "prerequisites": [
+        "Verified QA build and cleanup workflow",
+        "Frozen exact case inventory and source snapshot",
+        "Run ledger and blinded answer export",
+        "Nonsecret effective provider configuration",
+        "Independent labels for any confirmatory quality claim"
+      ]
+    },
+    "measurements": {
+      "run_fields": [
+        "run_id",
+        "pair_id",
+        "case_id",
+        "arm",
+        "sequence_position",
+        "build_sha",
+        "protocol_hash",
+        "case_manifest_hash",
+        "source_snapshot_hash",
+        "effective_model_settings",
+        "cache_state",
+        "started_at",
+        "first_source_seconds",
+        "first_substantive_explanation_seconds",
+        "finished_seconds",
+        "terminal_status",
+        "stage_times",
+        "all_attempts_and_retries",
+        "input_output_reasoning_tokens",
+        "configured_cost_usd",
+        "answer_hash",
+        "evidence_receipt_hash",
+        "cleanup_status"
+      ],
+      "useful_latency": "Captured publication timestamp of earliest displayed fragment later judged correct and responsive. A quotation/source card alone does not qualify. If no qualifying fragment exists, record not_achieved; never zero or a fabricated completion time.",
+      "quality_dimensions": [
+        "main plan discovery",
+        "causal chain correctness",
+        "full costs/output/restrictions",
+        "renewal and finite stopping conditions",
+        "useful contributions and drawbacks",
+        "resource comparisons and deck fit",
+        "uncertainty calibration",
+        "requested-topic coverage",
+        "preservation of supported information"
+      ],
+      "rating": "0 absent/wrong, 1 materially incomplete, 2 useful with minor gaps, 3 complete and correct for the task. Separate severe mechanical errors from strategic disagreement.",
+      "judging": "Two blinded domain reviewers independently score final answers and retained fragments against complete sources, before seeing arm or timings. Log disagreement and adjudication. Adversarial AI review is diagnostic, never relabeled expert-human judgment.",
+      "user_value": "Separate blinded target-user assessment: would this explanation change understanding or a deck decision, and which statements provide that value? Expertise and user usefulness are separate measures."
+    },
+    "decision_gates": {
+      "status": "Proposed engineering targets; freeze before execution, not empirically established thresholds.",
+      "correctness": "Any new severe rules/resource error blocks promotion and becomes a development regression. Preserve strategic disagreement separately.",
+      "usefulness": "At least 80% of requested topics earn >=2/3, with no case silently losing an essential contribution. Pilot descriptive only; confirmatory noninferiority margin proposed at 5 percentage points in topic success, with sample size set before fresh cases.",
+      "speed": "Target >=20% lower paired median total latency, and time to first useful explanation <=60s on >=90% of attempted turns. Report both relative and absolute performance; the workflow deadline is not an end-to-end measurement.",
+      "reliability": "Target >=95% useful-answer delivery; report all attempted turns, unfinished responses, timeouts and cleanup failures. Pilot is too small to establish a tight reliability bound.",
+      "cost": "Report configured cost per attempt AND per useful answer; lower cost on failed answers is not a benefit.",
+      "confirmation": "After pilot, preregister a new independently authored sample and sample size using pilot variance, deck clustering, chosen margins and power. Report uncertainty intervals; p95/p99 from a small pilot are descriptive and unstable.",
+      "promotion": "All gates must pass on appropriate evidence. If confidence intervals cannot exclude meaningful degradation, result is inconclusive. Production requires its separate existing approval."
+    },
+    "working_method": [
+      "Before changes: state one falsifiable hypothesis, baseline, expected mechanism, metric and stopping rule.",
+      "Freeze experiment before observing outputs. Change one component where practical; otherwise describe comparison as systems-level.",
+      "After run: report observation, uncertainty, counterexamples and decision: retain, reject, investigate or insufficient evidence.",
+      "Fix on development cases only; create or reserve fresh confirmation cases before rerunning. Preserve failed builds and attempts.",
+      "No quality improvement claim from green tests, isolated anecdotes, aggregate score hiding subgroup loss, or a faster partial answer."
+    ],
+    "next_experiment": {
+      "id": "E001",
+      "status": "blocked_on_frozen_case_and_capture_preparation",
+      "goal": "Check candidate live feasibility and retain every failure before broader comparative evaluation.",
+      "first_step": "Prepare one frozen anchor replay with full attempt capture; do not treat it as independent recommendation-quality evidence."
+    },
+    "location_note": "Moved from draft evaluation protocol; case/run results stay under docs/evaluations. No observations or thresholds were changed by consolidation."
+  }
 }

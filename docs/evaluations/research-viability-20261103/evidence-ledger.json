@@ -1,0 +1,28 @@
+{
+  "schema": "research-evidence-ledger.v1",
+  "live_runs": [],
+  "claims": [
+    {
+      "claim": "Implementation boundary checks pass",
+      "evidence": "../deck-inference-v1-20261021/development-results.json",
+      "status": "bounded_offline_support"
+    },
+    {
+      "claim": "New architecture is faster live",
+      "status": "not_measured"
+    },
+    {
+      "claim": "New architecture improves recommendation quality",
+      "status": "not_measured"
+    },
+    {
+      "claim": "Feature provides independent domain value",
+      "status": "not_validated"
+    }
+  ],
+  "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
+  "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
+  "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
+  "canonical_spec_sha256": "ee8ecbe4958a5b8c08306ce8f56be0a3f985cb292b7876ebaf6d102f2d5f1485",
+  "protocol_section": "measurement_protocol"
+}
