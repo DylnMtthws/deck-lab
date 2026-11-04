@@ -447,6 +447,14 @@ class Authority:
 _context = contextvars.ContextVar("ai_budget_turn", default=None)
 
 
+def bounded_output_tokens(requested):
+    """Apply the shared output limit to the actual outbound provider request."""
+    if type(requested) is not int or requested <= 0:
+        raise BudgetDenied("model/token limit")
+    context = _context.get()
+    return min(requested, context[0].config.output_tokens) if context else requested
+
+
 def consume_tool_iteration():
     """Meter actual tool execution, including nested runtime-owned work."""
     context = _context.get()

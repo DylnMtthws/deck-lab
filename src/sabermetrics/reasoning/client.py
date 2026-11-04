@@ -277,6 +277,10 @@ class AnthropicClient:
         if credential_name("anthropic", "ANTHROPIC_API_KEY") != self._credential_name:
             raise BudgetDenied("client credential environment mismatch")
 
+        from sabermetrics.ai_cost_control import bounded_output_tokens
+
+        max_tokens = bounded_output_tokens(max_tokens)
+
         # Retry with exponential backoff
         last_error = None
         for attempt in range(3):

@@ -362,6 +362,9 @@ class DeepSeekGateway:
 
     def _post(self, payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """POST with bounded backoff. Returns the body and the retry count."""
+        from sabermetrics.ai_cost_control import bounded_output_tokens
+
+        payload = dict(payload, max_tokens=bounded_output_tokens(payload["max_tokens"]))
         model = self._settings.model
         if credential_name("deepseek", model.credential_env) != self._credential_name:
             raise BudgetDenied("client credential environment mismatch")

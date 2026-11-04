@@ -110,3 +110,40 @@ def test_anthropic_negative_cache_metadata_refunds(tmp_path):
     assert attempt["bound"] > 0
     assert attempt["charge"] == attempt["bound"]
     assert not attempt["settled"]
+
+
+def test_provider_caps_actual_output_before_reservation(tmp_path):
+    import json
+
+    a = authority(tmp_path)
+    tid = a.begin_turn("main", "u", "output-cap", "owner")
+    sent = []
+    gateway = object.__new__(DeepSeekGateway)
+    gateway._model_id = "model"
+    gateway._credential_name = "MAIN_REVIEW_KEY"
+    gateway._settings = SimpleNamespace(
+        model=SimpleNamespace(
+            credential_env="HF_TOKEN", max_retries=0, timeout_seconds=60
+        )
+    )
+
+    def transport(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"usage": {"prompt_tokens": 100, "completion_tokens": 5}}
+        )
+
+    with httpx.Client(
+        base_url="https://example.invalid", transport=httpx.MockTransport(transport)
+    ) as client:
+        gateway._client = client
+        payload = {"model": "model", "messages": [], "max_tokens": 2048}
+        with bind_turn(a, tid, "owner"):
+            gateway._post(payload)
+    assert sent[0]["max_tokens"] == 2000
+    assert payload["max_tokens"] == 2048
+    attempt = next(iter(a.status()["attempts"].values()))
+    assert attempt["charge"] == 105
+    assert (
+        attempt["bound"] == len(json.dumps(sent[0], ensure_ascii=False).encode()) + 2000
+    )
