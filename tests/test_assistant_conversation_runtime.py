@@ -1151,3 +1151,83 @@ def test_cancellation_during_nonanswer_check_prevents_answer_repair(prepared):
     )
     assert result["status"] == "stopped"
     assert len(gateway.requests) == 1
+
+
+def test_output_exhaustion_regenerates_once_without_reasoning(prepared):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+    from sabermetrics.cedh.model_gateway import ReasoningMode
+
+    service, path, owner, deck, document, _ = prepared
+    gateway = Gateway(
+        [
+            ModelOutputLimitError("private truncated output"),
+            step(content="The supplied evidence does not establish a verified combo."),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find the main combo."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 2
+    assert gateway.requests[1].mode is ReasoningMode.CLASSIFY
+    assert gateway.requests[1].max_output_tokens == 2048
+    assert any(a.get("name") == "output_limit_recovery" for a in result["actions"])
+    assert "private truncated output" not in gateway.requests[1].system
+    from sabermetrics.deck_documents import DeckDocumentRepo
+
+    assert DeckDocumentRepo(path).get(owner, deck) == document
+
+
+@pytest.mark.parametrize("request_planner", [False, True])
+def test_repeated_output_exhaustion_stops_with_specific_message(
+    prepared, request_planner
+):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+
+    service, path, owner, deck, _, _ = prepared
+    gateway = Gateway([ModelOutputLimitError("first"), ModelOutputLimitError("second")])
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find the main combo."}],
+        gateway=gateway,
+        experiment_service=service,
+        request_planner=request_planner,
+        schema_repair=True,
+    )
+    assert len(gateway.requests) == 2
+    assert result["status"] == "provider_error"
+    assert result["reason"] == "output_limit_reached"
+    assert "output limit" in result["content"]
+
+
+def test_cancellation_prevents_output_recovery_call(prepared):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+
+    service, path, owner, deck, _, _ = prepared
+    gateway = Gateway([ModelOutputLimitError("exhausted")])
+    cancelled = False
+
+    def event(value):
+        nonlocal cancelled
+        if value.get("name") == "output_limit_recovery":
+            cancelled = True
+
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find the main combo."}],
+        gateway=gateway,
+        experiment_service=service,
+        on_event=event,
+        should_stop=lambda: cancelled,
+    )
+    assert len(gateway.requests) == 1
+    assert result["status"] == "stopped"

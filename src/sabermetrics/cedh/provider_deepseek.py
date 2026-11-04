@@ -40,6 +40,7 @@ from sabermetrics.cedh.cost_ledger import (
 )
 from sabermetrics.cedh.errors import (
     ModelConfigurationError,
+    ModelOutputLimitError,
     ModelProviderError,
     ModelValidationError,
 )
@@ -252,6 +253,7 @@ class DeepSeekGateway:
         started = time.monotonic()
         request_id = ""
         last_error = ""
+        output_exhausted = False
 
         received_response = False
         record = None
@@ -287,6 +289,12 @@ class DeepSeekGateway:
                 try:
                     value = request.schema.model_validate_json(_strip_fences(content))
                 except (ValidationError, ValueError) as exc:
+                    choice = (response.get("choices") or [{}])[0]
+                    output_exhausted = choice.get("finish_reason") == "length" or (
+                        completion > 0
+                        and reasoning == completion
+                        and not content.strip()
+                    )
                     totals["validation_failures"] += 1
                     last_error = str(exc)
                     logger.warning(
@@ -318,7 +326,10 @@ class DeepSeekGateway:
                 record = self._usage(request, totals, started, request_id)
                 return GenerationResult(value=value, usage=record)
 
-            raise ModelValidationError(
+            error_type = (
+                ModelOutputLimitError if output_exhausted else ModelValidationError
+            )
+            raise error_type(
                 f"{request.call_type}: response never validated against "
                 f"{request.schema.__name__} after "
                 f"{totals['validation_failures']} attempt(s). Last error: "

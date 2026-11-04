@@ -23,6 +23,10 @@ class ModelValidationError(CedhError, FatalError):
     """
 
 
+class ModelOutputLimitError(ModelValidationError):
+    """Generation exhausted its output budget before producing valid JSON."""
+
+
 class ModelConfigurationError(CedhError, FatalError):
     """The model gateway is misconfigured (missing credential, unpinned model)."""
 

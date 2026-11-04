@@ -86,6 +86,7 @@ from sabermetrics.assistant_tools import (
 )
 from sabermetrics.cedh.errors import (
     ModelConfigurationError,
+    ModelOutputLimitError,
     ModelProviderError,
     ModelValidationError,
 )
@@ -2424,6 +2425,8 @@ def run_turn(
         model_observations: list[dict[str, Any]] = []
         discovery_repair_attempted = False
         schema_repair_attempted = False
+        output_recovery_attempted = False
+        output_recovery_pending = False
         planner_repair_attempted = False
         planner_retry_pending = False
         planned_lists_executed = False
@@ -2676,6 +2679,13 @@ def run_turn(
                         deck_id=deck_id,
                     )
                 request_gateway = bounded_gateway(owned_concise_gateway)
+            recovering_output = output_recovery_pending
+            output_recovery_pending = False
+            if recovering_output:
+                # The classifier profile disables internal reasoning. Regenerate
+                # complete JSON from the same evidence, never a truncated fragment.
+                output_budget = 2048
+                system += "\nReturn concise complete JSON immediately. Omit optional elaboration."
             request = StructuredRequest(
                 prompt_version=(
                     "assistant-selection.v8" if selecting else PROMPT_VERSION
@@ -2696,7 +2706,9 @@ def run_turn(
                     )
                 ),
                 mode=(
-                    ReasoningMode.CLASSIFY if narrow_planning else ReasoningMode.EXPLAIN
+                    ReasoningMode.CLASSIFY
+                    if narrow_planning or recovering_output
+                    else ReasoningMode.EXPLAIN
                 ),
                 call_type="build:assistant",
                 max_output_tokens=output_budget,
@@ -2808,15 +2820,39 @@ def run_turn(
                             else type(exc).__name__
                         ),
                         "outcome": (
-                            "schema_invalid"
-                            if isinstance(exc, ModelValidationError)
-                            else "provider_failed"
+                            "output_limit"
+                            if isinstance(exc, ModelOutputLimitError)
+                            else (
+                                "schema_invalid"
+                                if isinstance(exc, ModelValidationError)
+                                else "provider_failed"
+                            )
                         ),
                     }
                 )
                 if (
+                    isinstance(exc, ModelOutputLimitError)
+                    and not output_recovery_attempted
+                    and not final_call
+                    and MAX_TURN_SECONDS - (time.monotonic() - started) >= 30
+                ):
+                    tools.check()
+                    output_recovery_attempted = True
+                    output_recovery_pending = True
+                    planner_retry_pending = narrow_planning
+                    emit(
+                        {
+                            "type": "model_retry",
+                            "name": "output_limit_recovery",
+                            "revision": result["revision"],
+                            "message": "The response reached its length limit. Trying a shorter response.",
+                        }
+                    )
+                    continue
+                if (
                     narrow_planning
                     and isinstance(exc, ModelValidationError)
+                    and not isinstance(exc, ModelOutputLimitError)
                     and use_schema_repair
                     and not planner_repair_attempted
                     and MAX_MODEL_CALLS - step_index >= 4
@@ -2837,6 +2873,7 @@ def run_turn(
                 if (
                     selecting
                     and isinstance(exc, ModelValidationError)
+                    and not isinstance(exc, ModelOutputLimitError)
                     and not selection_repair_attempted
                     and not final_call
                 ):
@@ -2853,6 +2890,7 @@ def run_turn(
                     continue
                 if (
                     isinstance(exc, ModelValidationError)
+                    and not isinstance(exc, ModelOutputLimitError)
                     and not selecting
                     and use_schema_repair
                     and answer_only
@@ -2887,21 +2925,29 @@ def run_turn(
                 result.update(
                     status="incomplete" if answer_repair_pending else "provider_error",
                     reason=(
-                        "planning_schema_invalid"
-                        if narrow_planning
+                        "output_limit_reached"
+                        if isinstance(exc, ModelOutputLimitError)
                         else (
-                            "answer_repair_invalid"
-                            if answer_repair_pending
-                            else "answer_schema_invalid"
+                            "planning_schema_invalid"
+                            if narrow_planning
+                            else (
+                                "answer_repair_invalid"
+                                if answer_repair_pending
+                                else "answer_schema_invalid"
+                            )
                         )
                     ),
                     content=_evidence_fallback(
                         state,
                         tools.experiments_started,
                         headline=(
-                            "The request plan could not be validated; deck research has not begun. The printed deck context below is not a completed analysis."
-                            if narrow_planning
-                            else "The model did not return a valid answer. These confirmed sources remain available; the requested analysis is incomplete."
+                            "The model reached its output limit before completing an answer. The requested analysis is incomplete."
+                            if isinstance(exc, ModelOutputLimitError)
+                            else (
+                                "The request plan could not be validated; deck research has not begun. The printed deck context below is not a completed analysis."
+                                if narrow_planning
+                                else "The model did not return a valid answer. These confirmed sources remain available; the requested analysis is incomplete."
+                            )
                         ),
                     ),
                 )

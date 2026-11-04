@@ -545,3 +545,28 @@ def test_wire_schema_preserves_literal_properties_defaults_and_other_constraints
     del expected["anyOf"][0]["propertyNames"]
     assert _deepinfra_wire_schema(schema) == expected
     assert schema["properties"]["mapping"]["propertyNames"] == {"maxLength": 5}
+
+
+@pytest.mark.parametrize("finish_reason", ["length", "stop"])
+def test_reasoning_exhaustion_is_distinguished_from_invalid_schema(
+    monkeypatch, tmp_path, finish_reason
+):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+
+    response = httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": ""}, "finish_reason": finish_reason}],
+            "usage": {
+                "prompt_tokens": 8092,
+                "completion_tokens": 4096,
+                "completion_tokens_details": {"reasoning_tokens": 4096},
+            },
+        },
+    )
+    stub = _Stub([response])
+    with pytest.raises(ModelOutputLimitError):
+        _gateway(stub, monkeypatch, tmp_path, max_validation_retries=0).generate(
+            _request()
+        )
+    assert len(stub.requests) == 1
