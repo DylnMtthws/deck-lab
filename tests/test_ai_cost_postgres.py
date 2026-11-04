@@ -35,7 +35,9 @@ def test_postgres_independent_authorities_serialize_reservations():
                 pytest.fail("test DSN must be a PostgreSQL URL")
             query = [(k, v) for k, v in parse_qsl(parts.query) if k != "options"]
             query.append(("options", f"-c search_path={schema}"))
-            isolated = urlunsplit(parts._replace(query=urlencode(query, quote_via=quote)))
+            isolated = urlunsplit(
+                parts._replace(query=urlencode(query, quote_via=quote))
+            )
             controls = [Authority(isolated, config), Authority(isolated, config)]
             turns = [
                 control.begin_turn("main", f"user-{i}", f"request-{i}", "owner")

@@ -43,7 +43,7 @@ import argparse
 import json
 import os
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -272,11 +272,12 @@ class Attempt(Strict):
 def capture(manifest: Manifest, attempts: list[Attempt]) -> dict:
     """Bind supplied observations to a frozen schedule without granting truth credit."""
     slots = {s.id: s for s in manifest.slots}
-    seen, retries, records = set(), {}, []
+    seen, records = set(), []
+    retries: dict[str, int] = {}
     previous_end = timestamp(manifest.frozen_at)
     previous_position = 1
     delivered_slots = set()
-    slot_starts = {}
+    slot_starts: dict[str, datetime] = {}
     deadline_exhausted_slots = set()
     for attempt in attempts:
         slot = slots.get(attempt.slot_id)
@@ -384,7 +385,7 @@ def capture(manifest: Manifest, attempts: list[Attempt]) -> dict:
     within_budget_slots = {
         r["slot_id"] for r in records if r["delivered_within_budget"]
     }
-    pairs = {}
+    pairs: dict[str, set[str]] = {}
     if manifest.lane == "paired_comparison":
         for slot in slots.values():
             pairs.setdefault(slot.pair_id, set()).add(slot.id)

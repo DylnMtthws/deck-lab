@@ -845,7 +845,8 @@ class AssistantTools:
         return self._execute(call, document)
 
     def _execute(self, call: ToolCall, document: dict[str, Any]) -> dict[str, Any]:
-        args = call.arguments
+        # TOOL_ADAPTER has validated the name/argument discriminated union.
+        args: Any = call.arguments
         search_corrections = []
         if call.name == "research_comparable_decks":
             from sabermetrics.assistant_comparable_decks import comparable_decks

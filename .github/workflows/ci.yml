@@ -97,7 +97,7 @@ jobs:
       - name: Build linux/amd64 image
         env:
           BUILD_SHA: ${{ github.sha }}
-        run: docker build --platform linux/amd64 --build-arg "SABER_BUILD_SHA=$BUILD_SHA" --tag decklab-ci .
+        run: docker build --platform linux/amd64 --build-arg SABER_STRATEGY_SEMANTIC=1 --build-arg "SABER_BUILD_SHA=$BUILD_SHA" --tag decklab-ci .
 
       - name: Enforce image size ceiling
         run: |

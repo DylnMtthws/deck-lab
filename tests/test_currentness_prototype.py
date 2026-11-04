@@ -1,4 +1,5 @@
 """Small differential fixtures only; the explicit CLI owns the full sweep."""
+
 import subprocess
 import sys
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 
 def test_small_adversarial_fixtures():
     root = Path(__file__).resolve().parents[1]
-    code = r'''
+    code = r"""
 import sys, json, sqlite3, tempfile, os
 from pathlib import Path
 sys.path.insert(0, 'scripts')
@@ -94,5 +95,5 @@ with tempfile.TemporaryDirectory() as directory:
         except RuntimeError as e: assert str(e)=='inactive fixture'
         else: raise AssertionError('cancellation ignored')
         assert seen[0]==3
-'''
-    subprocess.run([sys.executable, '-c', code], cwd=root, check=True)
+"""
+    subprocess.run([sys.executable, "-c", code], cwd=root, check=True)
