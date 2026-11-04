@@ -1,4 +1,4 @@
-const { chromium } = require('/Users/dylan/Projects/quarry/node_modules/playwright-core');
+const { chromium } = require(process.env.DECKLAB_PLAYWRIGHT_CORE || 'playwright-core');
 const path = require('path');
 const jobs = process.argv.slice(2).map(a => a.split(':')); // file:state:out:width
 (async () => {

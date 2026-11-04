@@ -1,10 +1,7 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
+import { launchChromiumOrSkip } from "./browser_probe.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const { chromium } = createRequire(import.meta.url)(
-  "/Users/dylan/Projects/quarry/node_modules/playwright-core"
-);
 
 const root = fileURLToPath(new URL("../src/sabermetrics/ui/static/", import.meta.url));
 const href = (name) => pathToFileURL(root + name).href;
@@ -54,7 +51,7 @@ window.DeckLabBuilder = {
 
 const file = "/tmp/D03-rail-layout.html";
 fs.writeFileSync(file, html);
-const browser = await chromium.launch();
+const browser = await launchChromiumOrSkip();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 await page.route("**/*", (route) => {
   const url = route.request().url();
