@@ -45,3 +45,7 @@ it is not a generic tag for choosing recommendations. Use any when unsupported.
 Exact core-card lists and Hard rule statements already present in saved_preferences
 were parsed locally. Do not repeat saved rows in preference_assessment; use null
 for dimensions without additional current-user meaning to extract.
+
+Use current_deck for this list's strategy or wins, including "What combo wins
+here?". candidate_discovery means NEW cards. Reading the list/text is authorized;
+never ask permission. Contextual commanders are not explicit user references.

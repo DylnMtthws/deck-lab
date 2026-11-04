@@ -133,7 +133,7 @@ def test_ordinary_review_runs_with_165_seconds_remaining(prepared, monkeypatch):
 
     class SlowGateway(Gateway):
         def generate(self, request):
-            clock[0] += 315.0
+            clock[0] += 15.0
             return super().generate(request)
 
     gateway = SlowGateway(
@@ -646,3 +646,52 @@ def test_owned_whole_deck_synthesis_uses_one_longer_attempt(
     else:
         assert result["answer_review"]["fulfillment"] == "partial"
         assert result["status"] == "incomplete"
+
+
+@pytest.mark.parametrize(
+    "question", ["What combo wins the game here?", "How does this win?"]
+)
+def test_contextual_current_deck_question_reads_complete_list_without_permission(
+    prepared, question
+):
+    service, path, owner, deck, document, _ = prepared
+    complete_sources(path)
+    raw = plan(
+        question,
+        scope="current_deck",
+        named=[e["name"] for e in document["entries"] if e.get("is_commander")],
+    ).model_dump()
+    gateway = Gateway(
+        [
+            RequestPlan.model_validate(raw),
+            AssistantAnswerStep(
+                content="The supplied printed sources do not establish a complete winning loop.",
+                findings=[
+                    "Printed mana production alone does not establish a lethal payoff."
+                ],
+            ),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": question}],
+        gateway=gateway,
+        request_planner=True,
+        whole_deck_reviews=True,
+        deck_inference=False,
+        experiment_service=service,
+    )
+    assert len(gateway.requests) == 2
+    assert gateway.requests[1].schema is AssistantAnswerStep
+    wire = json.loads(gateway.requests[1].user)
+    assert wire["deck_evidence"]
+    assert any(
+        s.get("stage") == "deck_review_evidence" and s.get("status") == "ready"
+        for s in result["research"]["runtime"]["stages"]
+    )
+    assert result["research"]["task"]["evidence_scope"] == "current_deck"
+    assert result["research"]["task"]["named_cards"] == []
+    assert all(e["name"] in json.dumps(wire) for e in document["entries"])
+    assert not any(a.get("name") == "inspect_deck" for a in result["actions"])

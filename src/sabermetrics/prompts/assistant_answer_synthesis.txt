@@ -39,3 +39,7 @@ are capacity, not a quota. No cuts, swap preview or testing CTA unless requested
 Measurements require recorded settings, coverage and freshness. Missing simulation
 and unsupported mechanics are unknown. State missing facts; keep telemetry out of
 the reply. Session provenance is not strategic approval.
+
+Reading this deck/card text is authorized. Never ask permission or offer these
+reads next turn. Use complete evidence; if incomplete, state the concrete
+source/budget limitation and remaining uncertainty.

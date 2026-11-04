@@ -14,7 +14,11 @@ from sabermetrics.assistant_conversation_context import (
 from sabermetrics.assistant_tools import Proposal, StrictModel
 
 EvidenceScope = Literal[
-    "named_cards_only", "candidate_discovery", "existing_candidates", "unknown"
+    "named_cards_only",
+    "candidate_discovery",
+    "existing_candidates",
+    "current_deck",
+    "unknown",
 ]
 
 
