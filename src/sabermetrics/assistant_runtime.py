@@ -2699,7 +2699,7 @@ def run_turn(
                     ReasoningMode.CLASSIFY if narrow_planning else ReasoningMode.EXPLAIN
                 ),
                 call_type="build:assistant",
-                max_output_tokens=min(output_budget, 2000),
+                max_output_tokens=output_budget,
                 evidence_hash=hashlib.sha256(encoded.encode()).hexdigest(),
                 metadata={
                     "deck_id": deck_id,
