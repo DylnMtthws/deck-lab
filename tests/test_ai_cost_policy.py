@@ -90,3 +90,28 @@ def test_accounting_failure_prevents_transport(tmp_path, monkeypatch):
         paid_attempt("model", {"messages": []}, 100),
     ):
         pytest.fail("transport must never run without durable admission")
+
+
+def test_fractional_rates_round_up_and_admit_full_schema(tmp_path):
+    from dataclasses import replace
+    from sabermetrics.ai_cost_control import AttemptReceipt
+
+    base = BudgetConfig(
+        prices=(("model", 600, 900),),
+        credentials=(),
+        authorized=True,
+        price_scale=1000,
+        input_tokens=128000,
+        output_tokens=4096,
+    )
+    control = Authority(str(tmp_path / "fractional.sqlite"), base, local=True)
+    tid = control.begin_turn("preview", "user", "fractional", "owner")
+    aid = control.admit_attempt(tid, "owner", "model", 128000, 4096)
+    assert control.status()["attempts"][aid]["bound"] == 80487
+    AttemptReceipt(control, aid, "model").usage(1, 1)
+    assert control.status()["attempts"][aid]["charge"] == 2
+    assert control.status()["attempts"][aid]["settled"]
+    with pytest.raises(ValueError):
+        replace(base, price_scale=0)
+    with pytest.raises(ValueError):
+        replace(base, price_scale=True)

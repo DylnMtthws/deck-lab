@@ -61,3 +61,17 @@ Implemented lifecycle details:
   refund. An identical unsaved retry returns 409 with `retry_new_submission=true`,
   rather than executing against closed admission. The UI preserves the message
   and gives its next deliberate retry a new submission ID.
+
+QA rollout policy (2026-11-03): the input byte ceiling is 128,000 and the
+provider output ceiling is 4,096. The static tool schema and system prompt alone
+exceed the initial 32,000-byte default. Dollar, turn, attempt, tool and time limits
+are unchanged. `price_scale` (default 1) divides the configured integer rates;
+both reservations and usage charges round upward to whole microdollars. The
+rollout uses scale 1,000 with input/output rates 600/900, equivalent to conservative
+$0.60/$0.90 per million tokens. A maximum call reserves $0.080487.
+Published rates checked on 2026-11-03:
+https://deepinfra.com/deepseek-ai/DeepSeek-V4.1-Flash and
+https://deepinfra.com/deepseek-ai/DeepSeek-V4-Flash . The bounds cover undiscounted
+priority output and input including two-times cache writes. Policy migration
+changes only the configuration fingerprint and appends an audit event; existing
+charges, reservations and daily turn counters are retained.

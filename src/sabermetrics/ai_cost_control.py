@@ -19,7 +19,7 @@ class BudgetDenied(RuntimeError):
 
 @dataclass(frozen=True)
 class BudgetConfig:
-    # (model, input microdollars/token, output microdollars/token). Rates round UP.
+    # Rates are integer fractions of a microdollar/token, divided by price_scale.
     prices: tuple[tuple[str, int, int], ...]
     # (environment, provider, credential environment variable)
     credentials: tuple[tuple[str, str, str], ...]
@@ -35,6 +35,7 @@ class BudgetConfig:
     input_tokens: int = 32_000
     output_tokens: int = 2_000
     deadline: int = 180
+    price_scale: int = 1
 
     def __post_init__(self):
         if type(self.authorized) is not bool:
@@ -58,6 +59,7 @@ class BudgetConfig:
             self.input_tokens,
             self.output_tokens,
             self.deadline,
+            self.price_scale,
         ]
         values += [v for _, i, o in self.prices for v in (i, o)]
         values += [v for _, m, d, t in self.environments for v in (m, d, t)]
@@ -250,7 +252,12 @@ class Authority:
                 or not 0 < output_tokens <= self.config.output_tokens
             ):
                 raise BudgetDenied("model/token limit")
-            bound = input_tokens * price[1] + output_tokens * price[2]
+            bound = (
+                input_tokens * price[1]
+                + output_tokens * price[2]
+                + self.config.price_scale
+                - 1
+            ) // self.config.price_scale
             rows = list(s["attempts"].values())
             own = [a for a in rows if a["turn"] == turn_id]
             month = time.strftime("%Y-%m", time.gmtime())
@@ -535,4 +542,7 @@ class AttemptReceipt:
         if any(type(n) is not int or n < 0 for n in (input_tokens, output_tokens)):
             return  # retain upper bound for unusable metadata
         _, i, o = next(p for p in self.authority.config.prices if p[0] == self.model)
-        self.authority.reconcile(self.attempt_id, input_tokens * i + output_tokens * o)
+        scale = self.authority.config.price_scale
+        self.authority.reconcile(
+            self.attempt_id, (input_tokens * i + output_tokens * o + scale - 1) // scale
+        )
