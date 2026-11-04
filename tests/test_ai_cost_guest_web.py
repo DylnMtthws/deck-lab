@@ -1,6 +1,5 @@
 """Web ownership stays private while preview quota subjects share a network."""
 
-
 import time
 
 from sabermetrics.deck_documents import DeckDocumentRepo
