@@ -58,6 +58,22 @@ def authority(app=None):
     return value
 
 
+def quota_identity(user):
+    """A trusted preview adapter may group private owners under a network quota."""
+    resolver = current_app.extensions.get("ai_cost_guest_network")
+    if resolver is None:
+        return user, None
+    environment = current_app.config.get("AI_COST_ENVIRONMENT") or os.environ.get(
+        "SABER_AI_ENV"
+    )
+    if environment != "preview" or not callable(resolver):
+        raise CostUnavailable("Anonymous research is not configured safely.")
+    subject = resolver(user)
+    if not isinstance(subject, str) or not subject.startswith("guest-network:"):
+        raise CostUnavailable("Anonymous research identity is unavailable.")
+    return subject, "guest-session:" + str(user)
+
+
 def admission(user, deck, request_id):
     environment = current_app.config.get("AI_COST_ENVIRONMENT") or os.environ.get(
         "SABER_AI_ENV"
@@ -70,7 +86,9 @@ def admission(user, deck, request_id):
     key = hashlib.sha256(f"{user}:{deck}:{request_id}".encode()).hexdigest()
     owner = "web-" + key
     try:
-        turn = authority().begin_turn(environment, user, key, owner)
+        subject, guest_session = quota_identity(user)
+        extra = {"guest_session": guest_session} if guest_session is not None else {}
+        turn = authority().begin_turn(environment, subject, key, owner, **extra)
         state = authority().status()["turns"][turn]
         import time
 
@@ -90,6 +108,8 @@ def admission(user, deck, request_id):
                 "spending disabled": "Paid research is disabled.",
                 "another research turn is active": "Another research turn is active for your account.",
                 "daily turns exhausted": "Your daily research turn allowance is exhausted.",
+                "daily session turns exhausted": "This preview session has used its daily research allowance.",
+                "preview research cooldown": "Please wait 30 seconds between preview research submissions.",
                 "budget exhausted": "The research budget is exhausted.",
             }
             raise CostUnavailable(
@@ -122,27 +142,51 @@ def cost_status(user):
         )
         config = authority().config
         policy = next(e for e in config.environments if e[0] == environment)
+        subject, guest_session = quota_identity(user)
         now = datetime.now(UTC)
         day = now.strftime("%Y-%m-%d")
         exposure = sum(
             a["charge"]
             for a in status["attempts"].values()
-            if a["user"] == user and a["env"] == environment and a["day"] == day
+            if a["user"] == subject and a["env"] == environment and a["day"] == day
         )
         turns = sum(
-            t["user"] == user and t["env"] == environment and t["day"] == day
+            t["user"] == subject and t["env"] == environment and t["day"] == day
             for t in status["turns"].values()
         )
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         month_reset = (midnight.replace(day=28) + timedelta(days=4)).replace(day=1)
+        remaining_micros = max(0, policy[2] - exposure)
+        remaining_turns = max(0, policy[3] - turns)
+        if guest_session is not None:
+            from sabermetrics.ai_cost_control import (
+                GUEST_SESSION_MICROS,
+                GUEST_SESSION_TURNS,
+            )
+
+            session_exposure = sum(
+                a["charge"]
+                for a in status["attempts"].values()
+                if a.get("guest_session") == guest_session and a["day"] == day
+            )
+            session_turns = sum(
+                t.get("guest_session") == guest_session and t["day"] == day
+                for t in status["turns"].values()
+            )
+            remaining_micros = min(
+                remaining_micros, max(0, GUEST_SESSION_MICROS - session_exposure)
+            )
+            remaining_turns = min(
+                remaining_turns, max(0, GUEST_SESSION_TURNS - session_turns)
+            )
         return {
             "configured": True,
             "kill_switch": bool(
                 status.get("killed", False)
                 or environment in status.get("killed_environments", [])
             ),
-            "remaining_micros": max(0, policy[2] - exposure),
-            "remaining_turns": max(0, policy[3] - turns),
+            "remaining_micros": remaining_micros,
+            "remaining_turns": remaining_turns,
             "daily_reset_at": (midnight + timedelta(days=1)).isoformat(),
             "monthly_reset_at": month_reset.isoformat(),
         }

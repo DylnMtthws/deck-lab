@@ -40,7 +40,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install
-        run: pip install -e ".[dev,postgres,legacy]"
+        run: pip install -e ".[dev,postgres,legacy,strategy]"
 
       - name: Lint (ruff)
         run: ruff check src tests scripts/release_control.py scripts/storage_control.py scripts/storage_remote.py scripts/evaluate_assistant_conversation.py

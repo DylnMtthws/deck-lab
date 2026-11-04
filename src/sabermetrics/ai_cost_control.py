@@ -17,6 +17,12 @@ class BudgetDenied(RuntimeError):
     pass
 
 
+# Additional anonymous-preview bounds. These never replace environment caps.
+GUEST_SESSION_MICROS = 100_000
+GUEST_SESSION_TURNS = 2
+GUEST_COOLDOWN_SECONDS = 30
+
+
 @dataclass(frozen=True)
 class BudgetConfig:
     # Rates are integer fractions of a microdollar/token, divided by price_scale.
@@ -171,12 +177,20 @@ class Authority:
             raise BudgetDenied("turn unavailable")
         return t
 
-    def begin_turn(self, environment, user_id, idempotency_key, owner):
+    def begin_turn(
+        self, environment, user_id, idempotency_key, owner, *, guest_session=None
+    ):
         if not all(
             isinstance(v, str) and v
             for v in (environment, user_id, idempotency_key, owner)
         ):
             raise BudgetDenied("trusted identities required")
+        if guest_session is not None and (
+            environment != "preview"
+            or not isinstance(guest_session, str)
+            or not guest_session
+        ):
+            raise BudgetDenied("invalid guest session")
         with self._transaction() as s:
             env = next(
                 (r for r in self.config.environments if r[0] == environment), None
@@ -194,15 +208,39 @@ class Authority:
                     user_id,
                     idempotency_key,
                 ):
-                    if t["owner"] != owner:
+                    if t["owner"] != owner or t.get("guest_session") != guest_session:
                         raise BudgetDenied("owner excluded")
                     return tid
             if any(
-                t["user"] == user_id and not t["closed"] and time.time() < t["deadline"]
+                (
+                    t["user"] == user_id
+                    or (
+                        guest_session is not None
+                        and t.get("guest_session") == guest_session
+                    )
+                )
+                and not t["closed"]
+                and time.time() < t["deadline"]
                 for t in s["turns"].values()
             ):
                 raise BudgetDenied("another research turn is active")
             day = time.strftime("%Y-%m-%d", time.gmtime())
+            if guest_session is not None:
+                if (
+                    sum(
+                        t.get("guest_session") == guest_session and t["day"] == day
+                        for t in s["turns"].values()
+                    )
+                    >= GUEST_SESSION_TURNS
+                ):
+                    raise BudgetDenied("daily session turns exhausted")
+                if any(
+                    t["user"] == user_id
+                    and t.get("guest_session") is not None
+                    and time.time() < t.get("started_at", 0) + GUEST_COOLDOWN_SECONDS
+                    for t in s["turns"].values()
+                ):
+                    raise BudgetDenied("preview research cooldown")
             if (
                 sum(
                     t["env"] == environment and t["user"] == user_id and t["day"] == day
@@ -222,6 +260,10 @@ class Authority:
                 deadline=time.time() + self.config.deadline,
                 tools=0,
             )
+            if guest_session is not None:
+                s["turns"][tid].update(
+                    guest_session=guest_session, started_at=time.time()
+                )
             return tid
 
     def finish_turn(self, turn_id, owner):
@@ -276,6 +318,15 @@ class Authority:
                 ),
                 (own, self.config.turn_cost, lambda a: True),
             ]
+            if t.get("guest_session") is not None:
+                checks.append(
+                    (
+                        rows,
+                        GUEST_SESSION_MICROS,
+                        lambda a: a.get("guest_session") == t["guest_session"]
+                        and a["day"] == time.strftime("%Y-%m-%d", time.gmtime()),
+                    )
+                )
             if len(own) >= self.config.attempts or any(
                 sum(a["charge"] for a in rs if pred(a)) + bound > cap
                 for rs, cap, pred in checks
@@ -292,6 +343,8 @@ class Authority:
                 charge=bound,
                 settled=False,
             )
+            if t.get("guest_session") is not None:
+                s["attempts"][aid]["guest_session"] = t["guest_session"]
             scopes = [
                 ("combined", month),
                 (f"environment:{t['env']}", month),
@@ -301,6 +354,13 @@ class Authority:
                 ),
                 (f"turn:{turn_id}", turn_id),
             ]
+            if t.get("guest_session") is not None:
+                scopes.append(
+                    (
+                        f"guest-session:{t['guest_session']}",
+                        time.strftime("%Y-%m-%d", time.gmtime()),
+                    )
+                )
             for (scope, period), (rs, cap, pred) in zip(scopes, checks):
                 exposure = sum(a["charge"] for a in rs if pred(a)) + bound
                 for threshold in (50, 80, 95):

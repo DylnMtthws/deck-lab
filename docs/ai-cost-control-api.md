@@ -75,3 +75,30 @@ https://deepinfra.com/deepseek-ai/DeepSeek-V4-Flash . The bounds cover undiscoun
 priority output and input including two-times cache writes. Policy migration
 changes only the configuration fingerprint and appends an audit event; existing
 charges, reservations and daily turn counters are retained.
+
+Anonymous preview exception (owner requested 2026-11-03): a signed temporary
+browser session may use paid research without registering. Main still requires
+its normal authenticated account. The trusted preview adapter installs
+`ai_cost_guest_network`, which maps the private owner to an HMAC of the canonical
+client network (IPv4 address or IPv6 /64). The raw address is not in the budget
+ledger. Deck ownership remains the independent random session user, never the
+shared network identity. Forwarded headers are not read directly; the private
+Caddy proxy overwrites them before Waitress establishes remote_addr.
+
+`begin_turn(..., guest_session=...)` is preview-only. The existing preview user
+allowance becomes the network allowance ($0.20 / 5 turns per UTC day). An extra
+session allowance ($0.10 / 2 turns per UTC day), a 30-second network cooldown,
+and one active turn per network/session are enforced under the same PostgreSQL
+row lock. Every provider reservation checks the session's charges plus unknown
+reservations as well as the network, environment and combined caps. Exact
+submission replays bypass neither ownership checks nor budgets and consume no
+new turn. The status endpoint shows the smaller remaining session/network
+allowance without disclosing either identity. Cookies, restarts and expired demo
+workspace cleanup do not delete the financial history.
+
+No anonymous identifier proves a unique person. Cookie resets plus changing
+networks can evade visitor limits; the $3 monthly preview cap remains the final
+spending boundary. Shared networks can share an allowance. A bot challenge such
+as Turnstile is an additional option, not currently configured or required by
+this deployment. Guest browsing remains available when research is exhausted
+or accounting/identity configuration is unavailable.
