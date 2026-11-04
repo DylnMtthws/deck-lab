@@ -2426,7 +2426,6 @@ def run_turn(
         discovery_repair_attempted = False
         schema_repair_attempted = False
         output_recovery_attempted = False
-        output_recovery_pending = False
         planner_repair_attempted = False
         planner_retry_pending = False
         planned_lists_executed = False
@@ -2679,11 +2678,12 @@ def run_turn(
                         deck_id=deck_id,
                     )
                 request_gateway = bounded_gateway(owned_concise_gateway)
-            recovering_output = output_recovery_pending
-            output_recovery_pending = False
+            recovering_output = output_recovery_attempted
             if recovering_output:
                 # The classifier profile disables internal reasoning. Regenerate
                 # complete JSON from the same evidence, never a truncated fragment.
+                # Keep this profile for the remaining calls so synthesis cannot
+                # immediately exhaust its budget on internal reasoning again.
                 output_budget = 2048
                 system += "\nReturn concise complete JSON immediately. Omit optional elaboration."
             request = StructuredRequest(
@@ -2838,7 +2838,6 @@ def run_turn(
                 ):
                     tools.check()
                     output_recovery_attempted = True
-                    output_recovery_pending = True
                     planner_retry_pending = narrow_planning
                     emit(
                         {

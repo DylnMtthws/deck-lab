@@ -1231,3 +1231,32 @@ def test_cancellation_prevents_output_recovery_call(prepared):
     )
     assert len(gateway.requests) == 1
     assert result["status"] == "stopped"
+
+
+def test_output_recovery_keeps_later_synthesis_without_reasoning(prepared):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+    from sabermetrics.cedh.model_gateway import ReasoningMode
+
+    service, path, owner, deck, _, _ = prepared
+    gateway = Gateway(
+        [
+            ModelOutputLimitError("exhausted"),
+            step(call("inspect_deck", {"query": "Island"})),
+            step(content="The supplied evidence does not establish a verified combo."),
+        ]
+    )
+    result = run_turn(
+        path,
+        owner,
+        deck,
+        [{"role": "user", "content": "Find the main combo."}],
+        gateway=gateway,
+        experiment_service=service,
+    )
+    assert result["status"] == "done"
+    assert len(gateway.requests) == 3
+    assert all(r.mode is ReasoningMode.CLASSIFY for r in gateway.requests[1:])
+    assert (
+        len([a for a in result["actions"] if a.get("name") == "output_limit_recovery"])
+        == 1
+    )
