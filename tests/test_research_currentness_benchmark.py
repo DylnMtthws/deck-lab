@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 SCRIPT = (
     Path(__file__).resolve().parents[1] / "scripts/benchmark_research_currentness.py"
 )
@@ -37,6 +39,10 @@ def test_disabled_has_no_fake_attribution():
     assert not meter.rows
 
 
+@pytest.mark.skipif(
+    not probe.PIN.is_dir(),
+    reason="Optional pinned QA source archive is not installed on this machine",
+)
 def test_actual_pinned_compiler_search_counts_and_cleanup():
     with tempfile.TemporaryDirectory() as directory:
         _check_profile(Path(directory))

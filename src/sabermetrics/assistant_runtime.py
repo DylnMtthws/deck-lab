@@ -4129,7 +4129,9 @@ def run_turn(
                     # Ordinary review is one 45s call. The larger reserve is
                     # for discovery's evidence/claim/corrective pipeline.
                     and MAX_TURN_SECONDS - (time.monotonic() - started)
-                    >= (190 if selected_before_prose else 75)
+                    >= (
+                        min(190, MAX_TURN_SECONDS - 30) if selected_before_prose else 75
+                    )
                 ):
                     tools.check()
                     checker_review_attempted = True

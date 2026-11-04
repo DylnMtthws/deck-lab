@@ -688,7 +688,7 @@ const window = {crypto: {randomUUID: () => 'request-' + (++requestId)}};
 let requestId = 0, calls = [], rejectNext = false;
 var data = {}, state = {revision: 12}, base = '/assistant', status = element('p'), progressShown = '';
 var workspaceNode = null, workspaceCards = new Map(), workspaceList, workspaceBadge, workspaceRequest, workspaceReceipt, workspaceRetry;
-var sessionEpoch = 0, refreshSequence = 0, sessionRequestSequence = 0, acceptedSessionSequence = 0;
+var sessionEpoch = 0, refreshSequence = 0, sessionRequestSequence = 0, acceptedSessionSequence = 0, pendingSubmission = null;
 const transcript = element('div'), host = element('div'); host.appendChild(transcript);
 const scrollSurface = {clientHeight: 0, scrollTop: 187};
 let refreshes = 0;
@@ -803,7 +803,9 @@ input.value = 'Keep this draft'; rejectNext = true; composer.listeners.submit({p
 assert.equal(input.value, 'Keep this draft'); assert.equal(status.textContent, 'stale generation'); assert.equal(sending, false);
 busy = false; input.value = 'New request'; composer.listeners.submit({preventDefault() {}}); await flush();
 assert.equal(calls[2].url, '/assistant/messages');
-assert.deepEqual(calls[2].payload, {message: 'New request', expected_revision: 12});
+assert.equal(typeof calls[2].payload.client_request_id, 'string');
+const {client_request_id, ...submitted} = calls[2].payload;
+assert.deepEqual(submitted, {message: 'New request', expected_revision: 12});
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """.replace("COMPOSER", composer))
 
