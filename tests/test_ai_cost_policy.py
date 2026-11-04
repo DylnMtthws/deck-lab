@@ -94,6 +94,7 @@ def test_accounting_failure_prevents_transport(tmp_path, monkeypatch):
 
 def test_fractional_rates_round_up_and_admit_full_schema(tmp_path):
     from dataclasses import replace
+
     from sabermetrics.ai_cost_control import AttemptReceipt
 
     base = BudgetConfig(
