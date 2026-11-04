@@ -141,7 +141,12 @@ def _database(tmp_path):
 def test_builder_template_has_sidebar_add_zone_and_shared_toolbar() -> None:
     html = BUILDER_HTML.read_text()
     assert "dl-add-panel" not in html
-    assert 'data-toggle-rail="left"' not in html
+    assert 'data-toggle-rail="left"' in html
+    assert 'data-assistant-tab="chat"' in html
+    assert 'data-assistant-tab="analytics"' in html
+    assert 'data-assistant-tab="goldfish"' in html
+    assert "data-assistant-open" in html
+    assert "data-assistant-resize" in html
     assert 'class="dl-zones-head"' in html
     assert "data-new-zone" in html
     assert 'aria-label="Add zone"' in html

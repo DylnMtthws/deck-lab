@@ -23,6 +23,22 @@ When adding a new prompt: follow SKILLS.md SKILL-003.
 
 ## Prompt Index
 
+Research Assistant swap review v3 adds a revision-specific strategy context,
+candidate recall provenance, draw-route prerequisites, and a joint transition
+receipt. A coordinated proposal contains up to three replacement pairs. Citations
+carry `replacement_index` (default zero for existing single swaps); acceptance
+requires meaningful exact citations for both sides of every pair. The model must
+judge the whole package, distinguish ingredient support from execution, and never
+treat semantic similarity or association as mechanical proof. Existing provider,
+cost, output-token, and 24 KiB evidence bounds remain authoritative.
+
+Review v4 distinguishes support-density tradeoffs from loss of all detected
+support. A negative recognized power-to-mana opportunity requires
+`resource_tradeoffs_acknowledged=true` and a mana tradeoff in the response. State,
+timing, target legality, mana already spent, and activation availability remain
+unverified. The conversational answer retains these resource facts when the
+broad discovery receipt is compacted.
+
 ```yaml
 prompts:
   - id: PROMPT-001
@@ -638,3 +654,99 @@ revision_triggers:
 ```
 
 </context>
+
+
+## Grounded retrieval revision
+
+Conversation prompt `build-conversation.v12` receives fresh compact full-library
+facts, commander engine links and locally retrieved rules. Detector zeros cannot
+establish absence. The assistant must retain activation limits and distinguish
+tap-symbol costs from tapping other creatures. It may retrieve detailed matches
+without paging through the whole deck. On the final allowed conversation call it
+must answer from confirmed evidence, including missing facts, without new tools.
+
+Swap review `assistant-swap-review.v5` receives the same deck fact and engine
+summaries, contextual rank components and relevant local rule/ruling passages
+when available. All additions share the existing 24 KiB input bound; exact facts
+for changed cards remain mandatory. Link weights are cut-order preferences and
+source snippets are evidence, never complete rules execution or measured quality.
+No extra model call or new provider is introduced by these retrieval changes.
+
+Live QA context-delivery correction: retain four distinct consulted card identities,
+including costs, type, Oracle text and source/truncation metadata, across tool-history
+eviction. Compact card-detail receipts before generic budgeting. Supplemental state
+may be omitted explicitly when necessary; consulted printed facts and user requests
+remain pinned. Detector zeros cannot justify deficiency claims.
+
+Follow-up delivery correction: fresh `deck_composition` pins the complete library's
+quantity-aware front-land and back-land-face counts with curve/role summaries.
+`workflow.reviewed_plans` retains bounded exact incoming-card and outgoing-entry
+IDs from reviewed alternatives; display names are separate. Pending plans are
+excluded, extreme-size omission is explicit, and preview/execution tools keep
+all owner, revision, legality, constraint and semantic-review checks.
+
+Review-state metadata: raw discovery marks candidates as needing review. When
+`review_candidates` completes with status `reviewed`, find_replacements clears
+that inherited pending flag before caching accepted alternatives. prepare_improvement
+labels retained plans ready for preview. Failed review never promotes alternatives.
+
+## Research task completion and answer checks (2026-10-17)
+
+Conversation v13 adds a typed per-turn research brief (requested additions/cuts,
+coordinated package, deliverables) and source-resolved research hypotheses. A
+partial discovery receipt does not finish that brief. One bounded continuation
+may repair a premature final answer using focused catalog/card/rules reads.
+Unchanged discovery remains cached; actionable proposals still require joint
+constraint and strategic review. Research hypotheses never create action handles.
+
+`assistant-answer-review.v1` checks a drafted answer against bounded current-deck,
+consulted Oracle and retrieved rules evidence. It returns exact claim spans,
+replacement text and exact source quotes. Code accepts only non-overlapping
+patches whose spans and citations exist. One review call (3072 output tokens,
+existing pinned gateway and cost ledger) is allowed per factual turn; missing
+evidence/review failure remains visible and does not certify correctness. This
+is a bounded model cross-check, not a rules engine or expert guarantee. Expected
+additional model cost is below $0.01 per turn, to be measured in live evaluation.
+Prompt file: src/sabermetrics/prompts/assistant_answer_review.txt.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.
+
+Conversation v14 clarifies literal catalog filters and recommends card_details
+for an exact known name instead of guessed Oracle fragments. Topic inspection
+uses bounded source-backed function ranking (or explicitly labelled library
+fallback) and pins returned entry handles. Exact-name catalog lookup can retry
+without a conflicting Oracle fragment, preserving colors, legality, type and
+mana filters and disclosing the mismatch. Existing-card flags prevent treating
+a present card as a new addition. Package comparisons retain requested feature
+counts even when a focused requirement is absent from the generic after-assessment.
+
+`assistant-package-composition.v4` is a separate bounded composition judgment
+over a deterministic recall pool and current cut candidates. Output is indices,
+canonical source text attached by code, a shared interaction, conditions and per-cut
+losses. One provider call (4096 output tokens, 24 KiB evidence budget) returns
+a hypothesis or an evidence blocker. Code, not prose, binds it to actual IDs.
+
+Conversation v15 routes suggest-mode coordinated two/three-pair briefs directly
+to package composition once per turn. A successful result is rendered from the
+validated indices and typed explanations; a blocked result replaces stale chat
+prose with its actual evidence blocker. Extra provider calls are separately
+metered (one composition, one answer check) alongside the five-call conversation
+budget and existing tool-bound strategic review. A 240-second remaining-time
+gate covers composition lookup and the configured provider retries.
+Composition uses a separate costed instance of the same provider with one schema
+repair and no transport retries (at most two 60-second requests). Conversation
+and answer-check calls keep their existing retry policy. A schema-valid package
+must contain the requested pair count, interaction and conditions; abstention
+must supply an evidence blocker. All response fields are required.

@@ -1,0 +1,106 @@
+{
+  "schema": "rules-engine-evaluation.v1",
+  "date": "2026-10-14",
+  "question": "Can mature rules engines (XMage, Forge) serve as a correctness benchmark for the native commander_simulator and Deck Lab Vivi/Sauron mechanics, and what is measured today?",
+  "how_expected_outcomes_were_derived": "By hand from Scryfall oracle text + official rulings (retrieved 2026-10-14, oracle_ids recorded), Comprehensive Rules 2026-09-25 (sha256 8d860e45...; sections read from the file), XMage's own ViviOrnitierTest at master 0311c352 (read, not run), and closed-form probabilities for land-only probes (1 - C(95,10)/C(99,10); exact DP for tapped lands, itself checked against brute-force enumeration in tests and a 200k-game Monte Carlo: 0.95972 vs exact 0.95968). No expectation was copied from any engine output.",
+  "reference_kernel_limits": {
+    "independence": "The fixture expectations and ReferenceKernel were written by the same author in the same session. Expectations cite oracle text, rulings, CR 2026-09-25 and (for two Vivi scenarios) XMage's own test, but kernel agreement is self-consistency, not independent rules validation. Only an external engine run (Forge/XMage) or the XMage-derived numbers are independent evidence.",
+    "correction_2026-10-14": "advance_turn originally skipped the draw step; vivi_activation_resets_next_turn advanced two turns with empty libraries, which under real rules ends the game on turn 2 (CR 504.1, 704.5b). Kernel now draws for the new active player and checks SBAs; the scenario now has one-card libraries and draw events, and draw_step_from_empty_library_loses was added. A correct external engine would have been scored divergent before this fix.",
+    "partial_expectations": "compare_state checks only keys present in expected.final_state and compare_trace only event types present in expected.trace; extra actions of unlisted types are not detected unless a trace_absent rule names them. 'match' means the listed facts hold, not full state equality.",
+    "harness_conventions_not_rules": [
+      "mana is paid only from the pool after explicit activate_mana (no auto-tapping)",
+      "'resolve' passes priority until the stack is empty; no responses between resolutions unless scripted as casts before resolve",
+      "move_to_command_zone is a primitive with no cause",
+      "trigger order among one controller's simultaneous triggers is battlefield order",
+      "no combat, no draw-step exception for Orcish Bowmasters, no ward, no legend rule, Ring emblem tracked only as level and bearer"
+    ]
+  },
+  "status": "validated_bounded_benchmark",
+  "deliverables": {
+    "harness": "scripts/benchmark_rules_engines.py",
+    "forge_adapter": "scripts/rules_engine_adapters/forge",
+    "fixtures": "tests/fixtures/rules_engine_scenarios.json",
+    "tests": "tests/test_rules_engine_benchmark.py and scripts/rules_engine_adapters/forge/test_forge_adapter.py"
+  },
+  "measured": {
+    "native_reference": {
+      "fixture_sha256": "sha256:cc49afc8670a9a5167f5d99c35ec8eb58e6665877ce400f7b8250ed78080c7fa",
+      "summary": {
+        "reference": {
+          "divergent": 0,
+          "error": 0,
+          "match": 29,
+          "nondeterministic": 0,
+          "rejected_receipt": 0,
+          "unavailable": 0,
+          "unsupported": 1
+        },
+        "native": {
+          "divergent": 0,
+          "error": 0,
+          "match": 10,
+          "nondeterministic": 0,
+          "rejected_receipt": 0,
+          "unavailable": 0,
+          "unsupported": 20
+        }
+      },
+      "repeat": 5,
+      "native_commit": "48e30d5",
+      "report_sha256": "7cec2de7f31e24c7dc6a281b1e5323eea6d783c124513d72c05b47d71edc8162"
+    },
+    "forge": {
+      "engine_version": "forge-2.0.15 (build 2026-09-28 22:22:04; bridge 4eb647b98c1f)",
+      "fixture_sha256": "sha256:cc49afc8670a9a5167f5d99c35ec8eb58e6665877ce400f7b8250ed78080c7fa",
+      "verdicts": {
+        "match": 20,
+        "unsupported": 10
+      },
+      "jvm": {
+        "exit_code": 0,
+        "jvm_scenarios": 20,
+        "jvm_wall_ms": 2169,
+        "peak_rss_exact": true,
+        "peak_rss_mb": 220.9
+      },
+      "additional_bridge_scenarios": {
+        "executed": 15,
+        "matched": 15
+      },
+      "report_sha256": "c5ddd68e9b4d7882a5cdfd0b0101569d051727f42d790ca1f7078b142cade13c"
+    }
+  },
+  "recommendation": "Retain the fast native engine for interactive diagnostics. Use the real Forge bridge as an offline rules regression oracle, with explicit scripted choices and source provenance. The narrow reference kernel is an additional check, not an independent proof.",
+  "unmet_scope": [
+    "Native exposes no arbitrary rules-state injection API: 20 rules-state scenarios cannot yet be compared directly to native traces; native unit tests provide separate evidence.",
+    "XMage was researched but not executed; Forge supplies the actual mature-engine validation.",
+    "Only declared state keys/events are compared. Passing these fixtures does not prove all cards, full stack/combat rules or whole-game correctness.",
+    "The native resource probes and Forge state scenarios are different workloads; their timings must not be ranked as engine speed.",
+    "Forge draw_empty trace is inferred from recorded Milled loss; draws that do not cause loss are outside that observation method."
+  ],
+  "review_fixes": [
+    "Reference turn advance corrected to include mandatory draw and loss on empty library.",
+    "Forge bridge corrected scripted single-mana color choice, turn event ordering, loss observation, commander cast metadata and put-back choices. Expected outcomes were not relaxed to hide disagreements."
+  ],
+  "sources": {
+    "forge": [
+      "Card-Forge/forge, GPL-3.0, master b6f135e6 on 2026-10-14; Java 17 (pom maven.compiler.release=17)",
+      "release forge-2.0.15 (2026-09-28): forge-installer-2.0.15.tar.bz2, 297,081,149 bytes",
+      "headless AI-vs-AI 'sim' mode: forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java (-d decks -n games -s seed); whole matches only, no state injection",
+      "GameState text format used by forge-gui/res/puzzle/*.pzl (375 puzzles) can set hands/battlefield/counters: the realistic state-injection path",
+      "card scripts exist: forge-gui/res/cardsfolder/v/vivi_ornitier.txt (mana ability with PlayerTurn + ActivationLimit 1; noncreature SpellCast trigger) and s/sauron_the_dark_lord.txt (Ward Sac legendary; opponent SpellCast -> Amass Orc 1; RingTemptsYou -> optional discard hand, draw 4)",
+      "test utilities: forge-gui-desktop/src/test/java/forge/ai/simulation/GameSimulationTest.java etc."
+    ],
+    "xmage": [
+      "magefree/mage, MIT, master 0311c352 on 2026-10-14; pom java.version 8; README: 'supports over 32 000 unique cards'",
+      "release xmage_1.4.62V1 (2026-10-03): mage-full zip 253,552,544 bytes",
+      "Mage.Sets/src/mage/cards/v/ViviOrnitier.java (ViviOrnitierManaAbility: MyTurnCondition, maxActivationsPerTurn=1) and s/SauronTheDarkLord.java exist",
+      "scenario test framework is test-source only: Mage.Tests/.../serverside/base/CardTestPlayerBase.java (+ CardTestCommander4Players, CardTestCommanderDuelBase); ViviOrnitierTest uses addCard/castSpell/setChoice/assertLife/assertPowerToughness"
+    ]
+  },
+  "reproduce": [
+    "python scripts/benchmark_rules_engines.py --engines reference,native --repeat 5 --native-bin <cs> --out report.json",
+    "python scripts/benchmark_rules_engines.py --validate-report report.json",
+    "See scripts/rules_engine_adapters/forge/README.md for single-JVM fixture batch and explicit heavy-job gate."
+  ]
+}

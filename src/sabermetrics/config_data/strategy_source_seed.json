@@ -1,0 +1,1479 @@
+{
+  "observed_at": "2026-10-20",
+  "limitations": "Original AI-authored Deck Lab strategy frameworks plus existing explicitly attributed rule snapshots/brief quotation. No new external primer content, wiki text, permissions or independent reviews are claimed. Commander names are thematic retrieval anchors, not verified card profiles. Primary links identify existing versioned rules snapshots and do not certify the strategy. External permissioned text requires explicit offline import with author, permission, URL, source class, revision/date and limitations. Three brief attributed original synopses of historical Reid Duke articles preserve original URLs and dates; they are AI paraphrases, not externally licensed article reproductions or expert-reviewed Deck Lab guidance.",
+  "sources": [
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "106.1.",
+      "text": "106.1. Mana is the primary resource in the game. Players spend mana to pay costs, usually when casting spells and activating abilities."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "106.4.",
+      "text": "106.4. When an effect instructs a player to add mana, that mana goes into a player’s mana pool. From there, it can be used to pay costs immediately, or it can stay in the player’s mana pool as unspent mana. Each player’s mana pool empties at the end of each step and phase, and the player is said to lose this mana. Cards with abilities that produce mana or refer to unspent mana have received errata in the Oracle™ card reference to no longer explicitly refer to the mana pool."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "117.3b",
+      "text": "117.3b The active player receives priority after a spell or ability (other than a mana ability) resolves."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "121.2.",
+      "text": "121.2. Cards may only be drawn one at a time. If a player is instructed to draw multiple cards, that player performs that many individual card draws."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.1.",
+      "text": "603.1. Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”"
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.2.",
+      "text": "603.2. Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "603.3.",
+      "text": "603.3. Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "605.1a",
+      "text": "605.1a An activated ability is a mana ability if it meets all of the following criteria: it doesn’t require a target (see rule 115.6), it could add mana to a player’s mana pool when it resolves, it’s not a loyalty ability (see rule 606, “Loyalty Abilities”), and its cost and effect don’t move any card to or from a library. Do not take into account replacement effects that may apply, other than self-replacement effects, when evaluating these criteria."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.4.",
+      "text": "903.4. The Commander variant uses color identity to determine what cards can be in a deck with a certain commander. The color identity of a card is the color or colors of any mana symbols in that card’s mana cost or rules text, plus any colors defined by its characteristic-defining abilities (see rule 604.3) or color indicator (see rule 204).\nExample: Bosh, Iron Golem is a legendary artifact creature with mana cost {8} and the ability “{3}{R}, Sacrifice an artifact: Bosh, Iron Golem deals damage equal to the sacrificed artifact’s mana value to any target.” Bosh’s color identity is red."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5a",
+      "text": "903.5a Each deck must contain exactly 100 cards, including its commander. In other words, the minimum deck size and the maximum deck size are both 100."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5b",
+      "text": "903.5b Other than basic lands, each card in a Commander deck must have a different English name. For the purposes of deck construction, cards with interchangeable names have the same English name (see rule 201.3)."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.5c",
+      "text": "903.5c A card can be included in a Commander deck only if every color in its color identity is also found in the color identity of the deck’s commander.\nExample: Wort, the Raidmother is a legendary creature with mana cost {4}{R/G}{R/G}. Wort’s color identity is red and green. Each card in a Wort Commander deck must be only red, only green, both red and green, or have no color. Each mana symbol in the mana cost or rules text of a card in this deck must be only red, only green, both red and green, or have no color."
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.8.",
+      "text": "903.8. A player may cast a commander they own from the command zone. A commander cast from the command zone costs an additional {2} for each previous time the player casting it has cast it from the command zone that game. This additional cost is informally known as the “commander tax.”"
+    },
+    {
+      "document": "Magic Comprehensive Rules",
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+      "version": "effective 2026-09-25",
+      "permission": "Public official game rule excerpt; rules facts",
+      "source_kind": "official_rules",
+      "section": "903.9a",
+      "text": "903.9a If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704."
+    },
+    {
+      "document": "Gavin Verhey: My Most Important Deck-Building Rule",
+      "source_url": "https://magic.wizards.com/en/news/feature/my-most-important-deck-building-rule-2018-02-08",
+      "version": "published 2018-02-09; observed 2026-10-14",
+      "permission": "Brief attributed quotation (18 words); no article reproduction",
+      "source_kind": "strategy_excerpt",
+      "section": "Making a Statement",
+      "text": "Every deck should have a mission statement—some kind of game plan that guides your deck-building decisions."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Opening consistency",
+      "archetype": "general",
+      "text": "An opening-hand assessment should use only the actual hand and the declared mulligan policy. Check usable colors, a sequence of affordable plays and access to land or mana development. Land counts alone do not establish a keep: five lands with two expensive payoffs can be inactive, while two lands plus castable selection may offer a development path. Treat unseen draws as uncertainty rather than guaranteed fixes. Compare keep rate, mulligans and the distribution of first useful action turns under identical policies."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Independent development and recovery",
+      "archetype": "general",
+      "text": "A commander-independent engine can produce useful resources before the commander resolves and after it is removed. Distinguish cards that work from an empty creature board from cards needing a target, an attacker, a sacrifice body or an established payoff. After a creature wipe, use the actual surviving lands, artifacts, enchantments, graveyard and hand. A one-turn recovery check should identify a legal useful action and its prerequisite resources. Destruction is not unconditional removal: indestructibility, replacement effects and death triggers require modeled rules support."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Spellslinger resource balance",
+      "archetype": "spellslinger",
+      "text": "A spellslinger plan needs affordable castable spells, enough mana to continue, and a way to replace spent cards. Distinguish a cantrip that replaces itself from card advantage that increases available resources. Damage triggers and temporary mana are payoffs with conditions, not interchangeable sources of unconditional draw or ramp. Protect functional diversity: cutting selection, draw or protection merely because its printed mana value is high can weaken the engine. Alternate costs such as delve require graveyard resources and must not be assumed free."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Damage and draw relationships",
+      "archetype": "spellslinger",
+      "text": "For a damage-to-draw engine, inspect the exact damage source, enchanted or paired creature, recipient, whether damage is combat-only, whether drawing is optional, and each once-per-turn restriction. A noncreature-cast damage trigger and a damage-triggered draw effect are candidate ingredients, not proof of a self-sustaining loop. State mana, hand, battlefield and library prerequisites and verify the full sequence before describing a combo or a win. Commander-dependent pieces should be distinguished from cards that retain a second useful role without the commander."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Army and Ring strategy assessment",
+      "archetype": "army_ring_discard",
+      "text": "Separate creating or growing an Army from effects that reward having an Army. Similarly, distinguish an effect that tempts the Ring from a trigger that responds when the Ring tempts you. A commander may reward an opponent casting spells; a solo simulation with no opponents must not manufacture those events. For Sauron-oriented themes, consider independent token development, draw or discard recovery, and ways to convert a developed board into damage. Theme fit does not establish competitive power, and a high-powered combo shell may use a different plan from a thematic Army deck."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Finish conversion",
+      "archetype": "general",
+      "text": "An engine accumulating cards, tokens or mana is not by itself a verified finish. Identify the conversion route: combat damage, drain, direct damage or a demonstrated combo payoff. State the required pieces, timing, usable mana and relevant opponent assumptions. A turn-seven frozen-board test must not add an absent permanent to claim success. Missing native combat or combo semantics makes finish unverified rather than a measured loss or win. Solo goldfish observations do not predict multiplayer win rate."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Controlled replacement experiments",
+      "archetype": "general",
+      "text": "Keep budget, intended power, theme and protected cards explicit. Suggest mode presents choices; automatic mode tests copies. Compare three distinct alternatives, changing no more than three cards per alternative between measurements. Keep randomization and simulation settings comparable, retain a baseline and evaluate on held-out seeds. Report how modeled coverage changes with swaps; different missing mechanics can invalidate an apparent improvement. Choosing or adopting a card records user preference, not evidence that the card improved performance."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Landfall engine requirements",
+      "archetype": "landfall",
+      "text": "Landfall development needs a way to put lands onto the battlefield and a payoff for those entries. Extra land-play permissions require lands available to play; land recursion requires appropriate cards in the graveyard and a legal permission or effect. Land-search ramp, extra land plays and land recursion fill different functions and should not all be replaced by the cheapest mana artifact. Distinguish an ingredient match from a verified sequence, and preserve scarce engine enablers when improving generic draw or removal counts."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Sacrifice engine requirements",
+      "archetype": "sacrifice",
+      "text": "A sacrifice engine needs a body or other legal resource, a usable sacrifice outlet and a payoff. Token production without an outlet or an outlet without expendable resources does not complete the engine. Record activation costs, once-per-turn restrictions, legal targets and whether deaths actually trigger the payoff. A death-dependent draw effect is conditional draw, and a creature sacrifice cost cannot be paid from an empty creature board. Recovery recommendations should supply the missing function rather than accumulate redundant payoffs."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Commander combat and equipment",
+      "archetype": "voltron",
+      "text": "A commander combat plan needs a castable commander, an opportunity to attack and sufficient damage or another conversion route. Equipment requires its attachment conditions and costs; protection that applies only to the equipment does not necessarily protect the commander. Protection held in hand requires available mana and legal timing. A creature cannot be assumed ready to attack immediately without relevant permission. Without modeled combat, describe readiness ingredients and unsupported damage outcomes separately."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Reanimator engine requirements",
+      "archetype": "reanimator",
+      "text": "A reanimator plan puts creature cards into the graveyard, then returns them to the battlefield. Discard outlets, self-mill and graveyard tutors supply targets; reanimation spells and recurring abilities bring those creatures back. Large creatures can provide immediate value through enters-the-battlefield abilities without first paying their full printed mana cost. Returning a creature to hand is recovery rather than battlefield reanimation and still requires a way to cast it. Check creature target restrictions, timing, life or sacrifice costs, exile clauses and available resources. Keep worthwhile targets, graveyard setup and return effects in balance, and plan for opposing graveyard removal. The presence of these ingredients does not prove a legal sequence, a supported simulation or a stronger deck."
+    },
+    {
+      "document": "Deck Lab authored strategy guide",
+      "source_url": null,
+      "version": "2026-10-14.v1",
+      "permission": "Original Deck Lab guidance authored for this project",
+      "source_kind": "authored_guidance",
+      "section": "Blink engine requirements",
+      "archetype": "blink",
+      "text": "Blink or flicker temporarily exiles a permanent and returns it to the battlefield. A blink plan combines reusable creatures with valuable enters-the-battlefield abilities and effects that flicker those creatures for repeated value. Some effects return the permanent immediately; others return it at a later step, which changes timing and available blockers. Check which permanents an effect can target and whether it returns them under their owner or controller. A returned card is generally a new object; tokens that leave the battlefield cannot be assumed to return. Cheap protection and repeatable engines can serve different roles even when both exile a creature. Unlike reanimation from the graveyard, blink normally starts with a permanent already on the battlefield. These are planning distinctions, not confirmation that the simulator models each effect or that every loop is legal."
+    },
+    {
+      "document": "Deck Lab original strategy: counter_death_recursion",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Marchesa, the Black Rose",
+      "archetype": "counter_death_recursion",
+      "source_key": "deck-lab:counter_death_recursion:Prerequisites and functional roles",
+      "text": "Counter access, sacrifice timing and return are separate prerequisites. For a Marchesa-style death-recursion shell, verify the creature actually has the required counter before it dies, which player controls the relevant trigger, and when the return instruction happens. A counter source that only modifies itself cannot establish support for every other creature.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: counter_death_recursion",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Marchesa, the Black Rose",
+      "archetype": "counter_death_recursion",
+      "source_key": "deck-lab:counter_death_recursion:Drawbacks and comparison",
+      "text": "Compare a one-shot counter source with a recurring source by how many eligible bodies each can prepare, the mana required, and exposure to removal. A sacrifice outlet can enable timing control but cannot supply an absent body or counter. Do not call the arrangement a loop without checking each object after return and every delayed trigger.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: nonland_mana",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Kinnan, Bonder Prodigy",
+      "archetype": "nonland_mana",
+      "source_key": "deck-lab:nonland_mana:Prerequisites and functional roles",
+      "text": "Separate a permanent that taps itself for mana from a reducer, a land, a Treasure-making spell or an ability granted to another object. A nonland mana shell needs castable producers and useful destinations for their mana. Count colored casting access independently from a nominal increase in total mana.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: nonland_mana",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Kinnan, Bonder Prodigy",
+      "archetype": "nonland_mana",
+      "source_key": "deck-lab:nonland_mana:Drawbacks and comparison",
+      "text": "Compare a cheap creature producer with an artifact producer using vulnerability, summoning restrictions, color output and the actual commander trigger. A large activation is a mana sink rather than proof that the deck can sustain it. A creature hit pool also needs legal and worthwhile outcomes; an ingredient count is not a probability measurement.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: graveyard_value",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Meren of Clan Nel Toth",
+      "archetype": "graveyard_value",
+      "source_key": "deck-lab:graveyard_value:Prerequisites and functional roles",
+      "text": "A graveyard-value shell needs creature cards available in the graveyard, qualifying death events and a return effect with the right destination. Separate returning a card to hand from putting it directly onto the battlefield. Experience or other progression resources should be read from the current commander text rather than inferred from a general recursion label.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: graveyard_value",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Meren of Clan Nel Toth",
+      "archetype": "graveyard_value",
+      "source_key": "deck-lab:graveyard_value:Drawbacks and comparison",
+      "text": "Compare disposable bodies with large recursion targets by the first useful action after a wipe and by the cost to stock the graveyard again. Graveyard removal can break setup even when a payoff survives. A sacrifice cost uses a present resource; repeating it requires new bodies and does not follow from the existence of one return spell.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: combat_blink",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Brago, King Eternal",
+      "archetype": "combat_blink",
+      "source_key": "deck-lab:combat_blink:Prerequisites and functional roles",
+      "text": "A combat-blink shell needs an attacker that can connect, eligible permanents and effects worth retriggering. Distinguish combat damage to a player from other damage and from merely attacking. An enters-the-battlefield payoff in hand is not yet a target available to a blink effect.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: combat_blink",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Brago, King Eternal",
+      "archetype": "combat_blink",
+      "source_key": "deck-lab:combat_blink:Drawbacks and comparison",
+      "text": "Compare evasion, protection and additional value permanents by the missing prerequisite they address. More value targets do not solve failure to connect. Exile and return may change object identity, attached objects and counters; exact rules evidence is required for those interactions. A reusable blink ingredient alone does not demonstrate an infinite sequence.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: landfall",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Tatyova, Benthic Druid",
+      "archetype": "landfall",
+      "source_key": "deck-lab:landfall:Prerequisites and functional roles",
+      "text": "Landfall planning separates lands in hand, permission to play extra lands, effects putting lands onto the battlefield and rewards for those entries. A spell finding a land to hand supplies a different resource from a spell putting it onto the battlefield. Inspect tapped-entry restrictions before counting immediate usable mana.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: landfall",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Tatyova, Benthic Druid",
+      "archetype": "landfall",
+      "source_key": "deck-lab:landfall:Drawbacks and comparison",
+      "text": "Compare an extra-land permission with land-search ramp against actual land supply and recovery needs. Recursion only helps when suitable land cards and the correct play permission exist. A deck that repeatedly returns lands may need a way to replace lost tempo. More trigger payoffs cannot compensate for no further land entries.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: enchantment_cast",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Sythis, Harvest’s Hand",
+      "archetype": "enchantment_cast",
+      "source_key": "deck-lab:enchantment_cast:Prerequisites and functional roles",
+      "text": "An enchantment-cast shell needs enchantment spells that can actually be cast and payoffs matching that event. Putting an enchantment directly onto the battlefield and creating an enchantment token are different events from casting an enchantment spell. A low-cost enchantment can provide engine throughput while serving a second role.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: enchantment_cast",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Sythis, Harvest’s Hand",
+      "archetype": "enchantment_cast",
+      "source_key": "deck-lab:enchantment_cast:Drawbacks and comparison",
+      "text": "Compare additional cast payoffs with protection or recovery by the resources remaining when the commander is removed. Auras require suitable legal attachments; a cheap aura without an eligible object may be stranded. Recasting a permanent needs an actual return route and sufficient mana each time. Cast density is not measured card advantage.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: artifact_enchantment_tokens",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Alela, Artful Provocateur",
+      "archetype": "artifact_enchantment_tokens",
+      "source_key": "deck-lab:artifact_enchantment_tokens:Prerequisites and functional roles",
+      "text": "A spell-to-token plan should separate the qualifying spell types, the token created and the benefit of an established flying board. Artifact and enchantment entry payoffs do not necessarily respond to the same event as cast payoffs. Check whether the token source requires the commander to remain available.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: artifact_enchantment_tokens",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Alela, Artful Provocateur",
+      "archetype": "artifact_enchantment_tokens",
+      "source_key": "deck-lab:artifact_enchantment_tokens:Drawbacks and comparison",
+      "text": "Compare more token production with a combat conversion effect after counting available attackers, opposing interaction and recovery costs. Tokens can be expendable bodies but do not satisfy a nontoken requirement. A board-wide pump can be strong only after a board exists; independent card access may serve a different recovery role.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: vampire_typal",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Edgar Markov",
+      "archetype": "vampire_typal",
+      "source_key": "deck-lab:vampire_typal:Prerequisites and functional roles",
+      "text": "A Vampire typal shell needs qualifying creature cards and a reason for that type to matter beyond the commander’s own subtype. Distinguish cast rewards, token production and battlefield boosts. Preserve early plays that develop the board while checking whether a proposed support card is itself the requested creature type.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: vampire_typal",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Edgar Markov",
+      "archetype": "vampire_typal",
+      "source_key": "deck-lab:vampire_typal:Drawbacks and comparison",
+      "text": "Compare an expensive anthem with additional bodies by board readiness and post-wipe usefulness. More bodies expose more resources to sweepers; protection has timing and mana requirements of its own. A subtype match alone says nothing about casting access or a card’s ability to close a multiplayer game.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: spellslinger_tokens",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Talrand, Sky Summoner",
+      "archetype": "spellslinger_tokens",
+      "source_key": "deck-lab:spellslinger_tokens:Prerequisites and functional roles",
+      "text": "A spell-driven token shell needs qualifying spells, mana to continue casting them and a way to replenish cards. Replacing a card with a cantrip is different from increasing hand size. Copying a spell does not by itself mean that another spell was cast; check the actual event before awarding another trigger.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: spellslinger_tokens",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Talrand, Sky Summoner",
+      "archetype": "spellslinger_tokens",
+      "source_key": "deck-lab:spellslinger_tokens:Drawbacks and comparison",
+      "text": "Compare a costly draw spell with several cheap cantrips by net cards, mana spent and the number of qualifying casts. Tokens require time and a conversion route to matter in combat. Cutting protection for more trigger density can leave the central engine exposed. These comparisons require a shared starting state rather than a universal ranking.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: power_mana_spells",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Vivi Ornitier",
+      "archetype": "power_mana_spells",
+      "source_key": "deck-lab:power_mana_spells:Prerequisites and functional roles",
+      "text": "A power-based mana shell separates current power, opportunities to increase power, activation limits and the timing of mana use. A temporary pump can have a resource role even when it does not draw cards or remove a permanent. Count casting cost and follow-up activation requirements separately.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: power_mana_spells",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Vivi Ornitier",
+      "archetype": "power_mana_spells",
+      "source_key": "deck-lab:power_mana_spells:Drawbacks and comparison",
+      "text": "Compare permanent and temporary power effects by when mana becomes available and what happens after commander removal. Do not treat potential power as current mana or assume an activation can be repeated. A damage-to-draw pairing requires exact source and recipient clauses; related words are not proof of a loop or a win.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: army_ring_discard",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Sauron, the Dark Lord",
+      "archetype": "army_ring_discard",
+      "source_key": "deck-lab:army_ring_discard:Prerequisites and functional roles",
+      "text": "An Army and Ring plan distinguishes making an Army, growing an existing Army, being tempted and responding to temptation. Discarding a hand can be a cost or a reset rather than unconditional card advantage. Check the actual current commander text before assigning an opponent-cast trigger to a simulation.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: army_ring_discard",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Sauron, the Dark Lord",
+      "archetype": "army_ring_discard",
+      "source_key": "deck-lab:army_ring_discard:Drawbacks and comparison",
+      "text": "Compare independent draw and Army development with additional commander-dependent rewards. A solo environment cannot supply unspecified opposing spells. A large token still needs a damage conversion route and can be vulnerable to effects that do not destroy it. Thematic coherence does not establish competitive performance.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: aura_voltron",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Light-Paws, Emperor’s Voice",
+      "archetype": "aura_voltron",
+      "source_key": "deck-lab:aura_voltron:Prerequisites and functional roles",
+      "text": "An Aura combat plan needs a creature able to carry the Auras, legal targets, casting access and a way to attack productively. Search conditions must be checked against the actual spell and eligible library cards. A protective ability on one permanent should not be assumed to cover every attached object.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: aura_voltron",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Light-Paws, Emperor’s Voice",
+      "archetype": "aura_voltron",
+      "source_key": "deck-lab:aura_voltron:Drawbacks and comparison",
+      "text": "Compare evasion with raw power by blockers and the attack opportunity, then compare protection by timing and mana held open. Losing the carrier can remove several invested resources at once. Recovery may need another carrier and card access rather than more damage bonuses. No damage outcome is established from a pile of unattached Auras.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: vehicle_filtering",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Shorikai, Genesis Engine",
+      "archetype": "vehicle_filtering",
+      "source_key": "deck-lab:vehicle_filtering:Prerequisites and functional roles",
+      "text": "Vehicle planning separates the noncreature permanent, the crew requirement and the effect available without attacking. An activation that draws and discards should expose both parts plus mana and tapping costs. Bodies created by an engine may support crewing, but current battlefield availability must be checked.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: vehicle_filtering",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Shorikai, Genesis Engine",
+      "archetype": "vehicle_filtering",
+      "source_key": "deck-lab:vehicle_filtering:Drawbacks and comparison",
+      "text": "Compare a crew enabler with independent filtering according to the first useful action on an empty board. A body committed to crew may change combat options. Untap effects require exact targets and timing; the existence of a tap ability does not establish repeatability. Count repeated card access only after accounting for each activation.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: attack_triggers",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Isshin, Two Heavens as One",
+      "archetype": "attack_triggers",
+      "source_key": "deck-lab:attack_triggers:Prerequisites and functional roles",
+      "text": "An attack-trigger shell should classify the actual triggering event: becoming an attacker, dealing combat damage and becoming blocked are different. Check which player’s attacking creatures matter and whether the proposed payoff is triggered at all. More triggers do not inherently provide more attackers or safe attacks.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: attack_triggers",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Isshin, Two Heavens as One",
+      "archetype": "attack_triggers",
+      "source_key": "deck-lab:attack_triggers:Drawbacks and comparison",
+      "text": "Compare haste, evasion and additional trigger payoffs by the board’s limiting prerequisite. Attack opportunities expose creatures to blockers and interaction. A card that rewards combat damage may require a separate connection step. An additional-combat effect needs its own timing, untap and restriction analysis rather than being treated as an unconditional multiplier.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: exile_cast",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Faldorn, Dread Wolf Herald",
+      "archetype": "exile_cast",
+      "source_key": "deck-lab:exile_cast:Prerequisites and functional roles",
+      "text": "Exile-cast planning needs cards in exile, a valid permission to play them and enough mana before that permission expires. Playing a land and casting a spell are different events. Temporary access can be wasted when the mana is already spent or the revealed card has an unmet timing restriction.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: exile_cast",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Faldorn, Dread Wolf Herald",
+      "archetype": "exile_cast",
+      "source_key": "deck-lab:exile_cast:Drawbacks and comparison",
+      "text": "Compare temporary exile access with ordinary draw by expiration, land-play limits and the expected use of the current turn’s mana. An exile payoff is conditional on actually using the access, not merely exiling a card. Keep costs and permissions visible when discussing chains; a sequence of potential hits is not guaranteed throughput.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: treasure_exile",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Prosper, Tome-Bound",
+      "archetype": "treasure_exile",
+      "source_key": "deck-lab:treasure_exile:Prerequisites and functional roles",
+      "text": "Treasure production, available Treasures and a reward for playing from exile are separate resources. A Treasure token is consumed when its sacrifice ability is used; it cannot fund two distinct costs without a replenishment route. Exile permissions may end before later mana is available.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: treasure_exile",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Prosper, Tome-Bound",
+      "archetype": "treasure_exile",
+      "source_key": "deck-lab:treasure_exile:Drawbacks and comparison",
+      "text": "Compare additional Treasure payoffs with usable exile access and independent recovery. A temporary mana burst can enable one turn without increasing sustainable income. Artifact sacrifice may match some payoffs and miss others. Check whether tokens, nontoken artifacts or a particular controller are required before assigning support.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: minus_counters",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Hapatra, Vizier of Poisons",
+      "archetype": "minus_counters",
+      "source_key": "deck-lab:minus_counters:Prerequisites and functional roles",
+      "text": "A minus-counter shell needs a source that puts the specified counter on an eligible creature and a payoff for that event. A plus-counter source does not satisfy that requirement. Distinguish adding counters from moving counters and from a static reduction in power and toughness.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: minus_counters",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Hapatra, Vizier of Poisons",
+      "archetype": "minus_counters",
+      "source_key": "deck-lab:minus_counters:Drawbacks and comparison",
+      "text": "Compare broad counter placement with single-target effects using mana, available targets and effects on your own creatures. A token payoff needs the qualifying event each time. Opposing boards and replacement effects can change available routes. Do not infer a loop from counter placement and a token without verifying all costs and repeat conditions.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: proliferate_counters",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Atraxa, Praetors’ Voice",
+      "archetype": "proliferate_counters",
+      "source_key": "deck-lab:proliferate_counters:Prerequisites and functional roles",
+      "text": "A proliferate shell needs relevant existing counters and a reason to increase them. An effect that increases an existing counter resource may not establish it initially. Different counter types on creatures, players and other permanents should remain distinct in both setup evidence and the proposed finish.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: proliferate_counters",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Atraxa, Praetors’ Voice",
+      "archetype": "proliferate_counters",
+      "source_key": "deck-lab:proliferate_counters:Drawbacks and comparison",
+      "text": "Compare initial counter placement with additional proliferation by what the current board lacks. A proliferate payoff can be inactive on an empty board, while a standalone threat may retain a useful function. Poison, loyalty and creature growth imply different opponent assumptions and interaction. A generic counter count cannot certify any one of those outcomes.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: defender_combat",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Arcades, the Strategist",
+      "archetype": "defender_combat",
+      "source_key": "deck-lab:defender_combat:Prerequisites and functional roles",
+      "text": "A defender shell needs qualifying bodies, a way for them to contribute to combat and enough cards and mana to rebuild. Defender as a printed ability is distinct from a high toughness statistic. An engine tied to creatures entering the battlefield should not be credited for bodies still in hand.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: defender_combat",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Arcades, the Strategist",
+      "archetype": "defender_combat",
+      "source_key": "deck-lab:defender_combat:Drawbacks and comparison",
+      "text": "Compare another defender with protection or commander-independent draw by how the deck functions after its combat enabler is removed. A creature with the right keyword may still be expensive or lack a useful secondary role. Toughness totals are not measured damage without attack permission, combat timing and opponent assumptions.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: evasive_ninjas",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Yuriko, the Tiger’s Shadow",
+      "archetype": "evasive_ninjas",
+      "source_key": "deck-lab:evasive_ninjas:Prerequisites and functional roles",
+      "text": "A Ninja combat shell needs an attacker that can go unblocked and the appropriate permission and resources to use its alternate route. A low-cost evasive body and a high-mana-value reveal target serve different roles. Keep printed mana value separate from the actual cost used to put a card into play.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: evasive_ninjas",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Yuriko, the Tiger’s Shadow",
+      "archetype": "evasive_ninjas",
+      "source_key": "deck-lab:evasive_ninjas:Drawbacks and comparison",
+      "text": "Compare more reveal payoffs with early evasive attackers by whether the first qualifying damage event can occur. Top-of-library manipulation costs resources and does not guarantee an unseen outcome. Combat blockers and removal remain opposing assumptions; a goldfish ordering cannot establish multiplayer damage or win rate.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: artifact_graveyard",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Osgir, the Reconstructor",
+      "archetype": "artifact_graveyard",
+      "source_key": "deck-lab:artifact_graveyard:Prerequisites and functional roles",
+      "text": "An artifact-recursion shell needs suitable cards in the graveyard, activation resources and an effect returning or copying those cards. A token copy and the original card are different resources. A sacrifice outlet can stock the graveyard but also removes an artifact that might otherwise be useful now.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: artifact_graveyard",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Osgir, the Reconstructor",
+      "archetype": "artifact_graveyard",
+      "source_key": "deck-lab:artifact_graveyard:Drawbacks and comparison",
+      "text": "Compare cheap artifacts with large recursion targets by immediate usefulness, setup time and the cost of rebuilding after graveyard removal. Inspect tap restrictions and activation timing before describing repeated value. A copy effect may exile the original as a cost; do not assume the same original remains available for a second activation.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: x_spells",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Zaxara, the Exemplary",
+      "archetype": "x_spells",
+      "source_key": "deck-lab:x_spells:Prerequisites and functional roles",
+      "text": "An X-spell shell needs usable colored mana, spells whose paid X matters and a payoff that matches the casting event. Printed mana value outside the stack is not a substitute for the chosen X while casting. A mana producer and a cost reducer should retain distinct roles and prerequisites.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: x_spells",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Zaxara, the Exemplary",
+      "archetype": "x_spells",
+      "source_key": "deck-lab:x_spells:Drawbacks and comparison",
+      "text": "Compare high-ceiling spells with cheaper flexible plays by early castability and the first useful action without the commander. Copying a spell and casting it may trigger different rewards. Large theoretical X values require a demonstrated mana state; a potential engine is not a measured resource or an established infinite sequence.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: blink_vs_reanimation",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Roon of the Hidden Realm",
+      "archetype": "blink_vs_reanimation",
+      "source_key": "deck-lab:blink_vs_reanimation:Prerequisites and functional roles",
+      "text": "Blink starts with a permanent on the battlefield; reanimation starts with a card in the graveyard. Both can reuse entry effects but have different target availability, zone movement and setup needs. An effect returning at the next end step differs from an immediate return in blockers, timing and vulnerability.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: blink_vs_reanimation",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Roon of the Hidden Realm",
+      "archetype": "blink_vs_reanimation",
+      "source_key": "deck-lab:blink_vs_reanimation:Drawbacks and comparison",
+      "text": "Compare these routes under the same starting board and hand rather than treating both as generic recursion. Exiling a token does not establish that it can return. Changing zones may lose counters and attachments. A rules interaction requires current primary evidence; strategic similarity alone cannot settle object identity or ownership details.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: lifegain_control",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Prerequisites and functional roles",
+      "commander": "Oloro, Ageless Ascetic",
+      "archetype": "lifegain_control",
+      "source_key": "deck-lab:lifegain_control:Prerequisites and functional roles",
+      "text": "A life-gain shell separates life gained, triggers responding to that gain and resources spent on the payoff. A high life total can provide a buffer without supplying cards, mana or a way to finish. Multiple small gains and one large gain may interact differently with event-based rewards.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab original strategy: lifegain_control",
+      "source_url": null,
+      "version": "2026-10-20.v1",
+      "permission": "Original Deck Lab text generated for this project; no external primer copied",
+      "source_kind": "authored_guidance",
+      "source_class": "original_strategy",
+      "author": "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)",
+      "source_date": "2026-10-20",
+      "section": "Drawbacks and comparison",
+      "commander": "Oloro, Ageless Ascetic",
+      "archetype": "lifegain_control",
+      "source_key": "deck-lab:lifegain_control:Drawbacks and comparison",
+      "text": "Compare another life payoff with interaction or card access using the expected point of failure. Effects that cost life require an available life resource and may face restrictions. Life gain does not stop every damage-independent loss route. Do not translate a buffer into a win-rate claim or assume the commander supplies effects absent from its current text.",
+      "primary_links": [
+        {
+          "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+          "version": "effective 2026-09-25",
+          "source_class": "official_rules",
+          "scope": "Existing packaged rules snapshot reference; does not verify commander text or this strategic assessment"
+        }
+      ],
+      "limitations": "Original heuristic comparison framework, not a permissioned external primer, verified commander profile, reviewed label or measured improvement. Refresh card facts and applicable rules before asserting interactions."
+    },
+    {
+      "document": "Deck Lab attributed synopsis: The Basics of Mana (Reid Duke)",
+      "source_url": "https://magic.wizards.com/en/news/feature/basics-mana-2015-07-06",
+      "version": "synopsis-2026-10-20.v1; article-2015-07-06",
+      "permission": "Original brief AI-authored paraphrase and attribution; no source article reproduction or external permission asserted.",
+      "source_kind": "authored_guidance",
+      "source_class": "attributed_strategy_summary",
+      "source_key": "decklab-synopsis-mana-base",
+      "author": "Deck Lab / OpenAI Codex, summarizing Reid Duke",
+      "source_date": "2015-07-06",
+      "section": "Historical strategy synopsis; not verbatim source",
+      "archetype": "mana-base",
+      "primary_links": [
+        {
+          "url": "https://magic.wizards.com/en/news/feature/basics-mana-2015-07-06",
+          "version": "2015-07-06",
+          "source_class": "historical_strategy_article"
+        }
+      ],
+      "limitations": "AI-authored synopsis of a historical attributed article, not a source excerpt, external expert review, current Oracle/rules evidence, or verified Commander recommendation. Read original for context.",
+      "text": "Synopsis of Reid Duke: choose spells alongside the mana base that can support them. Casting cost, colored requirements and curve matter together. Nonland mana creatures cannot replace lands one for one: they need initial mana to cast, are vulnerable to removal, and may be included to accelerate rather than substitute for land drops. These historical general principles do not prescribe a Commander land count."
+    },
+    {
+      "document": "Deck Lab attributed synopsis: Tempo (Reid Duke)",
+      "source_url": "https://magic.wizards.com/en/news/feature/tempo-2015-07-20",
+      "version": "synopsis-2026-10-20.v1; article-2015-07-20",
+      "permission": "Original brief AI-authored paraphrase and attribution; no source article reproduction or external permission asserted.",
+      "source_kind": "authored_guidance",
+      "source_class": "attributed_strategy_summary",
+      "source_key": "decklab-synopsis-tempo",
+      "author": "Deck Lab / OpenAI Codex, summarizing Reid Duke",
+      "source_date": "2015-07-20",
+      "section": "Historical strategy synopsis; not verbatim source",
+      "archetype": "tempo",
+      "primary_links": [
+        {
+          "url": "https://magic.wizards.com/en/news/feature/tempo-2015-07-20",
+          "version": "2015-07-20",
+          "source_class": "historical_strategy_article"
+        }
+      ],
+      "limitations": "AI-authored synopsis of a historical attributed article, not a source excerpt, external expert review, current Oracle/rules evidence, or verified Commander recommendation. Read original for context.",
+      "text": "Synopsis of Reid Duke: developing the battlefield and spending mana efficiently affect tempo. A draw spell can improve future card supply while giving up immediate board development. Lands entering tapped exchange immediate deployment speed for other benefits, including color flexibility. Evaluate that tradeoff against the particular game plan; a universal ban on tapped lands does not follow."
+    },
+    {
+      "document": "Deck Lab attributed synopsis: Tempo & Card Advantage: A Delicate Balance (Reid Duke)",
+      "source_url": "https://magic.wizards.com/en/news/feature/tempo-card-advantage-delicate-balance-2014-11-17",
+      "version": "synopsis-2026-10-20.v1; article-2014-11-18",
+      "permission": "Original brief AI-authored paraphrase and attribution; no source article reproduction or external permission asserted.",
+      "source_kind": "authored_guidance",
+      "source_class": "attributed_strategy_summary",
+      "source_key": "decklab-synopsis-tempo-versus-cards",
+      "author": "Deck Lab / OpenAI Codex, summarizing Reid Duke",
+      "source_date": "2014-11-18",
+      "section": "Historical strategy synopsis; not verbatim source",
+      "archetype": "tempo-versus-cards",
+      "primary_links": [
+        {
+          "url": "https://magic.wizards.com/en/news/feature/tempo-card-advantage-delicate-balance-2014-11-17",
+          "version": "2014-11-18",
+          "source_class": "historical_strategy_article"
+        }
+      ],
+      "limitations": "AI-authored synopsis of a historical attributed article, not a source excerpt, external expert review, current Oracle/rules evidence, or verified Commander recommendation. Read original for context.",
+      "text": "Synopsis of Reid Duke: tempo and card advantage compete, and their relative value changes with game stage and matchup. Early mana constraints can favor deployment; later games can make access to more useful cards decisive. There is no fixed conversion rate between these resources. This historical two-player framework needs separate justification before applying it to a particular multiplayer Commander table."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-20",
+  "validation_scope": "Harness calibration and public-input smoke only; no actual candidate QA evaluated",
+  "targeted_tests": {
+    "command": "python -m pytest tests/test_assistant_quality_benchmark.py -q",
+    "passed": 18
+  },
+  "lint": {
+    "tool": "ruff 0.16.4",
+    "scope": [
+      "scripts/evaluate_assistant_quality.py",
+      "src/sabermetrics/assistant_quality_evaluation.py",
+      "tests/test_assistant_quality_benchmark.py"
+    ],
+    "result": "passed"
+  },
+  "cli_public_input_smoke": {
+    "development": 16,
+    "heldout": 16,
+    "labels_decoded": false
+  },
+  "manifest_sha256": "5c6d45e31a9dd403e23acc2cb2017cfd8e1907c9778f08a59e373e5c2c3fe7af",
+  "implementation_sha256": {
+    "scripts/evaluate_assistant_quality.py": "c40a949b78856fff61555e6bd923f25b6aa03b38400e4f731b66c5a80289abf2",
+    "src/sabermetrics/assistant_quality_evaluation.py": "b05833fda4c5ec86464db02fd2bd85196af2eb5e441f9cff2a41ed33e67535b9",
+    "tests/test_assistant_quality_benchmark.py": "e895d59153b26fdf0ae23efacb28b43c86374f582a2e631124ff445c2c1b55b6"
+  },
+  "paid_model_calls": 0,
+  "candidate_runs": 0,
+  "processes_started": [],
+  "cleanup": "No listeners or Playwright processes found at completion; no dev servers or browsers started.",
+  "independence": "Did not inspect candidate selection/suitability/claim-review implementations. Did not consult existing expected outputs. Existing unrelated checkout edits preserved.",
+  "limitations": [
+    "Card text is exact cached evidence, not current primary Oracle certification.",
+    "AI-authored rubric, not human/expert certification.",
+    "Heldout labels must remain unread by integration author until final candidate code freeze."
+  ]
+}

@@ -20,6 +20,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel
 
+from sabermetrics.ai_cost_control import BudgetDenied, credential_name, paid_attempt
 from sabermetrics.errors import (
     FatalError,
     LLMCostCeilingExceeded,
@@ -181,10 +182,11 @@ class AnthropicClient:
                 "template_model": settings.llm.template_model,
             }
         )
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        self._credential_name = credential_name("anthropic", "ANTHROPIC_API_KEY")
+        api_key = os.environ.get(self._credential_name, "")
         if not api_key:
             raise FatalError("ANTHROPIC_API_KEY not set. Export it or add to .env")
-        self._client = anthropic.Anthropic(api_key=api_key)
+        self._client = anthropic.Anthropic(api_key=api_key, max_retries=0)
 
     @classmethod
     def get_instance(cls, db_path: Path | None = None) -> "AnthropicClient":
@@ -272,23 +274,45 @@ class AnthropicClient:
                 }
             )
 
+        if credential_name("anthropic", "ANTHROPIC_API_KEY") != self._credential_name:
+            raise BudgetDenied("client credential environment mismatch")
+
+        from sabermetrics.ai_cost_control import bounded_output_tokens
+
+        max_tokens = bounded_output_tokens(max_tokens)
+
         # Retry with exponential backoff
         last_error = None
         for attempt in range(3):
             try:
-                response = self._client.messages.create(
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    system=system_content,
-                    messages=api_messages,
-                )
+                with paid_attempt(
+                    model,
+                    {"system": system_content, "messages": api_messages},
+                    max_tokens,
+                ) as receipt:
+                    timeout = {"timeout": receipt.remaining_seconds} if receipt else {}
+                    response = self._client.messages.create(
+                        model=model,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        system=system_content,
+                        messages=api_messages,
+                        **timeout,
+                    )
 
                 # Extract usage
                 usage = response.usage
                 input_tokens = usage.input_tokens
                 output_tokens = usage.output_tokens
                 cached_input = getattr(usage, "cache_read_input_tokens", 0) or 0
+
+                if receipt:
+                    # Anthropic reports cached categories separately.
+                    creation = getattr(usage, "cache_creation_input_tokens", None)
+                    read = getattr(usage, "cache_read_input_tokens", None)
+                    categories = (input_tokens, output_tokens, read, creation)
+                    if all(type(value) is int and value >= 0 for value in categories):
+                        receipt.usage(input_tokens + read + creation, output_tokens)
 
                 # Compute cost
                 cost = self.estimate_cost(

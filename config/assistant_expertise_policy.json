@@ -1,0 +1,20 @@
+{
+  "version": "assistant-expertise-policy.v1",
+  "min_cases": 120,
+  "min_commanders": 12,
+  "min_archetypes": 6,
+  "min_cases_per_domain": 12,
+  "reviews_per_case": 2,
+  "min_dimension_score": 3,
+  "min_pass_fraction": 0.9,
+  "min_domain_pass_fraction": 0.8,
+  "max_regression_fraction": 0.05,
+  "min_decisive_commander_groups": 8,
+  "min_group_win_lower_bound": 0.5,
+  "max_age_days": 14,
+  "max_benchmark_age_days": 90,
+  "max_total_cost_usd": 5.0,
+  "approved_curators": [],
+  "approved_benchmarks": [],
+  "approved_experts": {}
+}

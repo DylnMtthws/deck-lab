@@ -1,0 +1,75 @@
+{
+  "schema": "research-evidence-ledger.v1",
+  "live_runs": [
+    {
+      "experiment": "E001",
+      "result": "e001-status.json",
+      "kind": "single_development_diagnostic",
+      "requested_explanation_delivered": false
+    }
+  ],
+  "claims": [
+    {
+      "claim": "Implementation boundary checks pass",
+      "evidence": "../deck-inference-v1-20261021/development-results.json",
+      "status": "bounded_offline_support"
+    },
+    {
+      "claim": "New architecture is faster live",
+      "status": "not_measured"
+    },
+    {
+      "claim": "New architecture improves recommendation quality",
+      "status": "not_measured"
+    },
+    {
+      "claim": "Feature provides independent domain value",
+      "status": "not_validated"
+    }
+  ],
+  "experiment_status": "No new live calls, deployments or external reviewer contacts in this protocol task.",
+  "prior_draft_protocol_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
+  "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
+  "canonical_spec_sha256": "25e8b7f1e02cacdc35584c561aad77b745f5cf41783a6ea4c6d30e432bb24bba",
+  "protocol_section": "measurement_protocol",
+  "extraction_development": {
+    "status": "bounded_diagnostic_accepted",
+    "report": "extraction-results.json",
+    "cases": "extraction-development-cases.json",
+    "alternate_provider_review": "Sol medium R3 bounded clearance after Opus implementation/fixes",
+    "tests_passed": 83,
+    "correct": 156,
+    "wrong": 5,
+    "unknown": 128,
+    "qualification": "Scored representation dimensions only; unjudged fields remain. AI-authored development fixtures, no expert validation or live quality evidence."
+  },
+  "feasibility_capture": {
+    "status": "offline_validator_accepted",
+    "alternate_provider_review": "Opus 5.5 medium R4 bounded clearance after Sol implementation/fixes",
+    "focused_tests_passed": 66,
+    "combined_capture_extraction_existing_expertise_tests": 184,
+    "live_runs": 0,
+    "limitations": [
+      "No acquisition authenticity or completeness proof",
+      "No independently judged usefulness or quality",
+      "No live latency observation"
+    ]
+  },
+  "e001_status": "completed_diagnostic_requested_explanation_not_delivered",
+  "currentness_profile": {
+    "experiment": "E002a",
+    "status": "accepted_synthetic_diagnostic",
+    "report": "currentness-profile.json",
+    "review": "Opus medium R2 bounded clearance",
+    "runs": 54,
+    "limits": "Synthetic source/session reconstruction, not measured E001 payload or QA causality. Minor ordering/reference-constant limitations recorded in canonical spec."
+  },
+  "currentness_prototype": {
+    "experiment": "E002b",
+    "status": "closed_negative_result_no_integration",
+    "report": "currentness-prototype.json",
+    "review": "Opusmedium R1 bounded clearance",
+    "product_changes": false,
+    "scope": "UnusedSQLprojection plus fullPythondecode; no general projection-only or QA conclusion."
+  }
+}

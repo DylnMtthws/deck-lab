@@ -1,0 +1,159 @@
+{
+  "purpose": "Single-case actual-wire verification; not controlled latency or statistical quality evidence",
+  "case": "kinnan",
+  "previous": {
+    "build_sha": "43258c4f12d3e2d0f9d944779805af18e140d3a7",
+    "first_source_seconds": 18.137,
+    "first_supported_seconds": 72.231,
+    "elapsed_seconds": 104.65,
+    "configured_cost_usd": 0.007079,
+    "deck_unchanged": true,
+    "return_projection_identical": true,
+    "status": "incomplete",
+    "review_status": "unverified",
+    "fulfillment": "partial",
+    "unresolved": [],
+    "reviewed_subspans": 0,
+    "generation_records": 3,
+    "input_tokens": 19010,
+    "cached_input_tokens": 1664,
+    "output_tokens_including_reasoning": 5463,
+    "semantic_review_generation_records": 1,
+    "stages": [
+      {
+        "bounded_conditional_mana_source_count": 0,
+        "elapsed_seconds": 0.573,
+        "end_seconds": 28.081562,
+        "input_chars": 21675,
+        "omitted_shared_evidence": [
+          "shared_strategic_evidence"
+        ],
+        "retained_candidates": 8,
+        "scope_source_count": 9,
+        "shared_strategic_evidence_included": false,
+        "stage": "selection_evidence",
+        "start_seconds": 27.508578
+      },
+      {
+        "elapsed_seconds": 33.8,
+        "end_seconds": 102.010916,
+        "stage": "answer_review",
+        "start_seconds": 68.211311,
+        "status": "unverified"
+      },
+      {
+        "elapsed_seconds": 0.186,
+        "end_seconds": 102.598452,
+        "lookups": 0,
+        "stage": "corrective_review",
+        "start_seconds": 102.412786,
+        "status": "not_needed"
+      },
+      {
+        "attachment_status": "not_attached",
+        "deck_entries": 63,
+        "dependency_count": 66,
+        "elapsed_seconds": 0.151906,
+        "end_seconds": 103.207964,
+        "input_sha256": "a394450a78c74c9237817765a8c14090ee3277e95da21819bc16fc269fa8500a",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 13546,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "stage": "memory_capture",
+        "start_seconds": 103.055957,
+        "status": "skipped"
+      }
+    ]
+  },
+  "candidate": {
+    "build_sha": "d05218ee59bea426a70c144dac5f25afc310bd49",
+    "first_source_seconds": 22.261,
+    "first_supported_seconds": 83.449,
+    "elapsed_seconds": 123.69,
+    "configured_cost_usd": 0.0071129999999999995,
+    "deck_unchanged": true,
+    "return_projection_identical": true,
+    "status": "incomplete",
+    "review_status": "unverified",
+    "fulfillment": "partial",
+    "unresolved": [
+      "c4: missing_applicable_rule_citation"
+    ],
+    "reviewed_subspans": 0,
+    "generation_records": 3,
+    "input_tokens": 19861,
+    "cached_input_tokens": 2688,
+    "output_tokens_including_reasoning": 5235,
+    "semantic_review_generation_records": 1,
+    "stages": [
+      {
+        "bounded_conditional_mana_source_count": 5,
+        "elapsed_seconds": 0.498,
+        "end_seconds": 36.839462,
+        "input_chars": 23478,
+        "omitted_shared_evidence": [],
+        "retained_candidates": 8,
+        "scope_source_count": 9,
+        "shared_strategic_evidence_included": true,
+        "stage": "selection_evidence",
+        "start_seconds": 36.34119
+      },
+      {
+        "elapsed_seconds": 40.334,
+        "end_seconds": 119.647506,
+        "stage": "answer_review",
+        "start_seconds": 79.313933,
+        "status": "unverified"
+      },
+      {
+        "elapsed_seconds": 0.279,
+        "end_seconds": 120.416101,
+        "lookups": 0,
+        "stage": "corrective_review",
+        "start_seconds": 120.137137,
+        "status": "not_needed"
+      },
+      {
+        "attachment_status": "not_attached",
+        "deck_entries": 63,
+        "dependency_count": 66,
+        "elapsed_seconds": 0.159029,
+        "end_seconds": 121.011364,
+        "input_sha256": "c42f39a02fe778d0f7b04673544386e9ae5074bc079c92020ccc60caef2e3fc2",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 14853,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "stage": "memory_capture",
+        "start_seconds": 120.85222,
+        "status": "skipped"
+      }
+    ]
+  },
+  "candidate_artifact_sha256": "eada6693c2d9c8fb916877a0349d5a76ca8e232becc434c9c1adc81944261ab1",
+  "binding_checks": [
+    {
+      "case": "kinnan",
+      "bound_claim_spans": 12,
+      "checked_workspace_evidence_hashes": 33,
+      "deck_unchanged": true,
+      "return_projection_identical": true
+    }
+  ],
+  "fixtures_removed": true,
+  "qa_only": true,
+  "production_unchanged": true,
+  "assessment": {
+    "integration": "Actual wire now includes shared mana evidence:8retained candidates,9source records,5bounded rows,23478 input characters,no shared omission. Reviewer source context remains complete.",
+    "latency": "123.690 seconds versus preceding104.650 and older98.548. No speed gain; one uncontrolled run with changed selections and provider load.",
+    "quality": "Blinded AI review narrowly preferred candidate for varied roles, conditional comparison and less categorical Halfling wording. Both remain partial. Candidate omits Hawker total (restricted CU plus one unrestricted C orU), does not explain bonus rider noninheritance, and gives imprecise generic/colorless advice. Mystic contribution survives. No statistical or human-expert validation.",
+    "limits": "No accepted local subspans in this sample; no broad quality noninferiority or expert-human validation."
+  },
+  "blind_review": {
+    "candidate_label": "A",
+    "preference": "A narrowly",
+    "bundle_sha256": "06a5855b930d7c9dd64a7d4ffa1fd357df1b41dac59158d29df61bd9d4aa3752",
+    "evaluation_type": "Separate AI blind artifact review, not independent human labels"
+  }
+}

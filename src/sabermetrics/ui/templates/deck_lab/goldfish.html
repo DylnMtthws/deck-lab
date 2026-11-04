@@ -1,0 +1,74 @@
+{% extends "deck_lab/base.html" %}
+{% block title %}Goldfish diagnostics · {{ document.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-goldfish.css') }}">{% endblock %}
+{% block main_class %}dl-goldfish-main{% endblock %}
+{% block content %}
+<div class="gf-page" data-goldfish-deck="{{ document.id }}" data-revision="{{ document.revision }}">
+    <nav class="gf-breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('builder.library') }}">Build</a><span aria-hidden="true">/</span><a href="/goldfish">Goldfish Lab</a><span aria-hidden="true">/</span><span aria-current="page">{{ document.title }}</span></nav>
+    <header class="gf-page-head">
+        <div><p class="gf-eyebrow">Goldfish diagnostics</p><h1>{{ document.title }}</h1><p class="gf-lede">Measure how this list starts, develops, handles disruption, and closes. Results describe solo runs, not a win-rate forecast.</p></div>
+        <a class="gf-button gf-button-quiet" href="/build/deck/{{ document.id }}">Edit deck</a>
+    </header>
+
+    <p class="gf-coverage-warning" role="note">Experimental simulator coverage: only authored card effects are executed. Combo execution, combat finishes, and complete strategy recovery are not yet measured. Unsupported results are not deck failures.</p>
+    <section class="gf-run-panel" aria-labelledby="gf-run-title">
+        <div><p class="gf-eyebrow">New experiment</p><h2 id="gf-run-title">Choose a plan and run the five checks</h2><p class="gf-muted">A revision may change at most three cards. Record the hypothesis so comparisons explain what the swap was meant to fix.</p></div>
+        <form class="gf-run-form" data-gf-run-form>
+            <label for="gf-plan">Evaluation plan</label>
+            <select id="gf-plan" name="plan_id" required>
+                {% for plan in plans %}<option value="{{ plan.id }}">{{ plan.title }}{% if plan.summary %} — {{ plan.summary }}{% endif %}</option>{% endfor %}
+            </select>
+            <div class="gf-plan-notes">
+                {% for plan in plans %}
+                <details>
+                    <summary>{{ plan.title }} plan notes</summary>
+                    <p>{{ plan.summary }}</p>
+                    {% if plan.engine_description %}<p><strong>Intended engine:</strong> {{ plan.engine_description }}</p>{% endif %}
+                    {% if plan.opening_priorities %}<h3>Opening priorities</h3><ul>{% for item in plan.opening_priorities %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+                    {% if plan.finish_routes %}<h3>Intended finish routes</h3><ul>{% for item in plan.finish_routes %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+                    {% if plan.limitations %}<h3>Plan limitations</h3><ul>{% for item in plan.limitations %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+                    {% if plan.primer_url %}<p><a class="gf-text-link" href="{{ plan.primer_url }}" target="_blank" rel="noopener noreferrer">Open source primer <span aria-hidden="true">↗</span></a></p>{% endif %}
+                    <p class="gf-primer-disclosure">Primer notes guide the plan's intended priorities. The simulator reports only mechanics it can model; primer descriptions do not count as observed outcomes.</p>
+                </details>
+                {% endfor %}
+            </div>
+            <label for="gf-hypothesis">What should this run help answer?</label>
+            <textarea id="gf-hypothesis" name="hypothesis" rows="3" maxlength="1000" placeholder="Example: Improve recovery after a wipe by replacing one redundant payoff with a rebuild piece."></textarea>
+            <div class="gf-run-options">
+                <label for="gf-parent">Compare against</label>
+                <select id="gf-parent" name="parent_id"><option value="">Automatic (latest run)</option></select>
+                <label for="gf-games">Trials</label><input id="gf-games" name="games" type="number" min="20" max="1000" step="1" value="200" required>
+                <label for="gf-seed">Shuffle seed</label><input id="gf-seed" name="seed" type="number" min="0" max="9007199254740991" step="1" value="20261010" required>
+                <button class="gf-button gf-button-quiet" type="button" data-gf-fresh>Use fresh trials</button>
+            </div>
+            <p class="gf-inline-note">Keep each revision to three card replacements maximum. Goldfish results can undervalue interaction and other multiplayer roles.</p>
+            <div class="gf-form-actions"><button class="gf-button gf-button-primary" type="submit" data-gf-submit>Run diagnostics</button><span class="gf-live" role="status" aria-live="polite" data-gf-status></span></div>
+        </form>
+    </section>
+
+    <section class="gf-results" aria-labelledby="gf-results-title">
+        <div class="gf-section-head"><div><p class="gf-eyebrow">Selected run</p><h2 id="gf-results-title">Five-test report</h2></div><p class="gf-run-meta" data-gf-run-meta>No completed run selected yet.</p></div>
+        <div class="gf-alert" role="status" data-gf-alert hidden></div>
+        <section class="gf-coverage" aria-labelledby="gf-coverage-title" data-gf-coverage>
+            <div><p class="gf-eyebrow">Coverage and assumptions</p><h3 id="gf-coverage-title">Run coverage</h3><p data-gf-coverage-summary>No run has reported coverage yet.</p></div>
+            <details><summary>Unsupported cards and assumptions</summary><div data-gf-coverage-details><p>Run a diagnostic to see coverage details.</p></div></details>
+        </section>
+        <div class="gf-test-grid" data-gf-tests>
+            <article class="gf-test-card" data-test="opening"><p class="gf-eyebrow">Test 1</p><h3>Opening hand</h3><p class="gf-test-status">Not run</p><p class="gf-placeholder">Mulligan decisions, usable colors, early mana, and a productive start.</p></article>
+            <article class="gf-test-card" data-test="turns"><p class="gf-eyebrow">Test 2</p><h3>Turns</h3><p class="gf-test-status">Not run</p><p class="gf-placeholder">Land drops, mana use, cards held, and when the intended engine becomes active.</p></article>
+            <article class="gf-test-card" data-test="commander"><p class="gf-eyebrow">Test 3</p><h3>Commander removed</h3><p class="gf-test-status">Not run</p><p class="gf-placeholder">Progress and stranded cards after the commander is returned to the zone.</p></article>
+            <article class="gf-test-card" data-test="wipe"><p class="gf-eyebrow">Test 4</p><h3>After a wipe</h3><p class="gf-test-status">Not run</p><p class="gf-placeholder">What remains, what can be played next, and whether the deck rebuilds.</p></article>
+            <article class="gf-test-card" data-test="finish"><p class="gf-eyebrow">Test 5</p><h3>Finish</h3><p class="gf-test-status">Not run</p><p class="gf-placeholder">Whether available resources produce a demonstrated path to a win.</p></article>
+        </div>
+        <section class="gf-recommendations" aria-labelledby="gf-recommendations-title" data-gf-recommendations hidden><div class="gf-section-head"><div><p class="gf-eyebrow">Next steps</p><h2 id="gf-recommendations-title">Recommendations</h2></div></div><div data-gf-recommendation-list></div></section>
+        <section class="gf-comparison" aria-labelledby="gf-comparison-title" data-gf-comparison hidden><div class="gf-section-head"><div><p class="gf-eyebrow">Before and after</p><h2 id="gf-comparison-title">Comparison</h2></div><p data-gf-comparison-label></p></div><div data-gf-comparison-body></div></section>
+    </section>
+
+    <section class="gf-history" aria-labelledby="gf-history-title">
+        <div class="gf-section-head"><div><p class="gf-eyebrow">Experiment log</p><h2 id="gf-history-title">Run history</h2></div><button class="gf-button gf-button-quiet" type="button" data-gf-refresh>Refresh</button></div>
+        <p class="gf-muted" data-gf-history-empty>No runs yet. Your original deck will be saved as the comparison baseline.</p>
+        <ol class="gf-history-list" data-gf-history></ol>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='deck-lab-goldfish.js') }}" defer></script>{% endblock %}

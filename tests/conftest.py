@@ -188,3 +188,4 @@ def _offline_cedh_env(monkeypatch):
     # configuration back after this fixture cleared it. Deleting the variables
     # is not enough; the loader has to be told to stay out.
     monkeypatch.setenv("SABER_SKIP_DOTENV", "1")
+    monkeypatch.setenv("SABER_AI_ENV", "test")

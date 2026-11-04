@@ -18,6 +18,36 @@ When changing a contract, update this document FIRST, then implement. Breaking c
 
 ## 1. Internal Module Contracts
 
+### Research Assistant strategy and recall (2026-10-16)
+
+`assistant_strategy.build_strategy_context(document, constraints, assessment)`
+returns the Pydantic `StrategyContext` (`assistant-strategy.v1`). Its content
+fingerprint covers the current public library, commanders, Oracle facts, revision,
+and preferences. It is derived again after edits; it is not a learned player
+profile. Detected contracts and draw routes are explicitly incomplete ingredient
+evidence, never simulated availability or a certified win condition.
+
+`assistant_candidate_recall.recall_candidates(path, document, strategy, focus)`
+returns a typed, bounded union of independent mechanical, lexical, optional local
+semantic, association, and sourced combination channels. Every returned card is
+resolved from the local legal canonical corpus. Association is a discovery prior,
+never permission to recommend a swap. Missing semantic artifacts and empirical
+evidence remain visible. No provider calls or model downloads occur here.
+
+`assistant_strategy.assess_strategy_transition(before, after)` compares detected
+commander support over the complete proposed change, including jointly removed
+cards. A passing receipt rules out modeled critical losses; density changes
+remain tradeoffs for strategic review.
+Recommendations may contain one to three replacements, validated jointly by
+`ExperimentService` and reviewed together. Review citations identify both the
+replacement index and side; every changed card requires an exact source citation.
+
+Support-count reductions are disclosed tradeoffs, not proof an engine is broken.
+Loss of the last detected support/target and named-card dependencies remain
+vetoes. Exact Vivi-style power-based mana lines expose recognized temporary pump
+routes as conditional opportunities, never available mana or net mana profit.
+Strategic review explicitly acknowledges a lost recognized mana opportunity.
+
 <context name="internal_contracts">
 
 ### 1.1 Ingestion Layer Interface
@@ -743,3 +773,102 @@ cli_commands:
 ```
 
 </context>
+
+
+## Research Assistant grounded retrieval
+
+`assistant_deck_facts.build_deck_facts(document, query="")` returns the typed
+`assistant-deck-facts.v1` envelope. It scans every current library entry before
+bounding examples to eight per feature and query matches to twelve. Each match
+identifies entry ID, canonical card ID, Oracle ID, quantity and exact source
+clause; truncation is explicit. Counts describe supported text patterns, not
+complete coverage or proof of absence. The runtime pins a compact fresh summary.
+
+`assistant_engine_graph.build_engine_graph(document)` derives sourced static
+commander links. `engine_loss_score` only orders cuts; it never authorizes or
+vetoes a replacement. Summaries prioritize multipliers, damage/draw and
+power/mana links ahead of generic cast ingredients.
+
+`assistant_context_rank.rank_card_context(document, card, focus)` returns
+separate requested functions, actual matches, source-backed engine relationships
+and conditions. It ranks the existing canonical recall pool before bounded
+proposal construction. Existing legality, budget, protected-card, revision and
+semantic-review checks remain authoritative.
+
+`assistant_rules.retrieve_rules(path, query, cards=(), limit=4)` reads a local
+versioned rules index and existing `card_rulings`, returning the typed
+`assistant-rules.v1` envelope. Query <=300 characters, scoped cards <=16, hits
+<=6, passage text <=1200 characters with explicit truncation. Missing corpus,
+missing rulings and no match are distinguished. The runtime never downloads
+rules. `scripts/prepare_assistant_rules.py` explicitly imports Wizards text
+offline and atomically replaces the rules snapshot after parsing.
+
+New owner-scoped assistant tools `retrieve_deck_facts` and `retrieve_rules` use
+the existing revision check. `prepare_improvement`, card details and strategic
+review carry relevant evidence. The last of five conversation calls requests
+a final answer; new tool calls on that final step are not executed. A partial
+evidence fallback makes budget exhaustion visible without claiming an
+experiment was requested or performed.
+
+The roadmap and partner ownership contracts are in
+`docs/specs/research-assistant/rag-roadmap-20261017.md` and
+`grounded-rag-contract-20261017.md`.
+
+
+The focused facts tool bounds source examples before model receipt compaction;
+all feature counts remain available. Whole-name matching scopes rules to the
+current library and commanders, excluding sideboard and substring collisions.
+Targeted rule hits and fact matches are pinned when older receipts are evicted.
+Supplemental retrieval is omitted explicitly before dropping complete candidate
+facts at the 24 KiB strategic-review boundary.
+
+`assistant_rulings_import.import_rulings` validates a caller-supplied Scryfall
+JSON/JSONL snapshot (optionally gzip) against its required raw-byte SHA-256.
+An optional saved bulk descriptor also binds URL, size and timestamp. The
+explicit CLI is `scripts/prepare_assistant_rulings.py`. No runtime network call
+is added. Rows are bounded and validated before namespace replacement; original
+source/date/Oracle identity and snapshot provenance remain visible in retrieval.
+
+### Research completion and answer review (2026-10-17)
+
+ResearchTask is an additive conversation-step field, frozen on its first supplied
+value within the turn. ResearchHypothesis contains one to three distinct
+replacement pairs, a shared interaction, conditions and losses. Every pair must
+resolve and pass existing isolated constraint validation. Hypotheses do not
+enter proposals or recommendations and carry explicit joint-review/measurement
+limits. Package completion counts pairs in one package, never unrelated alternatives.
+The runtime retains requested counts, observed counts and unresolved work under
+state.research_task; a prematurely final reply receives at most one continuation
+within the existing five conversation/eight tool-call budget.
+
+Answer review is one separately metered gateway call, after drafting, with no
+tools or mutation access. Its exact-span/citation patches apply atomically only
+when all patches validate. Failure returns an explicit unverified review receipt;
+cost ceilings and cancellation remain authoritative. Initial current deck text
+and tool evidence are data, not instructions. No new provider credentials,
+external services or database migration are introduced.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.
+
+### Bounded package composition
+
+`research_package` composes a two- or three-pair hypothesis using one metered
+structured call over at most 20 canonical incoming cards and 12 actual cuts.
+The model selects indices; code resolves identities and attaches complete exact
+Oracle text for both sides, checks distinct pairs, excludes existing cards and reuses joint
+constraint validation. No proposal handle or strategic approval is created.
+Suggest-mode coordinated briefs can route directly to this primitive and render
+its typed interaction, conditions and per-cut losses, then run the answer check.
+It may abstain with a specific evidence blocker; there is no quota filler.

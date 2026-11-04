@@ -1,0 +1,57 @@
+{
+  "document": "Crystal Storm primer — AI mechanical source review",
+  "source_key": "crystal-storm-ai-mechanical-review-20261020",
+  "version": "2026-10-20.v1",
+  "permission": "Original Deck Lab AI-authored analysis, authorized for use in Deck Lab.",
+  "permission_basis": "original_authored_work",
+  "source_kind": "authored_guidance",
+  "source_class": "ai_mechanical_source_review",
+  "author": "Deck Lab AI assistant",
+  "source_date": "2026-10-20",
+  "source_url": null,
+  "review_status": "ai_source_review_not_expert_reviewed",
+  "commander": "Crystal, Inhuman Princess",
+  "archetype": "turbo spellslinger manual storm",
+  "section": "Mechanical corrections and unresolved prerequisites",
+  "primary_links": [
+    {
+      "url": "https://media.wizards.com/2026/downloads/MSH_Release_Notes_N6hMZoes90/zfGb4BJ8Bf_EN_MTGMSH_ReleaseNotes_20260513.pdf",
+      "scope": "Crystal card notes and trigger behavior, pages 90–91"
+    },
+    {
+      "url": "https://scryfall.com/card/msc/80/crystal-inhuman-princess?utm_source=api",
+      "scope": "Crystal, Inhuman Princess Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/jmp/147/curiosity?utm_source=api",
+      "scope": "Curiosity Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/thb/161/underworld-breach?utm_source=api",
+      "scope": "Underworld Breach Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/vma/57/brain-freeze?utm_source=api",
+      "scope": "Brain Freeze Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/msc/803/grapeshot?utm_source=api",
+      "scope": "Grapeshot Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/m14/35/silence?utm_source=api",
+      "scope": "Silence Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/ltr/44/borne-upon-a-wind?utm_source=api",
+      "scope": "Borne Upon a Wind Oracle record; exact supplied snapshot is separate evidence"
+    },
+    {
+      "url": "https://scryfall.com/card/war/245/emergence-zone?utm_source=api",
+      "scope": "Emergence Zone Oracle record; exact supplied snapshot is separate evidence"
+    }
+  ],
+  "limitations": "AI-authored analysis. Not official Oracle or rules evidence, not expert certification, not proof of a complete combo or strategic strength. Original user primer remains separate.",
+  "text": "Crystal Storm primer: mechanical review and unresolved strategic claims\nThis is an AI source review of the user-supplied Crystal Storm primer, not an expert-reviewed primer or an execution proof. Retain the original primer as a separate attributed source. Its aggressive mulligans, proposed creature-count ceiling, turn-three/four anecdotes, and preferred finishes are pilot guidance without measured success rates. Qualify those preferences rather than promoting them into universal facts.\n\nCrystal and the Curiosity engine\nCrystal, Inhuman Princess triggers when its controller casts a noncreature spell. A combat step is not required to start that trigger chain. Artifacts and enchantments can qualify alongside instants and sorceries. Crystal's trigger deals damage based on the spell's colors; it does not itself instruct a draw. A colorless spell has zero colors, so that trigger does not deal damage from this effect. A suitable Curiosity effect is a separate component. Draws depend on that effect's actual wording, damage reaching an opponent, the number of opponents damaged, and whether its controller chooses optional draws. Prevented damage or an absent aura changes the result. Do not infer an endless chain: drawing a card does not guarantee another castable spell, suitable colors, mana, or remaining library. Spell copies are not automatically casts.\nThe official release notes explain that Crystal's trigger is separate from the spell and can resolve even if that spell is countered; they describe last known spell colors when it has left the stack. Consult the exact card and applicable rules for other cases. This explanation is conditional; the deck document does not establish a current battlefield.\n\nProtection versus timing permissions\nSilence constrains opponents' spell casting for its stated duration if it resolves. It does not remove objects already on the stack or universally stop activated abilities. Borne Upon a Wind and Emergence Zone provide permissions to cast spells at unusual times within their stated scope; neither alone forbids opponents from responding. Their strategic value can be choosing a window, not an interaction lock. Emergence Zone's activation also consumes resources, including the land itself. Verify every cost against the Oracle record. These are different protection mechanisms and should not be presented as interchangeable guarantees of safety.\n\nFinish prerequisites and resource consumption\nUnderworld Breach and Brain Freeze are candidate engine ingredients, not a self-contained deterministic proof. Breach changes how eligible cards can be cast from the graveyard; escape consumes the printed mana requirement and other graveyard cards. Brain Freeze depends on prior spell casts for storm count. A proposed line must account for starting mana, cards available for escape, targets, library size, the relevant card movements, and interruptions. Repeating an action twice does not prove indefinite resource replenishment. Grapeshot likewise requires actual storm and damage resources; avoid declaring table-lethal damage from the card name alone. The primer's preference for these finishes is strategic judgment, not a verified action trace or tournament measurement.\n\nNames, deck support, and uncertainty\nThe exact supplied name Hexing Shusher was unresolved by the source lookup. Vexing Shusher and Hexing Squelcher are separate resolved identities; do not silently substitute either for the user's wording. Voice of Victory and Daze must be assessed against their actual costs, restrictions, and deck colors. A named card in a primer is not proof that it is present in the user's deck or legal under the current settings. The primer does not supply a complete list, exact land-color distribution, observed opening-hand outcomes, or a tested resource trace. Missing evidence remains unknown.\n",
+  "sha256": "4a4e0ae76071b3738c33218c49e9210ff80fcb90a1e9c2c37932ecade6f99782"
+}

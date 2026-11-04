@@ -1,0 +1,789 @@
+{
+  "purpose": "Paired QA diagnostic, not an independent broad quality benchmark",
+  "baseline_sha": "7e77bdd272260fce1f4184cbb59261301001082b",
+  "candidate_sha": "cd5a65bcfce5fb515be207c15ea00e58a221de06",
+  "qa_url": "https://qa.decklab.studio",
+  "production_unchanged": true,
+  "protocol": {
+    "prompts_identical": true,
+    "fresh_disposable_deck_fixtures": true,
+    "runs_per_case_per_build": 1,
+    "poll_seconds": 1.5,
+    "order": "baseline Marchesa, baseline Kinnan, candidate Marchesa, candidate Kinnan",
+    "controls": "Same server, configured provider, corpus/index and harness. No steering or model settings changes. Candidate image uses an earlier verified base with matching dependency declarations after newest base exceeded mount depth; all three native smokes passed.",
+    "limits": [
+      "Stochastic generations and network/server load uncontrolled",
+      "Candidate additionally inspected in native browser; this adds polling",
+      "Timings are poll-observed, not latency percentiles",
+      "First supported means a claim-scoped printed fact or reviewed finding, not verified deck strength",
+      "No unseen recommendation-quality claims established"
+    ]
+  },
+  "builds": {
+    "baseline": {
+      "raw_artifact_sha256": "b9fc869d6651d201a679d32118dcd8032d33e4aaf3e5e35f05b43a4a537edb92",
+      "raw_artifact": "/Users/dylan/Projects/mtg/deck-lab/infra/.private/research-latency-20261021/baseline/results.json",
+      "cleanup": {
+        "created": 2,
+        "all_removed": true
+      },
+      "cases": [
+        {
+          "case": "marchesa",
+          "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+          "first_source_seconds": 13.3,
+          "first_supported_seconds": 146.443,
+          "elapsed_seconds": 236.405,
+          "configured_cost_usd": 0.014939000000000001,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 6,
+          "review_call_count": 4,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000382,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 5100,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003271,
+              "prompt_version": "assistant-selection.v4",
+              "latency_ms": 41732,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003234,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 40281,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.001914,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 30468,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003187,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 46199,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.002951,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 37466,
+              "phase_timings": []
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Repeatable draw creatures: Mystic Archaeologist ({1}{U}) \u2014 Casting {1}{U}; activation {3}{U}{U} draws two cards repeatably if mana is paid. Mystic Archaeologist outranks Azure Mage because its five-mana activation draws two cards, while Azure Mage's four-mana activation draws only one. Relevant deck support remains unconfirmed. Activation cost: {3}{U}{U}. Further claims remain unverified.\n- Repeatable draw creatures: Azure Mage ({1}{U}) \u2014 Casting {1}{U}; activation {3}{U} draws one card repeatably if mana is paid. Azure Mage outranks Roil Cartographer because it needs only mana, while Roil requires six energy and a tap before drawing three. Relevant deck support remains unconfirmed. Activation cost: {3}{U}. Further claims remain unverified.\n- Repeatable draw creatures: Roil Cartographer ({1}{U}) \u2014 Casting {1}{U}; activation {T} plus six {E} draws three cards if energy is supplied. Roil Cartographer is last because its six-energy tap activation is conditional, though it draws three when supplied. Relevant deck support remains unconfirmed. Activation cost: {T}, Pay six {E}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 15,
+            "unresolved": [
+              "c4: Mana/activation-cost resources are evidenced, but timing availability is not.",
+              "c9: Mana/activation-cost resources are evidenced, but timing availability is not."
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": true,
+              "evidence_bytes_sent": 12382,
+              "full_evidence_bytes": 6653,
+              "global_review_complete": true,
+              "input_chars": 37935,
+              "job_count": 3,
+              "job_limit": 3,
+              "jobs": [
+                {
+                  "bound": false,
+                  "claim_ids": [
+                    "c3"
+                  ],
+                  "evidence_bytes_sent": 0,
+                  "evidence_indices": [],
+                  "reason": "ModelValidationError",
+                  "review_model": {
+                    "claim_count": 1,
+                    "elapsed_seconds": 42.007,
+                    "evidence_bytes_sent": 5640,
+                    "evidence_hash": "8a16e261ca5738c7228b9dc534a9ca3911970bc34e8e6f076f5b431c60a0bfcc",
+                    "evidence_source_count": 13,
+                    "input_chars": 9460,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "local",
+                  "status": "unverified"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c13",
+                    "c14",
+                    "c8"
+                  ],
+                  "evidence_bytes_sent": 5729,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 3,
+                    "elapsed_seconds": 73.378,
+                    "evidence_bytes_sent": 5729,
+                    "evidence_hash": "c55d427c624b39e99f27599ff44b7e89aab3ca1b3698dc2b6e2c3dcf617c4799",
+                    "evidence_source_count": 13,
+                    "input_chars": 11162,
+                    "output_chars": 561,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "local",
+                  "status": "unverified"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6653,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 12,
+                    "elapsed_seconds": 46.822,
+                    "evidence_bytes_sent": 6653,
+                    "evidence_hash": "79ec67f68d1c7335cdc69e622997cff67b76f1917f7e2b7e1694192524746310",
+                    "evidence_source_count": 14,
+                    "input_chars": 17313,
+                    "output_chars": 1972,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 2,
+              "output_token_limit": 12288
+            }
+          },
+          "exact_judgments": 0
+        },
+        {
+          "case": "kinnan",
+          "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+          "first_source_seconds": 15.22,
+          "first_supported_seconds": 125.84,
+          "elapsed_seconds": 125.84,
+          "configured_cost_usd": 0.007271,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 3,
+          "review_call_count": 1,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000471,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 7429,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003345,
+              "prompt_version": "assistant-selection.v4",
+              "latency_ms": 56196,
+              "phase_timings": []
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003455,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 37754,
+              "phase_timings": []
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Low-cost mana-producing creatures: Elvish Mystic ({G}) \u2014 Elvish Mystic is a one-mana green dork whose tap for {G} becomes two mana with Kinnan, helping cast Kinnan and ramp early. Requires the creature to be untapped and under your control; its only drawback is producing just green and being a fragile one-toughness body. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Fyndhorn Elves ({G}) \u2014 Fyndhorn Elves mirrors Elvish Mystic as a one-mana green dork that Kinnan doubles to two green mana for early ramp. Requires the creature to be untapped and under your control; its drawback is identical to Elvish Mystic, offering no extra utility beyond green mana. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Delighted Halfling ({G}) \u2014 Delighted Halfling is a one-mana dork that taps for {C} or any color for a legendary spell, and Kinnan adds an extra mana of the produced type. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 16,
+            "unresolved": [
+              "c11: Uncertainty statement; no evidence establishes that these checks remain outstanding."
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": false,
+              "evidence_bytes_sent": 6480,
+              "full_evidence_bytes": 6480,
+              "global_review_complete": true,
+              "input_chars": 18711,
+              "job_count": 1,
+              "job_limit": 3,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c13",
+                    "c14",
+                    "c15",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6480,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 16,
+                    "elapsed_seconds": 38.489,
+                    "evidence_bytes_sent": 6480,
+                    "evidence_hash": "bf96b0bd826103c3b41e8b89a6c73e68026300e227b8a02835a0268765200fc6",
+                    "evidence_source_count": 14,
+                    "input_chars": 18711,
+                    "output_chars": 2556,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 2,
+              "output_token_limit": 12288
+            }
+          },
+          "exact_judgments": 0
+        }
+      ]
+    },
+    "candidate": {
+      "raw_artifact_sha256": "2802d65173df7d8db48262a8f6d8765dac61972e90c539f37c97f8235b5de6d8",
+      "raw_artifact": "/Users/dylan/Projects/mtg/deck-lab/infra/.private/research-latency-20261021/candidate/results.json",
+      "cleanup": {
+        "created": 2,
+        "all_removed": true
+      },
+      "cases": [
+        {
+          "case": "marchesa",
+          "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+          "first_source_seconds": 14.359,
+          "first_supported_seconds": 88.605,
+          "elapsed_seconds": 131.244,
+          "configured_cost_usd": 0.00679,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 3,
+          "review_call_count": 1,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000432,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 5587,
+              "phase_timings": [
+                {
+                  "duration_ms": 17.60075520724058,
+                  "finished_monotonic": 3560266.338898579,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560266.321297824
+                },
+                {
+                  "duration_ms": 0.01571793109178543,
+                  "finished_monotonic": 3560266.431228641,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560266.431212923
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 5539.662995841354,
+                  "finished_monotonic": 3560272.085163251,
+                  "phase": "transport",
+                  "started_monotonic": 3560266.545500255
+                }
+              ]
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003245,
+              "prompt_version": "assistant-selection.v5",
+              "latency_ms": 39799,
+              "phase_timings": [
+                {
+                  "duration_ms": 80.6087520904839,
+                  "finished_monotonic": 3560303.901454552,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560303.8208458
+                },
+                {
+                  "duration_ms": 0.02146512269973755,
+                  "finished_monotonic": 3560304.028239332,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560304.028217867
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 39582.874176092446,
+                  "finished_monotonic": 3560343.726630804,
+                  "phase": "transport",
+                  "started_monotonic": 3560304.143756628
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.003113,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 39200,
+              "phase_timings": [
+                {
+                  "duration_ms": 121.24413577839732,
+                  "finished_monotonic": 3560349.427214868,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560349.305970732
+                },
+                {
+                  "duration_ms": 0.014076009392738342,
+                  "finished_monotonic": 3560349.701548224,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560349.701534148
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 39013.70904175565,
+                  "finished_monotonic": 3560388.935701253,
+                  "phase": "transport",
+                  "started_monotonic": 3560349.921992211
+                }
+              ]
+            }
+          ],
+          "final_status": "incomplete",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\nApplication note: Listed costs are printed costs; current mana, resources and legal timing are not assumed. Additional untaps are not assumed.\n\n- Repeatable draw creatures: Azure Mage ({1}{U}) \u2014 Azure Mage is a low-cost repeatable draw creature whose non-tapping activation lets it attack and still draw later. It draws only one card per activation and needs four mana each time, so it is reliable but slow compared with higher-output engines. Relevant deck support remains unconfirmed. Activation cost: {3}{U}.\n- Repeatable draw creatures: Mystic Archaeologist ({1}{U}) \u2014 Mystic Archaeologist is a low-cost repeatable draw creature that does not tap, so it can attack and still activate for two cards. Relevant deck support remains unconfirmed. Activation cost: {3}{U}{U}. Further claims remain unverified.\n- Repeatable draw creatures: Mercurial Chemister ({3}{U}{R}) \u2014 Mercurial Chemister offers efficient repeatable two-card draw and fits Marchesa's blue-red colors despite its higher casting cost. Its draw ability requires tapping, so it cannot attack and draw in the same turn without an untap effect, and it costs five mana upfront. Relevant deck support remains unconfirmed. Activation cost: {U}, {T}. Activation cost: {R}, {T}, Discard a card. Tap-symbol cost: this creature needs continuous control or haste.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "partial",
+            "claim_count": 13,
+            "unresolved": [
+              "c4: The five-mana/two-card cost is printed, but 'expensive' and 'clunky unless abundant mana' are not a "
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": true,
+              "evidence_bytes_sent": 6668,
+              "exact_fact_count": 2,
+              "full_evidence_bytes": 6668,
+              "global_review_complete": true,
+              "input_chars": 17620,
+              "job_count": 1,
+              "job_limit": 1,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c2",
+                    "c6"
+                  ],
+                  "evidence_bytes_sent": 0,
+                  "evidence_indices": [
+                    10,
+                    12
+                  ],
+                  "method": "EXACT_source_check",
+                  "reason": null,
+                  "stage": "exact",
+                  "status": "no_supported_correction"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c3",
+                    "c4",
+                    "c5",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6668,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "method": "semantic_model_review",
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 11,
+                    "elapsed_seconds": 40.286,
+                    "evidence_bytes_sent": 6668,
+                    "evidence_hash": "8a64bf4f4ae172953a62faf090c16cd493c9692306f796259fd158d190cf1a63",
+                    "evidence_source_count": 14,
+                    "input_chars": 17620,
+                    "output_chars": 1801,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 0,
+              "method": "exact_cost_then_one_semantic_review",
+              "model_job_count": 1,
+              "output_token_limit": 4096,
+              "semantic_recheck": null
+            }
+          },
+          "exact_judgments": 2
+        },
+        {
+          "case": "kinnan",
+          "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+          "first_source_seconds": 15.742,
+          "first_supported_seconds": 70.527,
+          "elapsed_seconds": 147.071,
+          "configured_cost_usd": 0.010402,
+          "deck_unchanged": true,
+          "return_projection_identical": true,
+          "provider_call_count": 4,
+          "review_call_count": 2,
+          "calls": [
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.000471,
+              "prompt_version": "build-conversation.v34",
+              "latency_ms": 7788,
+              "phase_timings": [
+                {
+                  "duration_ms": 16.144949942827225,
+                  "finished_monotonic": 3560403.851374468,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560403.835229518
+                },
+                {
+                  "duration_ms": 0.01666322350502014,
+                  "finished_monotonic": 3560404.126257703,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560404.12624104
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 7638.55482917279,
+                  "finished_monotonic": 3560412.069400566,
+                  "phase": "transport",
+                  "started_monotonic": 3560404.430845737
+                }
+              ]
+            },
+            {
+              "call_type": "build:assistant",
+              "configured_cost_usd": 0.003357,
+              "prompt_version": "assistant-selection.v5",
+              "latency_ms": 42571,
+              "phase_timings": [
+                {
+                  "duration_ms": 50.08953670039773,
+                  "finished_monotonic": 3560424.72115012,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560424.671060583
+                },
+                {
+                  "duration_ms": 0.01842062920331955,
+                  "finished_monotonic": 3560424.834610393,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560424.834591972
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 42457.37356459722,
+                  "finished_monotonic": 3560467.471027632,
+                  "phase": "transport",
+                  "started_monotonic": 3560425.013654067
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.00363,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 33933,
+              "phase_timings": [
+                {
+                  "duration_ms": 163.90271205455065,
+                  "finished_monotonic": 3560472.51143427,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560472.347531558
+                },
+                {
+                  "duration_ms": 0.012218952178955078,
+                  "finished_monotonic": 3560472.744750787,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560472.744738568
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 33656.92005492747,
+                  "finished_monotonic": 3560506.766131468,
+                  "phase": "transport",
+                  "started_monotonic": 3560473.109211413
+                }
+              ]
+            },
+            {
+              "call_type": "build:answer-review",
+              "configured_cost_usd": 0.002944,
+              "prompt_version": "assistant-claim-review.v6",
+              "latency_ms": 33580,
+              "phase_timings": [
+                {
+                  "duration_ms": 58.081226889044046,
+                  "finished_monotonic": 3560511.502395393,
+                  "phase": "ledger_wait",
+                  "started_monotonic": 3560511.444314166
+                },
+                {
+                  "duration_ms": 0.015661120414733887,
+                  "finished_monotonic": 3560511.605959996,
+                  "phase": "provider_permit_wait",
+                  "started_monotonic": 3560511.605944335
+                },
+                {
+                  "attempt": 0,
+                  "duration_ms": 33480.827782768756,
+                  "finished_monotonic": 3560545.189427204,
+                  "phase": "transport",
+                  "started_monotonic": 3560511.708599421
+                }
+              ]
+            }
+          ],
+          "final_status": "done",
+          "final_answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\nApplication note: Listed costs are printed costs; current mana, resources and legal timing are not assumed. Additional untaps are not assumed.\n\n- Low-cost mana-producing creatures: Elvish Mystic ({G}) \u2014 Elvish Mystic is a one-mana Elf Druid that taps for {G}, triggering Kinnan for an extra {G} and ramping without restrictions. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste. Further claims remain unverified.\n- Low-cost mana-producing creatures: Delighted Halfling ({G}) \u2014 Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste. Further claims remain unverified.\n- Low-cost mana-producing creatures: Joraga Treespeaker ({G}) \u2014 Potential deck support: Kinnan, Bonder Prodigy. Activation cost: Level up {1}{G} ({1}{G}. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste. Further claims remain unverified.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+          "review": {
+            "status": "unverified",
+            "fulfillment": "unknown",
+            "claim_count": 18,
+            "unresolved": [
+              "c1: No supplied evidence establishes summoning-sickness timing or comparative flexibility of any-color d",
+              "c5: ",
+              "c6: ",
+              "c11: ",
+              "c12: ",
+              "c16: No supplied evidence establishes that additional activation costs are in the full card text"
+            ],
+            "omitted_sources": 2,
+            "progressive_review": {
+              "enabled": true,
+              "evidence_bytes_sent": 6735,
+              "exact_fact_count": 1,
+              "full_evidence_bytes": 6735,
+              "global_review_complete": true,
+              "input_chars": 20597,
+              "job_count": 1,
+              "job_limit": 1,
+              "jobs": [
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c3"
+                  ],
+                  "evidence_bytes_sent": 0,
+                  "evidence_indices": [
+                    11
+                  ],
+                  "method": "EXACT_source_check",
+                  "reason": null,
+                  "stage": "exact",
+                  "status": "no_supported_correction"
+                },
+                {
+                  "bound": true,
+                  "claim_ids": [
+                    "c0",
+                    "c1",
+                    "c10",
+                    "c11",
+                    "c12",
+                    "c13",
+                    "c14",
+                    "c15",
+                    "c16",
+                    "c17",
+                    "c2",
+                    "c4",
+                    "c5",
+                    "c6",
+                    "c7",
+                    "c8",
+                    "c9"
+                  ],
+                  "evidence_bytes_sent": 6735,
+                  "evidence_indices": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13
+                  ],
+                  "method": "semantic_model_review",
+                  "reason": null,
+                  "review_model": {
+                    "claim_count": 17,
+                    "elapsed_seconds": 35.447,
+                    "evidence_bytes_sent": 6735,
+                    "evidence_hash": "b15b1f9310c3d28a308b0528575e8605970f7b707a767ea1f5ca4f6f60f374b4",
+                    "evidence_source_count": 14,
+                    "input_chars": 20597,
+                    "output_chars": 3017,
+                    "output_token_budget": 4096,
+                    "prompt_version": "assistant-claim-review.v6"
+                  },
+                  "stage": "global",
+                  "status": "unverified"
+                }
+              ],
+              "local_job_limit": 0,
+              "method": "exact_cost_then_one_semantic_review",
+              "model_job_count": 1,
+              "output_token_limit": 4096,
+              "semantic_recheck": null
+            }
+          },
+          "exact_judgments": 1
+        }
+      ]
+    }
+  },
+  "comparisons": [
+    {
+      "case": "marchesa",
+      "completion_reduction_percent": 44.5,
+      "first_supported_reduction_percent": 39.5,
+      "cost_reduction_percent": 54.5
+    },
+    {
+      "case": "kinnan",
+      "completion_reduction_percent": -16.9,
+      "first_supported_reduction_percent": 44.0,
+      "cost_reduction_percent": -43.1
+    }
+  ],
+  "browser_early": {
+    "url": "https://qa.decklab.studio/build/deck/9f9a3adfa6b0400e913fcf2197422d26",
+    "timestamp": "2026-10-21T03:12:07.770Z",
+    "scripts": [
+      "https://qa.decklab.studio/static/deck-lab-assistant-sidebar.js?v=cd5a65bcfce5fb515be207c15ea00e58a221de06"
+    ],
+    "badge": "Research running",
+    "cardCount": 16,
+    "composerEnabled": true,
+    "sourceStates": [
+      "Morbid OpportunistRetrieved \u00b7 fit unverified \u00b7 version 1Printed card facts \u00b7 deck fit unverifiedMorbid Opportunist{2}{B}Creature \u2014 Human RogueWhenever one or more other creatures die, draw a card. This ability triggers only once each turn.Corrections and historyPinExcludePrioritize",
+      "The Unagi of Kyoshi IslandRetrieved \u00b7 fit unverified \u00b7 version 1Printed card facts \u00b7 deck fit unverifiedThe Unagi of Kyoshi Island{3}{U}{U}Legendary Creature \u2014 SerpentFlash\nWard\u2014Waterbend {4}. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {4}. They can tap their artifacts and creatures to help. Each one pays for {1}.)\nWhenever an opponent draws their second card each turn, you draw two cards.Corrections and historyPinExcludePrioritize"
+    ]
+  },
+  "adversarial_quality": {
+    "marchesa": "Bounded acceptance: no consequential cost/count/source binding/prerequisite defect. Strategic suitability remains partial; one comparative assessment withheld. No broad quality improvement established.",
+    "kinnan": "No end-to-end speed or quality gain. Initial tap query unavailable, followed by useful corrective evidence and another paid review. Full contribution/drawback delivery incomplete; malformed old level-up renderer exposed."
+  }
+}

@@ -1,0 +1,1101 @@
+{
+  "version": "assistant-strategy-benchmark.v1",
+  "provenance": "Synthetic public mechanical shapes, author-labeled before first run on 2026-10-20. Names deliberately synthetic; source text is supplied scenario evidence, not a current Oracle snapshot. Development/heldout split checks independent strategies. Heldout is consumed for this release when first evaluated. Future tuning needs a new frozen split.",
+  "cases": [
+    {
+      "id": "draw-versus-filtering",
+      "split": "development",
+      "strategy": "generic",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "mana-source",
+            "oracle_id": "mana-source",
+            "name": "Mana Source",
+            "type_line": "Artifact",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{T}: Add {C}{C}.",
+            "color_identity": [],
+            "card_id": "mana-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "looter",
+          "oracle_id": "looter",
+          "name": "Looter",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card, then discard a card.",
+          "color_identity": []
+        },
+        {
+          "id": "draw-engine",
+          "oracle_id": "draw-engine",
+          "name": "Draw Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "looter",
+        "draw-engine"
+      ],
+      "preferred_pairs": [
+        [
+          "draw-engine",
+          "looter"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "looter",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "filtering"
+        },
+        {
+          "card_id": "draw-engine",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ],
+      "claims": []
+    },
+    {
+      "id": "sacrifice-support",
+      "split": "development",
+      "strategy": "aristocrats",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "token-source",
+            "oracle_id": "token-source",
+            "name": "Token Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{2}: Create a 1/1 white Soldier creature token.",
+            "color_identity": [],
+            "card_id": "token-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          },
+          {
+            "id": "recursion-source",
+            "oracle_id": "recursion-source",
+            "name": "Recursion Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{B}: Return target creature card from your graveyard to your hand.",
+            "color_identity": [],
+            "card_id": "recursion-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          },
+          {
+            "id": "mana-source",
+            "oracle_id": "mana-source",
+            "name": "Mana Source",
+            "type_line": "Artifact",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{T}: Add {C}{C}.",
+            "color_identity": [],
+            "card_id": "mana-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "counter-engine",
+          "oracle_id": "counter-engine",
+          "name": "Counter Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{1}, Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "sac-engine",
+          "oracle_id": "sac-engine",
+          "name": "Sac Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{1}, Sacrifice another creature: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "counter-engine",
+        "sac-engine"
+      ],
+      "preferred_pairs": [
+        [
+          "sac-engine",
+          "counter-engine"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "sac-engine",
+          "path": "suitability.resource_accounting.permanent_sacrifice_cost",
+          "expected": true
+        }
+      ],
+      "claims": []
+    },
+    {
+      "id": "counter-support",
+      "split": "development",
+      "strategy": "counters",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "counter-source",
+            "oracle_id": "counter-source",
+            "name": "Counter Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{1}: Put a +1/+1 counter on target creature.",
+            "color_identity": [],
+            "card_id": "counter-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          },
+          {
+            "id": "mana-source",
+            "oracle_id": "mana-source",
+            "name": "Mana Source",
+            "type_line": "Artifact",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{T}: Add {C}{C}.",
+            "color_identity": [],
+            "card_id": "mana-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "sac-engine",
+          "oracle_id": "sac-engine",
+          "name": "Sac Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{1}, Sacrifice another creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "counter-engine",
+          "oracle_id": "counter-engine",
+          "name": "Counter Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{1}, Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "sac-engine",
+        "counter-engine"
+      ],
+      "preferred_pairs": [
+        [
+          "counter-engine",
+          "sac-engine"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "counter-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified"
+        }
+      ],
+      "claims": []
+    },
+    {
+      "id": "cheap-casting",
+      "split": "development",
+      "strategy": "tempo",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "expensive-draw",
+          "oracle_id": "expensive-draw",
+          "name": "Expensive Draw",
+          "type_line": "Creature",
+          "mana_value": 7,
+          "mana_cost": "{5}{U}{U}",
+          "oracle_text": "{T}: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "cheap-draw",
+          "oracle_id": "cheap-draw",
+          "name": "Cheap Draw",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{T}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "cheap draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "expensive-draw",
+        "cheap-draw"
+      ],
+      "preferred_pairs": [
+        [
+          "cheap-draw",
+          "expensive-draw"
+        ]
+      ],
+      "facts": [],
+      "claims": []
+    },
+    {
+      "id": "tokens-are-not-nontokens",
+      "split": "development",
+      "strategy": "tokens",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "token-source",
+            "oracle_id": "token-source",
+            "name": "Token Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{2}: Create a 1/1 white Soldier creature token.",
+            "color_identity": [],
+            "card_id": "token-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "nontoken-engine",
+          "oracle_id": "nontoken-engine",
+          "name": "Nontoken Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Whenever another nontoken creature you control dies, draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "nontoken-engine"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "nontoken-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "Tokens satisfy the nontoken restriction.",
+          "source": "Whenever another nontoken creature you control dies, draw a card.",
+          "category": "printed_fact",
+          "expected": "contradicts"
+        }
+      ]
+    },
+    {
+      "id": "spell-hand-accounting",
+      "split": "development",
+      "strategy": "spellslinger",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "draw-spell",
+          "oracle_id": "draw-spell",
+          "name": "Draw Spell",
+          "type_line": "Sorcery",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Draw two cards.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "draw-spell"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "draw-spell",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "spell_from_hand"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "Resolving the spell draws two cards.",
+          "source": "Draw two cards.",
+          "category": "printed_fact",
+          "expected": "supports"
+        }
+      ]
+    },
+    {
+      "id": "commander-damage-engine",
+      "split": "development",
+      "strategy": "cast-damage",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Whenever you cast a noncreature spell, this creature deals 1 damage to each opponent.",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "looter",
+          "oracle_id": "looter",
+          "name": "Looter",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card, then discard a card.",
+          "color_identity": []
+        },
+        {
+          "id": "damage-aura",
+          "oracle_id": "damage-aura",
+          "name": "Damage Aura",
+          "type_line": "Enchantment",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "looter",
+        "damage-aura"
+      ],
+      "preferred_pairs": [
+        [
+          "damage-aura",
+          "looter"
+        ]
+      ],
+      "facts": [],
+      "claims": []
+    },
+    {
+      "id": "no-invented-mana",
+      "split": "development",
+      "strategy": "resource-poor",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "draw-engine",
+          "oracle_id": "draw-engine",
+          "name": "Draw Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "draw-engine"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "draw-engine",
+          "path": "suitability.strategic_judgment.support",
+          "expected": [
+            {
+              "dimension": "mana",
+              "detected_sources": 0,
+              "cards": [],
+              "sources_omitted": 0
+            }
+          ]
+        }
+      ],
+      "claims": []
+    },
+    {
+      "id": "artifact-tap-engine",
+      "split": "heldout",
+      "strategy": "artifact-mana",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Whenever you tap a nonland permanent for mana, add {U}.",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "mana-source",
+            "oracle_id": "mana-source",
+            "name": "Mana Source",
+            "type_line": "Artifact",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{T}: Add {C}{C}.",
+            "color_identity": [],
+            "card_id": "mana-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "looter",
+          "oracle_id": "looter",
+          "name": "Looter",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card, then discard a card.",
+          "color_identity": []
+        },
+        {
+          "id": "artifact-draw",
+          "oracle_id": "artifact-draw",
+          "name": "Artifact Draw",
+          "type_line": "Artifact",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{T}: Add {C}.\n{2}, {T}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "looter",
+        "artifact-draw"
+      ],
+      "preferred_pairs": [
+        [
+          "artifact-draw",
+          "looter"
+        ]
+      ],
+      "facts": [],
+      "claims": []
+    },
+    {
+      "id": "landfall-event",
+      "split": "heldout",
+      "strategy": "landfall",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "landfall-engine",
+          "oracle_id": "landfall-engine",
+          "name": "Landfall Engine",
+          "type_line": "Enchantment",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Landfall \u2014 Whenever a land you control enters, draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "landfall-engine"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "landfall-engine",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "unknown"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "This draws a card whenever any opponent plays a land.",
+          "source": "Landfall \u2014 Whenever a land you control enters, draw a card.",
+          "category": "printed_fact",
+          "expected": "contradicts"
+        }
+      ]
+    },
+    {
+      "id": "combat-event",
+      "split": "heldout",
+      "strategy": "combat",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "combat-engine",
+          "oracle_id": "combat-engine",
+          "name": "Combat Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Whenever this creature deals combat damage to a player, draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "combat-engine"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "combat-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "This engine guarantees a draw every turn.",
+          "source": "Whenever this creature deals combat damage to a player, draw a card.",
+          "category": "strategic_judgment",
+          "expected": "not_established"
+        }
+      ]
+    },
+    {
+      "id": "exhaust-reset-not-proven",
+      "split": "heldout",
+      "strategy": "blink",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "recursion-source",
+            "oracle_id": "recursion-source",
+            "name": "Recursion Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{B}: Return target creature card from your graveyard to your hand.",
+            "color_identity": [],
+            "card_id": "recursion-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "exhaust-engine",
+          "oracle_id": "exhaust-engine",
+          "name": "Exhaust Engine",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Exhaust \u2014 {2}, {T}: Draw two cards. (Activate each exhaust ability only once.)",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "exhaust-engine"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "exhaust-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "This is an infinite draw engine without additional resources.",
+          "source": "Exhaust \u2014 {2}, {T}: Draw two cards. (Activate each exhaust ability only once.)",
+          "category": "rules_interaction",
+          "expected": "not_established"
+        }
+      ]
+    },
+    {
+      "id": "life-and-sacrifice",
+      "split": "heldout",
+      "strategy": "recursion",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "token-source",
+            "oracle_id": "token-source",
+            "name": "Token Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{2}: Create a 1/1 white Soldier creature token.",
+            "color_identity": [],
+            "card_id": "token-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          },
+          {
+            "id": "recursion-source",
+            "oracle_id": "recursion-source",
+            "name": "Recursion Source",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{B}: Return target creature card from your graveyard to your hand.",
+            "color_identity": [],
+            "card_id": "recursion-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "looter",
+          "oracle_id": "looter",
+          "name": "Looter",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{U}, {T}: Draw a card, then discard a card.",
+          "color_identity": []
+        },
+        {
+          "id": "life-draw",
+          "oracle_id": "life-draw",
+          "name": "Life Draw",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "Pay 2 life, Sacrifice another creature: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "looter",
+        "life-draw"
+      ],
+      "preferred_pairs": [
+        [
+          "life-draw",
+          "looter"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "life-draw",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ],
+      "claims": [
+        {
+          "claim": "The activation requires sacrificing another creature.",
+          "source": "Pay 2 life, Sacrifice another creature: Draw a card.",
+          "category": "printed_fact",
+          "expected": "supports"
+        }
+      ]
+    },
+    {
+      "id": "variable-draw-abstains",
+      "split": "heldout",
+      "strategy": "big-mana",
+      "document": {
+        "revision": 5,
+        "entries": [
+          {
+            "id": "scenario-commander",
+            "oracle_id": "scenario-commander",
+            "name": "Scenario Commander",
+            "type_line": "Legendary Creature",
+            "mana_value": 4,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "mana-source",
+            "oracle_id": "mana-source",
+            "name": "Mana Source",
+            "type_line": "Artifact",
+            "mana_value": 2,
+            "mana_cost": "{1}{B}",
+            "oracle_text": "{T}: Add {C}{C}.",
+            "color_identity": [],
+            "card_id": "mana-source",
+            "quantity": 1,
+            "zone_name": "Library"
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "variable-draw",
+          "oracle_id": "variable-draw",
+          "name": "Variable Draw",
+          "type_line": "Creature",
+          "mana_value": 2,
+          "mana_cost": "{1}{B}",
+          "oracle_text": "{X}, {T}: Draw X cards.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 12
+      },
+      "required_ids": [
+        "variable-draw"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "variable-draw",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "unknown"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "The source establishes the deck has enough mana to activate for ten.",
+          "source": "{X}, {T}: Draw X cards.",
+          "category": "strategic_judgment",
+          "expected": "not_established"
+        }
+      ]
+    }
+  ]
+}

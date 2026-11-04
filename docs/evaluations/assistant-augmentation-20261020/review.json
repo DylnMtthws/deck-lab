@@ -1,0 +1,144 @@
+{
+  "version": "assistant-augmentation-adversarial-review.v1",
+  "baseline_sha": "339afb9960b98b13f42aa9c9dbab5a3dd2d2364b",
+  "requested_architect": "Claude Code Opus 5.5",
+  "requested_architect_status": "Unavailable: T3 and local CLI reported unauthenticated after user login; Cursor fallback provider disabled. No Opus review occurred.",
+  "actual_review_model": "Codex GPT-6.1-Sol, independent T3 child tasks",
+  "rounds": [
+    {
+      "id": "mtg-augmentation-20261020-codex-adversarial-r1",
+      "findings": {
+        "high": 2,
+        "medium": 5
+      }
+    },
+    {
+      "id": "mtg-augmentation-20261020-adversarial-r2",
+      "findings": {
+        "high": 0,
+        "medium": 2
+      }
+    },
+    {
+      "id": "mtg-augmentation-20261020-adversarial-r3",
+      "findings": {
+        "high": 0,
+        "medium": 2
+      }
+    },
+    {
+      "id": "mtg-augmentation-20261020-operational-adversarial-r4",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "No proven consequential defect; canonical freshness, global top24 view nomination across eight permutations, and comparable SQL output equivalence across48 synthetic differential cases. 38 focused tests plus12 comparable tests. Codex fallback, not Opus."
+    },
+    {
+      "id": "mtg-augmentation-20261020-operational-adversarial-r5",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "Independent final SQL delta review:108 in-memory complete-result comparisons covering duplicates/types/scope/caps/limits; final deadline repro abstains. Blob c15e9d48beacec91c2ee92b534bf6e7ba5e4ff1a. Cooperative deadline, no separate printing-map size cap."
+    },
+    {
+      "id": "mtg-augmentation-20261020-memory-adversarial-r6",
+      "findings": {
+        "high": 0,
+        "medium": 1
+      },
+      "scope": "Reviewed compaction and v2 compatibility; found empty receipts crowding useful investigations.32 focused tests passed otherwise."
+    },
+    {
+      "id": "mtg-augmentation-20261020-memory-adversarial-r7",
+      "findings": {
+        "high": 0,
+        "medium": 0
+      },
+      "scope": "Accepted removal of empty-narrative fallback, minimum180claim/60detailbudget thenabstain.5 focused tests including100UUID regression; bindings/correctionidentity/legacytruncatedclaimdowngrade preserved. Source SHA256 da8ca33f77520a02332b81f7cb028f71f270d76461ac72d6b6260bc9101ddccd."
+    }
+  ],
+  "corrections": [
+    {
+      "finding": "Package packets credited support removed by another cut.",
+      "resolution": "All packet suitability/interruption views use complete prospective package; original cut loss sources stay separate.",
+      "regression": "tests/test_assistant_package_analysis.py::test_every_package_evidence_view_uses_all_cuts_regardless_of_pairing"
+    },
+    {
+      "finding": "Memory deduplicated physical copies and omitted mechanical fields.",
+      "resolution": "Multiset deck identity plus mechanic-bearing fields, separate canonical catalog/enriched lineage captured and recalled by one read-only function.",
+      "regression": "tests/test_assistant_episodes.py"
+    },
+    {
+      "finding": "Supporting catalog changes did not invalidate memory; snapshots could mask catalog drift; saved entries lacked catalog fields.",
+      "resolution": "All catalog dependencies are captured using the same projection as recall; catalog and enriched snapshot fingerprints remain independent. Unknown/missing sources abstain.",
+      "regressions": [
+        "test_supporting_catalog_change_invalidates_saved_entry_evidence",
+        "test_saved_entry_missing_stats_does_not_make_unchanged_catalog_episode_stale",
+        "test_unchanged_enriched_snapshot_cannot_mask_catalog_provider_changes"
+      ]
+    },
+    {
+      "finding": "Cache A/B/A returned A but reviewed B.",
+      "resolution": "Cache hits restore deep-copied active review evidence.",
+      "regression": "tests/test_assistant_augmentation_integration.py"
+    },
+    {
+      "finding": "Episode verdicts discarded the judged claim.",
+      "resolution": "Retain bounded claim text, card bindings, category, corrections and evidence identities; deduplicate investigation content.",
+      "regression": "tests/test_assistant_episodes.py::test_claim_bindings_distinguish_opposite_hypotheses_and_deduplicate"
+    },
+    {
+      "finding": "Graph display truncation changed cut scores under entry permutation.",
+      "resolution": "Complete incident retention counts precede deterministic display truncation; legacy incomplete graphs use a conservative fallback.",
+      "regression": "tests/test_assistant_engine_graph.py"
+    },
+    {
+      "finding": "Nominal retrieval aspects duplicated the same serialized evidence.",
+      "resolution": "Shared bounded strategy pool selects aspect-relevant passages, reports uncovered aspects, and serializes references once. Requested limit is passed through.",
+      "regression": "tests/test_assistant_retrieval_plan.py::test_aspects_use_distinct_passages_from_one_shared_read"
+    },
+    {
+      "finding": "Semantic views enriched only an existing shortlist.",
+      "resolution": "Validated view nominations enter both functional and general eligible pools before final shortlist bounds.",
+      "regression": "tests/test_assistant_functional_search.py::test_semantic_view_candidate_can_enter_before_final_limit"
+    },
+    {
+      "finding": "View identity omitted completeness/layout; batch nomination could drop viable matches.",
+      "resolution": "Mechanical/completeness/layout facts bind view hashes; incomplete/unsupported projections abstain; all batch matches reach the union.",
+      "regressions": [
+        "tests/test_assistant_card_views.py::test_completeness_layout_and_power_are_bound_into_every_view",
+        "tests/test_assistant_retrieval_context.py::test_semantic_nomination_is_independent_of_sixty_four_card_batches"
+      ]
+    },
+    {
+      "finding": "Live compatible MiniLM views never reached the uncalibrated0.65 cutoff.",
+      "resolution": "Global deterministic top24 positive viewcosines after source/model/current eligibility guards; empty generated projections cannot nominate.",
+      "regression": "tests/test_assistant_retrieval_context.py"
+    },
+    {
+      "finding": "Kinnan public comparable-deck retrieval exceeded2second budget at453lists.",
+      "resolution": "Materialize bounded cohort once; resolve requested canonical identities once and public printing metadata once for membership joins; preserve2second deadline and full ranking semantics.",
+      "regression": "tests/test_assistant_comparable_decks.py"
+    },
+    {
+      "finding": "Long reviewed prose could discard a whole investigation at12000chars; empty compaction receipts could then crowd out useful memories.",
+      "resolution": "Bounded plan attention metadata, fullclaim/replacement hashes, deterministic narrative compaction with explicit truncation and unverified verdicts. Preserve useful minimum narrative or abstain. Keep dependency/evidence identities and v2 history; downgrade legacy truncated claims.",
+      "regressions": [
+        "tests/test_assistant_episodes.py::test_long_reviewed_claims_and_compiled_plan_fit_without_losing_receipts",
+        "tests/test_assistant_episodes.py::test_same_prefix_opposite_full_claims_survive_recall_dedup",
+        "tests/test_assistant_episodes.py::test_capture_abstains_when_only_an_empty_receipt_would_fit"
+      ]
+    }
+  ],
+  "limits": [
+    "Reviews and synthetic regressions are not independent MTG expert qualification.",
+    "Memory and operational changes received independent Codex reviews through round7; this is not Opus approval or MTG expert qualification.",
+    "Corpus adds 48 original AI-authored passages and 3 attributed short AI synopses, not permissioned external primer reproductions or externally reviewed recommendations.",
+    "Optional view vectors require explicit offline preparation; missing/stale indexes retain lexical fallback.",
+    "Local 100-card CPU benchmark is not end-to-end latency or broad recommendation quality.",
+    "No model weights were trained; no new paid service or dependency was introduced.",
+    "Long-prose rejection was reproduced synthetically; the exact cause of the original live Marchesa memory omissions remains unestablished."
+  ]
+}

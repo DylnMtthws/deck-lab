@@ -25,8 +25,11 @@ from sabermetrics.deck_simulation import (
     DeckCandidate as HashOwner,
 )
 from sabermetrics.deck_simulation import (
+    _result_payload,
     candidate_from_document,
+    load_provenance,
     map_builder_role,
+    prepare_simulation,
     user_edited_provenance,
 )
 from sabermetrics.ui import builder_routes
@@ -269,16 +272,19 @@ def _store_previous(
     path: Path, owner: str, deck_id: str, probability: float, unseen: int
 ) -> None:
     repo = db.DeckDocumentSimulationsRepo(path)
-    simulation_id = repo.insert(deck_id=deck_id, owner_id=owner)
+    document = DeckDocumentRepo(path).get(owner, deck_id)
+    digest, frozen = prepare_simulation(path, document)
+    candidate = candidate_from_document(document, load_provenance(path, document))
+    payload = json.loads(frozen)
+    payload["outcome"] = _result(candidate, probability, unseen).model_dump(mode="json")
+    simulation_id = repo.insert(deck_id=deck_id, owner_id=owner, result_json=frozen)
     repo.update(
         simulation_id,
         status="done",
-        deck_sha256="d" * 64,
-        revision=0,
+        deck_sha256=digest,
+        revision=int(document["revision"]),
         reason="",
-        result_json=json.dumps(
-            {"outcome": json.loads(_stored_result(probability, unseen))}
-        ),
+        result_json=json.dumps(payload),
     )
 
 
@@ -474,7 +480,18 @@ def test_delta_against_source_candidate_baseline(tmp_path, monkeypatch):
     client, path, owner = _client(tmp_path)
     candidate_id = _save_candidate(path, owner, 0.2, 7)
     deck_id = _seed_deck(path, owner, source_kind="candidate", source_id=candidate_id)
-    _store_previous(path, owner, deck_id, 0.9, 1)
+    document = DeckDocumentRepo(path).get(owner, deck_id)
+    candidate = candidate_from_document(document, load_provenance(path, document))
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cedh_candidates SET simulation_json=?, deck_sha256=? WHERE candidate_id=?",
+            (
+                _result(candidate, 0.2, 7).model_dump_json(),
+                candidate.deck_sha256,
+                candidate_id,
+            ),
+        )
+        conn.commit()
     fake = FakeSimulator(frozenset({COMMANDER}), probability=0.5, unseen=4)
     _install(monkeypatch, fake, ImmediateExecutor())
     _post(client, deck_id)
@@ -507,6 +524,267 @@ def test_delta_against_previous_run_when_no_candidate(tmp_path, monkeypatch):
     assert body["delta"]["unseen_card_count"]["before"] == 3
     assert body["delta"]["unseen_card_count"]["after"] == 1
     assert body["baseline_message"] == ""
+
+
+def _replace_lands(path: Path, deck_id: str, count: int) -> None:
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_entries SET quantity=? WHERE deck_id=? AND is_commander=0",
+            (99 - count, deck_id),
+        )
+        conn.execute(
+            "INSERT INTO deck_entries (id, deck_id, zone_id, card_id, oracle_id, "
+            "name, quantity, is_commander, sort_order, role, type_line, color_identity) "
+            "SELECT ?, deck_id, zone_id, 'card-mountain', ?, 'Mountain', ?, "
+            "0, 2, 'land', 'Basic Land — Mountain', '[]' FROM deck_entries "
+            "WHERE deck_id=? AND is_commander=0 LIMIT 1",
+            (db.new_id(), MOUNTAIN, count, deck_id),
+        )
+        conn.execute(
+            "UPDATE deck_documents SET revision=revision+1 WHERE id=?", (deck_id,)
+        )
+        conn.commit()
+
+
+def test_queued_run_executes_frozen_document_after_edit(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    original = DeckDocumentRepo(path).get(owner, deck_id)
+    fake = FakeSimulator(frozenset({COMMANDER}))
+    executor = RecordingExecutor()
+    _install(monkeypatch, fake, executor)
+    response = _post(client, deck_id)
+    run_id = response.get_json()["id"]
+    queued = db.DeckDocumentSimulationsRepo(path).get(run_id)
+    assert json.loads(queued["result_json"])["snapshot"] == original
+    _replace_lands(path, deck_id, 4)
+    function, args, kwargs = executor.jobs[0]
+    function(*args, **kwargs)
+    assert (
+        fake.calls[0].deck_sha256
+        == candidate_from_document(original, user_edited_provenance()).deck_sha256
+    )
+    done = db.DeckDocumentSimulationsRepo(path).get(run_id)
+    payload = json.loads(done["result_json"])
+    assert payload["snapshot"] == original
+    assert payload["outcome"]["deck_sha256"] == queued["deck_sha256"]
+    assert done["revision"] == original["revision"]
+    assert _latest(client, deck_id)["stale"] is True
+
+
+@pytest.mark.parametrize("count", [1, 3, 4])
+def test_native_run_quantity_aware_max_three(tmp_path, monkeypatch, count):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    fake = FakeSimulator(frozenset({COMMANDER}), probability=0.25)
+    _install(monkeypatch, fake, ImmediateExecutor())
+    first_id = _post(client, deck_id).get_json()["id"]
+    _replace_lands(path, deck_id, count)
+    fake.probability = 0.8
+    response = client.post(
+        f"/api/decks/{deck_id}/simulate", json={"new_baseline": True}
+    )
+    if count > 3:
+        assert response.status_code == 409
+        assert "limit 3" in response.get_json()["message"]
+        assert "separate deck history" in response.get_json()["message"]
+        assert len(fake.calls) == 1
+        assert db.DeckDocumentSimulationsRepo(path).latest(deck_id)["id"] == first_id
+    else:
+        assert response.status_code == 202
+        latest = _latest(client, deck_id)
+        assert latest["delta"]["before"] == pytest.approx(0.25)
+        assert latest["delta"]["after"] == pytest.approx(0.8)
+        row = db.DeckDocumentSimulationsRepo(path).latest(deck_id)
+        assert json.loads(row["result_json"])["comparison_id"] == first_id
+
+
+def test_commander_change_rejected_between_native_runs(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    fake = FakeSimulator(frozenset({COMMANDER}))
+    _install(monkeypatch, fake, ImmediateExecutor())
+    _post(client, deck_id)
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_entries SET oracle_id=? WHERE deck_id=? AND is_commander=1",
+            (MOUNTAIN, deck_id),
+        )
+        conn.commit()
+    response = client.post(f"/api/decks/{deck_id}/simulate", json={})
+    assert response.status_code == 409
+    assert "Commander changes" in response.get_json()["message"]
+    assert len(fake.calls) == 1
+
+
+def test_expected_revision_conflict_does_not_enqueue(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    executor = RecordingExecutor()
+    _install(monkeypatch, FakeSimulator(frozenset({COMMANDER})), executor)
+    revision = DeckDocumentRepo(path).get(owner, deck_id)["revision"]
+    response = client.post(
+        f"/api/decks/{deck_id}/simulate", json={"expected_revision": revision + 1}
+    )
+    assert response.status_code == 409
+    assert executor.jobs == []
+    assert db.DeckDocumentSimulationsRepo(path).latest(deck_id) is None
+    assert (
+        client.post(
+            f"/api/decks/{deck_id}/simulate", json={"expected_revision": revision}
+        ).status_code
+        == 202
+    )
+
+
+def test_legacy_snapshotless_result_has_no_comparison(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    repo = db.DeckDocumentSimulationsRepo(path)
+    run_id = repo.insert(deck_id=deck_id, owner_id=owner)
+    repo.update(
+        run_id,
+        status="done",
+        result_json=json.dumps({"outcome": json.loads(_stored_result(0.9, 1))}),
+    )
+    _install(monkeypatch, FakeSimulator(frozenset({COMMANDER})), ImmediateExecutor())
+    _post(client, deck_id)
+    assert _latest(client, deck_id)["delta"] is None
+    assert (
+        _latest(client, deck_id)["baseline_message"]
+        == "No earlier simulation to compare"
+    )
+
+
+def test_mismatched_source_candidate_is_not_a_baseline(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    source_id = _save_candidate(path, owner, 0.9, 1)
+    deck_id = _seed_deck(path, owner, source_kind="candidate", source_id=source_id)
+    _install(monkeypatch, FakeSimulator(frozenset({COMMANDER})), ImmediateExecutor())
+    _post(client, deck_id)
+    assert _latest(client, deck_id)["delta"] is None
+
+
+@pytest.mark.parametrize(
+    "change", [None, "pack", "cards", "scenario", "games", "sweep", "ablations"]
+)
+def test_native_delta_requires_same_model_data_configuration(
+    tmp_path, monkeypatch, change
+):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    fake = FakeSimulator(frozenset({COMMANDER}))
+    _install(monkeypatch, fake, ImmediateExecutor())
+    original_simulate = fake.simulate
+
+    def simulate(candidate):
+        result = original_simulate(candidate)
+        raw = {
+            "strategy_pack": {
+                "id": "derived-generic",
+                "version": "1",
+                "content_sha256": "pack",
+            },
+            "card_data": {"manifest_hash": "manifest", "cards_sha256": "cards"},
+            "simulation": {
+                "games": 20,
+                "objective_turn": 3,
+                "requested_scenario": {"id": "goldfish", "version": "1"},
+                "seed": len(fake.calls),
+            },
+        }
+        if len(fake.calls) > 1:
+            if change == "pack":
+                raw["strategy_pack"]["content_sha256"] = "changed"
+            elif change == "cards":
+                raw["card_data"]["manifest_hash"] = "changed"
+                raw["card_data"]["cards_sha256"] = "changed"
+            elif change == "scenario":
+                raw["simulation"]["requested_scenario"]["version"] = "2"
+            elif change in {"sweep", "ablations"}:
+                raw["simulation"][change] = True if change == "sweep" else ["Sol Ring"]
+            elif change == "games":
+                result = result.model_copy(update={"games": 21})
+        return result.model_copy(update={"raw_document": raw})
+
+    monkeypatch.setattr(fake, "simulate", simulate)
+    _post(client, deck_id)
+    _replace_lands(path, deck_id, 1)
+    _post(client, deck_id)
+    latest = _latest(client, deck_id)
+    assert (latest["delta"] is None) == (change not in {None, "cards"})
+    if change == "cards":
+        assert "Catalog changes are not isolated" in latest["delta"]["note"]
+
+
+@pytest.mark.parametrize("empty_run", [1, 2])
+def test_no_authored_assembly_objective_is_unknown_not_zero(
+    tmp_path, monkeypatch, empty_run
+):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    fake = FakeSimulator(frozenset({COMMANDER}), probability=0.0)
+    _install(monkeypatch, fake, ImmediateExecutor())
+    original_simulate = fake.simulate
+
+    def simulate(candidate):
+        result = original_simulate(candidate)
+        objectives = [] if len(fake.calls) == empty_run else ["authored-pattern"]
+        return result.model_copy(
+            update={
+                "raw_document": {
+                    "strategy_pack": {"assembly_objectives": objectives},
+                    "card_data": {},
+                    "simulation": {},
+                }
+            }
+        )
+
+    monkeypatch.setattr(fake, "simulate", simulate)
+    _post(client, deck_id)
+    first = _latest(client, deck_id)
+    if empty_run == 1:
+        assert first["result"]["probability"] is None
+        assert "consistency is unknown" in first["result"]["text"]
+        assert first["result"]["assembly_objectives"] == []
+    else:
+        assert first["result"]["probability"] == 0.0
+        assert first["result"]["assembly_objectives"] == ["authored-pattern"]
+    _post(client, deck_id)
+    latest = _latest(client, deck_id)
+    assert latest["delta"] is None
+    assert "no authored assembly objective" in latest["baseline_message"].lower()
+    if empty_run == 2:
+        assert latest["result"]["probability"] is None
+        assert latest["result"]["turn"] is None
+        assert "consistency is unknown" in latest["result"]["text"]
+
+
+def test_source_candidate_baseline_is_frozen_at_enqueue(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    source_id = _save_candidate(path, owner, 0.2, 7)
+    deck_id = _seed_deck(path, owner, source_kind="candidate", source_id=source_id)
+    document = DeckDocumentRepo(path).get(owner, deck_id)
+    candidate = candidate_from_document(document, load_provenance(path, document))
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cedh_candidates SET simulation_json=? WHERE candidate_id=?",
+            (_result(candidate, 0.2, 7).model_dump_json(), source_id),
+        )
+        conn.commit()
+    fake = FakeSimulator(frozenset({COMMANDER}), probability=0.5)
+    executor = RecordingExecutor()
+    _install(monkeypatch, fake, executor)
+    _post(client, deck_id)
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE cedh_candidates SET simulation_json=? WHERE candidate_id=?",
+            (_result(candidate, 0.8, 7).model_dump_json(), source_id),
+        )
+        conn.commit()
+    function, args, kwargs = executor.jobs[0]
+    function(*args, **kwargs)
+    assert _latest(client, deck_id)["delta"]["before"] == pytest.approx(0.2)
 
 
 def test_no_baseline_message(tmp_path, monkeypatch):
@@ -587,27 +865,37 @@ def test_simulation_does_not_run_on_request_thread(tmp_path, monkeypatch):
 
 def test_ui_states_running_result_delta_stale_and_absence() -> None:
     states = _harness("states")
-    assert states["sectionId"] == "simulation"
-    assert states["title"] == "Goldfish simulation"
+    assert states["sectionId"] == "goldfish-dialog"
+    assert states["title"] == "Goldfish simulator"
     assert states["statusRole"] == "status"
-    assert states["running"] == "Running"
-    assert states["run"] == "Run simulation"
+    assert states["running"] == "Simulation queued…"
+    assert states["run"] == "Run Goldfish"
     assert states["buttonType"] == "button"
     assert states["csrf"] == "csrf-test"
     assert states["postUrl"] == "/api/decks/deck-1/simulate"
     assert states["delays"] == [1000, 2000]
-    assert states["polledStatus"] == "Running"
+    assert states["polledStatus"] == "Running Goldfish…"
+    assert json.loads(states["postBody"]) == {"expected_revision": 7}
+    assert states["dialogOpen"] is True
     assert states["result"] == (
         "goldfish_turns_to_assembly: 0.400 probability by turn 3"
+    )
+    assert states["missingDiagnostics"] == (
+        "Five-test diagnostics are not included in this run; this is the existing "
+        "solo assembly check only."
     )
     assert states["delta"] == ("goldfish_turns_to_assembly: 0.250 → 0.400 probability")
     assert states["unseen"] == "unseen_card_count: 7 → 4"
     assert states["rerunAfterResult"] == ""
+    assert states["resultAfterRender"] == states["result"]
+    assert states["statusAfterRender"] == "Goldfish run complete."
+    assert states["runningAfterRender"] == states["running"]
+    assert states["disabledAfterRunningRender"] is True
 
     stale = _harness("stale")
     assert stale["stale"] == "Out of date: the list changed since this run"
-    assert stale["rerun"] == "Re-run"
-    assert stale["run"] == "Run simulation"
+    assert stale["rerun"] == "Run Goldfish again"
+    assert stale["run"] == "Run Goldfish"
     assert stale["result"]
     assert stale["delta"]
 
@@ -618,6 +906,82 @@ def test_ui_states_running_result_delta_stale_and_absence() -> None:
     assert absence["baseline"] == "No earlier simulation to compare"
     assert absence["result"] == ""
     assert absence["delta"] == ""
+
+
+def test_native_diagnostics_adapter_preserves_additive_report() -> None:
+    candidate = DeckCandidate(
+        candidate_id="test-candidate",
+        generated_at=datetime.now(UTC),
+        commander=CommanderIdentity(
+            oracle_ids=(COMMANDER,), names=("Test",), color_identity=("U",)
+        ),
+        cards=(
+            CandidateCard(oracle_id=ISLAND, name="Island", quantity=99, role="land"),
+        ),
+        role_counts={"land": 99},
+        provenance=CandidateProvenance(
+            pack_id="fixture", pack_version="1", pack_source="test"
+        ),
+    )
+    original = _result(candidate, 0.5, 0)
+    diagnostics = {
+        "schema_version": "decklab.goldfish-diagnostics.v1",
+        "settings": {"games": 20, "seed": 9, "settings_fingerprint": "stable-settings"},
+        "tests": {
+            key: {
+                "status": "unsupported",
+                "metrics": {},
+                "limitations": [],
+                "evidence": [],
+            }
+            for key in (
+                "opening",
+                "development",
+                "commander_loss",
+                "creature_wipe",
+                "finish",
+            )
+        },
+    }
+    enriched = original.model_copy(
+        update={"raw_document": {"diagnostics": diagnostics}}
+    )
+    payload = _result_payload(enriched)
+    assert payload["diagnostics"] == diagnostics
+    assert payload["games"] == 20
+    assert "diagnostics" not in _result_payload(original)
+
+
+def test_ui_renders_five_native_diagnostic_panels_without_inventing_zero() -> None:
+    rendered = _harness("diagnostics")
+    assert rendered["diagnosticCardCount"] == 5
+    text = rendered["diagnosticsText"]
+    for title in (
+        "Opening hand",
+        "Development through the early turns",
+        "Commander loss",
+        "Creature wipe recovery",
+        "Finish",
+    ):
+        assert title in text
+    assert "75% · 15/20 · 95% interval 55–90%" in text
+    assert "Not measured · 0/20 observed" in text
+    assert "unknown is not zero" in text
+    assert "settings-abc" in text
+    assert "No comparable diagnostics baseline" not in text
+    assert "Not measured · 0%" not in text
+    assert "Development Turn 5, Wipe Turn 5, Finish Turn 7" in text
+    assert "Partially measured" in text
+    assert "Evidence: 20 sampled opening hands" in text
+    assert "Limitation: Only authored cards are modeled" in text
+    assert "Compare with revision 6" in text
+    assert "0.5 → 0.75 probability (change 0.25)" in text
+    assert "Not compared: Metric is unmeasured in one or both runs." in text
+    assert "Compare with revision 5" in text
+    assert "Engine settings changed." in text
+    assert "Showing the five most recent prior runs." in text
+    assert "no winner verdict is inferred" in text
+    assert "(change null)" not in text
 
 
 def test_shared_view_read_only(tmp_path, monkeypatch):
@@ -642,3 +1006,59 @@ def test_shared_view_read_only(tmp_path, monkeypatch):
         "goldfish_turns_to_assembly: 0.400 probability by turn 3"
     )
     assert shared["statusRole"] == "status"
+
+
+def test_heldout_comparison_renders_values_uncertainty_and_suppression():
+    text = _harness("diagnostics")["diagnosticsText"]
+    assert "Independent held-out comparison" in text
+    assert "training seed 17" in text and "validation seed 456" in text
+    assert "baseline: 50%" in text and "candidate: 60%" in text
+    assert "95% interval 40–60%" in text
+    assert "descriptive change 0.1" in text
+    assert "Not compared: Metric is unmeasured" in text
+    assert "No improvement ranking is inferred" in text
+    assert "authored subset only" in text
+
+
+def test_finish_positive_proof_is_primary_and_conditional_rate_hidden():
+    text = _harness("diagnostics")["diagnosticsText"]
+    assert "Proven finish lower bound: 10%" in text
+    assert "remaining trials are unverified" in text
+    assert "Finish proven among evaluated runs (conditional)" not in text
+
+
+def test_zero_finish_proof_is_not_presented_as_verified_failure():
+    text = _harness("diagnostics-zero")["diagnosticsText"]
+    assert (
+        "Proven finish lower bound: No proof observed; other outcomes unknown" in text
+    )
+
+
+def test_native_freshness_ignores_presentation_revision(tmp_path, monkeypatch):
+    client, path, owner = _client(tmp_path)
+    deck_id = _seed_deck(path, owner)
+    _install(monkeypatch, FakeSimulator(frozenset({COMMANDER})), ImmediateExecutor())
+    _post(client, deck_id)
+    before = _latest(client, deck_id)
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE deck_documents SET revision=revision+1 WHERE id=?", (deck_id,)
+        )
+    after = _latest(client, deck_id)
+    assert after["revision"] == before["revision"]
+    assert after["freshness"] == "current"
+    assert after["stale"] is False
+    assert after["freshness_scope"] == "deck_content_under_recorded_settings"
+
+
+def test_missing_freshness_identity_is_unknown():
+    from sabermetrics.deck_simulation import report_freshness
+
+    for stored, current in [(None, "hash"), ("hash", None), ("", "")]:
+        assert report_freshness(stored, current)["freshness"] == "unknown"
+
+
+def test_ui_unknown_freshness_explains_and_allows_rerun():
+    result = _harness("unknown-freshness")
+    assert "Stored fingerprint unavailable" in result["stale"]
+    assert result["rerun"] == "Run Goldfish again"

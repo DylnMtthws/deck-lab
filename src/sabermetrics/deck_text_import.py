@@ -7,6 +7,8 @@ import re
 import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from sabermetrics.commander_pairs import compatible_pair
@@ -217,7 +219,18 @@ def build_card_lookup(
                 keys.add(face_key)
         for key in keys:
             _add_lookup(lookup, key, card)
+    for alias in _printed_name_aliases():
+        for card in list(lookup.get(normalize_card_name(alias["name"]), [])):
+            if card.get("oracle_id") == alias["oracle_id"]:
+                _add_lookup(lookup, normalize_card_name(alias["alias"]), card)
     return lookup
+
+
+@lru_cache(maxsize=1)
+def _printed_name_aliases() -> tuple[dict[str, str], ...]:
+    """Scryfall-backed alternate printed names, constrained to Oracle identity."""
+    path = Path(__file__).parent / "config_data" / "card_name_aliases.json"
+    return tuple(json.loads(path.read_text())["aliases"])
 
 
 def resolve_import(
@@ -230,6 +243,9 @@ def resolve_import(
     for line in parsed.lines:
         key = normalize_card_name(line.name)
         hits = list(lookup.get(key) or [])
+        exact = [card for card in hits if normalize_card_name(str(card["name"])) == key]
+        if exact:
+            hits = exact
         if not hits:
             errors.append(
                 {

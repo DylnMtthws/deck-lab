@@ -1,0 +1,181 @@
+{
+  "source": "QA imported Oracle catalog resolved against public reference deck snapshots, 2026-10-14",
+  "decks": {
+    "high-power-vivi": {
+      "entries": [
+        {
+          "name": "Vivi Ornitier",
+          "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+          "oracle_text": "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.",
+          "type_line": "Legendary Creature \u2014 Wizard",
+          "mana_cost": "{1}{U}{R}",
+          "is_commander": true
+        },
+        {
+          "name": "Curiosity",
+          "oracle_id": "223fa044-d387-4884-bf4e-75f1b61c6a46",
+          "oracle_text": "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
+          "type_line": "Enchantment \u2014 Aura",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Ophidian Eye",
+          "oracle_id": "e83b8830-fa97-4e60-b042-005e552a3ceb",
+          "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
+          "type_line": "Enchantment \u2014 Aura",
+          "mana_cost": "{2}{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Ponder",
+          "oracle_id": "02090581-61aa-4348-ad57-451be8ee91c2",
+          "oracle_text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
+          "type_line": "Sorcery",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Tandem Lookout",
+          "oracle_id": "1576f031-57ca-4894-b461-8ea57b6cefdc",
+          "oracle_text": "Soulbond (You may pair this creature with another unpaired creature when either enters. They remain paired for as long as you control both of them.)\nAs long as Tandem Lookout is paired with another creature, each of those creatures has \"Whenever this creature deals damage to an opponent, draw a card.\"",
+          "type_line": "Creature \u2014 Human Scout",
+          "mana_cost": "{2}{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Underworld Breach",
+          "oracle_id": "27e0948b-9916-473b-8d8c-a51bdfbc7457",
+          "oracle_text": "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other cards from your graveyard. (You may cast cards from your graveyard for their escape cost.)\nAt the beginning of the end step, sacrifice this enchantment.",
+          "type_line": "Enchantment",
+          "mana_cost": "{1}{R}",
+          "is_commander": false
+        }
+      ]
+    },
+    "affordable-sauron": {
+      "entries": [
+        {
+          "name": "Sauron, the Dark Lord",
+          "oracle_id": "9f8f29ba-7e64-455d-be05-ec7973f2bd0a",
+          "oracle_text": "Ward\u2014Sacrifice a legendary artifact or legendary creature.\nWhenever an opponent casts a spell, amass Orcs 1.\nWhenever an Army you control deals combat damage to a player, the Ring tempts you.\nWhenever the Ring tempts you, you may discard your hand. If you do, draw four cards.",
+          "type_line": "Legendary Creature \u2014 Avatar Horror",
+          "mana_cost": "{3}{U}{B}{R}",
+          "is_commander": true
+        },
+        {
+          "name": "Call of the Ring",
+          "oracle_id": "9fcb920c-b8d7-4a79-a335-f63050182cca",
+          "oracle_text": "At the beginning of your upkeep, the Ring tempts you.\nWhenever you choose a creature as your Ring-bearer, you may pay 2 life. If you do, draw a card.",
+          "type_line": "Enchantment",
+          "mana_cost": "{1}{B}",
+          "is_commander": false
+        }
+      ]
+    },
+    "affordable-vivi": {
+      "entries": [
+        {
+          "name": "Vivi Ornitier",
+          "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+          "oracle_text": "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.",
+          "type_line": "Legendary Creature \u2014 Wizard",
+          "mana_cost": "{1}{U}{R}",
+          "is_commander": true
+        },
+        {
+          "name": "Brainstorm",
+          "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd",
+          "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+          "type_line": "Instant",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Consider",
+          "oracle_id": "4c9bcba6-87b5-4fb3-97ee-6fe5b739337d",
+          "oracle_text": "Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nDraw a card.",
+          "type_line": "Instant",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Curiosity",
+          "oracle_id": "223fa044-d387-4884-bf4e-75f1b61c6a46",
+          "oracle_text": "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
+          "type_line": "Enchantment \u2014 Aura",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Ophidian Eye",
+          "oracle_id": "e83b8830-fa97-4e60-b042-005e552a3ceb",
+          "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
+          "type_line": "Enchantment \u2014 Aura",
+          "mana_cost": "{2}{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Opt",
+          "oracle_id": "713332c1-5bd8-400f-bfff-c1ca0697a043",
+          "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+          "type_line": "Instant",
+          "mana_cost": "{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Tandem Lookout",
+          "oracle_id": "1576f031-57ca-4894-b461-8ea57b6cefdc",
+          "oracle_text": "Soulbond (You may pair this creature with another unpaired creature when either enters. They remain paired for as long as you control both of them.)\nAs long as Tandem Lookout is paired with another creature, each of those creatures has \"Whenever this creature deals damage to an opponent, draw a card.\"",
+          "type_line": "Creature \u2014 Human Scout",
+          "mana_cost": "{2}{U}",
+          "is_commander": false
+        }
+      ]
+    },
+    "high-power-sauron": {
+      "entries": [
+        {
+          "name": "Sauron, the Dark Lord",
+          "oracle_id": "9f8f29ba-7e64-455d-be05-ec7973f2bd0a",
+          "oracle_text": "Ward\u2014Sacrifice a legendary artifact or legendary creature.\nWhenever an opponent casts a spell, amass Orcs 1.\nWhenever an Army you control deals combat damage to a player, the Ring tempts you.\nWhenever the Ring tempts you, you may discard your hand. If you do, draw four cards.",
+          "type_line": "Legendary Creature \u2014 Avatar Horror",
+          "mana_cost": "{3}{U}{B}{R}",
+          "is_commander": true
+        },
+        {
+          "name": "Call of the Ring",
+          "oracle_id": "9fcb920c-b8d7-4a79-a335-f63050182cca",
+          "oracle_text": "At the beginning of your upkeep, the Ring tempts you.\nWhenever you choose a creature as your Ring-bearer, you may pay 2 life. If you do, draw a card.",
+          "type_line": "Enchantment",
+          "mana_cost": "{1}{B}",
+          "is_commander": false
+        },
+        {
+          "name": "Thassa's Oracle",
+          "oracle_id": "1de1b591-a73f-4974-b507-8c63e07a0868",
+          "oracle_text": "When this creature enters, look at the top X cards of your library, where X is your devotion to blue. Put up to one of them on top of your library and the rest on the bottom of your library in a random order. If X is greater than or equal to the number of cards in your library, you win the game. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)",
+          "type_line": "Creature \u2014 Merfolk Wizard",
+          "mana_cost": "{U}{U}",
+          "is_commander": false
+        },
+        {
+          "name": "Underworld Breach",
+          "oracle_id": "27e0948b-9916-473b-8d8c-a51bdfbc7457",
+          "oracle_text": "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other cards from your graveyard. (You may cast cards from your graveyard for their escape cost.)\nAt the beginning of the end step, sacrifice this enchantment.",
+          "type_line": "Enchantment",
+          "mana_cost": "{1}{R}",
+          "is_commander": false
+        },
+        {
+          "name": "Vivi Ornitier",
+          "oracle_id": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+          "oracle_text": "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.",
+          "type_line": "Legendary Creature \u2014 Wizard",
+          "mana_cost": "{1}{U}{R}",
+          "is_commander": false
+        }
+      ]
+    }
+  }
+}

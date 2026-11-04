@@ -34,7 +34,11 @@
       "default": 12345
     },
     "scenario": {
-      "const": "goldfish_assembly.v1",
+      "description": "goldfish_assembly.v1 measures turn-to-assembly. goldfish_diagnostics.v1 runs the five bounded diagnostic probes (opening, development, commander_loss, creature_wipe, finish) and is refused unless the service has diagnostics enabled; it cannot be combined with sweep or a non-empty ablate, and is bounded independently of games' normal cap.",
+      "enum": [
+        "goldfish_assembly.v1",
+        "goldfish_diagnostics.v1"
+      ],
       "default": "goldfish_assembly.v1"
     },
     "sweep": {
@@ -50,5 +54,5 @@
       "default": []
     }
   },
-  "$comment": "sweep: true and a non-empty ablate are mutually exclusive; the service returns 400 rather than silently preferring one."
+  "$comment": "sweep: true and a non-empty ablate are mutually exclusive; the service returns 400 rather than silently preferring one. scenario: goldfish_diagnostics.v1 additionally refuses sweep/ablate with 400, and the service rejects it with 403 while diagnostics is disabled."
 }

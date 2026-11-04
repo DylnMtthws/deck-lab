@@ -1,0 +1,72 @@
+{
+  "version": "assistant-compatibility-implementation.v1",
+  "status": "implemented_and_validated_locally",
+  "source_base_sha": "824b174e7f681954ba2b6b266582a67998ca895d",
+  "source_tree_sha256": "d8c938a46f0f217b0cd244836b72bd2048b6e326b9e0fe938fa50fb348275e8b",
+  "implementation": [
+    "Requirement-specific printed provider matching; unknown remains explicit",
+    "Casting, activation and repeated-use resources kept distinct; exact costs rendered in code",
+    "Bounded pairwise fixed-mana comparisons with full source clauses and no dominance claim",
+    "At most two local rules/rulings lookups for three finalists; no new model round",
+    "Frozen mechanical scenarios and contrasting-deck capture pilot with original-code baseline"
+  ],
+  "validation": {
+    "full_suite": {
+      "passed": 3464,
+      "skipped": 34,
+      "existing_sklearn_warnings": 53
+    },
+    "final_targeted_evidence_tests": 32,
+    "typed_source_files": 200,
+    "lint": "pass",
+    "format": "pass",
+    "development": {
+      "baseline_ordering": "7/8",
+      "candidate_ordering": "8/8",
+      "candidate_recall": "32/32",
+      "declared_profile_errors": "0/16"
+    },
+    "reserved": {
+      "baseline_ordering": "4/4",
+      "candidate_ordering": "4/4",
+      "candidate_recall": "16/16",
+      "declared_profile_errors": "0/8",
+      "status": "consumed; future tuning requires a fresh split"
+    }
+  },
+  "deck_pilot": {
+    "cases": 24,
+    "commanders": 12,
+    "strategy_families": 6,
+    "catalog_cards": 367,
+    "ranked_lists_changed": 23,
+    "latency": {
+      "baseline_retrieval_p50_seconds": 0.014671728946268559,
+      "candidate_retrieval_p50_seconds": 0.017079061828553677,
+      "baseline_retrieval_max_seconds": 0.035423167049884796,
+      "candidate_retrieval_max_seconds": 0.041022708639502525,
+      "end_to_end_answer_seconds": null
+    },
+    "model_calls": 0,
+    "configured_model_cost_usd": 0,
+    "expert_preference": null,
+    "factual_error_rate": null,
+    "full_catalog_recall": null
+  },
+  "deployment": {
+    "qa": "not_deployed",
+    "production": "not_deployed"
+  },
+  "limitations": [
+    "Finite clause patterns; printed matching does not verify board state, availability, sustainable supply or loops.",
+    "Mechanical labels are developer-authored; none is independent expert certification.",
+    "Deck pilot uses synthetic diagnostic shells and a bounded public snapshot subset; it does not establish full-catalog recall or answer quality.",
+    "Live paired model answers, independent expert preference and end-to-end latency/cost have not been measured for this increment.",
+    "No Opus or Jev calls."
+  ],
+  "cleanup": {
+    "dev_servers_started": 0,
+    "browsers_started": 0,
+    "background_jobs_remaining": 0
+  }
+}

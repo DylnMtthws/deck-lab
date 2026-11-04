@@ -439,3 +439,134 @@ def test_intent_response_forbids_extra_fields():
         IntentClassification.model_validate(
             {"pack_id": "x", "cards_to_add": ["Sol Ring"]}
         )
+
+
+def test_actual_assistant_schema_omits_only_unsupported_property_names_on_wire(
+    monkeypatch, tmp_path
+):
+    from copy import deepcopy
+
+    from sabermetrics.assistant_runtime import AssistantStep
+
+    original = json_schema_for(AssistantStep)
+    expected = deepcopy(original)
+    state_properties = expected["$defs"]["HypotheticalCombinationState"]["properties"]
+    # These are the actual new typed dictionaries that triggered provider400.
+    for name in ("mana", "attachments", "paired_with"):
+        assert "propertyNames" in state_properties[name]
+        del state_properties[name]["propertyNames"]
+    stub = _Stub(
+        [
+            _ok(
+                '{"content":"Ready","findings":[],"next_action":"","card_ids":[],"tool_calls":[]}'
+            )
+        ]
+    )
+    gateway = _gateway(stub, monkeypatch, tmp_path)
+    result = gateway.generate(_request(schema=AssistantStep))
+    wire = stub.requests[0]["response_format"]["json_schema"]["schema"]
+    assert wire == expected
+    assert "propertyNames" not in json.dumps(wire)
+    assert json_schema_for(AssistantStep) == original
+    assert result.value.content == "Ready"
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"mana": {"X": 1}},
+        {"mana": {"U": "1"}},
+        {"attachments": {"": "Vivi Ornitier"}},
+        {"paired_with": {"x" * 201: "Vivi Ornitier"}},
+    ],
+)
+def test_portable_wire_schema_keeps_local_replay_key_validation_authoritative(
+    monkeypatch, tmp_path, invalid
+):
+    from sabermetrics.assistant_runtime import AssistantStep
+
+    state = {
+        "battlefield": [],
+        "hand": [],
+        "mana": {"U": 1},
+        "library_count": 90,
+        "hand_count": 0,
+        "opponent_count": 3,
+        "priority": True,
+        "stack_empty": True,
+        "no_interference": True,
+        "no_other_effects": True,
+    }
+    state.update(invalid)
+    payload = {
+        "content": "",
+        "findings": [],
+        "next_action": "",
+        "card_ids": [],
+        "tool_calls": [
+            {
+                "name": "replay_deck_combination",
+                "arguments": {"combination_index": 0, "hypothetical_state": state},
+            }
+        ],
+    }
+    stub = _Stub([_ok(json.dumps(payload))])
+    gateway = _gateway(stub, monkeypatch, tmp_path, max_validation_retries=0)
+    with pytest.raises(ModelValidationError):
+        gateway.generate(_request(schema=AssistantStep))
+    assert "propertyNames" not in json.dumps(
+        stub.requests[0]["response_format"]["json_schema"]["schema"]
+    )
+
+
+def test_wire_schema_preserves_literal_properties_defaults_and_other_constraints():
+    from copy import deepcopy
+
+    from sabermetrics.cedh.provider_deepseek import _deepinfra_wire_schema
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "propertyNames": {"type": "string", "maxLength": 20},
+            "mapping": {
+                "type": "object",
+                "propertyNames": {"maxLength": 5},
+                "additionalProperties": {"type": "integer", "minimum": 0},
+                "maxProperties": 6,
+            },
+        },
+        "default": {"propertyNames": "literal data"},
+        "required": ["propertyNames", "mapping"],
+        "additionalProperties": False,
+        "anyOf": [{"propertyNames": {"type": "string"}, "minProperties": 1}],
+    }
+    expected = deepcopy(schema)
+    del expected["properties"]["mapping"]["propertyNames"]
+    del expected["anyOf"][0]["propertyNames"]
+    assert _deepinfra_wire_schema(schema) == expected
+    assert schema["properties"]["mapping"]["propertyNames"] == {"maxLength": 5}
+
+
+@pytest.mark.parametrize("finish_reason", ["length", "stop"])
+def test_reasoning_exhaustion_is_distinguished_from_invalid_schema(
+    monkeypatch, tmp_path, finish_reason
+):
+    from sabermetrics.cedh.errors import ModelOutputLimitError
+
+    response = httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": ""}, "finish_reason": finish_reason}],
+            "usage": {
+                "prompt_tokens": 8092,
+                "completion_tokens": 4096,
+                "completion_tokens_details": {"reasoning_tokens": 4096},
+            },
+        },
+    )
+    stub = _Stub([response])
+    with pytest.raises(ModelOutputLimitError):
+        _gateway(stub, monkeypatch, tmp_path, max_validation_retries=0).generate(
+            _request()
+        )
+    assert len(stub.requests) == 1

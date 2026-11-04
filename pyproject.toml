@@ -35,6 +35,7 @@ postgres = ["psycopg[binary]>=3.1"]
 # Keep it available for the legacy casual generator and refresh jobs without
 # carrying PyTorch and scikit-learn into the production container.
 legacy = ["pandas", "sentence-transformers"]
+strategy = ["fastembed==0.9.0"]
 
 # Pinned exactly. These tools gate or report on CI, and an unpinned linter
 # turns main red on someone else's release day with no change to this repo.
@@ -57,7 +58,7 @@ sabermetrics = "sabermetrics.main:cli"
 where = ["src"]
 
 [tool.setuptools.package-data]
-sabermetrics = ["ui/templates/**/*.html", "ui/static/*", "ui/static/playmats/*", "cedh/contracts/*.json"]
+sabermetrics = ["prompts/*.txt", "config_data/*.json", "vendor/*.pyz", "vendor/*.json", "ui/templates/**/*.html", "ui/static/*", "ui/static/playmats/*", "cedh/contracts/*.json"]
 
 [tool.black]
 line-length = 88

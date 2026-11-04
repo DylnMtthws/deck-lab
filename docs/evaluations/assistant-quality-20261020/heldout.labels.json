@@ -1,0 +1,562 @@
+{
+  "held-01": {
+    "relevant_candidates": [
+      "Blood Artist"
+    ],
+    "recommendation_scores": {
+      "Blood Artist": 2,
+      "Guardian Project": 0,
+      "Skullclamp": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Blood Artist",
+          "Skullclamp"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Guardian Project": 2,
+      "Skullclamp": 0,
+      "Blood Artist": 0
+    },
+    "protected_cuts": [
+      "Skullclamp",
+      "Blood Artist"
+    ],
+    "rationale": "Artist includes token deaths; Clamp can kill unmodified 1/1 tokens and draw. Guardian Project excludes token entries.",
+    "uncertainty": "Clamp needs equip mana and targets; death payoff does not itself supply tokens.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-02": {
+    "relevant_candidates": [
+      "Scute Swarm"
+    ],
+    "recommendation_scores": {
+      "Scute Swarm": 2,
+      "Guardian Project": 0,
+      "Skullclamp": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Scute Swarm",
+          "Skullclamp"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Guardian Project": 2,
+      "Skullclamp": 0,
+      "Scute Swarm": 0
+    },
+    "protected_cuts": [
+      "Skullclamp",
+      "Scute Swarm"
+    ],
+    "rationale": "Below six lands Swarm makes an Insect token, still suitable for Clamp with equip mana. Project excludes tokens.",
+    "uncertainty": "Land supply and equip costs remain necessary.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-03": {
+    "relevant_candidates": [
+      "Skullclamp"
+    ],
+    "recommendation_scores": {
+      "Skullclamp": 2,
+      "Guardian Project": 0,
+      "Scute Swarm": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Skullclamp",
+          "Guardian Project"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Guardian Project": 2,
+      "Scute Swarm": 0,
+      "Skullclamp": 0
+    },
+    "protected_cuts": [
+      "Scute Swarm",
+      "Skullclamp"
+    ],
+    "rationale": "Clamp gives +1/-1 and draws two on equipped death. Neither member of the pair supplies bodies; Project does not draw from tokens.",
+    "uncertainty": "Package false is relative to a claimed self-supplying token draw engine.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-04": {
+    "relevant_candidates": [
+      "Zulaport Cutthroat"
+    ],
+    "recommendation_scores": {
+      "Zulaport Cutthroat": 2,
+      "Guardian Project": 0,
+      "Scute Swarm": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Zulaport Cutthroat",
+          "Scute Swarm"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Guardian Project": 2,
+      "Scute Swarm": 0,
+      "Zulaport Cutthroat": 0
+    },
+    "protected_cuts": [
+      "Scute Swarm",
+      "Zulaport Cutthroat"
+    ],
+    "rationale": "Cutthroat includes your creature tokens and drains each opponent; deaths still need a cause.",
+    "uncertainty": "Coherent payoff and source do not create an automatic sacrifice engine.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-05": {
+    "relevant_candidates": [
+      "Meren of Clan Nel Toth"
+    ],
+    "recommendation_scores": {
+      "Meren of Clan Nel Toth": 2,
+      "Beast Whisperer": 0,
+      "Spore Frog": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Meren of Clan Nel Toth",
+          "Spore Frog"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Beast Whisperer": 2,
+      "Spore Frog": 0,
+      "Meren of Clan Nel Toth": 0
+    },
+    "protected_cuts": [
+      "Spore Frog",
+      "Meren of Clan Nel Toth"
+    ],
+    "rationale": "Whisperer requires casting. Meren can return Frog to battlefield with enough experience; Frog supplies a death.",
+    "uncertainty": "At least one experience is needed for this one-mana creature to return directly.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-06": {
+    "relevant_candidates": [
+      "Muldrotha, the Gravetide"
+    ],
+    "recommendation_scores": {
+      "Muldrotha, the Gravetide": 2,
+      "Eternal Witness": 0,
+      "Seal of Primordium": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Muldrotha, the Gravetide",
+          "Seal of Primordium"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Eternal Witness": 2,
+      "Seal of Primordium": 0,
+      "Muldrotha, the Gravetide": 0
+    },
+    "protected_cuts": [
+      "Seal of Primordium",
+      "Muldrotha, the Gravetide"
+    ],
+    "rationale": "Muldrotha permits one permanent spell of each type per own turn; Seal can be sacrificed and recast.",
+    "uncertainty": "Mana and timing remain constraints; no instant permission is inferred.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-07": {
+    "relevant_candidates": [
+      "Village Rites"
+    ],
+    "recommendation_scores": {
+      "Village Rites": 2,
+      "Eternal Witness": 0,
+      "Meren of Clan Nel Toth": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Village Rites",
+          "Meren of Clan Nel Toth"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Eternal Witness": 2,
+      "Meren of Clan Nel Toth": 0,
+      "Village Rites": 0
+    },
+    "protected_cuts": [
+      "Meren of Clan Nel Toth",
+      "Village Rites"
+    ],
+    "rationale": "The sacrifice is an additional casting cost; the spell and creature are both resources consumed.",
+    "uncertainty": "Two cards drawn do not alone establish net card advantage after all consumed resources.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-08": {
+    "relevant_candidates": [
+      "Meren of Clan Nel Toth"
+    ],
+    "recommendation_scores": {
+      "Meren of Clan Nel Toth": 2,
+      "Beast Whisperer": 0,
+      "Spore Frog": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Meren of Clan Nel Toth",
+          "Beast Whisperer"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Beast Whisperer": 2,
+      "Spore Frog": 0,
+      "Meren of Clan Nel Toth": 0
+    },
+    "protected_cuts": [
+      "Spore Frog",
+      "Meren of Clan Nel Toth"
+    ],
+    "rationale": "At zero experience the one-mana Frog returns to hand. Whisperer does not trigger from direct battlefield return and does not supply a sacrifice target.",
+    "uncertainty": "Future experience changes the outcome; do not label the present state an established lock.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-09": {
+    "relevant_candidates": [
+      "Rhystic Study"
+    ],
+    "recommendation_scores": {
+      "Rhystic Study": 2,
+      "Dovin's Acuity": 0,
+      "Arcane Denial": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Rhystic Study",
+          "Arcane Denial"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Dovin's Acuity": 2,
+      "Arcane Denial": 0,
+      "Rhystic Study": 0
+    },
+    "protected_cuts": [
+      "Arcane Denial",
+      "Rhystic Study"
+    ],
+    "rationale": "Study has an opponent payment escape. Acuity requires own main-phase instants and replay to repeat its entry draw.",
+    "uncertainty": "Actual draw rate depends on opponents paying.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-10": {
+    "relevant_candidates": [
+      "Esper Sentinel"
+    ],
+    "recommendation_scores": {
+      "Esper Sentinel": 2,
+      "Dovin's Acuity": 0,
+      "Arcane Denial": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Esper Sentinel",
+          "Arcane Denial"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Dovin's Acuity": 2,
+      "Arcane Denial": 0,
+      "Esper Sentinel": 0
+    },
+    "protected_cuts": [
+      "Arcane Denial",
+      "Esper Sentinel"
+    ],
+    "rationale": "Sentinel cares about the first noncreature spell each turn and offers payment based on power.",
+    "uncertainty": "Unknown opponent behavior limits draw-volume predictions.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-11": {
+    "relevant_candidates": [
+      "Shorikai, Genesis Engine"
+    ],
+    "recommendation_scores": {
+      "Shorikai, Genesis Engine": 2,
+      "Silent Submersible": 0,
+      "Arcane Denial": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Shorikai, Genesis Engine",
+          "Silent Submersible"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Silent Submersible": 2,
+      "Arcane Denial": 0,
+      "Shorikai, Genesis Engine": 0
+    },
+    "protected_cuts": [
+      "Arcane Denial",
+      "Shorikai, Genesis Engine"
+    ],
+    "rationale": "Shorikai activates as an uncrewed artifact but draws two then discards one. Submersible needs crew plus combat access.",
+    "uncertainty": "Package false refers to immediate reliable two-vehicle draw with no existing crew; Shorikai can develop future Pilots.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-12": {
+    "relevant_candidates": [
+      "Arcane Denial"
+    ],
+    "recommendation_scores": {
+      "Arcane Denial": 2,
+      "Dovin's Acuity": 0,
+      "Rhystic Study": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Arcane Denial",
+          "Rhystic Study"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Dovin's Acuity": 2,
+      "Rhystic Study": 0,
+      "Arcane Denial": 0
+    },
+    "protected_cuts": [
+      "Rhystic Study",
+      "Arcane Denial"
+    ],
+    "rationale": "The draw is at the next turn upkeep, and the countered spell controller may draw up to two.",
+    "uncertainty": "The opponent refill is a real tradeoff, not unconditional card superiority.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-13": {
+    "relevant_candidates": [
+      "Toski, Bearer of Secrets"
+    ],
+    "recommendation_scores": {
+      "Toski, Bearer of Secrets": 2,
+      "Elegy Acolyte": 0,
+      "Combat Research": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Toski, Bearer of Secrets",
+          "Combat Research"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Elegy Acolyte": 2,
+      "Combat Research": 0,
+      "Toski, Bearer of Secrets": 0
+    },
+    "protected_cuts": [
+      "Combat Research",
+      "Toski, Bearer of Secrets"
+    ],
+    "rationale": "Toski triggers for a creature dealing damage; Elegy groups one or more creatures per player event.",
+    "uncertainty": "Opposing blockers and combat access determine realized draws.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-14": {
+    "relevant_candidates": [
+      "Combat Research"
+    ],
+    "recommendation_scores": {
+      "Combat Research": 2,
+      "Skeleton Key": 0,
+      "Salvage Drone": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Skeleton Key",
+          "Combat Research"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Skeleton Key": 0,
+      "Salvage Drone": 2,
+      "Combat Research": 0
+    },
+    "protected_cuts": [
+      "Skeleton Key",
+      "Combat Research"
+    ],
+    "rationale": "Research supplies draw without a discard clause; Key can assist combat access but its own trigger is looting.",
+    "uncertainty": "Skulk is conditional evasion and does not guarantee connection.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-15": {
+    "relevant_candidates": [
+      "Combat Research"
+    ],
+    "recommendation_scores": {
+      "Combat Research": 2,
+      "Curious Inquiry": 0,
+      "Skeleton Key": 0
+    },
+    "claim_values": {
+      "probe-1": false
+    },
+    "packages": [
+      {
+        "cards": [
+          "Combat Research",
+          "Curious Inquiry"
+        ],
+        "coherent": false
+      }
+    ],
+    "cut_scores": {
+      "Curious Inquiry": 2,
+      "Skeleton Key": 0,
+      "Combat Research": 0
+    },
+    "protected_cuts": [
+      "Skeleton Key",
+      "Combat Research"
+    ],
+    "rationale": "Research requires player combat damage. Inquiry creates a Clue that needs two mana and sacrifice to draw; neither Aura supplies a creature.",
+    "uncertainty": "The existing creature makes individual Aura recommendation useful; the pair alone is not a self-contained draw engine.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  },
+  "held-16": {
+    "relevant_candidates": [
+      "Combat Research"
+    ],
+    "recommendation_scores": {
+      "Combat Research": 2,
+      "Curious Inquiry": 0,
+      "Skeleton Key": 0
+    },
+    "claim_values": {
+      "probe-1": true
+    },
+    "packages": [
+      {
+        "cards": [
+          "Combat Research",
+          "Skeleton Key"
+        ],
+        "coherent": true
+      }
+    ],
+    "cut_scores": {
+      "Curious Inquiry": 2,
+      "Skeleton Key": 0,
+      "Combat Research": 0
+    },
+    "protected_cuts": [
+      "Skeleton Key",
+      "Combat Research"
+    ],
+    "rationale": "Inquiry investigates; Research draws on the combat trigger. Keep Key when it provides the only combat access.",
+    "uncertainty": "Full replacement quality depends on creature size and blockers; constrained shell supplies the preference.",
+    "label_status": "AI-authored constrained strategic judgment; not human/expert certified",
+    "confidence": "bounded by stipulated shell; alternatives require review, not automatic relabeling"
+  }
+}

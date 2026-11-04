@@ -34,7 +34,13 @@ from flask import (
 from flask_login import current_user
 
 from sabermetrics import db
-from sabermetrics.cedh.domain import BuildConstraints, LabRequest, MetagameWindow
+from sabermetrics.cedh.domain import (
+    BuildConstraints,
+    CommanderIdentity,
+    LabRequest,
+    Legality,
+    MetagameWindow,
+)
 from sabermetrics.cedh.factory import build_default_lab
 from sabermetrics.cedh.settings import load_cedh_settings
 
@@ -216,9 +222,41 @@ def build():
         flash(f"Those constraints are not valid: {exc}", "error")
         return redirect(url_for("cedh.index"))
 
+    commander = None
+    from sabermetrics.cedh.fallback_builder import PACK_ID, looks_like_commander
+
+    if pack_id == PACK_ID:
+        commander_id = str(values.get("commander_id") or "")
+        with db.connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT name FROM cards WHERE id=?", (commander_id,)
+            ).fetchone()
+        lab, _modes = build_default_lab(db_path=str(db_path), user_id=current_user.id)
+        facts = lab.cards.resolve_names([str(row["name"])]) if row else {}
+        card = next(iter(facts.values()), None)
+        legal = lab.cards.legality([card.oracle_id], "commander") if card else {}
+        if (
+            card is None
+            or not looks_like_commander(card)
+            or legal.get(card.oracle_id) is not Legality.LEGAL
+        ):
+            return (
+                jsonify(
+                    error="invalid_commander",
+                    detail="Choose a resolved, Commander-legal legendary creature or card with a commander exception.",
+                ),
+                400,
+            )
+        commander = CommanderIdentity(
+            oracle_ids=(card.oracle_id,),
+            names=(card.name,),
+            color_identity=card.color_identity,
+        )
+
     lab_request = LabRequest(
         raw_intent=raw_intent,
         pack_id=pack_id or None,
+        commander=commander,
         constraints=constraints,
     )
     jobs = db.BuildJobsRepo(db_path)

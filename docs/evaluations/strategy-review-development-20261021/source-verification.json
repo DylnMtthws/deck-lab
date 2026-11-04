@@ -1,0 +1,29 @@
+{
+  "frozen_suite_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
+  "verified_at": "2026-10-21",
+  "verifier": "same implementation AI; not independent or human review",
+  "scope": "Bounded mechanical source check; scenario inputs and strategic judgments are not expert labels. Does not modify frozen labels or scoring contract.",
+  "supplemental_checks": [
+    {
+      "case_ids": [
+        "mystic-preserve",
+        "mystic-new",
+        "rock-vs-creature-now"
+      ],
+      "source_url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.pdf",
+      "sections": [
+        "107.5",
+        "302.6",
+        "702.10c"
+      ],
+      "finding": "Creature tap-symbol activations require continuous control since the most recent turn began unless haste applies. These checks support the new-creature timing labels; the artifact case uses a supplied ready noncreature artifact.",
+      "limitation": "Verified against this official historical rules revision, not a current legality attestation."
+    }
+  ],
+  "frozen_evidence_checks": {
+    "kinnan": "Official Ikoria release notes directly support separate extra mana, no inherited restrictions/riders, actual-produced type, tap-symbol mana activation and activation/hit requirements.",
+    "halfling": "Official Lord of the Rings release notes support the two modes, legendary-spell restriction and uncounterability rider on source mana.",
+    "resources": "Official March of the Machine notes support retaining restrictions under Omnath and Portent Tracker land-untap mechanism.",
+    "scenario": "Mystic/Hawker output and generic artifact details are supplied test premises; no new official Oracle snapshot was imported. Strategic usefulness and comparative preference remain AI-authored."
+  }
+}

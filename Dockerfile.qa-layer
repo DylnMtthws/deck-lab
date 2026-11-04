@@ -1,0 +1,17 @@
+# QA-only code update on an immutable, previously smoke-tested QA image.
+# The release executor verifies identical pyproject.toml and base Dockerfile.
+ARG QA_BASE_IMAGE=decklab-qa:verified-base-required
+FROM ${QA_BASE_IMAGE}
+ARG SABER_BUILD_SHA
+ENV SABER_BUILD_SHA=$SABER_BUILD_SHA
+LABEL org.opencontainers.image.revision=$SABER_BUILD_SHA
+USER root
+WORKDIR /app
+RUN python -c "from pathlib import Path; import shutil; [shutil.rmtree(p) for p in (Path('/app/src/sabermetrics'), Path('/usr/local/lib/python3.11/site-packages/sabermetrics'), Path('/app/config'), Path('/app/fixtures')) if p.exists()]"
+COPY src ./src
+COPY src/sabermetrics /usr/local/lib/python3.11/site-packages/sabermetrics
+COPY config ./config
+COPY --chown=1001:1001 fixtures ./fixtures
+COPY scripts/setup_db.py scripts/ingest_strategy_corpus.py scripts/seed_strategy_corpus.py scripts/prepare_assistant_card_vectors.py scripts/import_combo_catalog.py ./scripts/
+RUN python -c "from pathlib import Path; roots=[Path(p) for p in ('/app/src/sabermetrics','/usr/local/lib/python3.11/site-packages/sabermetrics','/app/config','/app/fixtures')]; [p.chmod(0o755) for root in roots for p in (root, *root.rglob('*')) if p.is_dir()]"
+USER 1001:1001

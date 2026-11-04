@@ -1,0 +1,12 @@
+{
+  "artifact_file": "goldfish_diagnostics.pyz",
+  "artifact_sha256": "fb766d4cbb80dc828a95f31a927322881193c3debc30e71b298efd1ede33bf7b",
+  "engine_version": "goldfish-diagnostics.1.0.0",
+  "network_required": false,
+  "runtime": "python3-stdlib",
+  "schema_version": "goldfish-diagnostics-artifact.v1",
+  "source_commit": "43fe7f80af9c870048f315cae7600f0273b446d7",
+  "source_path": "diagnostics/goldfish_diagnostics_v1.py",
+  "source_repository": "commander-simulator",
+  "source_sha256": "cd961dfee62866c61f8865ca594cfc7797b1bd89b4db4b55555cc58258f302fe"
+}

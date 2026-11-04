@@ -1,0 +1,786 @@
+[
+  {
+    "id": "held-01",
+    "split": "heldout",
+    "archetype": "tokens",
+    "cohort": "token_death",
+    "prompt": "Choose a death payoff that includes your creature tokens; remove a draw engine restricted to nontoken entries. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Blood Artist",
+        "Guardian Project",
+        "Skullclamp"
+      ],
+      "candidate_pool": [
+        "Blood Artist",
+        "Guardian Project",
+        "Skullclamp"
+      ],
+      "package": [
+        "Blood Artist",
+        "Skullclamp"
+      ],
+      "package_question": "Equipping unmodified 1/1 creature tokens converts deaths to cards and life drain; requires outside token supply.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Blood Artist",
+      "card:Guardian Project",
+      "card:Skullclamp",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Guardian Project draws when a creature token enters."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-02",
+    "split": "heldout",
+    "archetype": "tokens",
+    "cohort": "threshold",
+    "prompt": "Choose a landfall token producer. There are four lands; do not claim the copy threshold is already met. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Scute Swarm",
+        "Guardian Project",
+        "Skullclamp"
+      ],
+      "candidate_pool": [
+        "Scute Swarm",
+        "Guardian Project",
+        "Skullclamp"
+      ],
+      "package": [
+        "Scute Swarm",
+        "Skullclamp"
+      ],
+      "package_question": "Landfall supplies 1/1 creature tokens for equipped-death draw, assuming land supply and equip mana.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Guardian Project",
+      "card:Scute Swarm",
+      "card:Skullclamp",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "With four lands, Scute Swarm landfall creates a 1/1 Insect token rather than a copy."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-03",
+    "split": "heldout",
+    "archetype": "tokens",
+    "cohort": "one_one_clamp",
+    "prompt": "Choose draw when equipped 1/1 tokens die. Preserve the only landfall token producer. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Skullclamp",
+        "Guardian Project",
+        "Scute Swarm"
+      ],
+      "candidate_pool": [
+        "Skullclamp",
+        "Guardian Project",
+        "Scute Swarm"
+      ],
+      "package": [
+        "Skullclamp",
+        "Guardian Project"
+      ],
+      "package_question": "Self-supplying token draw engine with no outside creature or token source.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Guardian Project",
+      "card:Scute Swarm",
+      "card:Skullclamp",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Skullclamp gives the equipped creature +1/+1."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-04",
+    "split": "heldout",
+    "archetype": "tokens",
+    "cohort": "own_deaths",
+    "prompt": "Choose a death payoff that hits each opponent for your creature deaths. Preserve the token producer. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Zulaport Cutthroat",
+        "Guardian Project",
+        "Scute Swarm"
+      ],
+      "candidate_pool": [
+        "Zulaport Cutthroat",
+        "Guardian Project",
+        "Scute Swarm"
+      ],
+      "package": [
+        "Zulaport Cutthroat",
+        "Scute Swarm"
+      ],
+      "package_question": "Landfall token supply plus a payoff for those tokens dying; requires an outside cause of death.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Guardian Project",
+      "card:Scute Swarm",
+      "card:Zulaport Cutthroat",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Zulaport Cutthroat triggers when another creature you control dies."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-05",
+    "split": "heldout",
+    "archetype": "graveyard",
+    "cohort": "recursion_not_cast",
+    "prompt": "Choose a recurring end-step creature return engine. Preserve the self-sacrificing combat prevention creature. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Meren of Clan Nel Toth",
+        "Beast Whisperer",
+        "Spore Frog"
+      ],
+      "candidate_pool": [
+        "Meren of Clan Nel Toth",
+        "Beast Whisperer",
+        "Spore Frog"
+      ],
+      "package": [
+        "Meren of Clan Nel Toth",
+        "Spore Frog"
+      ],
+      "package_question": "Reusable combat prevention through self-sacrifice and end-step return, once sufficient experience is available.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Beast Whisperer",
+      "card:Meren of Clan Nel Toth",
+      "card:Spore Frog",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Beast Whisperer triggers when a creature returns directly from graveyard to battlefield."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-06",
+    "split": "heldout",
+    "archetype": "graveyard",
+    "cohort": "permanent_types",
+    "prompt": "Choose permission to cast permanent spells from graveyard, rather than only returning a card once. Preserve reusable removal. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Muldrotha, the Gravetide",
+        "Eternal Witness",
+        "Seal of Primordium"
+      ],
+      "candidate_pool": [
+        "Muldrotha, the Gravetide",
+        "Eternal Witness",
+        "Seal of Primordium"
+      ],
+      "package": [
+        "Muldrotha, the Gravetide",
+        "Seal of Primordium"
+      ],
+      "package_question": "Recurring artifact/enchantment removal through own-turn graveyard casting with mana.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Eternal Witness",
+      "card:Muldrotha, the Gravetide",
+      "card:Seal of Primordium",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Muldrotha printed graveyard casting permission applies to permanent spells."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-07",
+    "split": "heldout",
+    "archetype": "graveyard",
+    "cohort": "spell_cost",
+    "prompt": "Choose a spell drawing two with an additional creature sacrifice cost; preserve end-step recursion. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Village Rites",
+        "Eternal Witness",
+        "Meren of Clan Nel Toth"
+      ],
+      "candidate_pool": [
+        "Village Rites",
+        "Eternal Witness",
+        "Meren of Clan Nel Toth"
+      ],
+      "package": [
+        "Village Rites",
+        "Meren of Clan Nel Toth"
+      ],
+      "package_question": "Additional-cost sacrifice draw feeding end-step creature recursion with experience restrictions.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Eternal Witness",
+      "card:Meren of Clan Nel Toth",
+      "card:Village Rites",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Village Rites sacrifices a creature only after opponents allow it to resolve."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-08",
+    "split": "heldout",
+    "archetype": "graveyard",
+    "cohort": "experience_gate",
+    "prompt": "Choose repeatable recursion with a reusable prevention creature. Meren has zero experience and Frog is in graveyard at end step. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Meren of Clan Nel Toth",
+        "Beast Whisperer",
+        "Spore Frog"
+      ],
+      "candidate_pool": [
+        "Meren of Clan Nel Toth",
+        "Beast Whisperer",
+        "Spore Frog"
+      ],
+      "package": [
+        "Meren of Clan Nel Toth",
+        "Beast Whisperer"
+      ],
+      "package_question": "Established autonomous creature-return/draw engine with no external creatures or spells.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Beast Whisperer",
+      "card:Meren of Clan Nel Toth",
+      "card:Spore Frog",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "At zero experience Meren returns the one-mana Spore Frog to hand rather than battlefield."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-09",
+    "split": "heldout",
+    "archetype": "control",
+    "cohort": "opponent_tax",
+    "prompt": "Choose repeatable draw opportunities from opponents casting any spell. Preserve broad spell interaction. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Rhystic Study",
+        "Dovin's Acuity",
+        "Arcane Denial"
+      ],
+      "candidate_pool": [
+        "Rhystic Study",
+        "Dovin's Acuity",
+        "Arcane Denial"
+      ],
+      "package": [
+        "Rhystic Study",
+        "Arcane Denial"
+      ],
+      "package_question": "Stack interaction plus opponent-spell draw opportunities, subject to payment.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Arcane Denial",
+      "card:Dovin's Acuity",
+      "card:Rhystic Study",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Rhystic Study guarantees a draw for every opponent spell regardless of payment."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-10",
+    "split": "heldout",
+    "archetype": "control",
+    "cohort": "opponent_first",
+    "prompt": "Choose a first-noncreature-spell tax draw creature; avoid claiming unconditional draws. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Esper Sentinel",
+        "Dovin's Acuity",
+        "Arcane Denial"
+      ],
+      "candidate_pool": [
+        "Esper Sentinel",
+        "Dovin's Acuity",
+        "Arcane Denial"
+      ],
+      "package": [
+        "Esper Sentinel",
+        "Arcane Denial"
+      ],
+      "package_question": "Stack interaction plus conditional first-noncreature-spell draw opportunities.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Arcane Denial",
+      "card:Dovin's Acuity",
+      "card:Esper Sentinel",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Esper Sentinel checks the first noncreature spell an opponent casts each turn."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-11",
+    "split": "heldout",
+    "archetype": "control",
+    "cohort": "vehicle_draw",
+    "prompt": "Choose draw without combat; there are no crew creatures. Preserve stack interaction. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Shorikai, Genesis Engine",
+        "Silent Submersible",
+        "Arcane Denial"
+      ],
+      "candidate_pool": [
+        "Shorikai, Genesis Engine",
+        "Silent Submersible",
+        "Arcane Denial"
+      ],
+      "package": [
+        "Shorikai, Genesis Engine",
+        "Silent Submersible"
+      ],
+      "package_question": "Immediate reliable two-Vehicle draw with no existing crew creatures and no combat access.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Arcane Denial",
+      "card:Shorikai, Genesis Engine",
+      "card:Silent Submersible",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Shorikai must be crewed before its draw activation can be used."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-12",
+    "split": "heldout",
+    "archetype": "control",
+    "cohort": "delayed_draw",
+    "prompt": "Choose interaction that counters a spell and later gives you a card; keep the passive draw engine. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Arcane Denial",
+        "Dovin's Acuity",
+        "Rhystic Study"
+      ],
+      "candidate_pool": [
+        "Arcane Denial",
+        "Dovin's Acuity",
+        "Rhystic Study"
+      ],
+      "package": [
+        "Arcane Denial",
+        "Rhystic Study"
+      ],
+      "package_question": "Stack interaction plus opponent-spell draw opportunities, acknowledging delayed opponent refill.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Arcane Denial",
+      "card:Dovin's Acuity",
+      "card:Rhystic Study",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Arcane Denial gives its controller a draw at the beginning of the next turn upkeep."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-13",
+    "split": "heldout",
+    "archetype": "combat",
+    "cohort": "multi_connect",
+    "prompt": "Choose draw for each of several creatures connecting with a player, rather than one draw per group. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Toski, Bearer of Secrets",
+        "Elegy Acolyte",
+        "Combat Research"
+      ],
+      "candidate_pool": [
+        "Toski, Bearer of Secrets",
+        "Elegy Acolyte",
+        "Combat Research"
+      ],
+      "package": [
+        "Toski, Bearer of Secrets",
+        "Combat Research"
+      ],
+      "package_question": "Combat-damage draw effects on creatures, requiring access to player damage.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Combat Research",
+      "card:Elegy Acolyte",
+      "card:Toski, Bearer of Secrets",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Elegy Acolyte draws separately for every creature simultaneously damaging the same player."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-14",
+    "split": "heldout",
+    "archetype": "combat",
+    "cohort": "loot_not_advantage",
+    "prompt": "Choose true draw on an evasive creature rather than mandatory equal discard after drawing. Preserve the only evasion equipment. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Combat Research",
+        "Skeleton Key",
+        "Salvage Drone"
+      ],
+      "candidate_pool": [
+        "Combat Research",
+        "Skeleton Key",
+        "Salvage Drone"
+      ],
+      "package": [
+        "Skeleton Key",
+        "Combat Research"
+      ],
+      "package_question": "Conditional combat access from Equipment plus damage-triggered draw on an existing creature.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Combat Research",
+      "card:Salvage Drone",
+      "card:Skeleton Key",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Skeleton Key draw option requires discarding a card if you draw."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-15",
+    "split": "heldout",
+    "archetype": "combat",
+    "cohort": "attack_not_damage",
+    "prompt": "Choose a draw Aura for successful combat damage on the one existing evasive creature. Do not equate attacking with dealing damage. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Combat Research",
+        "Curious Inquiry",
+        "Skeleton Key"
+      ],
+      "candidate_pool": [
+        "Combat Research",
+        "Curious Inquiry",
+        "Skeleton Key"
+      ],
+      "package": [
+        "Combat Research",
+        "Curious Inquiry"
+      ],
+      "package_question": "Self-contained combat draw engine using only the two Auras and no creature.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Combat Research",
+      "card:Curious Inquiry",
+      "card:Skeleton Key",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Combat Research draws as soon as enchanted creature is declared attacking."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "held-16",
+    "split": "heldout",
+    "archetype": "combat",
+    "cohort": "clue_setup",
+    "prompt": "Choose immediate triggered draw from the sole evasive creature rather than making a Clue needing later payment; preserve its evasion equipment. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Combat Research",
+        "Curious Inquiry",
+        "Skeleton Key"
+      ],
+      "candidate_pool": [
+        "Combat Research",
+        "Curious Inquiry",
+        "Skeleton Key"
+      ],
+      "package": [
+        "Combat Research",
+        "Skeleton Key"
+      ],
+      "package_question": "Conditional evasion Equipment plus combat-damage draw Aura on the stipulated creature.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Combat Research",
+      "card:Curious Inquiry",
+      "card:Skeleton Key",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Curious Inquiry combat damage trigger creates a Clue rather than directly drawing."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  }
+]

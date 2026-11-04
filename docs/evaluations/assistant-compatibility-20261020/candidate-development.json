@@ -1,0 +1,580 @@
+{
+  "version": "assistant-strategy-report.v1",
+  "split": "development",
+  "suite_sha256": "069b601d537a7bbf4718bd612b91d4b7a432648cfc72cfce5dbaca52196d1071",
+  "status": "pass",
+  "cases": [
+    {
+      "id": "elf-fodder-mismatch",
+      "strategy": "elf-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.006659,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "elf-fodder-ingredient",
+      "strategy": "elf-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000726,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "nontoken-fodder-mismatch",
+      "strategy": "nontoken-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000653,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "nontoken-fodder-ingredient",
+      "strategy": "nontoken-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000616,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "self-death-mismatch",
+      "strategy": "self-death",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.00069,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "self-death-ingredient",
+      "strategy": "self-death",
+      "ranked_ids": [
+        "dependent",
+        "independent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000773,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "creature-counter-mismatch",
+      "strategy": "creature-counter",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000784,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "creature-counter-ingredient",
+      "strategy": "creature-counter",
+      "ranked_ids": [
+        "dependent",
+        "independent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000682,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "opponent-counter-mismatch",
+      "strategy": "opponent-counter",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000585,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "opponent-counter-ingredient",
+      "strategy": "opponent-counter",
+      "ranked_ids": [
+        "dependent",
+        "independent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000588,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "self-counter-mismatch",
+      "strategy": "self-counter",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000596,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "self-counter-ingredient",
+      "strategy": "self-counter",
+      "ranked_ids": [
+        "dependent",
+        "independent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000628,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "conditional-token-mismatch",
+      "strategy": "conditional-token",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000596,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "conditional-token-ingredient",
+      "strategy": "conditional-token",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000583,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "discard-economy-mismatch",
+      "strategy": "discard-economy",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000596,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "discard-economy-ingredient",
+      "strategy": "discard-economy",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000563,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    }
+  ],
+  "candidate_recall": {
+    "numerator": 32,
+    "denominator": 32,
+    "rate": 1.0
+  },
+  "recommendation_quality_pairs": {
+    "numerator": 8,
+    "denominator": 8,
+    "rate": 1.0
+  },
+  "factual_errors": {
+    "numerator": 0,
+    "denominator": 16,
+    "rate": 0.0
+  },
+  "jev_recommendation_quality_pairs": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "jev_claim_accuracy": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "unjudged_claims": 0,
+  "jev_comparison": {
+    "status": "not_requested",
+    "baseline_pair_rate": 1.0,
+    "jev_pair_rate": null,
+    "pair_rate_delta": null,
+    "elapsed_seconds": null,
+    "scope": "Shadow overhead and bounded judgment quality; no end-to-end answer speedup is inferred."
+  },
+  "latency": {
+    "retrieval_ranking_p50_seconds": 0.000628,
+    "retrieval_ranking_max_seconds": 0.006659,
+    "end_to_end_answer_seconds": null
+  },
+  "cost": {
+    "configured_usd": 0.0,
+    "live_jev_requested": false
+  },
+  "scope": "Controlled synthetic corpus, exact profile checks and predeclared ordering pairs. Not live narration, broad corpus recall or independent expert certification. Held-out split is consumed for this release once evaluated."
+}

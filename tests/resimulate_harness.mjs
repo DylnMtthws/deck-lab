@@ -17,7 +17,21 @@ class Element {
     this.id = "";
     this.type = "";
     this.content = "";
+    this.disabled = false;
+    this.title = "";
+    this.open = false;
     const self = this;
+    this.classList = {
+      contains(name) { return String(self.className || "").split(/\s+/).includes(name); },
+      toggle(name, force) {
+        const names = new Set(String(self.className || "").split(/\s+/).filter(Boolean));
+        const enabled = force === undefined ? !names.has(name) : !!force;
+        if (enabled) names.add(name); else names.delete(name);
+        self.className = Array.from(names).join(" ");
+        self.attributes.class = self.className;
+        return enabled;
+      },
+    };
     this.dataset = new Proxy({}, {
       get(_target, key) {
         if (typeof key !== "string") return undefined;
@@ -61,6 +75,10 @@ class Element {
     this.children.push(child);
     return child;
   }
+
+  showModal() { this.open = true; this.setAttribute("open", "open"); }
+  close() { this.open = false; delete this.attributes.open; }
+  hasAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attributes, String(name)); }
 
   addEventListener(type, fn) {
     (this.listeners[type] || (this.listeners[type] = [])).push(fn);
@@ -139,13 +157,43 @@ const rail = el("aside", { class: "dl-stats-rail" });
 builder.appendChild(rail);
 body.appendChild(builder);
 
+const opener = el("button", { "data-goldfish-open": "", "aria-controls": "goldfish-dialog" });
+const dialog = el("dialog", { id: "goldfish-dialog" });
+const title = el("h2", { id: "goldfish-dialog-title" });
+title.textContent = "Goldfish simulator";
+dialog.appendChild(title);
+dialog.appendChild(el("button", { "data-goldfish-close": "" }));
+const readiness = el("p", { "data-goldfish-readiness": "" });
+dialog.appendChild(readiness);
+const slot = el("div", { "data-goldfish-sim-slot": "" });
+dialog.appendChild(slot);
+body.appendChild(opener);
+body.appendChild(dialog);
+
+const saveState = el("button", { id: "save-state", class: "is-ok" });
+const saveLabel = el("span", { "data-save-label": "" });
+saveLabel.textContent = "Saved";
+saveState.appendChild(saveLabel);
+body.appendChild(saveState);
+
 const doneView = {
   status: "done",
   reason: "",
   stale: false,
   stale_message: "",
   baseline_message: "",
-  result: { text: "goldfish_turns_to_assembly: 0.400 probability by turn 3", metric: "goldfish_turns_to_assembly" },
+  result: {
+    text: "goldfish_turns_to_assembly: 0.400 probability by turn 3",
+    metric: "goldfish_turns_to_assembly",
+    games: 20000,
+    objective_turn: 3,
+    modeled_cards: 26,
+    inert_card_count: 2,
+    unauthored_card_count: 58,
+    unseen_card_count: 60,
+    measures: "Chance of assembling the modeled plan by turn 3.",
+    does_not_measure: "No opponent actions or deck-wide win probability.",
+  },
   delta: {
     text: "goldfish_turns_to_assembly: 0.250 → 0.400 probability",
     metric: "goldfish_turns_to_assembly",
@@ -154,8 +202,49 @@ const doneView = {
   },
 };
 
+const diagnosticsView = {
+  status: "done",
+  result: {
+    text: "Native solo simulation completed.",
+    games: 200,
+    diagnostics: {
+      schema_version: "decklab.goldfish-diagnostics.v1",
+      settings: { games: 200, seed: 17, checkpoints: { development_turn: 5, wipe_turn: 5, finish_turn: 7 }, engine_version: "test-engine", settings_fingerprint: "settings-abc" },
+      coverage: { modeled_cards: 28, inert_cards: 3, unauthored_cards: 55 },
+      comparison: {
+        comparable: true, settings_fingerprint: "settings-abc",
+        note: "Descriptive differences only; no winner verdict is inferred.",
+        history_truncated: true,
+        history: [
+          { revision: 6, comparable: true, metric_deltas: {
+            opening: { kept_hands: { before: 0.5, after: 0.75, delta: 0.25, unit: "probability", comparable: true } },
+            commander_loss: { recovery: { before: null, after: null, delta: null, comparable: false, reason: "Metric is unmeasured in one or both runs." } },
+          } },
+          { revision: 5, comparable: false, reason: "Engine settings changed.", metric_deltas: {} },
+        ],
+      },
+      tests: {
+        opening: { status: "supported", metrics: { kept_hands: { value: 0.75, unit: "probability", numerator: 15, denominator: 20, ci95: [0.55, 0.9] } }, evidence: ["20 sampled opening hands"] },
+        development: { status: "partial", metrics: { mean_missed_land_drops: { value: 1.25, unit: "land drops" } }, limitations: ["Only authored cards are modeled"] },
+        commander_loss: { status: "unsupported", metrics: { recovery: { value: null, numerator: 0, denominator: 20 } }, limitations: ["Commander-loss scenario is unavailable"] },
+        creature_wipe: { status: "unsupported", metrics: {} },
+        finish: { status: "partial", metrics: { positive_finish_proof_rate: {value: .1, unit: "proportion", numerator: 2, denominator: 20}, verified_finish_rate: {value: 1, unit: "proportion", numerator: 2, denominator: 2}, win_conversion: { value: 0.2, unit: "probability", numerator: 4, denominator: 20 } }, evidence: ["Board-state conversion check"] },
+      },
+    },
+  },
+};
+
+diagnosticsView.result.heldout_validation = {
+  status: "descriptive", training_seed: 17, validation_seed: 456, note: "No improvement ranking is inferred.",
+  baseline_report: {tests: {opening: {status: "supported", metrics: {keep: {value: .5, unit: "probability", denominator: 200, ci95: {low: .4, high: .6}}}}, finish: {status: "unsupported", metrics: {win: {value: null, unit: "probability"}}}}},
+  candidate_report: {tests: {opening: {status: "supported", metrics: {keep: {value: .6, unit: "probability", denominator: 200, ci95: {low: .5, high: .7}}}}, finish: {status: "unsupported", metrics: {win: {value: null, unit: "probability"}}}}},
+  comparison: {metric_deltas: {opening: {keep: {comparable: true, delta: .1, unit: "probability"}}, finish: {win: {comparable: false, reason: "Metric is unmeasured in one or both runs."}}}},
+};
+
+if (scenario === "diagnostics-zero") diagnosticsView.result.diagnostics.tests.finish.metrics.positive_finish_proof_rate.value = 0;
+
 const views = {
-  states: { id: "deck-1", simulation_view: { status: "none" } },
+  states: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
   stale: {
     id: "deck-1",
     simulation_view: {
@@ -181,12 +270,22 @@ const views = {
   },
   shared: {
     id: "deck-1",
+    revision: 7,
+    validation: { legal: true, total_count: 100 },
     simulation_view: doneView,
   },
+  invalid: { id: "deck-1", revision: 7, validation: { legal: false, total_count: 99 }, simulation_view: { status: "none" } },
+  pending: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
+  direct: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { status: "none" } },
+  "refresh-stale": { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: doneView },
+  "diagnostics-zero": { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
+  diagnostics: { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: diagnosticsView },
 };
 
+views["unknown-freshness"] = { id: "deck-1", revision: 7, validation: { legal: true, total_count: 100 }, simulation_view: { ...doneView, freshness: "unknown", freshness_reason: "Stored fingerprint unavailable." } };
+const initialState = views[scenario] || views.states;
 const data = el("script", { id: "deck-document-data", type: "application/json" });
-data.textContent = JSON.stringify(views[scenario] || views.states);
+data.textContent = JSON.stringify(initialState);
 body.appendChild(data);
 
 const documentRef = {
@@ -219,6 +318,8 @@ const context = {
     const item = pending.find((timer) => timer.id === id);
     if (item) item.cleared = true;
   },
+  addEventListener() {},
+  location: { hash: scenario === "direct" ? "#goldfish" : "" },
   fetch(url, opts) {
     const record = {
       url: String(url),
@@ -236,19 +337,11 @@ const context = {
   },
 };
 context.window = context;
+const saveSnapshot = { pending: scenario === "pending", failed: scenario === "failed" };
 context.window.DeckLabBuilder = {
-  railSection(id, title) {
-    const existing = rail.querySelector(`[data-ext-section="${id}"]`);
-    if (existing) return existing;
-    const section = context.document.createElement("section");
-    section.setAttribute("data-ext-section", id);
-    const heading = context.document.createElement("h2");
-    heading.textContent = title;
-    section.appendChild(heading);
-    rail.appendChild(section);
-    section._title = title;
-    return section;
-  },
+  shared: scenario === "shared",
+  getState() { return initialState; },
+  getSaveState() { return saveSnapshot; },
 };
 
 function flush() {
@@ -266,9 +359,10 @@ async function fireNext() {
 }
 
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(new URL("../src/sabermetrics/ui/static/deck-lab-coverage.js", import.meta.url), "utf8"), context);
 vm.runInContext(source, context);
 
-const section = rail.querySelector('[data-ext-section="simulation"]');
+const section = slot;
 
 function snapshot() {
   const status = section.querySelector("[data-simulate-status]");
@@ -280,7 +374,8 @@ function snapshot() {
   const run = section.querySelector("[data-simulate-run]");
   const rerun = section.querySelector("[data-simulate-rerun]");
   return {
-    title: section.querySelector("h2") ? section.querySelector("h2").textContent : "",
+    sectionId: dialog.id,
+    title: dialog.querySelector("#goldfish-dialog-title") ? dialog.querySelector("#goldfish-dialog-title").textContent : "",
     statusRole: status ? status.getAttribute("role") : "",
     status: status && !status.hidden ? status.textContent : "",
     result: result && !result.hidden ? result.textContent : "",
@@ -292,6 +387,15 @@ function snapshot() {
     runHidden: run ? run.hidden === true : true,
     rerun: rerun && rerun.hidden !== true ? rerun.textContent : "",
     buttonType: run ? run.type : "",
+    runDisabled: run ? run.disabled : true,
+    readiness: readiness.textContent,
+    coverage: section.querySelector(".dl-sim-coverage")?.textContent || "",
+    diagnosticsText: section.querySelector("[data-simulate-diagnostics]")?.textContent || "",
+    diagnosticCardCount: section.querySelectorAll("[data-diagnostic-test]").length,
+    missingDiagnostics: section.querySelector("[data-simulate-diagnostics-missing]")?.textContent || "",
+    runMeta: section.querySelector(".dl-sim-note")?.textContent || "",
+    dialogOpen: dialog.open,
+    openerDisabled: opener.disabled,
   };
 }
 
@@ -307,17 +411,22 @@ if (scenario === "states") {
     if (gets === 1) return { status: 200, body: { status: "running" } };
     return { status: 200, body: doneView };
   };
+  opener.dispatchEvent({ type: "click" });
   const run = section.querySelector("[data-simulate-run]");
   run.dispatchEvent({ type: "click" });
   await flush();
   await flush();
   const running = snapshot();
+  html.dispatchEvent({ type: "deck-lab:render", detail: { state: initialState } });
+  const runningAfterRender = snapshot();
   const firstDelay = await fireNext();
   const stillRunning = snapshot();
   const secondDelay = await fireNext();
   const finished = snapshot();
+  html.dispatchEvent({ type: "deck-lab:render", detail: { state: initialState } });
+  const afterRender = snapshot();
   process.stdout.write(JSON.stringify({
-    sectionId: section.getAttribute("data-ext-section"),
+    sectionId: dialog.id,
     title: running.title,
     statusRole: running.statusRole,
     running: running.status,
@@ -325,13 +434,43 @@ if (scenario === "states") {
     buttonType: running.buttonType,
     csrf: fetches[0] ? fetches[0].headers["X-CSRFToken"] : "",
     postUrl: fetches[0] ? fetches[0].url : "",
+    postBody: fetches[0] ? fetches[0].body : "",
     delays: [firstDelay, secondDelay],
     polledStatus: stillRunning.status,
     result: finished.result,
     delta: finished.delta,
     unseen: finished.unseen,
+    missingDiagnostics: finished.missingDiagnostics,
     rerunAfterResult: finished.rerun,
+    resultAfterRender: afterRender.result,
+    statusAfterRender: afterRender.status,
+    runningAfterRender: runningAfterRender.status,
+    disabledAfterRunningRender: runningAfterRender.runDisabled,
+    dialogOpen: finished.dialogOpen,
   }));
+} else if (scenario === "error") {
+  fetchHandler = () => ({ status: 409, body: { detail: "Deck changed before the run started. Save and retry." } });
+  opener.dispatchEvent({ type: "click" });
+  section.querySelector("[data-simulate-run]").dispatchEvent({ type: "click" });
+  await flush();
+  await flush();
+  process.stdout.write(JSON.stringify(snapshot()));
+} else if (["invalid", "pending", "failed", "shared"].includes(scenario)) {
+  opener.dispatchEvent({ type: "click" });
+  const run = section.querySelector("[data-simulate-run]");
+  if (run) run.dispatchEvent({ type: "click" });
+  await flush();
+  process.stdout.write(JSON.stringify({ ...snapshot(), postCount: fetches.filter((item) => item.method === "POST").length }));
+} else if (scenario === "refresh-stale") {
+  fetchHandler = () => ({ status: 200, body: { status: "done", stale: true, stale_message: "Out of date: the list changed since this run", result: doneView.result, delta: null } });
+  initialState.revision = 8;
+  documentRef.addEventListener("deck-lab:render", () => {});
+  html.dispatchEvent({ type: "deck-lab:render", detail: { state: initialState } });
+  await flush();
+  await flush();
+  process.stdout.write(JSON.stringify({ ...snapshot(), getUrl: fetches[0] && fetches[0].url }));
+} else if (scenario === "diagnostics") {
+  process.stdout.write(JSON.stringify(snapshot()));
 } else {
   process.stdout.write(JSON.stringify(snapshot()));
 }

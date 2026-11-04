@@ -214,11 +214,60 @@ def _http_result_validator() -> Draft202012Validator:
         "contracts", "cedh-simulation-result.v3.schema.json"
     )
     schema = json.loads(path.read_text(encoding="utf-8"))
+    # Resolve the separately versioned diagnostics schema locally. The native
+    # contract intentionally uses its public $id; local validation must not
+    # attempt a network fetch for that reference.
+    diagnostics_path = files("sabermetrics.cedh").joinpath(
+        "contracts", "goldfish-diagnostics.v1.schema.json"
+    )
+    diagnostics_schema = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+    if "diagnostics" in schema.get("properties", {}):
+        schema.setdefault("$defs", {})["goldfish_diagnostics"] = diagnostics_schema
+        schema["properties"]["diagnostics"]["$ref"] = "#/$defs/goldfish_diagnostics"
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
+@lru_cache(maxsize=1)
+def _diagnostics_result_validator() -> Draft202012Validator:
+    """Load the native five-test envelope schema shipped with this client."""
+    path = files("sabermetrics.cedh").joinpath(
+        "contracts", "goldfish-diagnostics.v1.schema.json"
+    )
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
+def _validate_card_coverage(coverage: dict[str, Any]) -> None:
+    """Optional audit is authoritative only when every card slot reconciles."""
+    audit = coverage.get("card_coverage")
+    if audit is None:
+        return
+    counts = audit["counts"]
+    cards = audit["cards"]
+    total = coverage["total_cards"]
+    slots = [card["slot"] for card in cards]
+    categories = ("supported", "partial", "unsupported", "inactive")
+    if (
+        len(cards) != total
+        or sorted(slots) != list(range(total))
+        or sum(counts.values()) != total
+        or any(
+            counts[key] != sum(card["status"] == key for card in cards)
+            for key in categories
+        )
+    ):
+        raise SimulatorContractError(
+            "card coverage counts and unique card slots do not reconcile"
+        )
+
+
 def _parse_http_result(
-    payload: dict[str, Any], candidate: DeckCandidate, headers: httpx.Headers
+    payload: dict[str, Any],
+    candidate: DeckCandidate,
+    headers: httpx.Headers,
+    *,
+    require_diagnostics: bool = False,
+    diagnostics_seed: int = 20261012,
 ) -> SimulationResult:
     """Validate and adapt a v2 service document to the UI domain model."""
     try:
@@ -227,6 +276,46 @@ def _parse_http_result(
         raise SimulatorContractError(
             f"simulator result failed vendored schema validation: {exc.message}"
         ) from exc
+
+    diagnostics = payload.get("diagnostics")
+    requested_scenario = payload.get("simulation", {}).get("requested_scenario")
+    if diagnostics is not None and not require_diagnostics:
+        raise SimulatorContractError(
+            "simulator returned diagnostics for a legacy assembly request"
+        )
+    if require_diagnostics:
+        if not isinstance(diagnostics, dict):
+            raise SimulatorContractError(
+                "simulator omitted the requested goldfish diagnostics report"
+            )
+        try:
+            _diagnostics_result_validator().validate(diagnostics)
+        except ValidationError as exc:
+            raise SimulatorContractError(
+                f"goldfish diagnostics failed vendored schema validation: {exc.message}"
+            ) from exc
+        if (
+            not isinstance(requested_scenario, dict)
+            or requested_scenario.get("id") != "goldfish_diagnostics"
+        ):
+            raise SimulatorContractError(
+                "simulator diagnostics response does not identify the requested scenario"
+            )
+        _validate_card_coverage(diagnostics["coverage"])
+        settings = diagnostics["settings"]
+        if settings["games"] != 2000 or settings["seed"] != diagnostics_seed:
+            raise SimulatorContractError(
+                "simulator diagnostics report does not match the requested fixed games and seed"
+            )
+        checkpoints = settings["checkpoints"]
+        if checkpoints != {
+            "development_turn": 5,
+            "wipe_turn": 5,
+            "finish_turn": 7,
+        }:
+            raise SimulatorContractError(
+                "simulator diagnostics report does not match the QA checkpoints"
+            )
 
     # The one deck-identity check. The simulator recomputed this from the list
     # it ran; we recompute ours from the list we built. Nothing about the
@@ -371,6 +460,8 @@ class HttpSimulatorClient:
         games: int = 20000,
         objective_turn: int = 3,
         timeout_seconds: float = 330.0,
+        diagnostics: bool = False,
+        diagnostics_seed: int = 20261012,
         transport: httpx.BaseTransport | None = None,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -378,6 +469,8 @@ class HttpSimulatorClient:
         self._games = games
         self._turn = objective_turn
         self._timeout = timeout_seconds
+        self._diagnostics = diagnostics
+        self._diagnostics_seed = diagnostics_seed
         self._transport = transport
         self._sleep = sleeper
 
@@ -441,7 +534,13 @@ class HttpSimulatorClient:
             return 1.0
 
     def simulate(self, candidate: DeckCandidate) -> SimulationOutcome:
-        request = simulation_request(candidate, games=self._games, turn=self._turn)
+        request = simulation_request(
+            candidate,
+            games=self._games,
+            turn=self._turn,
+            diagnostics=self._diagnostics,
+            seed=self._diagnostics_seed if self._diagnostics else None,
+        )
         timeout = httpx.Timeout(self._timeout, connect=15.0)
         with httpx.Client(timeout=timeout, transport=self._transport) as client:
             response: httpx.Response | None = None
@@ -486,7 +585,13 @@ class HttpSimulatorClient:
                 reason="contract_violation", detail="simulator result is not an object"
             )
         try:
-            return _parse_http_result(payload, candidate, response.headers)
+            return _parse_http_result(
+                payload,
+                candidate,
+                response.headers,
+                require_diagnostics=self._diagnostics,
+                diagnostics_seed=self._diagnostics_seed,
+            )
         except SimulatorContractError as exc:
             reason: NotSimulatedReason = (
                 "deck_mismatch"
@@ -642,5 +747,6 @@ def build_simulator(
             games=settings.games,
             objective_turn=settings.objective_turn,
             timeout_seconds=settings.timeout_seconds,
+            diagnostics=settings.diagnostics_enabled,
         )
     return FixtureSimulatorClient(settings.fixture_dir)

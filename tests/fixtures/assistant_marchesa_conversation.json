@@ -1,0 +1,189 @@
+{
+  "version": "assistant-conversation-benchmark.v1",
+  "privacy_note": "Paraphrased development scenario. No account identity, deck identifiers, private deck list, or verbatim user conversation. Reference snippets are frozen supplied evidence, not live corpus claims.",
+  "context": {
+    "commander": "Marchesa, the Black Rose",
+    "open_slots": 7,
+    "mechanics": [
+      "+1/+1 counters",
+      "sacrifice outlets",
+      "nontoken death and graveyard return"
+    ],
+    "existing_draw": [
+      "Teval's Judgment"
+    ],
+    "note": "Seven open slots is capacity, not a request for seven recommendations or cuts."
+  },
+  "references": {
+    "Marchesa, the Black Rose": "Other creatures you control have dethrone. Whenever a creature you control with a +1/+1 counter on it dies, return that card to the battlefield under your control at the beginning of the next end step.",
+    "Teval's Judgment": "Whenever one or more cards leave your graveyard, choose one that hasn't been chosen this turn \u2014 Draw a card; create a Treasure token; or create a 2/2 black Zombie Druid creature token.",
+    "Yawgmoth, Thran Physician": "Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card. {B}{B}, Discard a card: Proliferate.",
+    "Elegy Acolyte": "Lifelink. Whenever one or more creatures you control deal combat damage to a player, you draw a card and lose 1 life. Void \u2014 At the beginning of your end step, if a nonland permanent left the battlefield this turn or a spell was warped this turn, create a 2/2 colorless Robot artifact creature token."
+  },
+  "latency_regression_ratio": 1.25,
+  "cases": [
+    {
+      "id": "draw-lists",
+      "prompt": "I have seven open slots in a Marchesa deck. Suggest two useful lists: broadly strong draw engines, and draw cards that fit sacrificing and recurring creatures. Rhystic Study and Mystic Remora are examples, not the whole first list. I already run Teval's Judgement and like its graveyard-return draw; use it as a synergy reference, not a new addition.",
+      "checks": [
+        {
+          "id": "no_required_count",
+          "path": "state.task.requested_additions",
+          "value": 0
+        },
+        {
+          "id": "no_cuts",
+          "path": "state.task.requested_cuts",
+          "value": 0
+        },
+        {
+          "id": "not_mutated",
+          "path": "state.deck_mutated",
+          "value": false
+        },
+        {
+          "id": "discovery",
+          "path": "state.task.kind",
+          "value": "discover"
+        },
+        {
+          "id": "teval_known",
+          "path": "state.evidence.TevalsJudgment",
+          "value": "resolved"
+        },
+        {
+          "id": "canonical_teval",
+          "path": "answer_card_names",
+          "op": "contains",
+          "value": "Teval's Judgment"
+        }
+      ],
+      "semantic_criteria": {
+        "list_breadth": "Both lists contain useful new draw candidates, not merely repeated examples or non-draw support cards.",
+        "functional_relevance": "Synergy candidates actually generate draw; explain concrete Marchesa fit and distinguish existing cards.",
+        "teval_continuity": "Recognize the canonical Teval's Judgment and explain its draw-mode once-per-turn limit when comparing it."
+      },
+      "max_latency_ms": 180000.0
+    },
+    {
+      "id": "draw-preferences",
+      "prompt": "Prioritize late-game draw density and cards with several useful roles. I prefer draw I can choose to use. Compare your options with what we already know; I do not need cuts.",
+      "checks": [
+        {
+          "id": "no_required_count",
+          "path": "state.task.requested_additions",
+          "value": 0
+        },
+        {
+          "id": "no_cuts",
+          "path": "state.task.requested_cuts",
+          "value": 0
+        },
+        {
+          "id": "not_mutated",
+          "path": "state.deck_mutated",
+          "value": false
+        },
+        {
+          "id": "comparison",
+          "path": "state.task.kind",
+          "value": "compare"
+        },
+        {
+          "id": "late_game",
+          "path": "state.preferences.dimensions",
+          "value": "goal",
+          "op": "contains"
+        },
+        {
+          "id": "multifunction",
+          "path": "state.preferences.multifunctionality",
+          "value": true
+        },
+        {
+          "id": "optionality",
+          "path": "state.preferences.optionality",
+          "value": "preferred"
+        }
+      ],
+      "semantic_criteria": {
+        "voluntary_activation": "Distinguish voluntary draw activations from mandatory draw triggers. For an ability such as Yawgmoth's, activation is voluntary but drawing during resolution is required; do not reject solely because it lacks may. Do not equate an optional sacrifice activation with a separate mandatory death-draw trigger.",
+        "conditions_costs": "Compare mana/life/sacrifice costs, recurring versus one-shot draw and realistic enabling conditions.",
+        "retained_evidence": "Do not deny already retrieved Teval evidence; do not require seven additions or cuts."
+      },
+      "max_latency_ms": 180000.0
+    },
+    {
+      "id": "elegy-focused",
+      "prompt": "Keep recommendations to creatures. Six mana is more than I want to spend on Harvester of Souls. What do you think of Elegy Acolyte for draw and multiple roles in this deck?",
+      "checks": [
+        {
+          "id": "no_required_count",
+          "path": "state.task.requested_additions",
+          "value": 0
+        },
+        {
+          "id": "no_cuts",
+          "path": "state.task.requested_cuts",
+          "value": 0
+        },
+        {
+          "id": "not_mutated",
+          "path": "state.deck_mutated",
+          "value": false
+        },
+        {
+          "id": "focused",
+          "path": "state.task.kind",
+          "value": "compare"
+        },
+        {
+          "id": "creatures",
+          "path": "state.preferences.creatures_only",
+          "value": true
+        },
+        {
+          "id": "late_game",
+          "path": "state.preferences.dimensions",
+          "value": "goal",
+          "op": "contains"
+        },
+        {
+          "id": "multifunction",
+          "path": "state.preferences.multifunctionality",
+          "value": true
+        },
+        {
+          "id": "optionality",
+          "path": "state.preferences.optionality",
+          "value": "preferred"
+        },
+        {
+          "id": "harvester_rejected",
+          "path": "state.preferences.rejected_cards",
+          "value": [
+            "Harvester of Souls"
+          ]
+        },
+        {
+          "id": "elegy_known",
+          "path": "state.evidence.ElegyAcolyte",
+          "value": "resolved"
+        },
+        {
+          "id": "canonical_elegy",
+          "path": "answer_card_names",
+          "op": "contains",
+          "value": "Elegy Acolyte"
+        }
+      ],
+      "semantic_criteria": {
+        "direct_answer": "Give substantive Elegy assessment before further discovery, even when the tool budget is exhausted.",
+        "elegy_facts": "Combat-dependent mandatory draw with life loss, conditional Robot production, lifelink; do not describe it as a death-draw trigger.",
+        "marchesa_fit": "Discuss sacrifice support for Void, token limits on recurring graveyard return, and life-total tension with dethrone where relevant.",
+        "preference_memory": "Retain late-game draw, multiple roles and optionality preference, enforce creatures and respect Harvester rejection without inventing a hard mana ceiling."
+      },
+      "max_latency_ms": 180000.0
+    }
+  ]
+}

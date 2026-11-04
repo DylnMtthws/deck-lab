@@ -1,0 +1,431 @@
+{
+  "scope": "Bounded synthetic QA replays, not a statistically controlled end-to-end benchmark. Warm repeats use new disposable decks with the same initial request/history.",
+  "runs": [
+    {
+      "id": "matched-marchesa-compatibility-cold-before-vector-optimization",
+      "fixture": "marchesa",
+      "cache_run": "cold-before-vector-optimization",
+      "elapsed_seconds": 151.917,
+      "first_partial_seconds": 5.82,
+      "first_checked_seconds": 122.522,
+      "status": "incomplete",
+      "reason": "discovery_incomplete",
+      "configured_cost_usd": 0.010211,
+      "logged_gateway_calls": 4,
+      "original_unchanged": true,
+      "source_commit": "bde2d8d17608f3b8ba4be25de46bb091535e2c10",
+      "fulfillment": "partial",
+      "review_status": "unverified",
+      "review_verdicts": {
+        "supported": 8,
+        "unverified": 3
+      },
+      "answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Repeatable draw creatures: Roil Cartographer ({1}{U}) \u2014 Roil Cartographer is a creature with voluntary repeatable draw, but it needs six energy and a tap. Relevant deck support remains unconfirmed. Activation cost: {T}, Pay six {E}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n- Repeatable draw creatures: Mystic Archaeologist ({1}{U}) \u2014 Mystic Archaeologist is a creature with voluntary repeatable draw, but its activation costs five. Relevant deck support remains unconfirmed. Activation cost: {3}{U}{U}. Casting, timing and activation resources still need to be available. Further claims remain unverified.\n\nShortfall: Only two eligible supplied repeatable draw creatures were available; one additional requested creature is not supplied. Some mechanical details remain unverified; check the cited card text and conditions before relying on them. The requested lists are incomplete or contain unsupported entries; retain only the confirmed findings above.",
+      "selected_count": 2,
+      "memory_capture": {
+        "attachment_status": "not_attached",
+        "deck_entries": 64,
+        "dependency_count": 66,
+        "elapsed_seconds": 0.167801,
+        "input_sha256": "f42805d352dff8f23b47046759605dc61cabbef90a045dd08fffd07d15dfd59f",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 12919,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "status": "skipped"
+      },
+      "timing": {
+        "runtime_elapsed_seconds": 149.096,
+        "coverage": {
+          "covered_wall_seconds": 141.392,
+          "intervals": 9,
+          "overlapping_interval_seconds": 0.0,
+          "rows_without_intervals": 1,
+          "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+          "unattributed_wall_seconds": 7.704
+        },
+        "stages": [
+          {
+            "stage": "tool",
+            "name": "search_card_functions",
+            "elapsed_seconds": 27.969,
+            "cache_hit": false
+          },
+          {
+            "stage": "selection_evidence",
+            "elapsed_seconds": 0.187,
+            "retained_candidates": 2
+          },
+          {
+            "stage": "render_and_validate",
+            "elapsed_seconds": 0.002
+          },
+          {
+            "stage": "finalist_evidence",
+            "elapsed_seconds": 0.384871,
+            "lookup_count": 2
+          },
+          {
+            "stage": "review_evidence",
+            "elapsed_seconds": 0.997
+          },
+          {
+            "stage": "answer_review",
+            "elapsed_seconds": 38.503,
+            "status": "unverified"
+          },
+          {
+            "stage": "corrective_review",
+            "elapsed_seconds": 30.54,
+            "lookups": 2,
+            "status": "unverified"
+          },
+          {
+            "stage": "memory_capture",
+            "elapsed_seconds": 0.167801,
+            "status": "skipped"
+          }
+        ],
+        "model_calls": [
+          {
+            "route": "planner",
+            "elapsed_seconds": 9.408,
+            "input_chars": 4094,
+            "output_token_budget": 2048
+          },
+          {
+            "route": "selection",
+            "elapsed_seconds": 33.565,
+            "input_chars": 19003,
+            "output_token_budget": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "matched-marchesa-compatibility-cold",
+      "fixture": "marchesa",
+      "cache_run": "cold",
+      "elapsed_seconds": 159.232,
+      "first_partial_seconds": 6.274,
+      "first_checked_seconds": 124.669,
+      "status": "done",
+      "reason": "",
+      "configured_cost_usd": 0.011044000000000002,
+      "logged_gateway_calls": 4,
+      "original_unchanged": true,
+      "source_commit": "63aa07525ae61950938690afc2c916d9a117ed1a",
+      "fulfillment": "unknown",
+      "review_status": "unverified",
+      "review_verdicts": {
+        "supported": 15,
+        "unverified": 1
+      },
+      "answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Repeatable draw creatures with optional draw control: Roil Cartographer ({1}{U}) \u2014 Cheap Merfolk Rogue with landfall energy and an optional tap-pay-six-energy draw-three activation. Relevant deck support remains unconfirmed. Activation cost: {T}, Pay six {E}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n- Repeatable draw creatures with optional draw control: Mystic Archaeologist ({1}{U}) \u2014 Cheap Human Wizard with an optional mana-only activation that draws two cards without tapping. Requires {3}{U}{U} each time and no tap, so it is repeatable only with heavy mana; it lacks a second printed role beyond drawing. Relevant deck support remains unconfirmed. Activation cost: {3}{U}{U}. Casting, timing and activation resources still need to be available.\n- Repeatable draw creatures with optional draw control: Mercurial Chemister ({3}{U}{R}) \u2014 Five-mana Wizard with optional tap draw-two and a second discard-to-damage role. Draw needs {U} plus tap, damage needs {R} plus tap and a discard, so both roles compete for one tap and the five-mana body is not cheap. Relevant deck support remains unconfirmed. Activation cost: {U}, {T}. Activation cost: {R}, {T}, Discard a card. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+      "selected_count": 3,
+      "memory_capture": {
+        "attachment_status": "not_attached",
+        "deck_entries": 64,
+        "dependency_count": 67,
+        "elapsed_seconds": 0.142452,
+        "input_sha256": "f57db52729dd4c1b7984fff98f2b7a61715a1d02e2ca6eb887a5a13680af58ef",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 14302,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "status": "skipped"
+      },
+      "timing": {
+        "runtime_elapsed_seconds": 156.716,
+        "coverage": {
+          "covered_wall_seconds": 151.343,
+          "intervals": 9,
+          "overlapping_interval_seconds": 0.0,
+          "rows_without_intervals": 1,
+          "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+          "unattributed_wall_seconds": 5.373
+        },
+        "stages": [
+          {
+            "stage": "tool",
+            "name": "search_card_functions",
+            "elapsed_seconds": 23.087,
+            "cache_hit": false
+          },
+          {
+            "stage": "selection_evidence",
+            "elapsed_seconds": 0.19,
+            "retained_candidates": 8
+          },
+          {
+            "stage": "render_and_validate",
+            "elapsed_seconds": 0.002
+          },
+          {
+            "stage": "finalist_evidence",
+            "elapsed_seconds": 0.46061,
+            "lookup_count": 2
+          },
+          {
+            "stage": "review_evidence",
+            "elapsed_seconds": 0.893
+          },
+          {
+            "stage": "answer_review",
+            "elapsed_seconds": 39.067,
+            "status": "unverified"
+          },
+          {
+            "stage": "corrective_review",
+            "elapsed_seconds": 34.666,
+            "lookups": 2,
+            "status": "unverified"
+          },
+          {
+            "stage": "memory_capture",
+            "elapsed_seconds": 0.142452,
+            "status": "skipped"
+          }
+        ],
+        "model_calls": [
+          {
+            "route": "planner",
+            "elapsed_seconds": 9.844,
+            "input_chars": 4094,
+            "output_token_budget": 2048
+          },
+          {
+            "route": "selection",
+            "elapsed_seconds": 43.451,
+            "input_chars": 23977,
+            "output_token_budget": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "kinnan-mana-compatibility-warm-different-query",
+      "fixture": "kinnan",
+      "cache_run": "warm-different-query",
+      "elapsed_seconds": 143.095,
+      "first_partial_seconds": 2.497,
+      "first_checked_seconds": 100.388,
+      "status": "incomplete",
+      "reason": "answer_partially_fulfilled",
+      "configured_cost_usd": 0.009896,
+      "logged_gateway_calls": 4,
+      "original_unchanged": true,
+      "source_commit": "63aa07525ae61950938690afc2c916d9a117ed1a",
+      "fulfillment": "partial",
+      "review_status": "unverified",
+      "review_verdicts": {
+        "supported": 16
+      },
+      "answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Low-cost mana-producing creatures: Delighted Halfling ({G}) \u2014 Delighted Halfling is a one-mana creature whose tap mana triggers Kinnan and can make Kinnan uncounterable. Activation costs {T} for {C} or {T} for legendary-only colored mana; it ranks first because it protects Kinnan, while Elvish Mystic casts more spells but lacks that protection. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Elvish Mystic ({G}) \u2014 Elvish Mystic is a one-mana creature that taps for {G}, so Kinnan adds another mana of the produced type. Activation cost is {T} for {G}; it ranks above Omen Hawker because its mana can cast any spell, while Omen Hawker's mana is restricted to activated abilities. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n- Low-cost mana-producing creatures: Omen Hawker ({U}) \u2014 Omen Hawker is a one-mana creature that taps for {C}{U} usable on activated abilities, which can help pay Kinnan's own activation. Activation cost is {T} for {C}{U} spendable only on abilities; its drawback is that this mana cannot cast creatures or sorceries, unlike Elvish Mystic. Potential deck support: Kinnan, Bonder Prodigy. Activation cost: {T}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+      "selected_count": 3,
+      "memory_capture": {
+        "attachment_status": "not_attached",
+        "deck_entries": 63,
+        "dependency_count": 66,
+        "elapsed_seconds": 0.150561,
+        "input_sha256": "0974a060ab6798124357c8f997afeea5cd9e2a65f3f5199353f1ab04a7c5988e",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 13821,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "status": "skipped"
+      },
+      "timing": {
+        "runtime_elapsed_seconds": 141.372,
+        "coverage": {
+          "covered_wall_seconds": 138.112,
+          "intervals": 9,
+          "overlapping_interval_seconds": 0.0,
+          "rows_without_intervals": 1,
+          "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+          "unattributed_wall_seconds": 3.26
+        },
+        "stages": [
+          {
+            "stage": "tool",
+            "name": "search_card_functions",
+            "elapsed_seconds": 11.322,
+            "cache_hit": false
+          },
+          {
+            "stage": "selection_evidence",
+            "elapsed_seconds": 0.098,
+            "retained_candidates": 8
+          },
+          {
+            "stage": "render_and_validate",
+            "elapsed_seconds": 0.001
+          },
+          {
+            "stage": "finalist_evidence",
+            "elapsed_seconds": 0.204149,
+            "lookup_count": 1
+          },
+          {
+            "stage": "review_evidence",
+            "elapsed_seconds": 0.644
+          },
+          {
+            "stage": "answer_review",
+            "elapsed_seconds": 34.304,
+            "status": "unverified"
+          },
+          {
+            "stage": "corrective_review",
+            "elapsed_seconds": 41.729,
+            "lookups": 1,
+            "status": "unverified"
+          },
+          {
+            "stage": "memory_capture",
+            "elapsed_seconds": 0.150561,
+            "status": "skipped"
+          }
+        ],
+        "model_calls": [
+          {
+            "route": "planner",
+            "elapsed_seconds": 7.799,
+            "input_chars": 1216,
+            "output_token_budget": 2048
+          },
+          {
+            "route": "selection",
+            "elapsed_seconds": 42.064,
+            "input_chars": 23954,
+            "output_token_budget": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "matched-marchesa-compatibility-warm-repeat",
+      "fixture": "marchesa",
+      "cache_run": "warm-repeat",
+      "elapsed_seconds": 118.41,
+      "first_partial_seconds": 5.994,
+      "first_checked_seconds": 115.302,
+      "status": "incomplete",
+      "reason": "answer_partially_fulfilled",
+      "configured_cost_usd": 0.007843,
+      "logged_gateway_calls": 3,
+      "original_unchanged": true,
+      "source_commit": "63aa07525ae61950938690afc2c916d9a117ed1a",
+      "fulfillment": "partial",
+      "review_status": "unverified",
+      "review_verdicts": {
+        "supported": 12,
+        "unverified": 4
+      },
+      "answer": "Retrieved candidates follow with their costs, potential fit and tradeoffs. Strategic judgments and rules interactions require the evidence check.\n\n- Repeatable draw creatures with optional draw control: Mercurial Chemister ({3}{U}{R}) \u2014 Mercurial Chemister is a repeatable draw creature with optional activation and a second damage role, but its five-mana body is not cheap. Relevant deck support remains unconfirmed. Activation cost: {U}, {T}. Activation cost: {R}, {T}, Discard a card. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n- Repeatable draw creatures with optional draw control: Skystrike Officer ({2}{U}) \u2014 Skystrike Officer is a repeatable draw creature with optional activation and multiple roles, but its draw needs three untapped Soldiers. Relevant deck support remains unconfirmed. Activation cost: Tap three untapped Soldiers you control. Further claims remain unverified.\n- Repeatable draw creatures with optional draw control: Roil Cartographer ({1}{U}) \u2014 Roil Cartographer is a cheap repeatable draw creature with optional activation and an energy-generation role, but its draw needs six energy. Relevant deck support remains unconfirmed. Activation cost: {T}, Pay six {E}. Tap-symbol cost: this creature needs continuous control or haste; untapping is not assumed. Further claims remain unverified.\n\nSome mechanical details remain unverified; check the cited card text and conditions before relying on them.",
+      "selected_count": 3,
+      "memory_capture": {
+        "attachment_status": "not_attached",
+        "deck_entries": 64,
+        "dependency_count": 67,
+        "elapsed_seconds": 0.096099,
+        "input_sha256": "c5f9dca9e3b5f84631c33d136b4146a5611dab6485a1e5447583e5e9a8cef085",
+        "maximum_episode_chars": 12000,
+        "minimum_receipt_chars": 12780,
+        "persistence_status": "not_applicable",
+        "reason": "required_receipt_exceeds_budget",
+        "status": "skipped"
+      },
+      "timing": {
+        "runtime_elapsed_seconds": 114.808,
+        "coverage": {
+          "covered_wall_seconds": 109.601,
+          "intervals": 9,
+          "overlapping_interval_seconds": 0.0,
+          "rows_without_intervals": 1,
+          "scope": "Union of instrumented intervals; parent/child and concurrent durations overlap. Per-stage durations must not be summed as wall time. Persistence after run_turn is outside this clock.",
+          "unattributed_wall_seconds": 5.207
+        },
+        "stages": [
+          {
+            "stage": "tool",
+            "name": "search_card_functions",
+            "elapsed_seconds": 17.546,
+            "cache_hit": false
+          },
+          {
+            "stage": "selection_evidence",
+            "elapsed_seconds": 0.197,
+            "retained_candidates": 8
+          },
+          {
+            "stage": "render_and_validate",
+            "elapsed_seconds": 0.002
+          },
+          {
+            "stage": "finalist_evidence",
+            "elapsed_seconds": 0.458387,
+            "lookup_count": 2
+          },
+          {
+            "stage": "review_evidence",
+            "elapsed_seconds": 1.466
+          },
+          {
+            "stage": "answer_review",
+            "elapsed_seconds": 37.435,
+            "status": "unverified"
+          },
+          {
+            "stage": "corrective_review",
+            "elapsed_seconds": 1.068,
+            "lookups": 0,
+            "status": "not_needed"
+          },
+          {
+            "stage": "memory_capture",
+            "elapsed_seconds": 0.096099,
+            "status": "skipped"
+          }
+        ],
+        "model_calls": [
+          {
+            "route": "planner",
+            "elapsed_seconds": 14.201,
+            "input_chars": 4094,
+            "output_token_budget": 2048
+          },
+          {
+            "route": "selection",
+            "elapsed_seconds": 37.59,
+            "input_chars": 23977,
+            "output_token_budget": 4096
+          }
+        ]
+      }
+    }
+  ],
+  "final_cleanup": [
+    {
+      "id": "marchesa",
+      "deck_id": "3d2d9cecb8aa4d2ab0da9aa8fd0d0ab1",
+      "revision": 0,
+      "removed": true,
+      "replayed_synthetic_history": "acceptance-final first two completed Marchesa turns"
+    },
+    {
+      "id": "kinnan",
+      "deck_id": "47ed86ff5f3843468d8b2fd29025ac1d",
+      "revision": 0,
+      "removed": true
+    },
+    {
+      "id": "marchesa",
+      "deck_id": "b519eac423a249208ee26274ae5251c8",
+      "revision": 0,
+      "removed": true,
+      "replayed_synthetic_history": "acceptance-final first two completed Marchesa turns"
+    }
+  ],
+  "total_configured_cost_usd": 0.038994
+}

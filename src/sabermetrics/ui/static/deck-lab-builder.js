@@ -22,9 +22,8 @@
     ["board_wipe", "Board wipe"], ["recursion", "Recursion"],
     ["wincon", "Win condition"], ["land", "Land"], ["utility", "Utility"], ["other", "Other"]
   ];
-  var rails = { right: true };
+  var rails = { right: true, left: true };
   try { rails = Object.assign(rails, JSON.parse(localStorage.getItem(railsKey) || "{}")); } catch (_) {}
-  rails.left = false;
 
   function node(tag, className, text) {
     var el = document.createElement(tag);
@@ -37,6 +36,12 @@
     if (card.image_uri) return card.image_uri;
     return card.name ? "https://api.scryfall.com/cards/named?format=image&version=normal&exact=" + encodeURIComponent(card.name) : "";
   }
+  function dispatchSaveState() {
+    _dispatchBuilderEvent("deck-lab:save-state", {
+      pendingSaves: pendingSaves,
+      failed: !!failedSave,
+    });
+  }
   function setSaving(label, error) {
     if (saveState) {
       var text = saveState.querySelector("[data-save-label]");
@@ -47,13 +52,14 @@
       saveState.classList.toggle("is-warn", !!error);
     }
     syncExport();
+    dispatchSaveState();
   }
   function mutationId() { return window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
   function command(commands, existingId, existingRevision) {
     if (shared || !commands.length) return Promise.resolve();
     var packet = { mutation_id: existingId || mutationId(), commands: commands };
     if (existingRevision !== undefined) packet.expected_revision = existingRevision;
-    pendingSaves += 1; syncExport();
+    pendingSaves += 1; syncExport(); dispatchSaveState();
     queue = queue.then(function () {
       if (packet.expected_revision === undefined) packet.expected_revision = state.revision;
       try { localStorage.setItem(recoveryKey, JSON.stringify(packet)); } catch (_) {}
@@ -70,7 +76,7 @@
           return true;
         });
       }).catch(function (error) { failedSave = packet; setSaving("Retry save", true); if (saveState) saveState.title = error.message; return false; })
-        .finally(function () { pendingSaves = Math.max(0, pendingSaves - 1); syncExport(); });
+        .finally(function () { pendingSaves = Math.max(0, pendingSaves - 1); syncExport(); dispatchSaveState(); });
     });
     return queue;
   }
@@ -210,9 +216,14 @@
     var result = [], commanders = state.entries.filter(function (entry) { return !!entry.is_commander; });
     if (commanders.length) result.push({ id: "commander", name: "Commander", entries: commanders, permanent: true });
     if (preference("group_mode", "zone") === "type") {
-      var types = {};
-      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) { var name = (entry.type_line || "Other").split(/[—-]/)[0].trim() || "Other"; (types[name] || (types[name] = [])).push(entry); });
-      Object.keys(types).sort().forEach(function (name) { result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
+      var types = {}, typeOrder = ["Planeswalker", "Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Land"];
+      state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {
+        // Use the front face's card types, excluding supertypes and subtypes.
+        var cardTypes = (entry.type_line || "").split("//")[0].split(/[—–-]/)[0].trim().split(/\s+/);
+        var name = cardTypes.indexOf("Creature") >= 0 ? "Creature" : typeOrder.find(function (type) { return cardTypes.indexOf(type) >= 0; }) || "Other";
+        (types[name] || (types[name] = [])).push(entry);
+      });
+      typeOrder.concat(["Other"]).forEach(function (name) { if (types[name]) result.push({ id: "type-" + name, name: name, entries: types[name], permanent: true }); });
     } else if (preference("group_mode", "zone") === "role") {
       var roles = {}, noRole = [], privateEntries = [];
       state.entries.filter(function (entry) { return !entry.is_commander; }).forEach(function (entry) {
@@ -695,16 +706,17 @@
   }
   function render() { var scope = commanderScope(); if (lastRenderedSearchScope !== undefined && lastRenderedSearchScope !== scope) closeCardResults(); lastRenderedSearchScope = scope; syncControls(); renderDeckCount(); renderTable(); renderPlaymat(); renderStats(); renderTags(); syncSelection(); syncExport(); _renderEntryFilterChip(); _runOnRenderListeners(); }
   function syncRails() {
-    root.classList.remove("left-collapsed");
+    root.classList.toggle("left-collapsed", !rails.left);
     root.classList.toggle("right-collapsed", !rails.right);
     document.querySelectorAll("[data-toggle-rail]").forEach(function (button) {
-      if (button.dataset.toggleRail !== "right") return;
-      button.setAttribute("aria-expanded", rails.right ? "true" : "false");
-      button.setAttribute("aria-label", (rails.right ? "Collapse " : "Expand ") + "Deck sidebar");
+      var side = button.dataset.toggleRail;
+      if (side !== "right" && side !== "left") return;
+      button.setAttribute("aria-expanded", rails[side] ? "true" : "false");
+      button.setAttribute("aria-label", (rails[side] ? "Collapse " : "Expand ") + (side === "left" ? "Research Assistant" : "Deck sidebar"));
     });
-    try { localStorage.setItem(railsKey, JSON.stringify({ right: rails.right })); } catch (_) {}
+    try { localStorage.setItem(railsKey, JSON.stringify({ right: rails.right, left: rails.left })); } catch (_) {}
   }
-  function setRail(side, open) { if (side !== "right") return; rails[side] = open; syncRails(); }
+  function setRail(side, open) { if (side !== "right" && side !== "left") return; rails[side] = open; syncRails(); }
   document.querySelectorAll("[data-toggle-rail]").forEach(function (button) { button.addEventListener("click", function () { setRail(button.dataset.toggleRail, !rails[button.dataset.toggleRail]); }); });
   document.querySelectorAll("[data-view]").forEach(function (button) { button.addEventListener("click", function () { command([{ type: "update_view", view_mode: button.dataset.view }]); }); });
   document.querySelectorAll("[data-display]").forEach(function (button) { button.addEventListener("click", function () { command([{ type: "update_view", display_mode: button.dataset.display }]); }); });
@@ -851,7 +863,7 @@
     if (!(body.results || []).length) {
       results.appendChild(node("p", "dl-card-suggest-empty", "No cards match this search."));
       searchStatus("No cards match this search.");
-    } else searchStatus(Math.min(body.results.length, 8) + " card name results. Cards you add go to " + destinationName(addDestinationId()) + ".");
+    } else searchStatus(Math.min(body.results.length, 8) + (input && input.value.trim().slice(0, 5).toLowerCase() === "text:" ? " card text results. Cards you add go to " : " card name results. Cards you add go to ") + destinationName(addDestinationId()) + ".");
     results.hidden = false;
     if (input) input.setAttribute("aria-expanded", "true");
   }
@@ -864,10 +876,13 @@
     var input = document.querySelector("[data-card-search]"), results = document.querySelector("[data-card-results]");
     if (!input || !results) return;
     var query = input.value.trim();
-    if (!query) { closeCardResults(); searchStatus(""); return; }
+    var textQuery = query.slice(0, 5).toLowerCase() === "text:";
+    var searchValue = textQuery ? query.slice(5).trim() : query;
+    if (!searchValue) { closeCardResults(); searchStatus(""); return; }
     var seq = (searchSeq += 1);
     var scope = commanderScope();
-    var params = new URLSearchParams({ q: input.value, deck_id: state.id, limit: "8" });
+    var params = new URLSearchParams({ deck_id: state.id, limit: "8" });
+    params.set(textQuery ? "oracle_text" : "q", searchValue);
     if (searchController) searchController.abort();
     searchController = new AbortController();
     results.hidden = false;
@@ -917,7 +932,7 @@
   var tagsDialog = document.getElementById("deck-tags-dialog"), tagInput = document.querySelector("[data-tag-input]"), tagError = document.querySelector("[data-tag-error]"), tagSearchTimer, tagSearchController; function tagMessage(message) { if (tagError) tagError.textContent = message || ""; } function addTag() { if (!tagInput) return; var name = tagInput.value.normalize("NFKC").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 32) return tagMessage("Use between 2 and 32 characters."); if ((state.tags || []).some(function (tag) { return tag.name.toLowerCase() === name.toLowerCase(); })) return tagMessage("That tag is already on this deck."); if ((state.tags || []).length >= 6) return tagMessage("A deck can have up to six tags."); tagMessage(""); tagInput.value = ""; command([{ type: "add_tag", name: name }]); }
   document.querySelectorAll("[data-tags-open]").forEach(function (button) { button.addEventListener("click", function () { tagMessage(""); tagsDialog.showModal(); if (tagInput) tagInput.focus(); }); }); var tagAdd = document.querySelector("[data-tag-add]"); if (tagAdd) tagAdd.addEventListener("click", addTag); if (tagInput) { tagInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); addTag(); } }); tagInput.addEventListener("input", function () { clearTimeout(tagSearchTimer); tagSearchTimer = setTimeout(function () { if (tagSearchController) tagSearchController.abort(); tagSearchController = new AbortController(); fetch("/api/deck-tags?q=" + encodeURIComponent(tagInput.value), { signal: tagSearchController.signal }).then(function (response) { return response.json(); }).then(function (body) { populateTagOptions(body.results || []); }); }, 180); }); }
 
-  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grids = document.querySelectorAll("[data-my-playmats]"), empties = document.querySelectorAll("[data-my-playmats-empty]"), mats = state.playmats || []; Array.prototype.forEach.call(grids, function (grid) { grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (pickerDraft) { pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); return; } command([{ type: "update_presentation", surface: "library", playmat_id: mat.id }]); }); grid.appendChild(button); }); }); Array.prototype.forEach.call(empties, function (empty) { empty.hidden = mats.length > 0; }); } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); }); }); }
+  var picker = document.getElementById("playmat-picker"), pickerOriginal = null, pickerDraft = null, pendingUpload = null, upload = document.querySelector("[data-playmat-upload]"), uploadStatus = document.querySelector("[data-playmat-upload-status]"); function previewPicker() { if (pickerDraft) { state.presentation = Object.assign({}, pickerDraft); render(); } } function renderMyPlaymats() { var grids = document.querySelectorAll("[data-my-playmats]"), empties = document.querySelectorAll("[data-my-playmats-empty]"), mats = state.playmats || []; Array.prototype.forEach.call(grids, function (grid) { grid.replaceChildren(); mats.forEach(function (mat) { var button = node("button", "dl-surface library"); button.type = "button"; button.dataset.playmatId = mat.id; button.style.backgroundImage = "url('/api/playmats/" + encodeURIComponent(mat.id) + "')"; button.appendChild(node("span", "", mat.title)); button.addEventListener("click", function () { if (pickerDraft) { pickerDraft.surface = "library"; pickerDraft.playmat_id = mat.id; pendingUpload = null; previewPicker(); return; } command([{ type: "update_presentation", surface: "library", playmat_id: mat.id }]); }); grid.appendChild(button); }); }); Array.prototype.forEach.call(empties, function (empty) { empty.hidden = mats.length > 0; }); } function uploadPlaymat(file) { pendingSaves += 1; syncExport(); dispatchSaveState(); queue = queue.then(function () { var form = new FormData(); form.append("playmat", file); setSaving("Uploading…", false); return fetch("/api/decks/" + encodeURIComponent(state.id) + "/playmat", { method: "POST", headers: { "X-CSRFToken": csrf ? csrf.content : "" }, body: form }).then(function (response) { if (!response.ok) throw new Error("Upload failed"); return fetch("/api/decks/" + encodeURIComponent(state.id)); }).then(function (response) { return response.json(); }).then(function (body) { state = body; setSaving("Saved", false); render(); }).catch(function (error) { setSaving(error.message, true); }).finally(function () { pendingSaves -= 1; syncExport(); dispatchSaveState(); }); }); }
   document.querySelectorAll("[data-playmat-picker]").forEach(function (button) { button.addEventListener("click", function () { pickerOriginal = Object.assign({}, state.presentation || {}); pickerDraft = Object.assign({}, pickerOriginal); pendingUpload = null; picker.returnValue = ""; if (upload) upload.value = ""; renderMyPlaymats(); picker.showModal(); syncControls(); }); }); document.querySelectorAll("[data-surface]").forEach(function (button) { button.addEventListener("click", function () { if (!pickerDraft) return; pickerDraft.surface = button.dataset.surface; pickerDraft.playmat_id = null; pendingUpload = null; previewPicker(); }); }); document.querySelectorAll("[data-setting]").forEach(function (input) { input.addEventListener("change", function () { if (!pickerDraft) return; pickerDraft[input.dataset.setting] = input.checked; previewPicker(); }); }); var sizePicker = document.querySelector("[data-playmat-size]"); if (sizePicker) sizePicker.addEventListener("change", function () { if (!pickerDraft) return; var parts = sizePicker.value.split("x"); pickerDraft.canvas_width = Number(parts[0]); pickerDraft.canvas_height = Number(parts[1]); previewPicker(); }); if (upload) upload.addEventListener("change", function () { pendingUpload = upload.files.length ? upload.files[0] : null; if (uploadStatus) uploadStatus.textContent = pendingUpload ? upload.files[0].name + " is ready to upload." : ""; }); if (picker) picker.addEventListener("close", function () { if (picker.returnValue === "done" && pickerDraft) { var change = { type: "update_presentation", canvas_width: pickerDraft.canvas_width || 1600, canvas_height: pickerDraft.canvas_height || 900 }; ["snap_to_grid", "show_zone_outlines", "dim_inactive"].forEach(function (key) { change[key] = !!pickerDraft[key]; }); if (!pendingUpload) { change.surface = pickerDraft.surface || "slate-grid"; change.playmat_id = pickerDraft.playmat_id || ""; } command([change]); if (pendingUpload) uploadPlaymat(pendingUpload); } else if (pickerOriginal) { state.presentation = pickerOriginal; render(); } pickerOriginal = pickerDraft = pendingUpload = null; });
   var cardImageDialog = document.getElementById("card-image-dialog"), cardImageOpener = null, cardImageOpenerKey = null;
   function returnCardImageFocus() {
@@ -1042,6 +1057,7 @@
     version: 1,
     get shared() { return shared; },
     getState: function () { return state; },
+    getSaveState: function () { return { pending: pendingSaves > 0, failed: !!failedSave }; },
     onRender: function (fn) {
       _onRenderListeners.push(fn);
       return function () {
@@ -1052,6 +1068,15 @@
     command: function (commands) {
       var result = command(commands);
       return result;
+    },
+    replaceDocument: function (document) {
+      if (shared || !document || String(document.id) !== String(state.id) || !Array.isArray(document.entries)) return false;
+      if (pendingSaves > 0 || failedSave) return false;
+      state = document;
+      try { localStorage.removeItem(recoveryKey); } catch (_) {}
+      setSaving("Saved", false);
+      render();
+      return true;
     },
     getSelection: function () {
       return Array.from(selectedEntries);
@@ -1084,7 +1109,7 @@
       id = String(id);
       opts = opts || {};
       var tab = opts.tab || "deck";
-      var rail = document.querySelector(".dl-stats-rail");
+      var rail = document.querySelector("[data-assistant-pane=analytics]") || document.querySelector(".dl-stats-rail");
       if (!rail) return null;
       var existing = rail.querySelector('[data-ext-section="' + id.replace(/"/g, '\\"') + '"]');
       if (existing) return existing;

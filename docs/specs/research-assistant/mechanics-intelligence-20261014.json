@@ -1,0 +1,99 @@
+{
+  "status": "implementation_validated_qa_release_pending",
+  "scope": "QA only; four user supplied reference decks; extend existing native engine",
+  "acceptance": [
+    {
+      "milestone": "shared behavior and authoring",
+      "criterion": "Source-pinned executable effects, explicit prerequisites and partial support; promotion requires independent positive/negative test evidence"
+    },
+    {
+      "milestone": "native coverage",
+      "criterion": "Real fixture mechanics execute with colored resource conservation, conditional trigger gates and exact costs; source counts do not substitute for behavior"
+    },
+    {
+      "milestone": "combinations",
+      "criterion": "Bounded action traces with starting state, prerequisite rejection, no victory from assembly; integrated assistant tool"
+    },
+    {
+      "milestone": "engine benchmark",
+      "criterion": "Measured native/reference scenarios and honest unavailable external engines; no synthetic engine timings"
+    },
+    {
+      "milestone": "pilot",
+      "criterion": "Visible-hand-only decisions, strategy-aware sequencing and adversarial cases; no hidden-information leakage"
+    },
+    {
+      "milestone": "comparison",
+      "criterion": "Metric-specific dependency evidence when justified, legacy failclosed fallback and no unknown metrics presented as improvement"
+    },
+    {
+      "milestone": "QA",
+      "criterion": "Targeted regression suites, independent review and actual fixture/browser checks; source deck unchanged and max3 swaps in 3 copies"
+    }
+  ],
+  "handoffs": [
+    {
+      "partner": "Sol 6.1 native_mechanics_v3",
+      "ownership": "native effects/state/simulation and targeted tests",
+      "kpi": "Reusable cast mana, Treasure and ritual execution with conservation and negative tests",
+      "result": "Implemented and validated within bounded scope; remaining gaps recorded above",
+      "evidence": "205 native cases, 91022 assertions; source-bound negative and conservation tests"
+    },
+    {
+      "partner": "Sol 6.1 combination_intelligence_v3",
+      "ownership": "combination discovery/replay and candidate integration",
+      "kpi": "Actual fixture lines, bounded conditional traces, wrong-state rejection",
+      "result": "Implemented and validated within bounded scope; remaining gaps recorded above",
+      "evidence": "Actual four-deck fixtures, source/constraint/replay regressions included in 416 app tests"
+    },
+    {
+      "partner": "Sol 6.1 coverage_validation_v3",
+      "ownership": "coverage audit and comparison provenance",
+      "kpi": "All four 100-card main decks reconciled; no false completeness or comparison validity",
+      "result": "Implemented and validated within bounded scope; remaining gaps recorded above",
+      "evidence": "400 slots reconciled, four exact repeat runs and strict schema validation"
+    },
+    {
+      "partner": "Claude Code Opus 5.5",
+      "ownership": "engine reference benchmark harness and scenarios",
+      "kpi": "Reproducible real outcomes, disagreement detection and explicit unexecuted engines",
+      "result": "Implemented and validated within bounded scope; remaining gaps recorded above",
+      "evidence": "20 real Forge rules scenarios and 15 bridge cases matched; independent review defects fixed"
+    }
+  ],
+  "gates": [
+    "Never infer rules correctness from model confidence",
+    "Never mark a whole card supported because one effect executes",
+    "Never infer win rate or deck superiority from engine-event proxies",
+    "No production deployment",
+    "Compare matching engine/settings versions; rerun baselines after mechanics changes"
+  ],
+  "validation": {
+    "app_integration_tests": 416,
+    "native_full_suite_cases": 205,
+    "native_full_suite_assertions": 91022,
+    "forge_rules_scenarios_matched": 20,
+    "forge_additional_scenarios_matched": 15,
+    "reference_decks": 4,
+    "games_per_scenario": 2000,
+    "scenarios_per_deck": 5,
+    "exact_repeatability": true,
+    "coverage_slots": {
+      "partial": 165,
+      "unsupported": 204,
+      "inactive": 31,
+      "fully_supported": 0
+    },
+    "coverage_gain_vs_0_4_3": {
+      "new_partial_slots": 14,
+      "fully_supported_slots": 0
+    }
+  },
+  "remaining_gaps": [
+    "Full MTG coverage is not achieved. General combat, stack responses, replacement effects, trigger multipliers and many card abilities remain unmodeled.",
+    "Source-known combo claims and bounded hypothetical models do not prove whole-deck consistency or wins.",
+    "Opening comparability remains conservative for unknown card swaps; unsupported dependency claims never authorize score comparisons.",
+    "Native arbitrary-state differential replay remains a follow-up; Forge currently validates separately against the shared fixture expectations.",
+    "Starter source corpus is bounded to 183 variants, not the entire Commander Spellbook catalog."
+  ]
+}

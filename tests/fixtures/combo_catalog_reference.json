@@ -1,0 +1,471 @@
+{
+  "snapshot_version": "commander-spellbook.snapshot.v1",
+  "retrieved_at": "2026-10-14T12:00:00+00:00",
+  "results": [
+    {
+      "id": "1369-6586",
+      "of": [
+        {
+          "id": 30144
+        }
+      ],
+      "salt": null,
+      "uses": [
+        {
+          "card": {
+            "id": 6586,
+            "name": "Vivi Ornitier",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+            "typeLine": "Legendary Creature \u2014 Wizard",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.png?1783906561",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        },
+        {
+          "card": {
+            "id": 1369,
+            "name": "Quicksilver Elemental",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "c88e3aff-c539-4e8b-8ee1-a43b3d0962b4",
+            "typeLine": "Creature \u2014 Elemental",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/2/9/2905f6ac-d054-454b-8e1a-9c32db13a581.png?1783944552",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/2/9/2905f6ac-d054-454b-8e1a-9c32db13a581.webp?1783944552",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/2/9/2905f6ac-d054-454b-8e1a-9c32db13a581.webp?1783944552",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/2/9/2905f6ac-d054-454b-8e1a-9c32db13a581.webp?1783944552",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/2/9/2905f6ac-d054-454b-8e1a-9c32db13a581.webp?1783944552"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        }
+      ],
+      "notes": "",
+      "prices": {
+        "tcgplayer": "53.48",
+        "cardmarket": "37.52",
+        "cardkingdom": "79.98"
+      },
+      "status": "OK",
+      "spoiler": false,
+      "identity": "UR",
+      "includes": [
+        {
+          "id": 30144
+        }
+      ],
+      "produces": [
+        {
+          "feature": {
+            "id": 20,
+            "name": "Infinite red mana",
+            "status": "S",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 37,
+            "name": "Infinite blue mana",
+            "status": "S",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 691,
+            "name": "Infinite colored mana that can only be spent to activate abilities",
+            "status": "C",
+            "uncountable": true
+          },
+          "quantity": 1
+        }
+      ],
+      "requires": [],
+      "legalities": {
+        "brawl": false,
+        "predh": false,
+        "legacy": true,
+        "modern": true,
+        "pauper": false,
+        "alchemy": false,
+        "pioneer": false,
+        "vintage": true,
+        "standard": false,
+        "commander": true,
+        "premodern": false,
+        "oathbreaker": true,
+        "standardBrawl": false,
+        "pauperCommander": false,
+        "competitiveBrawl": false,
+        "pauperCommanderMain": false
+      },
+      "popularity": 16507,
+      "bracketTag": "R",
+      "description": "Activate Quicksilver Elemental by paying {U}, causing it to gain Vivi's activated abilities until end of turn.\nActivate Quicksilver Elemental using Vivi's ability by paying {0}, adding {U}{U/R}{U/R}.\nRepeat.",
+      "manaNeeded": "{U}",
+      "variantCount": 1,
+      "saltVoteCount": 4,
+      "manaValueNeeded": 1,
+      "easyPrerequisites": "",
+      "notablePrerequisites": ""
+    },
+    {
+      "id": "1409-6586",
+      "of": [
+        {
+          "id": 30110
+        }
+      ],
+      "salt": null,
+      "uses": [
+        {
+          "card": {
+            "id": 6586,
+            "name": "Vivi Ornitier",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "0452be2a-e97a-4269-a9e3-b616265ecb2e",
+            "typeLine": "Legendary Creature \u2014 Wizard",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.png?1783906561",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/e/c/ecc1027a-8c07-44a0-bdde-fa2844cff694.webp?1783906561"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        },
+        {
+          "card": {
+            "id": 1409,
+            "name": "Deadeye Navigator",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "ebef6d84-b724-4a84-bcde-8eb6dc06717d",
+            "typeLine": "Creature \u2014 Spirit",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/4/f/4f0791b5-fdb4-4378-8fd3-7e7367ffc05c.png?1783908166",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/4/f/4f0791b5-fdb4-4378-8fd3-7e7367ffc05c.webp?1783908166",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/4/f/4f0791b5-fdb4-4378-8fd3-7e7367ffc05c.webp?1783908166",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/4/f/4f0791b5-fdb4-4378-8fd3-7e7367ffc05c.webp?1783908166",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/4/f/4f0791b5-fdb4-4378-8fd3-7e7367ffc05c.webp?1783908166"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": "is paired with Vivi "
+        }
+      ],
+      "notes": "",
+      "prices": {
+        "tcgplayer": "34.50",
+        "cardmarket": "32.94",
+        "cardkingdom": "57.98"
+      },
+      "status": "OK",
+      "spoiler": false,
+      "identity": "UR",
+      "includes": [
+        {
+          "id": 27630
+        },
+        {
+          "id": 30110
+        },
+        {
+          "id": 32862
+        }
+      ],
+      "produces": [
+        {
+          "feature": {
+            "id": 3,
+            "name": "Infinite creature LTB",
+            "status": "H",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 4,
+            "name": "Infinite creature ETB",
+            "status": "H",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 20,
+            "name": "Infinite red mana",
+            "status": "S",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 37,
+            "name": "Infinite blue mana",
+            "status": "S",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 87,
+            "name": "Infinite blinking",
+            "status": "H",
+            "uncountable": true
+          },
+          "quantity": 1
+        }
+      ],
+      "requires": [],
+      "legalities": {
+        "brawl": false,
+        "predh": false,
+        "legacy": true,
+        "modern": true,
+        "pauper": false,
+        "alchemy": false,
+        "pioneer": false,
+        "vintage": true,
+        "standard": false,
+        "commander": true,
+        "premodern": false,
+        "oathbreaker": true,
+        "standardBrawl": false,
+        "pauperCommander": false,
+        "competitiveBrawl": false,
+        "pauperCommanderMain": false
+      },
+      "popularity": 1558,
+      "bracketTag": "S",
+      "description": "Activate Vivi by paying {0}, adding at least {U}{U}.\nActivate Vivi by paying {1}{U}, blinking it.\nWhen Vivi enters the battlefield, Deadeye Navigator's soulbond ability triggers, repairing it and Vivi.\nRepeat.",
+      "manaNeeded": "",
+      "variantCount": 1,
+      "saltVoteCount": 0,
+      "manaValueNeeded": 0,
+      "easyPrerequisites": "",
+      "notablePrerequisites": "You control any number of static effects that increase Vivi's power by at least 2."
+    },
+    {
+      "id": "513-5034--46",
+      "of": [
+        {
+          "id": 26516
+        }
+      ],
+      "salt": 1.95,
+      "uses": [
+        {
+          "card": {
+            "id": 513,
+            "name": "Hullbreaker Horror",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+            "typeLine": "Creature \u2014 Kraken Horror",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.png?1783908162",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.webp?1783908162",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.webp?1783908162",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.webp?1783908162",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/1/3/137acb70-a1fd-4ea9-a5d9-f4b438eb5e82.webp?1783908162"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        },
+        {
+          "card": {
+            "id": 5034,
+            "name": "Sol Ring",
+            "faces": 1,
+            "spoiler": false,
+            "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487",
+            "typeLine": "Artifact",
+            "imageUriBackPng": null,
+            "imageUriFrontPng": "https://cards.scryfall.io/png/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.png?1789644446",
+            "imageUriBackLarge": null,
+            "imageUriBackSmall": null,
+            "imageUriBackNormal": null,
+            "imageUriFrontLarge": "https://cards.scryfall.io/display/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.webp?1789644446",
+            "imageUriFrontSmall": "https://cards.scryfall.io/thumb/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.webp?1789644446",
+            "layoutRotationFront": null,
+            "imageUriFrontNormal": "https://cards.scryfall.io/grid/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.webp?1789644446",
+            "imageUriBackArtCrop": null,
+            "imageUriFrontArtCrop": "https://cards.scryfall.io/art/front/8/e/8ee443cc-e17a-493b-9c93-1f9e141a30e4.webp?1789644446"
+          },
+          "quantity": 1,
+          "usedFace": null,
+          "zoneLocations": [
+            "B"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        }
+      ],
+      "notes": "",
+      "prices": {
+        "tcgplayer": "7.18",
+        "cardmarket": "5.17",
+        "cardkingdom": "11.78"
+      },
+      "status": "OK",
+      "spoiler": false,
+      "identity": "U",
+      "includes": [
+        {
+          "id": 26516
+        }
+      ],
+      "produces": [
+        {
+          "feature": {
+            "id": 11,
+            "name": "Infinite colorless mana",
+            "status": "S",
+            "uncountable": true
+          },
+          "quantity": 1
+        },
+        {
+          "feature": {
+            "id": 17,
+            "name": "Infinite storm count",
+            "status": "H",
+            "uncountable": true
+          },
+          "quantity": 1
+        }
+      ],
+      "requires": [
+        {
+          "quantity": 1,
+          "template": {
+            "id": 46,
+            "name": "Permanent Castable for {C}",
+            "scryfallApi": "https://api.scryfall.com/cards/search?q=%28mv%3C%3D1+%28mana%3D%7B0%7D+or+mana%3D%7B1%7D+or+mana%3D%7BC%7D%29+is%3Apermanent%29+legal%3Acommander",
+            "scryfallQuery": "mv<=1 (mana={0} or mana={1} or mana={C}) is:permanent"
+          },
+          "zoneLocations": [
+            "H"
+          ],
+          "exileCardState": "",
+          "mustBeCommander": false,
+          "libraryCardState": "",
+          "graveyardCardState": "",
+          "battlefieldCardState": ""
+        }
+      ],
+      "legalities": {
+        "brawl": false,
+        "predh": false,
+        "legacy": false,
+        "modern": false,
+        "pauper": false,
+        "alchemy": false,
+        "pioneer": false,
+        "vintage": true,
+        "standard": false,
+        "commander": true,
+        "premodern": false,
+        "oathbreaker": false,
+        "standardBrawl": false,
+        "pauperCommander": false,
+        "competitiveBrawl": false,
+        "pauperCommanderMain": false
+      },
+      "popularity": 359035,
+      "bracketTag": "E",
+      "description": "Activate Sol Ring by tapping it, adding {C} {C}.\nCast the permanent that can be cast using {C} by paying its mana cost.\nHullbreaker Horror triggers, returning Sol Ring from the battlefield to your hand.\nCast Sol Ring by paying {1}. \nHullbreaker Horror triggers, returning the permanent cast in step 2 from the battlefield to your hand.\nRepeat.\nIf the permanent can be cast by paying {0}, this combo nets infinite colorless mana.",
+      "manaNeeded": "",
+      "variantCount": 1,
+      "saltVoteCount": 38,
+      "manaValueNeeded": 0,
+      "easyPrerequisites": "",
+      "notablePrerequisites": ""
+    }
+  ]
+}

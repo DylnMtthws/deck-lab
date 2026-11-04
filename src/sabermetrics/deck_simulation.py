@@ -206,6 +206,93 @@ def execute_simulation(db_path: str, simulation_id: str) -> None:
         )
 
 
+def prepare_simulation(
+    path: Path,
+    document: dict[str, Any],
+) -> tuple[str, str]:
+    """Freeze the submitted list and pin its comparable successful run.
+
+    Legacy outcomes without a document snapshot cannot establish card deltas.
+    Before/after differences are descriptive; shared indexed seeds do not
+    establish statistical proof of paired improvement.
+    """
+    provenance = load_provenance(path, document)
+    try:
+        digest = candidate_from_document(document, provenance).deck_sha256
+    except (ValueError, ValidationError):
+        digest = ""
+    previous = db.DeckDocumentSimulationsRepo(path).previous_done(
+        str(document["id"]), ""
+    )
+    comparison_id = None
+    if previous is not None:
+        snapshot = _stored_payload(previous.get("result_json")).get("snapshot")
+        if isinstance(snapshot, dict):
+            # Lazy import: experiments also reuses conversion helpers above.
+            from sabermetrics.goldfish_experiments import _check_lineage
+
+            try:
+                _check_lineage(snapshot, document)
+            except ValueError as exc:
+                detail = str(exc).replace(
+                    "start a new baseline instead.",
+                    "use a separate deck history for a different commander.",
+                )
+                raise ValueError(
+                    detail + " Restore at most three replacements from the last "
+                    "successful run, or use a separate deck history."
+                ) from exc
+            comparison_id = str(previous["id"])
+    frozen_baseline = (
+        _stored_payload(previous.get("result_json"))
+        if comparison_id and previous
+        else None
+    )
+    if frozen_baseline is not None:
+        frozen_baseline = {
+            key: frozen_baseline[key]
+            for key in ("snapshot", "provenance", "outcome")
+            if key in frozen_baseline
+        }
+    source_baseline_id = None
+    source_baseline_outcome = None
+    if comparison_id is None and document.get("source_kind") == "candidate":
+        source_id = str(document.get("source_id") or "")
+        source = db.CedhCandidatesRepo(path).get(source_id) if source_id else None
+        outcome = parse_stored_result(source.get("simulation_json") if source else None)
+        if outcome is not None and digest and outcome.deck_sha256 == digest:
+            source_baseline_id = source_id
+            source_baseline_outcome = outcome.model_dump(mode="json")
+    return digest, json.dumps(
+        {
+            "schema_version": "decklab-native-run.v1",
+            "snapshot": document,
+            "provenance": provenance.model_dump(mode="json"),
+            "comparison_id": comparison_id,
+            "frozen_baseline": frozen_baseline,
+            "source_baseline_id": source_baseline_id,
+            "source_baseline_outcome": source_baseline_outcome,
+        }
+    )
+
+
+def _stored_payload(raw: object) -> dict[str, Any]:
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else None
+    except (ValueError, TypeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _with_outcome(
+    repo: db.DeckDocumentSimulationsRepo, simulation_id: str, outcome: dict[str, Any]
+) -> str:
+    row = repo.get(simulation_id)
+    payload = _stored_payload(row.get("result_json") if row else None)
+    payload["outcome"] = outcome
+    return json.dumps(payload)
+
+
 def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
     """Describe the latest run, its delta, and whether the list has changed."""
     path = Path(db_path)
@@ -216,10 +303,10 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
     status = str(row.get("status") or "")
     stored_hash = str(row.get("deck_sha256") or "")
     reason = str(row.get("reason") or "")
-    stale = False
-    if status in {"done", "not_simulated"} and stored_hash and document is not None:
-        current = _hash_of(path, document)
-        stale = current != stored_hash
+    freshness = report_freshness(
+        stored_hash, _hash_of(path, document) if document is not None else None
+    )
+    stale = freshness["freshness"] == "stale"
     result_payload: dict[str, Any] | None = None
     delta: dict[str, Any] | None = None
     baseline_message = ""
@@ -230,6 +317,12 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
             reason = reason or "Not simulated: stored result could not be read"
         else:
             result_payload = _result_payload(outcome)
+            diagnostics = result_payload.get("diagnostics")
+            if isinstance(diagnostics, dict):
+                result_payload["diagnostics"] = {
+                    **diagnostics,
+                    "comparison": _diagnostics_comparison(path, row, diagnostics),
+                }
             if document is not None:
                 delta, baseline_message = _delta_for(
                     path, document, str(row["id"]), outcome
@@ -240,6 +333,7 @@ def simulation_view(db_path: Path | str, deck_id: str) -> dict[str, Any]:
         "id": row.get("id"),
         "status": status,
         "reason": reason if status == "not_simulated" else "",
+        **freshness,
         "stale": stale,
         "stale_message": STALE_MESSAGE if stale else "",
         "baseline_message": baseline_message,
@@ -273,8 +367,13 @@ def _execute_loaded(
     repo: db.DeckDocumentSimulationsRepo,
     row: dict[str, Any],
 ) -> None:
-    document = DeckDocumentRepo(path).get(str(row["owner_id"]), str(row["deck_id"]))
-    provenance = load_provenance(path, document)
+    stored = _stored_payload(row.get("result_json"))
+    document = stored.get("snapshot")
+    if not isinstance(document, dict):
+        raise TypeError("submitted deck snapshot is unavailable; rerun this deck")
+    if str(document.get("id")) != str(row["deck_id"]):
+        raise ValueError("submitted deck snapshot does not match this deck")
+    provenance = CandidateProvenance.model_validate(stored.get("provenance"))
     refusal = illegal_list_reason(document)
     candidate: DeckCandidate | None
     try:
@@ -346,14 +445,112 @@ def _execute_loaded(
             code="deck_mismatch",
         )
         return
+    _attach_heldout_validation(path, stored, candidate, outcome, client)
     repo.update(
         simulation_id,
         status="done",
         deck_sha256=digest,
         revision=revision,
         reason="",
-        result_json=json.dumps({"outcome": outcome.model_dump(mode="json")}),
+        result_json=_with_outcome(repo, simulation_id, outcome.model_dump(mode="json")),
     )
+
+
+def _attach_heldout_validation(
+    path: Path,
+    stored: dict[str, Any],
+    candidate: DeckCandidate,
+    outcome: SimulationResult,
+    client: Any,
+) -> None:
+    """Validate changed snapshots without consulting the mutable current deck."""
+    from sabermetrics.cedh.simulator import HttpSimulatorClient
+    from sabermetrics.goldfish_experiments import _check_lineage
+    from sabermetrics.goldfish_validation import compare_validation, validation_seed
+
+    report = (outcome.raw_document or {}).get("diagnostics")
+    prior_id = stored.get("comparison_id")
+    if (
+        not isinstance(report, dict)
+        or not prior_id
+        or not isinstance(client, HttpSimulatorClient)
+    ):
+        return
+    validation: dict[str, Any] = {
+        "status": "unavailable",
+        "note": "Independent held-out validation is unavailable; no improvement ranking is inferred.",
+    }
+    try:
+        prior = db.DeckDocumentSimulationsRepo(path).get(str(prior_id))
+        snapshot = stored["snapshot"]
+        if (
+            prior is None
+            or prior.get("status") != "done"
+            or any(
+                prior.get(key) != snapshot.get(key if key != "deck_id" else "id")
+                for key in ("deck_id", "owner_id")
+            )
+        ):
+            raise ValueError("Invalid frozen baseline lineage.")
+        frozen = stored.get("frozen_baseline")
+        if not isinstance(frozen, dict):
+            raise TypeError(
+                "Frozen comparison settings are unavailable; rerun this deck."
+            )
+        baseline_document = frozen.get("snapshot")
+        if not isinstance(baseline_document, dict):
+            raise TypeError("Frozen baseline is missing.")
+        _check_lineage(baseline_document, snapshot)
+        baseline = candidate_from_document(
+            baseline_document,
+            CandidateProvenance.model_validate(frozen.get("provenance")),
+        )
+        if baseline.deck_sha256 == candidate.deck_sha256:
+            return
+        previous = parse_stored_result(json.dumps(frozen))
+        previous_report = (
+            (previous.raw_document or {}).get("diagnostics") if previous else None
+        )
+        from sabermetrics.native_diagnostics_comparison import compare_reports
+
+        comparison = compare_reports(report, previous_report)
+        if not comparison["comparable"]:
+            raise ValueError(comparison["reason"])
+        training_seed = report["settings"]["seed"]
+        heldout_client = HttpSimulatorClient(
+            client._url.removesuffix("/simulate"),
+            games=client._games,
+            objective_turn=client._turn,
+            timeout_seconds=client._timeout,
+            diagnostics=True,
+            diagnostics_seed=validation_seed(training_seed),
+            transport=client._transport,
+            sleeper=client._sleep,
+        )
+        before, after = heldout_client.simulate(baseline), heldout_client.simulate(
+            candidate
+        )
+        if not isinstance(before, SimulationResult) or not isinstance(
+            after, SimulationResult
+        ):
+            raise TypeError(
+                "One or both held-out simulations did not produce measurements."
+            )
+        validation = compare_validation(
+            (before.raw_document or {}).get("diagnostics", {}),
+            (after.raw_document or {}).get("diagnostics", {}),
+            training_seed=training_seed,
+        )
+        validation.update(
+            baseline_deck_sha256=baseline.deck_sha256,
+            candidate_deck_sha256=candidate.deck_sha256,
+            baseline_report=(before.raw_document or {}).get("diagnostics"),
+            candidate_report=(after.raw_document or {}).get("diagnostics"),
+        )
+    except (ValueError, TypeError, KeyError) as exc:
+        validation["reason"] = str(exc)
+    if outcome.raw_document is not None:
+        outcome.raw_document["heldout_validation"] = validation
 
 
 def _store_absence(
@@ -380,7 +577,7 @@ def _store_absence(
         deck_sha256=deck_sha256,
         revision=revision,
         reason=shown,
-        result_json=json.dumps({"outcome": payload.model_dump(mode="json")}),
+        result_json=_with_outcome(repo, simulation_id, payload.model_dump(mode="json")),
     )
 
 
@@ -400,10 +597,33 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
         "measures": result.measures,
         "does_not_measure": result.does_not_measure,
         "unseen_card_count": result.unseen_card_count,
+        "games": result.games,
+        "modeled_cards": result.modeled_cards,
+        "inert_card_count": result.inert_card_count,
+        "unauthored_card_count": result.unauthored_card_count,
         "probability": None,
         "turn": None,
         "text": result.metric,
     }
+    heldout = (result.raw_document or {}).get("heldout_validation")
+    if isinstance(heldout, dict):
+        payload["heldout_validation"] = heldout
+    strategy = (result.raw_document or {}).get("strategy_pack")
+    diagnostics = (result.raw_document or {}).get("diagnostics")
+    # Diagnostics are an additive native-engine report. Keep the validated
+    # simulator payload intact for the UI; older engines simply omit it and
+    # continue to render the established assembly result.
+    if isinstance(diagnostics, dict):
+        payload["diagnostics"] = diagnostics
+    if isinstance(strategy, dict) and isinstance(
+        strategy.get("assembly_objectives"), list
+    ):
+        payload["assembly_objectives"] = strategy["assembly_objectives"]
+    if _no_authored_objective(result):
+        payload["text"] = (
+            "No authored assembly objective for this deck; assembly consistency is unknown."
+        )
+        return payload
     if headline is not None:
         payload["probability"] = headline.probability
         payload["turn"] = headline.turn
@@ -414,15 +634,26 @@ def _result_payload(result: SimulationResult) -> dict[str, Any]:
     return payload
 
 
+def _no_authored_objective(result: SimulationResult) -> bool:
+    strategy = (result.raw_document or {}).get("strategy_pack")
+    return isinstance(strategy, dict) and strategy.get("assembly_objectives") == []
+
+
 def _delta_for(
     path: Path,
     document: dict[str, Any],
     simulation_id: str,
     after: SimulationResult,
 ) -> tuple[dict[str, Any] | None, str]:
+    if _no_authored_objective(after):
+        return None, "No authored assembly objective; assembly consistency is unknown."
     baseline = _baseline_result(path, document, simulation_id)
     if baseline is None:
         return None, NO_BASELINE
+    if _no_authored_objective(baseline):
+        return None, "Earlier run has no authored assembly objective to compare."
+    if not _comparable(baseline, after):
+        return None, "Earlier run exists, but its simulator model or settings differ."
     before_head = baseline.headline
     after_head = after.headline
     unseen = {
@@ -433,11 +664,15 @@ def _delta_for(
             f"{after.unseen_card_count}"
         ),
     }
+    note = (
+        "Unpaired before/after; seeds differ by deck. Catalog changes are not isolated."
+    )
     if before_head is None or after_head is None:
         return {
             "metric": after.metric,
             "unit": "probability",
             "unseen_card_count": unseen,
+            "note": note,
         }, ""
     text = (
         f"{after.metric}: {before_head.probability:.3f} → "
@@ -450,7 +685,126 @@ def _delta_for(
         "after": after_head.probability,
         "text": text,
         "unseen_card_count": unseen,
+        "note": note,
     }, ""
+
+
+def _comparable(before: SimulationResult, after: SimulationResult) -> bool:
+    """Require the same model/configuration, excluding deck and seed.
+
+    Export hashes cover only the selected deck cards, and manifest hashes
+    include export time. They do not identify a global card catalog version.
+    """
+    fields = ("metric", "objective_turn", "simulator_version", "games", "result_schema")
+    if any(getattr(before, name) != getattr(after, name) for name in fields):
+        return False
+    left, right = before.raw_document, after.raw_document
+    if left is None or right is None:
+        # Native CLI results have typed metadata but no HTTP envelope.
+        return left is None and right is None
+    if before.deck_sha256 == after.deck_sha256:
+        left_cards = (left.get("card_data") or {}).get(
+            "cards_sha256"
+        ) or before.cards_sha256
+        right_cards = (right.get("card_data") or {}).get(
+            "cards_sha256"
+        ) or after.cards_sha256
+        if left_cards and right_cards and left_cards != right_cards:
+            return False
+    selectors = {
+        "strategy_pack": (
+            "id",
+            "version",
+            "content_sha256",
+            "derived",
+            "play_policy",
+            "assembly_objectives",
+            "declared_table_assumptions",
+        ),
+        "card_data": ("source_view", "corpus_row_count"),
+        "simulation": (
+            "requested_scenario",
+            "scenario",
+            "games",
+            "objective_turn",
+            "sweep",
+            "ablations",
+            "ablate",
+        ),
+    }
+    for section, names in selectors.items():
+        left_section, right_section = left.get(section), right.get(section)
+        if not isinstance(left_section, dict) or not isinstance(right_section, dict):
+            return False
+        if any(left_section.get(name) != right_section.get(name) for name in names):
+            return False
+    return all(
+        left.get(name) == right.get(name)
+        for name in ("scenario", "sweep", "ablations", "ablate")
+    )
+
+
+def _diagnostics_comparison(
+    path: Path, current: dict[str, Any], diagnostics: dict[str, Any]
+) -> dict[str, Any]:
+    from sabermetrics.native_diagnostics_comparison import compare_reports
+
+    comparison = compare_reports(diagnostics, None)
+    comparison.update(history=[], history_truncated=False)
+    repo = db.DeckDocumentSimulationsRepo(path)
+    stored = _stored_payload(current.get("result_json"))
+    snapshot = stored.get("snapshot")
+    if not isinstance(snapshot, dict) or str(snapshot.get("id")) != str(
+        current.get("deck_id")
+    ):
+        return comparison
+    if snapshot.get("owner_id") is not None and snapshot["owner_id"] != current.get(
+        "owner_id"
+    ):
+        return comparison
+    prior_id = stored.get("comparison_id")
+    seen = {str(current["id"])}
+    while prior_id and len(comparison["history"]) < 5:
+        if str(prior_id) in seen:
+            break
+        seen.add(str(prior_id))
+        prior = repo.get(str(prior_id))
+        if (
+            prior is None
+            or prior.get("status") != "done"
+            or any(
+                prior.get(key) != current.get(key) for key in ("deck_id", "owner_id")
+            )
+        ):
+            break
+        prior_stored = _stored_payload(prior.get("result_json"))
+        frozen = prior_stored.get("snapshot")
+        if not isinstance(frozen, dict) or str(frozen.get("id")) != str(
+            current.get("deck_id")
+        ):
+            break
+        if frozen.get("owner_id") is not None and frozen["owner_id"] != current.get(
+            "owner_id"
+        ):
+            break
+        outcome = parse_stored_result(prior.get("result_json"))
+        if outcome is None:
+            break
+        report = (outcome.raw_document or {}).get("diagnostics")
+        entry = compare_reports(diagnostics, report)
+        entry.update(
+            id=prior["id"],
+            revision=prior.get("revision"),
+            deck_sha256=prior.get("deck_sha256"),
+        )
+        comparison["history"].append(entry)
+        if len(comparison["history"]) == 1:
+            comparison.update(
+                {key: entry[key] for key in ("comparable", "reason", "metric_deltas")}
+            )
+        prior_id = prior_stored.get("comparison_id")
+    comparison["history_truncated"] = bool(prior_id and len(comparison["history"]) == 5)
+    return comparison
 
 
 def _baseline_result(
@@ -458,21 +812,61 @@ def _baseline_result(
     document: dict[str, Any],
     exclude_id: str,
 ) -> SimulationResult | None:
-    """Candidate simulation when the deck came from one, else the prior run.
-
-    A candidate deck does not fall through to an earlier document run when
-    that candidate has no successful simulation.
-    """
-    if document.get("source_kind") == "candidate" and document.get("source_id"):
-        row = db.CedhCandidatesRepo(path).get(str(document["source_id"]))
-        raw = row.get("simulation_json") if row else None
-        return parse_stored_result(raw)
-    previous = db.DeckDocumentSimulationsRepo(path).previous_done(
-        str(document.get("id") or ""), exclude_id
-    )
-    if previous is None:
+    """Read the baseline pinned when this run was submitted."""
+    repo = db.DeckDocumentSimulationsRepo(path)
+    current = repo.get(exclude_id)
+    if current is None:
         return None
-    return parse_stored_result(previous.get("result_json"))
+    stored = _stored_payload(current.get("result_json"))
+    if not isinstance(stored.get("snapshot"), dict):
+        return None
+    comparison_id = stored.get("comparison_id")
+    if comparison_id:
+        previous = repo.get(str(comparison_id))
+        if (
+            previous is None
+            or previous.get("status") != "done"
+            or previous.get("deck_id") != current.get("deck_id")
+            or previous.get("owner_id") != current.get("owner_id")
+            or not isinstance(
+                _stored_payload(previous.get("result_json")).get("snapshot"), dict
+            )
+        ):
+            return None
+        return parse_stored_result(previous.get("result_json"))
+    source_id = stored.get("source_baseline_id")
+    if source_id:
+        outcome = parse_stored_result(json.dumps(stored.get("source_baseline_outcome")))
+        if outcome is not None and outcome.deck_sha256 == current.get("deck_sha256"):
+            return outcome
+    return None
+
+
+def report_freshness(
+    stored_hash: str | None, current_hash: str | None
+) -> dict[str, Any]:
+    """Compare list identity only; settings and engine remain pinned to the receipt.
+
+    Revisions include presentation edits and are not evidence of changed input.
+    Missing identity is unknown, never affirmative evidence of a current report.
+    This does not certify comparison compatibility across run settings or engines.
+    """
+    if not stored_hash or not current_hash:
+        state = "unknown"
+        reason = (
+            "Deck identity could not be verified; rerun before relying on this report."
+        )
+    elif stored_hash != current_hash:
+        state = "stale"
+        reason = STALE_MESSAGE
+    else:
+        state = "current"
+        reason = "Matches the current deck list under this report's recorded settings and engine."
+    return {
+        "freshness": state,
+        "freshness_reason": reason,
+        "freshness_scope": "deck_content_under_recorded_settings",
+    }
 
 
 def _hash_of(path: Path, document: dict[str, Any]) -> str | None:
@@ -501,6 +895,7 @@ def _empty_view() -> dict[str, Any]:
     return {
         "id": None,
         "status": "none",
+        **report_freshness(None, None),
         "reason": "",
         "stale": False,
         "stale_message": "",

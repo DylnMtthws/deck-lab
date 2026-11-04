@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath
@@ -28,6 +29,15 @@ from sabermetrics.account_playmats import (
     PlaymatNotFound,
     orphan_custom_path,
 )
+from sabermetrics.build_research_assistant import (
+    findings as research_findings,
+)
+from sabermetrics.build_research_assistant import (
+    recommendations as research_recommendations,
+)
+from sabermetrics.build_research_assistant import (
+    search_hints as research_search_hints,
+)
 from sabermetrics.cedh.factory import build_default_lab
 from sabermetrics.cedh.packs import PackSummary
 from sabermetrics.deck_documents import (
@@ -37,7 +47,11 @@ from sabermetrics.deck_documents import (
     RevisionConflict,
 )
 from sabermetrics.deck_evidence import DeckEvidenceService
-from sabermetrics.deck_simulation import execute_simulation, simulation_view
+from sabermetrics.deck_simulation import (
+    execute_simulation,
+    prepare_simulation,
+    simulation_view,
+)
 from sabermetrics.deck_text_import import (
     MAX_IMPORT_CHARS,
     DeckTextImportError,
@@ -312,8 +326,36 @@ def generate_packs():
             summaries = [item for item in summaries if _pack_matches(item, name)]
             if not summaries:
                 message = _NO_PACK
+    payloads = [_pack_payload(item) for item in summaries]
+    if commander_id and not any(item.supported for item in summaries):
+        from sabermetrics.cedh.domain import Legality
+        from sabermetrics.cedh.fallback_builder import (
+            PACK_ID,
+            PACK_NAME,
+            looks_like_commander,
+        )
+
+        name = _commander_name(commander_id)
+        facts = lab.cards.resolve_names([name]) if name else {}
+        card = next(iter(facts.values()), None)
+        legality = lab.cards.legality([card.oracle_id], "commander") if card else {}
+        if (
+            card
+            and looks_like_commander(card)
+            and legality.get(card.oracle_id) is Legality.LEGAL
+        ):
+            payloads.append(
+                {
+                    "pack_id": PACK_ID,
+                    "name": PACK_NAME,
+                    "supported": True,
+                    "commander_names": [card.name],
+                    "summary": "Balanced draft with 37–40 lands; review its game plan and run Goldfish.",
+                }
+            )
+            message = None
     return jsonify(
-        packs=[_pack_payload(item) for item in summaries],
+        packs=payloads,
         message=message,
     )
 
@@ -371,12 +413,46 @@ def simulate_deck(deck_id: str):
     inserts the queued row and returns 202 with the status URL.
     """
     try:
-        _repo().get(current_user.id, deck_id)
+        document = _repo().get(current_user.id, deck_id)
     except DeckNotFound:
         return jsonify(error="not_found"), 404
     db_path = Path(current_app.config["DB_PATH"])
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify(error="invalid_request", message="Expected a JSON object."), 400
+    if "expected_revision" in body:
+        expected = body["expected_revision"]
+        if not isinstance(expected, int) or isinstance(expected, bool):
+            return (
+                jsonify(
+                    error="invalid_revision",
+                    message="Expected an integer deck revision.",
+                ),
+                400,
+            )
+        if expected != int(document.get("revision") or 0):
+            return (
+                jsonify(
+                    error="revision_conflict",
+                    message="The deck changed. Reload it before running.",
+                    revision=document.get("revision"),
+                ),
+                409,
+            )
+    from sabermetrics.deck_simulation import prepare_simulation
+
+    try:
+        digest, frozen = prepare_simulation(db_path, document)
+    except ValueError as exc:
+        return jsonify(error="comparison_limit", message=str(exc)), 409
     simulations = db.DeckDocumentSimulationsRepo(db_path)
-    simulation_id = simulations.insert(deck_id=deck_id, owner_id=str(current_user.id))
+    simulation_id = simulations.insert(
+        deck_id=deck_id,
+        owner_id=str(current_user.id),
+        deck_sha256=digest,
+        revision=int(document.get("revision") or 0),
+        result_json=frozen,
+    )
     try:
         _SIM_EXECUTOR.submit(execute_simulation, str(db_path), simulation_id)
     except RuntimeError as exc:
@@ -427,6 +503,208 @@ def deck_alternatives(deck_id: str, oracle_id: str):
         document, oracle_id, _evidence_window()
     )
     return jsonify(payload)
+
+
+@bp.get("/api/decks/<deck_id>/research-assistant")
+def build_research_assistant(deck_id: str):
+    """Return native findings and independently sourced replacement options."""
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    view = simulation_view(Path(current_app.config["DB_PATH"]), deck_id)
+    result = view.get("result") if isinstance(view, dict) else None
+    diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
+    current = view.get("status") == "done" and not view.get("stale")
+    if current and isinstance(diagnostics, dict):
+        facts = research_findings(diagnostics)
+        report_state = "current"
+    else:
+        facts = []
+        report_state = "stale" if view.get("stale") else "unavailable"
+    suggestions = research_recommendations(
+        document,
+        DeckEvidenceService(Path(current_app.config["DB_PATH"])),
+        diagnostics if current and isinstance(diagnostics, dict) else None,
+        _evidence_window(),
+        limit=3,
+    )
+    return jsonify(
+        revision=int(document.get("revision") or 0),
+        diagnostics_state=report_state,
+        findings=facts,
+        recommendations=suggestions,
+        search_hints=research_search_hints(facts),
+        heldout_validation=(
+            result.get("heldout_validation")
+            if current and isinstance(result, dict)
+            else None
+        ),
+        limits=[
+            "Findings restate native solo-test measurements and limitations.",
+            "Tournament alternatives are independent evidence and are not validated improvements.",
+            "Swap candidates are limited to a measured mean missed-land-drop observation with a positive denominator; this is a scenario cue, not a grade or cause.",
+            "No external AI service is called.",
+        ],
+    )
+
+
+@bp.post("/api/decks/<deck_id>/research-assistant/apply")
+def apply_research_recommendations(deck_id: str):
+    """Apply up to three evidence-backed replacements at an expected revision."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(error="invalid_request", message="Expected a JSON object."), 400
+    expected = body.get("expected_revision")
+    choices = body.get("replacements")
+    if not isinstance(expected, int) or isinstance(expected, bool):
+        return jsonify(error="invalid_revision"), 400
+    if not isinstance(choices, list) or not 1 <= len(choices) <= 3:
+        return (
+            jsonify(
+                error="invalid_replacements",
+                message="Choose one to three replacements.",
+            ),
+            400,
+        )
+    try:
+        document = _repo().get(current_user.id, deck_id)
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    if expected != int(document.get("revision") or 0):
+        return (
+            jsonify(error="revision_conflict", revision=document.get("revision")),
+            409,
+        )
+
+    service = DeckEvidenceService(Path(current_app.config["DB_PATH"]))
+    view = simulation_view(Path(current_app.config["DB_PATH"]), deck_id)
+    result = view.get("result") if isinstance(view, dict) else None
+    diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
+    if (
+        view.get("status") != "done"
+        or view.get("stale")
+        or not isinstance(diagnostics, dict)
+    ):
+        return (
+            jsonify(
+                error="stale_recommendations",
+                message="Run Goldfish again before applying these recommendations.",
+            ),
+            409,
+        )
+    eligible = research_recommendations(
+        document, service, diagnostics, _evidence_window(), limit=3
+    )
+    entries = {
+        str(entry.get("id")): entry
+        for entry in document.get("entries", [])
+        if isinstance(entry, dict)
+    }
+    used_entries: set[str] = set()
+    commands_to_apply: list[dict] = []
+    prospective = copy.deepcopy(document)
+    prospective_entries = {
+        str(entry.get("id")): entry
+        for entry in prospective.get("entries", [])
+        if isinstance(entry, dict)
+    }
+    for choice in choices:
+        if not isinstance(choice, dict):
+            return jsonify(error="invalid_replacements"), 400
+        entry_id = str(choice.get("entry_id") or "")
+        card_id = str(choice.get("card_id") or "")
+        entry = entries.get(entry_id)
+        if (
+            not entry
+            or entry.get("is_commander")
+            or not entry.get("oracle_id")
+            or entry_id in used_entries
+        ):
+            return (
+                jsonify(
+                    error="invalid_replacement",
+                    message="Each replacement must target a distinct library card.",
+                ),
+                400,
+            )
+        proposal = next(
+            (
+                item
+                for item in eligible
+                if item["entry_id"] == entry_id and item["card_id"] == card_id
+            ),
+            None,
+        )
+        if proposal is None:
+            return (
+                jsonify(
+                    error="invalid_replacement",
+                    message="The selected card is no longer an eligible same-role alternative.",
+                ),
+                400,
+            )
+        used_entries.add(entry_id)
+        quantity = max(1, int(entry.get("quantity") or 1))
+        prospective_entry = prospective_entries[entry_id]
+        if quantity > 1:
+            prospective_entry["quantity"] = quantity - 1
+        else:
+            prospective["entries"].remove(prospective_entry)
+        prospective["entries"].append(
+            {
+                "id": f"research-assistant-{len(used_entries)}",
+                "card_id": proposal["card_id"],
+                "oracle_id": proposal["oracle_id"],
+                "name": proposal["name"],
+                "quantity": 1,
+                "is_commander": False,
+                "zone_name": entry.get("zone_name") or "Unsorted",
+                "role": entry.get("role") or proposal.get("from_role") or "",
+                "color_identity": [],
+            }
+        )
+        if quantity > 1:
+            commands_to_apply.append(
+                {"type": "set_quantity", "entry_id": entry_id, "quantity": quantity - 1}
+            )
+        else:
+            commands_to_apply.append({"type": "remove_entry", "entry_id": entry_id})
+        commands_to_apply.append(
+            {
+                "type": "add_card",
+                "card_id": card_id,
+                "quantity": 1,
+                "zone_id": entry.get("zone_id"),
+                "role": entry.get("role") or proposal.get("from_role") or "",
+            },
+        )
+    try:
+        # This freezes only a prospective candidate in memory. It makes no
+        # simulator call or database write, but enforces the same immutable
+        # parent lineage and three-replacement limit as the next run.
+        prepare_simulation(Path(current_app.config["DB_PATH"]), prospective)
+    except ValueError as exc:
+        return jsonify(error="replacement_limit", message=str(exc)), 409
+    try:
+        updated = _repo().apply_commands(
+            current_user.id,
+            deck_id,
+            expected_revision=expected,
+            mutation_id=str(body.get("mutation_id") or db.new_id()),
+            commands=commands_to_apply,
+        )
+    except DeckNotFound:
+        return jsonify(error="not_found"), 404
+    except RevisionConflict as exc:
+        return jsonify(error="revision_conflict", revision=exc.current_revision), 409
+    except (InvalidCommand, TypeError, ValueError) as exc:
+        return jsonify(error="invalid_replacement", message=str(exc)), 400
+    return jsonify(
+        document=updated,
+        replacements=len(choices),
+        message="Replacements applied. Run Goldfish again to observe the revised deck.",
+    )
 
 
 @bp.get("/api/deck-tags")

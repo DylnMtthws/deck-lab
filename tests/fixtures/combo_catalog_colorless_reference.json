@@ -1,0 +1,61 @@
+{
+  "snapshot_version": "commander-spellbook.snapshot.v1",
+  "retrieved_at": "2026-10-14T16:32:29+00:00",
+  "source_url": "https://backend.commanderspellbook.com/variants/?q=ci%3Dc",
+  "results": [
+    {
+      "id": "4131-4547",
+      "status": "OK",
+      "spoiler": false,
+      "uses": [
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Basalt Monolith",
+            "oracleId": "6b8cf2a0-b045-4d91-9d91-c602d40c6237"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        },
+        {
+          "quantity": 1,
+          "card": {
+            "name": "Forsaken Monument",
+            "oracleId": "7777fab1-df3f-467f-b9e2-46dd2bd2166e"
+          },
+          "zoneLocations": [
+            "B"
+          ],
+          "mustBeCommander": false,
+          "battlefieldCardState": "",
+          "exileCardState": "",
+          "graveyardCardState": "",
+          "libraryCardState": ""
+        }
+      ],
+      "requires": [],
+      "produces": [
+        {
+          "feature": {
+            "name": "Infinite colorless mana"
+          },
+          "quantity": 1
+        }
+      ],
+      "identity": "C",
+      "legalities": {
+        "commander": true
+      },
+      "manaNeeded": "",
+      "easyPrerequisites": "",
+      "notablePrerequisites": "",
+      "description": "Activate Basalt Monolith's first ability by tapping it, adding {C}{C}{C}{C}.\nActivate Basalt Monolith's last ability by paying {3}, untapping it.\nRepeat."
+    }
+  ]
+}

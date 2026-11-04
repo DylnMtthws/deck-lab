@@ -24,14 +24,23 @@ import json
 import logging
 import os
 import time
+from copy import deepcopy
 from typing import Any, Self, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from sabermetrics.cedh.cost_ledger import CostLedger, estimate_cost
+from sabermetrics.ai_cost_control import BudgetDenied, credential_name, paid_attempt
+from sabermetrics.cedh.cost_ledger import (
+    CostLedger,
+    check_operation_current,
+    estimate_cost,
+    operation_phase,
+    operation_timings,
+)
 from sabermetrics.cedh.errors import (
     ModelConfigurationError,
+    ModelOutputLimitError,
     ModelProviderError,
     ModelValidationError,
 )
@@ -64,6 +73,62 @@ def _strip_fences(text: str) -> str:
     return body.strip()
 
 
+def _deepinfra_wire_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Omit only DeepInfra's unsupported propertyNames grammar keyword.
+
+    Pydantic still validates the original model, including dictionary key names,
+    before returning any result. Walk schema positions rather than arbitrary
+    JSON data so a property called propertyNames or an enum/default value is
+    preserved. Provider-neutral schema generation remains unchanged.
+    """
+    result = deepcopy(schema)
+    result.pop("propertyNames", None)
+    for keyword in (
+        "$defs",
+        "definitions",
+        "properties",
+        "patternProperties",
+        "dependentSchemas",
+    ):
+        children = result.get(keyword)
+        if isinstance(children, dict):
+            result[keyword] = {
+                name: (
+                    _deepinfra_wire_schema(child) if isinstance(child, dict) else child
+                )
+                for name, child in children.items()
+            }
+    for keyword in ("allOf", "anyOf", "oneOf", "prefixItems"):
+        children = result.get(keyword)
+        if isinstance(children, list):
+            result[keyword] = [
+                _deepinfra_wire_schema(child) if isinstance(child, dict) else child
+                for child in children
+            ]
+    for keyword in (
+        "items",
+        "additionalItems",
+        "additionalProperties",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+        "contains",
+        "not",
+        "if",
+        "then",
+        "else",
+        "contentSchema",
+    ):
+        child = result.get(keyword)
+        if isinstance(child, dict):
+            result[keyword] = _deepinfra_wire_schema(child)
+        elif keyword == "items" and isinstance(child, list):
+            result[keyword] = [
+                _deepinfra_wire_schema(item) if isinstance(item, dict) else item
+                for item in child
+            ]
+    return result
+
+
 class DeepSeekGateway:
     """A :class:`~sabermetrics.cedh.model_gateway.ModelGateway` over DeepInfra.
 
@@ -74,6 +139,10 @@ class DeepSeekGateway:
         user_id: Attribution for ledger rows.
         deck_id: Attribution for ledger rows.
     """
+
+    # Budget adapters may defer their permit only because generate acquires it
+    # after ledger admission. Nested adapters forward this explicit capability.
+    defers_provider_permit = True
 
     def __init__(
         self,
@@ -95,7 +164,8 @@ class DeepSeekGateway:
         if model.require_pinned_provider:
             self._assert_pinned(self._model_id)
 
-        token = os.environ.get(model.credential_env, "").strip()
+        self._credential_name = credential_name("deepseek", model.credential_env)
+        token = os.environ.get(self._credential_name, "").strip()
         if not token:
             raise ModelConfigurationError(
                 f"{model.credential_env} is not set. The cEDH model gateway "
@@ -155,7 +225,17 @@ class DeepSeekGateway:
             ModelValidationError: The response never validated against the
                 schema, after the configured repair attempts.
         """
-        self._ledger.check_ceiling(self._settings.monthly_cost_ceiling_usd)
+        from sabermetrics.assistant_provider_budget import admitted_provider_operation
+
+        with (
+            operation_timings(),
+            self._ledger.admission(self._settings.monthly_cost_ceiling_usd),
+            admitted_provider_operation(),
+        ):
+            return self._generate_admitted(request)
+
+    def _generate_admitted(self, request: StructuredRequest[T]) -> GenerationResult[T]:
+        """Keep retries and usage accounting inside the ledger reservation."""
 
         model = self._settings.model
         profile = model.mode_profile(request.mode)
@@ -173,72 +253,94 @@ class DeepSeekGateway:
         started = time.monotonic()
         request_id = ""
         last_error = ""
+        output_exhausted = False
 
-        for attempt in range(model.max_validation_retries + 1):
-            payload = dict(body, messages=messages)
-            response, transport_retries = self._post(payload)
-            totals["retries"] += transport_retries
-            usage = response.get("usage") or {}
-            totals["input"] += int(usage.get("prompt_tokens") or 0)
-            totals["cached"] += int(
-                (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
-            )
-            completion = int(usage.get("completion_tokens") or 0)
-            reasoning = int(
-                (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
-                or 0
-            )
-            # completion_tokens includes reasoning tokens in the OpenAI-
-            # compatible schema; splitting them keeps the two priceable
-            # separately without double-charging the total.
-            totals["output"] += max(completion - reasoning, 0)
-            totals["reasoning"] += reasoning
-            request_id = response.get("id") or request_id
-
-            content = self._content(response)
-            try:
-                value = request.schema.model_validate_json(_strip_fences(content))
-            except (ValidationError, ValueError) as exc:
-                totals["validation_failures"] += 1
-                last_error = str(exc)
-                logger.warning(
-                    "cEDH gateway: %s response failed validation "
-                    "(attempt %d/%d): %s",
-                    request.call_type,
-                    attempt + 1,
-                    model.max_validation_retries + 1,
-                    last_error,
+        received_response = False
+        record = None
+        try:
+            for attempt in range(model.max_validation_retries + 1):
+                payload = dict(body, messages=messages)
+                response, transport_retries = self._post(payload)
+                totals["retries"] += transport_retries
+                received_response = True
+                usage = response.get("usage") or {}
+                totals["input"] += int(usage.get("prompt_tokens") or 0)
+                totals["cached"] += int(
+                    (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
                 )
-                if attempt >= model.max_validation_retries:
-                    break
-                messages = [
-                    *messages,
-                    {"role": "assistant", "content": content},
-                    {
-                        "role": "user",
-                        "content": (
-                            "That response did not validate against the "
-                            "required schema. Errors:\n"
-                            f"{last_error}\n\n"
-                            "Reply with JSON matching the schema exactly. No "
-                            "prose, no code fence."
-                        ),
-                    },
-                ]
-                continue
+                completion = int(usage.get("completion_tokens") or 0)
+                reasoning = int(
+                    (usage.get("completion_tokens_details") or {}).get(
+                        "reasoning_tokens"
+                    )
+                    or 0
+                )
+                # completion_tokens includes reasoning tokens in the OpenAI-
+                # compatible schema; splitting them keeps the two priceable
+                # separately without double-charging the total.
+                totals["output"] += max(completion - reasoning, 0)
+                totals["reasoning"] += reasoning
+                request_id = response.get("id") or request_id
 
-            record = self._usage(request, totals, started, request_id)
-            self._ledger.record(record, user_id=self._user_id, deck_id=self._deck_id)
-            return GenerationResult(value=value, usage=record)
+                # Account for every paid response before stale-result discard.
+                # The finally below records these totals even if this raises.
+                check_operation_current()
+                content = self._content(response)
+                try:
+                    value = request.schema.model_validate_json(_strip_fences(content))
+                except (ValidationError, ValueError) as exc:
+                    choice = (response.get("choices") or [{}])[0]
+                    output_exhausted = choice.get("finish_reason") == "length" or (
+                        completion > 0
+                        and reasoning == completion
+                        and not content.strip()
+                    )
+                    totals["validation_failures"] += 1
+                    last_error = str(exc)
+                    logger.warning(
+                        "cEDH gateway: %s response failed validation "
+                        "(attempt %d/%d): %s",
+                        request.call_type,
+                        attempt + 1,
+                        model.max_validation_retries + 1,
+                        last_error,
+                    )
+                    if attempt >= model.max_validation_retries:
+                        break
+                    messages = [
+                        *messages,
+                        {"role": "assistant", "content": content},
+                        {
+                            "role": "user",
+                            "content": (
+                                "That response did not validate against the "
+                                "required schema. Errors:\n"
+                                f"{last_error}\n\n"
+                                "Reply with JSON matching the schema exactly. No "
+                                "prose, no code fence."
+                            ),
+                        },
+                    ]
+                    continue
 
-        record = self._usage(request, totals, started, request_id)
-        self._ledger.record(record, user_id=self._user_id, deck_id=self._deck_id)
-        raise ModelValidationError(
-            f"{request.call_type}: response never validated against "
-            f"{request.schema.__name__} after "
-            f"{totals['validation_failures']} attempt(s). Last error: "
-            f"{last_error}"
-        )
+                record = self._usage(request, totals, started, request_id)
+                return GenerationResult(value=value, usage=record)
+
+            error_type = (
+                ModelOutputLimitError if output_exhausted else ModelValidationError
+            )
+            raise error_type(
+                f"{request.call_type}: response never validated against "
+                f"{request.schema.__name__} after "
+                f"{totals['validation_failures']} attempt(s). Last error: "
+                f"{last_error}"
+            )
+        finally:
+            if received_response:
+                record = record or self._usage(request, totals, started, request_id)
+                self._ledger.record(
+                    record, user_id=self._user_id, deck_id=self._deck_id
+                )
 
     # -- internals --------------------------------------------------------
 
@@ -262,7 +364,7 @@ class DeepSeekGateway:
                 "json_schema": {
                     "name": request.schema.__name__,
                     "strict": True,
-                    "schema": json_schema_for(request.schema),
+                    "schema": _deepinfra_wire_schema(json_schema_for(request.schema)),
                 },
             },
         }
@@ -271,11 +373,53 @@ class DeepSeekGateway:
 
     def _post(self, payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """POST with bounded backoff. Returns the body and the retry count."""
+        from sabermetrics.ai_cost_control import bounded_output_tokens
+
+        payload = dict(payload, max_tokens=bounded_output_tokens(payload["max_tokens"]))
         model = self._settings.model
+        if credential_name("deepseek", model.credential_env) != self._credential_name:
+            raise BudgetDenied("client credential environment mismatch")
+        if (
+            payload.get("model") != self._model_id
+            or "max_completion_tokens" in payload
+            or type(payload.get("n", 1)) is not int
+            or payload.get("n", 1) != 1
+            or set(payload)
+            - {
+                "model",
+                "messages",
+                "max_tokens",
+                "temperature",
+                "response_format",
+                "reasoning_effort",
+                "n",
+            }
+        ):
+            raise BudgetDenied(
+                "provider payload overrides guarded model/output contract"
+            )
         last: Exception | None = None
         for attempt in range(model.max_retries + 1):
+            check_operation_current()
             try:
-                response = self._client.post("/chat/completions", json=payload)
+                with (
+                    paid_attempt(
+                        self._model_id, payload, payload["max_tokens"]
+                    ) as receipt,
+                    operation_phase("transport", attempt=attempt),
+                ):
+                    timeout = (
+                        {
+                            "timeout": min(
+                                model.timeout_seconds, receipt.remaining_seconds
+                            )
+                        }
+                        if receipt
+                        else {}
+                    )
+                    response = self._client.post(
+                        "/chat/completions", json=payload, **timeout
+                    )
                 if response.status_code in _RETRYABLE_STATUS:
                     last = ModelProviderError(
                         f"provider returned {response.status_code}: "
@@ -287,22 +431,32 @@ class DeepSeekGateway:
                         f"{response.text[:400]}"
                     )
                 else:
-                    return response.json(), attempt
+                    data = response.json()
+                    usage = data.get("usage") or {}
+                    if (
+                        receipt
+                        and "prompt_tokens" in usage
+                        and "completion_tokens" in usage
+                    ):
+                        receipt.usage(
+                            usage["prompt_tokens"], usage["completion_tokens"]
+                        )
+                    return data, attempt
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last = exc
             if attempt < model.max_retries:
+                check_operation_current()
                 time.sleep(2**attempt)
         raise ModelProviderError(
-            f"model provider call failed after {model.max_retries + 1} "
-            f"attempts: {last}"
-        )
+            f"model provider call failed after {model.max_retries + 1} attempts: {last}"
+        ) from last
 
     @staticmethod
     def _content(response: dict[str, Any]) -> str:
         choices = response.get("choices") or []
         if not choices:
             raise ModelProviderError(
-                "provider returned no choices: " f"{json.dumps(response)[:400]}"
+                f"provider returned no choices: {json.dumps(response)[:400]}"
             )
         message = choices[0].get("message") or {}
         return str(message.get("content") or "")

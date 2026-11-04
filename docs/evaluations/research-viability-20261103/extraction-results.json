@@ -1,0 +1,3957 @@
+{
+  "cases": [
+    {
+      "case_id": "trigger_multiplicity_and_recipient",
+      "compiler_coverage": {
+        "clauses": 4,
+        "complete": false,
+        "facts": 2,
+        "interpreted": 2,
+        "uninterpreted": 2,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "self"
+              ],
+              "gold": [
+                "self"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "output:noncombat"
+              ],
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per discarded card."
+              ],
+              "gold": [
+                "Once per discarded card."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "damage:self"
+              ],
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:1",
+                "discard:1"
+              ],
+              "gold": [
+                "damage:1",
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "recipient": {
+              "extracted": [
+                "each opponent"
+              ],
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "discard:card"
+              ],
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "per_card_payoff",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "recipient",
+            "quantity"
+          ],
+          "source_ref": "card:payoff-single",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "outputs[].source_id",
+              "outputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "self"
+              ],
+              "gold": [
+                "self"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "output:noncombat"
+              ],
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per discard batch."
+              ],
+              "gold": [
+                "Once per discard batch."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "damage:self"
+              ],
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:discarded_card_count",
+                "discard:one_or_more"
+              ],
+              "gold": [
+                "damage:discarded_card_count",
+                "discard:one_or_more"
+              ],
+              "outcome": "tp"
+            },
+            "recipient": {
+              "extracted": [
+                "each opponent"
+              ],
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "discard:card"
+              ],
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "per_batch_payoff",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "recipient",
+            "quantity"
+          ],
+          "source_ref": "card:payoff-batch",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "outputs[].source_id",
+              "outputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "self"
+              ],
+              "outcome": "unknown"
+            },
+            "combat": {
+              "extracted": null,
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "multiplicity": {
+              "extracted": null,
+              "gold": [
+                "Once per discard batch."
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "damage:1",
+                "discard:one_or_more"
+              ],
+              "outcome": "unknown"
+            },
+            "recipient": {
+              "extracted": null,
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "batch_fixed_quantity",
+          "mechanisms": [
+            "trigger_multiplicity",
+            "quantity"
+          ],
+          "source_ref": "card:payoff-batch-fixed",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "self"
+              ],
+              "outcome": "unknown"
+            },
+            "combat": {
+              "extracted": null,
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "multiplicity": {
+              "extracted": null,
+              "gold": [
+                "Once per discarded card."
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "damage:1",
+                "discard:1"
+              ],
+              "outcome": "unknown"
+            },
+            "recipient": {
+              "extracted": null,
+              "gold": [
+                "any target"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "any_target_recipient",
+          "mechanisms": [
+            "recipient"
+          ],
+          "source_ref": "card:payoff-any-target",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": null,
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "combat_and_actor",
+      "compiler_coverage": {
+        "clauses": 5,
+        "complete": false,
+        "facts": 3,
+        "interpreted": 3,
+        "uninterpreted": 2,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "self"
+              ],
+              "gold": [
+                "self"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "output:noncombat"
+              ],
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per discarded card."
+              ],
+              "gold": [
+                "Once per discarded card."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "damage:self"
+              ],
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:1",
+                "discard:1"
+              ],
+              "gold": [
+                "damage:1",
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "recipient": {
+              "extracted": [
+                "each opponent"
+              ],
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "discard:card"
+              ],
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "noncombat_payoff",
+          "mechanisms": [
+            "combat",
+            "recipient"
+          ],
+          "source_ref": "card:payoff-single",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "outputs[].source_id",
+              "outputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "trigger:combat_only"
+              ],
+              "gold": [
+                "trigger:combat_only"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "gold": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "gold": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "damage:one or more sources you control"
+              ],
+              "gold": [
+                "damage:one or more sources you control"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "draw:library->hand"
+              ],
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "combat_only_trigger",
+          "mechanisms": [
+            "combat",
+            "actor"
+          ],
+          "source_ref": "card:combat-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].recipient",
+              "inputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "trigger:any_damage"
+              ],
+              "gold": [
+                "trigger:any_damage"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "gold": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "gold": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "damage:one or more sources you control"
+              ],
+              "gold": [
+                "damage:one or more sources you control"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "draw:library->hand"
+              ],
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "any_damage_trigger",
+          "mechanisms": [
+            "combat",
+            "actor"
+          ],
+          "source_ref": "card:any-damage-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].recipient",
+              "inputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "combat": {
+              "extracted": null,
+              "gold": [
+                "trigger:any_damage"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "multiplicity": {
+              "extracted": null,
+              "gold": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "damage:one or more sources an opponent controls"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "opponent_sources_trigger",
+          "mechanisms": [
+            "actor"
+          ],
+          "source_ref": "card:opponent-damage-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "combat": {
+              "extracted": null,
+              "gold": [
+                "trigger:combat_only"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "multiplicity": {
+              "extracted": null,
+              "gold": [
+                "Once per combat damage event."
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "damage:unknown",
+                "draw:1"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "self_combat_trigger",
+          "mechanisms": [
+            "combat"
+          ],
+          "source_ref": "card:self-combat-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": {
+        "cycle_detected": false,
+        "cycle_expected": false,
+        "cycles_without_fuel_caveat": 0,
+        "dependency_gaps_expected": [],
+        "dependency_gaps_found": [],
+        "links": {
+          "expected_denominator": 1,
+          "fn": 0,
+          "forbidden_denominator": 2,
+          "forbidden_found": [],
+          "fp": 0,
+          "missing": [],
+          "tp": 1,
+          "unlabeled_found": 0
+        },
+        "scope_complete_claimed": false,
+        "unverified_hypotheses_only": true
+      },
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "costs_and_finite_fuel",
+      "compiler_coverage": {
+        "clauses": 5,
+        "complete": false,
+        "facts": 4,
+        "interpreted": 4,
+        "uninterpreted": 1,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "self"
+              ],
+              "gold": [
+                "self"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "output:noncombat"
+              ],
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per discarded card."
+              ],
+              "gold": [
+                "Once per discarded card."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "damage:self"
+              ],
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:1",
+                "discard:1"
+              ],
+              "gold": [
+                "damage:1",
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "recipient": {
+              "extracted": [
+                "each opponent"
+              ],
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "discard:card"
+              ],
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "costs_case_payoff",
+          "mechanisms": [
+            "trigger_multiplicity"
+          ],
+          "source_ref": "card:payoff-single",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "outputs[].source_id",
+              "outputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "finite_fuel": {
+              "extracted": true,
+              "gold": true,
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "discard:1",
+                "draw:1"
+              ],
+              "gold": [
+                "discard:1",
+                "draw:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard",
+                "draw:library->hand"
+              ],
+              "gold": [
+                "discard:hand->graveyard",
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "discard_cost_draw",
+          "mechanisms": [
+            "costs",
+            "finite_fuel",
+            "zone_moves"
+          ],
+          "source_ref": "card:discard-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].event",
+              "inputs[].subject",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{2}"
+                },
+                {
+                  "kind": "sacrifice",
+                  "quantity": 1,
+                  "text": "Sacrifice a creature"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{2}"
+                },
+                {
+                  "kind": "sacrifice",
+                  "quantity": 1,
+                  "text": "Sacrifice a creature"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "draw:2",
+                "sacrifice:1"
+              ],
+              "gold": [
+                "draw:2",
+                "sacrifice:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "draw:library->hand",
+                "sacrifice:battlefield->graveyard"
+              ],
+              "gold": [
+                "draw:library->hand",
+                "sacrifice:battlefield->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "sacrifice_cost_draw",
+          "mechanisms": [
+            "costs",
+            "finite_fuel",
+            "quantity"
+          ],
+          "source_ref": "card:sac-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].event",
+              "inputs[].subject",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{T}"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{T}"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "put_into_hand:top card"
+              ],
+              "gold": [
+                "put_into_hand:top card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "put_into_hand:1"
+              ],
+              "gold": [
+                "put_into_hand:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "put_into_hand:library->hand"
+              ],
+              "gold": [
+                "put_into_hand:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "tap_put_into_hand",
+          "mechanisms": [
+            "costs",
+            "zone_moves"
+          ],
+          "source_ref": "card:tap-impulse",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid."
+            ],
+            "fields": [
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{1}"
+                },
+                {
+                  "kind": "exile",
+                  "quantity": 1,
+                  "text": "Exile a card from your graveyard"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "draw:1",
+                "exile:1"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "activated",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "draw:library->hand",
+                "exile:graveyard->exile"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "exile_graveyard_cost",
+          "mechanisms": [
+            "costs",
+            "finite_fuel"
+          ],
+          "source_ref": "card:exile-gy-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": {
+        "cycle_detected": false,
+        "cycle_expected": false,
+        "cycles_without_fuel_caveat": 0,
+        "dependency_gaps_expected": [],
+        "dependency_gaps_found": [],
+        "links": {
+          "expected_denominator": 2,
+          "fn": 0,
+          "forbidden_denominator": 1,
+          "forbidden_found": [],
+          "fp": 0,
+          "missing": [],
+          "tp": 2,
+          "unlabeled_found": 0
+        },
+        "scope_complete_claimed": false,
+        "unverified_hypotheses_only": true
+      },
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "restrictions",
+      "compiler_coverage": {
+        "clauses": 3,
+        "complete": false,
+        "facts": 1,
+        "interpreted": 1,
+        "uninterpreted": 0,
+        "unresolved_rules": [],
+        "withheld": 2
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unsupported_ability_scope"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{1}"
+                },
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [
+                "activate_only_once_each_turn"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "activated",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "discard:hand->graveyard",
+                "draw:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "once_each_turn",
+          "mechanisms": [
+            "restrictions",
+            "costs"
+          ],
+          "source_ref": "card:once-per-turn",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unsupported_ability_scope"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "pump:self"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [
+                "activate_only_as_sorcery"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "activated",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "sorcery_speed",
+          "mechanisms": [
+            "restrictions"
+          ],
+          "source_ref": "card:sorcery-speed",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [],
+              "gold": [
+                "self"
+              ],
+              "outcome": "wrong"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "finite_fuel": {
+              "extracted": true,
+              "gold": true,
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [],
+              "gold": [
+                "pump:self"
+              ],
+              "outcome": "wrong"
+            },
+            "quantity": {
+              "extracted": [
+                "discard:1"
+              ],
+              "gold": [
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "unrestricted_control",
+          "mechanisms": [
+            "restrictions",
+            "costs",
+            "finite_fuel"
+          ],
+          "source_ref": "card:unrestricted-pump",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid.",
+              "This creature gets +2/+2 until end of turn."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].event",
+              "inputs[].subject",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        }
+      ],
+      "search": null,
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "zone_moves_return_versus_cast",
+      "compiler_coverage": {
+        "clauses": 5,
+        "complete": false,
+        "facts": 1,
+        "interpreted": 1,
+        "uninterpreted": 4,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": null,
+              "gold": [
+                "Once per creature death."
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "death:1",
+                "draw:1"
+              ],
+              "gold": [
+                "death:1",
+                "draw:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "death:another creature you control"
+              ],
+              "gold": [
+                "death:another creature you control"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "death:battlefield->graveyard",
+                "draw:library->hand"
+              ],
+              "gold": [
+                "death:battlefield->graveyard",
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "ally_dies",
+          "mechanisms": [
+            "zone_moves",
+            "trigger_multiplicity"
+          ],
+          "source_ref": "card:ally-death-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "costs": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "put_into_hand:top card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "death:1",
+                "put_into_hand:1"
+              ],
+              "outcome": "unknown"
+            },
+            "restrictions": {
+              "extracted": null,
+              "gold": [],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "death:self"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "death:battlefield->graveyard",
+                "put_into_hand:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "self_dies",
+          "mechanisms": [
+            "zone_moves"
+          ],
+          "source_ref": "card:self-death-impulse",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "triggered",
+              "outcome": "unknown"
+            },
+            "trigger": {
+              "extracted": null,
+              "gold": [
+                "move_to_graveyard:creature card"
+              ],
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "draw:library->hand",
+                "move_to_graveyard:anywhere->graveyard"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "graveyard_from_anywhere",
+          "mechanisms": [
+            "zone_moves"
+          ],
+          "source_ref": "card:any-zone-graveyard",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "return:target creature card"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "spell",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "return:graveyard->battlefield"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "return_to_battlefield",
+          "mechanisms": [
+            "zone_moves",
+            "return_versus_cast"
+          ],
+          "source_ref": "card:reanimate",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "cast:self"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "static_permission",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "cast:graveyard->stack"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "cast_from_graveyard",
+          "mechanisms": [
+            "zone_moves",
+            "return_versus_cast"
+          ],
+          "source_ref": "card:cast-from-graveyard",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": null,
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "granted_and_level_scope",
+      "compiler_coverage": {
+        "clauses": 4,
+        "complete": false,
+        "facts": 1,
+        "interpreted": 1,
+        "uninterpreted": 0,
+        "unresolved_rules": [],
+        "withheld": 3
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unsupported_ability_scope"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "granted_activated",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "discard:hand->graveyard",
+                "draw:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "granted_to_others",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "source_ref": "card:granted-loot",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unsupported_ability_scope",
+            "unsupported_ability_scope"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card",
+                "level_up:self"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "level_conditional_activated",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "level_gated",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "source_ref": "card:level-loot",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unsupported_ability_scope"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{T}"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "conditional_granted_activated",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "conditional_grant",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "source_ref": "card:conditional-grant",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{T}"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "printed_symbols",
+                  "text": "{T}"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "draw:1"
+              ],
+              "gold": [
+                "draw:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "draw:library->hand"
+              ],
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "printed_control",
+          "mechanisms": [
+            "granted_level_scope",
+            "costs"
+          ],
+          "source_ref": "card:printed-tap-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid."
+            ],
+            "fields": [
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        }
+      ],
+      "search": null,
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "conflicting_rules_and_sources",
+      "compiler_coverage": {
+        "clauses": 5,
+        "complete": false,
+        "facts": 1,
+        "interpreted": 1,
+        "uninterpreted": 0,
+        "unresolved_rules": [
+          "explore"
+        ],
+        "withheld": 4
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "combat": {
+              "extracted": [
+                "trigger:any_damage"
+              ],
+              "gold": [
+                "trigger:any_damage"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "gold": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "explore:self"
+              ],
+              "gold": [
+                "explore:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:unknown"
+              ],
+              "gold": [
+                "damage:unknown"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "damage:one or more sources you control"
+              ],
+              "gold": [
+                "damage:one or more sources you control"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "explore_trigger",
+          "mechanisms": [
+            "conflicting_rules",
+            "combat"
+          ],
+          "source_ref": "card:explorer",
+          "unjudged": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "reason": "gold_explicitly_null"
+            }
+          },
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].recipient",
+              "inputs[].source_types",
+              "outputs[].source_id",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "conflicting_duplicate_identity"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "permanent controller"
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "counter:exploring permanent",
+                "move_to_graveyard:revealed top card",
+                "put_into_hand:revealed top card",
+                "reveal:top card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "move_to_graveyard:1",
+                "put_into_hand:1"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "rule_definition",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "move_to_graveyard:library->graveyard",
+                "put_into_hand:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "rule_permanent_edition",
+          "mechanisms": [
+            "conflicting_rules",
+            "zone_moves",
+            "finite_fuel"
+          ],
+          "source_ref": "rule:development-explore",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "conflicting_duplicate_identity"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "creature controller"
+              ],
+              "outcome": "unknown"
+            },
+            "finite_fuel": {
+              "extracted": null,
+              "gold": true,
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "counter:creature",
+                "move_to_graveyard:revealed top card",
+                "put_into_hand:revealed top card",
+                "reveal:top card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "move_to_graveyard:1",
+                "put_into_hand:1"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "rule_definition",
+              "outcome": "unknown"
+            },
+            "zone_moves": {
+              "extracted": null,
+              "gold": [
+                "move_to_graveyard:library->graveyard",
+                "put_into_hand:library->hand"
+              ],
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "rule_creature_edition",
+          "mechanisms": [
+            "conflicting_rules",
+            "zone_moves",
+            "finite_fuel"
+          ],
+          "source_ref": "rule:development-explore",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "conflicting_duplicate_identity"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "discard:1",
+                "draw:1"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "activated",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "duplicate_draw_one",
+          "mechanisms": [
+            "conflicting_rules",
+            "costs"
+          ],
+          "source_ref": "card:duplicate",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "conflicting_duplicate_identity"
+          ],
+          "dimensions": {
+            "costs": {
+              "extracted": null,
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "discard:1",
+                "draw:2"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "activated",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "duplicate_draw_two",
+          "mechanisms": [
+            "conflicting_rules",
+            "costs"
+          ],
+          "source_ref": "card:duplicate",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": {
+        "cycle_detected": false,
+        "cycle_expected": false,
+        "cycles_without_fuel_caveat": 0,
+        "dependency_gaps_expected": [
+          "explore"
+        ],
+        "dependency_gaps_found": [
+          "explore"
+        ],
+        "links": {
+          "expected_denominator": 0,
+          "fn": 0,
+          "forbidden_denominator": 0,
+          "forbidden_found": [],
+          "fp": 0,
+          "missing": [],
+          "tp": 0,
+          "unlabeled_found": 0
+        },
+        "scope_complete_claimed": false,
+        "unverified_hypotheses_only": true
+      },
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "finite_fuel_cycle",
+      "compiler_coverage": {
+        "clauses": 4,
+        "complete": true,
+        "facts": 4,
+        "interpreted": 4,
+        "uninterpreted": 0,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [],
+              "gold": [
+                "self"
+              ],
+              "outcome": "wrong"
+            },
+            "costs": {
+              "extracted": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "gold": [
+                {
+                  "kind": "discard",
+                  "quantity": 1,
+                  "text": "Discard a card"
+                }
+              ],
+              "outcome": "tp"
+            },
+            "finite_fuel": {
+              "extracted": true,
+              "gold": true,
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [],
+              "gold": [
+                "gain_keyword:self"
+              ],
+              "outcome": "wrong"
+            },
+            "quantity": {
+              "extracted": [
+                "discard:1"
+              ],
+              "gold": [
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "activated",
+              "gold": "activated",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "cycle_outlet",
+          "mechanisms": [
+            "finite_fuel",
+            "costs"
+          ],
+          "source_ref": "card:outlet",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions.",
+              "Activation occurs only after all printed costs are paid.",
+              "This creature gains flying until end of turn."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].event",
+              "inputs[].subject",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "self"
+              ],
+              "gold": [
+                "self"
+              ],
+              "outcome": "tp"
+            },
+            "combat": {
+              "extracted": [
+                "output:noncombat"
+              ],
+              "gold": [
+                "output:noncombat"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per discarded card."
+              ],
+              "gold": [
+                "Once per discarded card."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "damage:self"
+              ],
+              "gold": [
+                "damage:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:1",
+                "discard:1"
+              ],
+              "gold": [
+                "damage:1",
+                "discard:1"
+              ],
+              "outcome": "tp"
+            },
+            "recipient": {
+              "extracted": [
+                "each opponent"
+              ],
+              "gold": [
+                "each opponent"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "discard:card"
+              ],
+              "gold": [
+                "discard:card"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "discard:hand->graveyard"
+              ],
+              "gold": [
+                "discard:hand->graveyard"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "cycle_payoff",
+          "mechanisms": [
+            "finite_fuel",
+            "trigger_multiplicity"
+          ],
+          "source_ref": "card:payoff-single",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "outputs[].source_id",
+              "outputs[].source_types",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "combat": {
+              "extracted": [
+                "trigger:any_damage"
+              ],
+              "gold": [
+                "trigger:any_damage"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "multiplicity": {
+              "extracted": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "gold": [
+                "Once per qualifying damage event; one or more sources."
+              ],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "explore:self"
+              ],
+              "gold": [
+                "explore:self"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "damage:unknown"
+              ],
+              "gold": [
+                "damage:unknown"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "triggered",
+              "gold": "triggered",
+              "outcome": "tp"
+            },
+            "trigger": {
+              "extracted": [
+                "damage:one or more sources you control"
+              ],
+              "gold": [
+                "damage:one or more sources you control"
+              ],
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "cycle_conversion",
+          "mechanisms": [
+            "finite_fuel",
+            "combat"
+          ],
+          "source_ref": "card:conversion",
+          "unjudged": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "reason": "gold_explicitly_null"
+            }
+          },
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].recipient",
+              "inputs[].source_types",
+              "outputs[].source_id",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "permanent controller"
+              ],
+              "gold": [
+                "permanent controller"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "finite_fuel": {
+              "extracted": true,
+              "gold": true,
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "move_to_graveyard:revealed top card",
+                "put_into_hand:revealed top card"
+              ],
+              "gold": [
+                "counter:exploring permanent",
+                "move_to_graveyard:revealed top card",
+                "put_into_hand:revealed top card",
+                "reveal:top card"
+              ],
+              "outcome": "wrong"
+            },
+            "quantity": {
+              "extracted": [
+                "move_to_graveyard:1",
+                "put_into_hand:1"
+              ],
+              "gold": [
+                "move_to_graveyard:1",
+                "put_into_hand:1"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "rule_definition",
+              "gold": "rule_definition",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "move_to_graveyard:library->graveyard",
+                "put_into_hand:library->hand"
+              ],
+              "gold": [
+                "move_to_graveyard:library->graveyard",
+                "put_into_hand:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "cycle_explore_rule",
+          "mechanisms": [
+            "finite_fuel",
+            "zone_moves"
+          ],
+          "source_ref": "rule:development-explore",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "Reveal the top card of the exploring permanent controller's library.",
+              "If land: put the revealed card into hand.",
+              "If nonland: put a +1/+1 counter on the exploring permanent; optionally put the revealed card into graveyard, otherwise leave it on top.",
+              "Moving a revealed card from library to graveyard is not discarding."
+            ],
+            "fields": [
+              "inputs[].actor",
+              "inputs[].event",
+              "inputs[].subject",
+              "outputs[].condition",
+              "outputs[].optional",
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        }
+      ],
+      "search": {
+        "cycle_detected": true,
+        "cycle_expected": true,
+        "cycles_without_fuel_caveat": 0,
+        "dependency_gaps_expected": [],
+        "dependency_gaps_found": [],
+        "links": {
+          "expected_denominator": 4,
+          "fn": 0,
+          "forbidden_denominator": 1,
+          "forbidden_found": [],
+          "fp": 0,
+          "missing": [],
+          "tp": 4,
+          "unlabeled_found": 0
+        },
+        "scope_complete_claimed": false,
+        "unverified_hypotheses_only": true
+      },
+      "unlabeled_compiler_clauses": []
+    },
+    {
+      "case_id": "quantities_and_spell_actor",
+      "compiler_coverage": {
+        "clauses": 5,
+        "complete": false,
+        "facts": 1,
+        "interpreted": 1,
+        "uninterpreted": 4,
+        "unresolved_rules": [],
+        "withheld": 0
+      },
+      "labels": [
+        {
+          "all_scored_dimensions_correct": true,
+          "clause_status": "interpreted",
+          "compiler_issues": [],
+          "dimensions": {
+            "actor": {
+              "extracted": [
+                "you"
+              ],
+              "gold": [
+                "you"
+              ],
+              "outcome": "tp"
+            },
+            "costs": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "output_events": {
+              "extracted": [
+                "draw:card"
+              ],
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "tp"
+            },
+            "quantity": {
+              "extracted": [
+                "draw:3"
+              ],
+              "gold": [
+                "draw:3"
+              ],
+              "outcome": "tp"
+            },
+            "restrictions": {
+              "extracted": [],
+              "gold": [],
+              "outcome": "tp"
+            },
+            "scope": {
+              "extracted": "spell",
+              "gold": "spell",
+              "outcome": "tp"
+            },
+            "zone_moves": {
+              "extracted": [
+                "draw:library->hand"
+              ],
+              "gold": [
+                "draw:library->hand"
+              ],
+              "outcome": "tp"
+            }
+          },
+          "label_id": "draw_three",
+          "mechanisms": [
+            "quantity",
+            "actor"
+          ],
+          "source_ref": "card:draw-three",
+          "unjudged": {},
+          "unjudged_fact_fields": {
+            "conditions": [
+              "You/your refers to this ability controller, or this spell controller for spell instructions."
+            ],
+            "fields": [
+              "required_rules",
+              "status"
+            ]
+          },
+          "unread_fact_content": true,
+          "v1_expectation": "interpret"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "you"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "draw:X"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "spell",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "draw_x",
+          "mechanisms": [
+            "quantity"
+          ],
+          "source_ref": "card:draw-x",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "each player"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "draw:1"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "spell",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "each_player_draws",
+          "mechanisms": [
+            "actor"
+          ],
+          "source_ref": "card:each-player-draws",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "actor": {
+              "extracted": null,
+              "gold": [
+                "target opponent"
+              ],
+              "outcome": "unknown"
+            },
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "quantity": {
+              "extracted": null,
+              "gold": [
+                "draw:2"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "spell",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "opponent_draws",
+          "mechanisms": [
+            "actor",
+            "recipient"
+          ],
+          "source_ref": "card:opponent-draws",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        },
+        {
+          "all_scored_dimensions_correct": false,
+          "clause_status": "preserved_unknown",
+          "compiler_issues": [
+            "unrecognized_full_ability"
+          ],
+          "dimensions": {
+            "output_events": {
+              "extracted": null,
+              "gold": [
+                "draw:card"
+              ],
+              "outcome": "unknown"
+            },
+            "scope": {
+              "extracted": null,
+              "gold": "unsupported_bare_text_on_permanent",
+              "outcome": "unknown"
+            }
+          },
+          "label_id": "bare_text_on_creature",
+          "mechanisms": [
+            "granted_level_scope"
+          ],
+          "source_ref": "card:creature-bare-draw",
+          "unjudged": {},
+          "unjudged_fact_fields": null,
+          "unread_fact_content": null,
+          "v1_expectation": "abstain"
+        }
+      ],
+      "search": null,
+      "unlabeled_compiler_clauses": []
+    }
+  ],
+  "cases_schema": "inference-extraction-development-cases.v2",
+  "cases_sha256": "a3440d00c85a2b058889f63a22dc270827c1f7f49839c1aa4dad07e7596055c4",
+  "claims": {
+    "full_clause_semantic_correctness_judged": false,
+    "human_expert_review": false,
+    "independent_expert_labels": false,
+    "interpretation": "Development diagnostic of literal extraction over AI-authored fixtures; not evidence of held-out generalization, recommendation quality or rules correctness.",
+    "label_authorship": {
+      "author": "AI-authored (Claude Opus 5.5) for W02 development diagnostics",
+      "date": "2026-11-03",
+      "expert_reviewed": false,
+      "independent": false,
+      "split": "development",
+      "statement": "Synthetic, renamed cards and rule text written by the implementing AI. Not independent, not expert-reviewed, not held out; gold values are the author's reading of the supplied text and may be wrong."
+    },
+    "live_inference_quality_measured": false,
+    "model_or_network_calls": 0,
+    "scoring_change_not_compiler_change": "v2 adds the output_events dimension, scores every emitted dimension or reports it unjudged, adds output_events gold to all labels and revises 8 label values (see the cases file label_revisions). The compiler and search are unchanged, so every v1->v2 difference is a scoring/label change, not a compiler change.",
+    "semantic_scorer": null
+  },
+  "compiler_version": "assistant-inference-facts-v1",
+  "limitations": [
+    "Gold values were written by the same AI that read the compiler grammar and use its token vocabulary; precision is optimistic and not independent.",
+    "Synthetic renamed cards; no real Oracle corpus sample, so coverage is per fixture, not per deck population.",
+    "Dimensions the compiler never represents (e.g. death multiplicity, sacrifice fuel) count as unknown, not FP; restrictions and output_events treat an interpreted fact as a complete claim.",
+    "output_events scores structured event rows only. Effects the compiler keeps solely as condition prose (pump, gain flying, explore reveal and +1/+1 counter) score wrong because search cannot join on them; they are listed under summary.unjudged.conditions_on_interpreted_labels, so 'wrong' here means 'not emitted as an event', not 'lost entirely'.",
+    "Fact fields no dimension reads (input actor/recipient/source_types, output condition/optional, required_rules) are disclosed per label as unjudged_fact_fields, not scored; required_rules is judged only through search dependency gaps.",
+    "Search scoring checks labelled source-pair links only; unlabelled links are counted, not judged.",
+    "Hashes and exact tokens establish binding, not entailment or rules correctness."
+  ],
+  "schema": "inference-extraction-benchmark.v2",
+  "scoring": {
+    "all_scored_dimensions_correct": "partial verdict: every scored dimension is tp and none is unjudged; unread fact fields and condition prose (unread_fact_content) are not judged, so this is not full clause semantic correctness",
+    "coverage": "tp/gold; abstentions and unrepresented clauses stay in the denominator",
+    "dimensions": [
+      "scope",
+      "trigger",
+      "actor",
+      "recipient",
+      "combat",
+      "multiplicity",
+      "quantity",
+      "costs",
+      "restrictions",
+      "zone_moves",
+      "output_events",
+      "finite_fuel"
+    ],
+    "finite_fuel": "only true is labelled; compiler emits true or does not represent it",
+    "fn": "wrong interpreted value",
+    "fp": "interpreted fact value differs from gold (also counted fn)",
+    "output_events": "sorted '<event>:<subject>' of output rows; missing, extra or renamed events score wrong",
+    "precision": "tp/(tp+fp); null when denominator is 0",
+    "restrictions": "interpreted facts claim full scope, so they assert no restrictions",
+    "tp": "interpreted fact value equals gold token set",
+    "unjudged": "an emitted dimension with null or absent gold is reported, never tp/fp, and blocks all_scored_dimensions_correct",
+    "unknown": "compiler abstained or does not represent the dimension; never tp/fp"
+  },
+  "scoring_history": [
+    {
+      "blindspot": "Alternate-provider review R1 replaced both compiled explore outputs with an invented event; every v1 total, dimension, mechanism score and clause verdict was unchanged. v1 had no output-event dimension and only iterated supplied gold keys.",
+      "cases_sha256": "1935d804bfc65187a2546c75c019c16579124afa6c0a02c49c86a8850e032d9c",
+      "compiler_version": "assistant-inference-facts-v1",
+      "field_correction": "Raw v1 'fully_correct' is kept verbatim as a historical claim. It meant only that every supplied gold key matched; it never judged unread fact fields, so it overstated scope. v2 renames the verdict all_scored_dimensions_correct and does not claim full clause semantic correctness.",
+      "report_sha256": "5d68b8414709364f67219a4fce0336079931dc9528dbb3717459058440e84616",
+      "scoring_version": 1,
+      "search_version": "assistant-inference-search.v1",
+      "status": "superseded_invalid_as_complete_precision_claim",
+      "totals": {
+        "coverage": 0.5673,
+        "fp": 0,
+        "fully_correct": 16,
+        "gold_values": 245,
+        "interpreted": 18,
+        "labels": 40,
+        "precision": 1.0,
+        "tp": 139,
+        "unknown": 106
+      }
+    }
+  ],
+  "scoring_version": 2,
+  "search_version": "assistant-inference-search.v1",
+  "summary": {
+    "all_dimensions": {
+      "coverage": 0.5398,
+      "coverage_denominator": 289,
+      "fn": 5,
+      "fp": 5,
+      "gold": 289,
+      "precision": 0.9689,
+      "precision_denominator": 161,
+      "tp": 156,
+      "unknown": 128
+    },
+    "clauses": {
+      "all_scored_dimensions_correct": 11,
+      "all_scored_dimensions_correct_clause_coverage": 0.275,
+      "all_scored_dimensions_correct_with_unread_fact_content": 11,
+      "denominator": 40,
+      "full_clause_semantic_correctness_judged": false,
+      "labels": 40,
+      "represented_clause_coverage": 0.45,
+      "status": {
+        "interpreted": 18,
+        "preserved_unknown": 22
+      }
+    },
+    "dimensions": {
+      "actor": {
+        "coverage": 0.4667,
+        "coverage_denominator": 30,
+        "fn": 2,
+        "fp": 2,
+        "gold": 30,
+        "precision": 0.875,
+        "precision_denominator": 16,
+        "tp": 14,
+        "unknown": 14
+      },
+      "combat": {
+        "coverage": 0.6923,
+        "coverage_denominator": 13,
+        "fn": 0,
+        "fp": 0,
+        "gold": 13,
+        "precision": 1.0,
+        "precision_denominator": 9,
+        "tp": 9,
+        "unknown": 4
+      },
+      "costs": {
+        "coverage": 0.5806,
+        "coverage_denominator": 31,
+        "fn": 0,
+        "fp": 0,
+        "gold": 31,
+        "precision": 1.0,
+        "precision_denominator": 18,
+        "tp": 18,
+        "unknown": 13
+      },
+      "finite_fuel": {
+        "coverage": 0.3636,
+        "coverage_denominator": 11,
+        "fn": 0,
+        "fp": 0,
+        "gold": 11,
+        "precision": 1.0,
+        "precision_denominator": 4,
+        "tp": 4,
+        "unknown": 7
+      },
+      "multiplicity": {
+        "coverage": 0.6429,
+        "coverage_denominator": 14,
+        "fn": 0,
+        "fp": 0,
+        "gold": 14,
+        "precision": 1.0,
+        "precision_denominator": 9,
+        "tp": 9,
+        "unknown": 5
+      },
+      "output_events": {
+        "coverage": 0.375,
+        "coverage_denominator": 40,
+        "fn": 3,
+        "fp": 3,
+        "gold": 40,
+        "precision": 0.8333,
+        "precision_denominator": 18,
+        "tp": 15,
+        "unknown": 22
+      },
+      "quantity": {
+        "coverage": 0.5806,
+        "coverage_denominator": 31,
+        "fn": 0,
+        "fp": 0,
+        "gold": 31,
+        "precision": 1.0,
+        "precision_denominator": 18,
+        "tp": 18,
+        "unknown": 13
+      },
+      "recipient": {
+        "coverage": 0.7143,
+        "coverage_denominator": 7,
+        "fn": 0,
+        "fp": 0,
+        "gold": 7,
+        "precision": 1.0,
+        "precision_denominator": 5,
+        "tp": 5,
+        "unknown": 2
+      },
+      "restrictions": {
+        "coverage": 0.72,
+        "coverage_denominator": 25,
+        "fn": 0,
+        "fp": 0,
+        "gold": 25,
+        "precision": 1.0,
+        "precision_denominator": 18,
+        "tp": 18,
+        "unknown": 7
+      },
+      "scope": {
+        "coverage": 0.45,
+        "coverage_denominator": 40,
+        "fn": 0,
+        "fp": 0,
+        "gold": 40,
+        "precision": 1.0,
+        "precision_denominator": 18,
+        "tp": 18,
+        "unknown": 22
+      },
+      "trigger": {
+        "coverage": 0.625,
+        "coverage_denominator": 16,
+        "fn": 0,
+        "fp": 0,
+        "gold": 16,
+        "precision": 1.0,
+        "precision_denominator": 10,
+        "tp": 10,
+        "unknown": 6
+      },
+      "zone_moves": {
+        "coverage": 0.5806,
+        "coverage_denominator": 31,
+        "fn": 0,
+        "fp": 0,
+        "gold": 31,
+        "precision": 1.0,
+        "precision_denominator": 18,
+        "tp": 18,
+        "unknown": 13
+      }
+    },
+    "findings_for_coordinator": [
+      {
+        "dimension": "actor",
+        "extracted": [],
+        "gold": [
+          "self"
+        ],
+        "kind": "wrong_extraction",
+        "where": "restrictions/unrestricted_control"
+      },
+      {
+        "dimension": "output_events",
+        "extracted": [],
+        "gold": [
+          "pump:self"
+        ],
+        "kind": "wrong_extraction",
+        "where": "restrictions/unrestricted_control"
+      },
+      {
+        "compiler_issues": [
+          "unrecognized_full_ability"
+        ],
+        "kind": "expected_supported_abstained",
+        "where": "zone_moves_return_versus_cast/self_dies"
+      },
+      {
+        "dimension": "actor",
+        "extracted": [
+          "you"
+        ],
+        "kind": "unjudged_prediction",
+        "reason": "gold_explicitly_null",
+        "where": "conflicting_rules_and_sources/explore_trigger"
+      },
+      {
+        "dimension": "actor",
+        "extracted": [],
+        "gold": [
+          "self"
+        ],
+        "kind": "wrong_extraction",
+        "where": "finite_fuel_cycle/cycle_outlet"
+      },
+      {
+        "dimension": "output_events",
+        "extracted": [],
+        "gold": [
+          "gain_keyword:self"
+        ],
+        "kind": "wrong_extraction",
+        "where": "finite_fuel_cycle/cycle_outlet"
+      },
+      {
+        "dimension": "actor",
+        "extracted": [
+          "you"
+        ],
+        "kind": "unjudged_prediction",
+        "reason": "gold_explicitly_null",
+        "where": "finite_fuel_cycle/cycle_conversion"
+      },
+      {
+        "dimension": "output_events",
+        "extracted": [
+          "move_to_graveyard:revealed top card",
+          "put_into_hand:revealed top card"
+        ],
+        "gold": [
+          "counter:exploring permanent",
+          "move_to_graveyard:revealed top card",
+          "put_into_hand:revealed top card",
+          "reveal:top card"
+        ],
+        "kind": "wrong_extraction",
+        "where": "finite_fuel_cycle/cycle_explore_rule"
+      }
+    ],
+    "mechanisms": {
+      "actor": {
+        "all_scored_dimensions_correct": 3,
+        "dimensions": {
+          "coverage": 0.6,
+          "coverage_denominator": 45,
+          "fn": 0,
+          "fp": 0,
+          "gold": 45,
+          "precision": 1.0,
+          "precision_denominator": 27,
+          "tp": 27,
+          "unknown": 18
+        },
+        "dropped": 0,
+        "interpreted": 3,
+        "labels": 6,
+        "preserved_unknown": 3,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "combat": {
+        "all_scored_dimensions_correct": 3,
+        "dimensions": {
+          "coverage": 0.8305,
+          "coverage_denominator": 59,
+          "fn": 0,
+          "fp": 0,
+          "gold": 59,
+          "precision": 1.0,
+          "precision_denominator": 49,
+          "tp": 49,
+          "unknown": 10
+        },
+        "dropped": 0,
+        "interpreted": 5,
+        "labels": 6,
+        "preserved_unknown": 1,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 2
+      },
+      "conflicting_rules": {
+        "all_scored_dimensions_correct": 0,
+        "dimensions": {
+          "coverage": 0.3103,
+          "coverage_denominator": 29,
+          "fn": 0,
+          "fp": 0,
+          "gold": 29,
+          "precision": 1.0,
+          "precision_denominator": 9,
+          "tp": 9,
+          "unknown": 20
+        },
+        "dropped": 0,
+        "interpreted": 1,
+        "labels": 5,
+        "preserved_unknown": 4,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 1
+      },
+      "costs": {
+        "all_scored_dimensions_correct": 3,
+        "dimensions": {
+          "coverage": 0.6119,
+          "coverage_denominator": 67,
+          "fn": 4,
+          "fp": 4,
+          "gold": 67,
+          "precision": 0.9111,
+          "precision_denominator": 45,
+          "tp": 41,
+          "unknown": 22
+        },
+        "dropped": 0,
+        "interpreted": 6,
+        "labels": 10,
+        "preserved_unknown": 4,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "finite_fuel": {
+        "all_scored_dimensions_correct": 2,
+        "dimensions": {
+          "coverage": 0.6835,
+          "coverage_denominator": 79,
+          "fn": 5,
+          "fp": 5,
+          "gold": 79,
+          "precision": 0.9153,
+          "precision_denominator": 59,
+          "tp": 54,
+          "unknown": 20
+        },
+        "dropped": 0,
+        "interpreted": 7,
+        "labels": 10,
+        "preserved_unknown": 3,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 1
+      },
+      "granted_level_scope": {
+        "all_scored_dimensions_correct": 1,
+        "dimensions": {
+          "coverage": 0.35,
+          "coverage_denominator": 20,
+          "fn": 0,
+          "fp": 0,
+          "gold": 20,
+          "precision": 1.0,
+          "precision_denominator": 7,
+          "tp": 7,
+          "unknown": 13
+        },
+        "dropped": 0,
+        "interpreted": 1,
+        "labels": 5,
+        "preserved_unknown": 4,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "quantity": {
+        "all_scored_dimensions_correct": 3,
+        "dimensions": {
+          "coverage": 0.6923,
+          "coverage_denominator": 52,
+          "fn": 0,
+          "fp": 0,
+          "gold": 52,
+          "precision": 1.0,
+          "precision_denominator": 36,
+          "tp": 36,
+          "unknown": 16
+        },
+        "dropped": 0,
+        "interpreted": 4,
+        "labels": 6,
+        "preserved_unknown": 2,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "recipient": {
+        "all_scored_dimensions_correct": 3,
+        "dimensions": {
+          "coverage": 0.6875,
+          "coverage_denominator": 48,
+          "fn": 0,
+          "fp": 0,
+          "gold": 48,
+          "precision": 1.0,
+          "precision_denominator": 33,
+          "tp": 33,
+          "unknown": 15
+        },
+        "dropped": 0,
+        "interpreted": 3,
+        "labels": 5,
+        "preserved_unknown": 2,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "restrictions": {
+        "all_scored_dimensions_correct": 0,
+        "dimensions": {
+          "coverage": 0.3158,
+          "coverage_denominator": 19,
+          "fn": 2,
+          "fp": 2,
+          "gold": 19,
+          "precision": 0.75,
+          "precision_denominator": 8,
+          "tp": 6,
+          "unknown": 11
+        },
+        "dropped": 0,
+        "interpreted": 1,
+        "labels": 3,
+        "preserved_unknown": 2,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "return_versus_cast": {
+        "all_scored_dimensions_correct": 0,
+        "dimensions": {
+          "coverage": 0.0,
+          "coverage_denominator": 8,
+          "fn": 0,
+          "fp": 0,
+          "gold": 8,
+          "precision": null,
+          "precision_denominator": 0,
+          "tp": 0,
+          "unknown": 8
+        },
+        "dropped": 0,
+        "interpreted": 0,
+        "labels": 2,
+        "preserved_unknown": 2,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "trigger_multiplicity": {
+        "all_scored_dimensions_correct": 4,
+        "dimensions": {
+          "coverage": 0.8125,
+          "coverage_denominator": 64,
+          "fn": 0,
+          "fp": 0,
+          "gold": 64,
+          "precision": 1.0,
+          "precision_denominator": 52,
+          "tp": 52,
+          "unknown": 12
+        },
+        "dropped": 0,
+        "interpreted": 5,
+        "labels": 6,
+        "preserved_unknown": 1,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      },
+      "zone_moves": {
+        "all_scored_dimensions_correct": 2,
+        "dimensions": {
+          "coverage": 0.4615,
+          "coverage_denominator": 65,
+          "fn": 1,
+          "fp": 1,
+          "gold": 65,
+          "precision": 0.9677,
+          "precision_denominator": 31,
+          "tp": 30,
+          "unknown": 34
+        },
+        "dropped": 0,
+        "interpreted": 4,
+        "labels": 10,
+        "preserved_unknown": 6,
+        "segmentation_mismatch": 0,
+        "unjudged_predictions": 0
+      }
+    },
+    "search_links": {
+      "coverage": 1.0,
+      "expected_denominator": 7,
+      "fn": 0,
+      "forbidden_denominator": 4,
+      "fp": 0,
+      "precision_over_labelled": 1.0,
+      "tp": 7,
+      "unlabeled_found": 0
+    },
+    "unjudged": {
+      "conditions_on_interpreted_labels": {
+        "Activation occurs only after all printed costs are paid.": 6,
+        "If land: put the revealed card into hand.": 1,
+        "If nonland: put a +1/+1 counter on the exploring permanent; optionally put the revealed card into graveyard, otherwise leave it on top.": 1,
+        "Moving a revealed card from library to graveyard is not discarding.": 1,
+        "Reveal the top card of the exploring permanent controller's library.": 1,
+        "This creature gains flying until end of turn.": 1,
+        "This creature gets +2/+2 until end of turn.": 1,
+        "You/your refers to this ability controller, or this spell controller for spell instructions.": 17
+      },
+      "fact_fields_on_interpreted_labels": {
+        "inputs[].actor": 15,
+        "inputs[].event": 5,
+        "inputs[].recipient": 4,
+        "inputs[].source_types": 4,
+        "inputs[].subject": 5,
+        "outputs[].condition": 1,
+        "outputs[].optional": 1,
+        "outputs[].source_id": 7,
+        "outputs[].source_types": 5,
+        "required_rules": 18,
+        "status": 18
+      },
+      "predictions": 2,
+      "predictions_by_dimension": {
+        "actor": {
+          "gold_explicitly_null": 2
+        }
+      }
+    }
+  }
+}

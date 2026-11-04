@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-03",
+  "scope": "read-only deployment and credential inspection plus disposable PostgreSQL budget tests",
+  "ssh_access_restored": true,
+  "database": {
+    "engine": "PostgreSQL",
+    "version": "17.11",
+    "server_default_read_only": false,
+    "validation_source_sha256": "c23008f439c8315a7474b165573439a8300339ca5c7f4ddb56d4685c52e0c63f",
+    "passed_checks": [
+      "concurrent_environment_and_combined_reservations",
+      "daily_dollar_and_turn_limits",
+      "idempotency_and_active_user_exclusion",
+      "unknown_charge_retention_and_idempotent_reconciliation",
+      "overrun_liability_and_shutdown",
+      "global_and_environment_shutdown",
+      "model_tool_attempt_and_deadline_limits",
+      "accounting_unavailability_fails_closed",
+      "database_lock_timeout"
+    ],
+    "disposable_database_removed": true,
+    "cross_environment_authority_connectivity_validated": false
+  },
+  "credentials": {
+    "main": {
+      "hf_token_present": false,
+      "resend_present": true
+    },
+    "qa": {
+      "hf_token_present": true,
+      "hf_token_valid": true,
+      "hf_token_role": "read",
+      "resend_present": false
+    },
+    "preview": {
+      "hf_token_present": false,
+      "resend_present": false
+    },
+    "new_budget_environment_configuration_present": false,
+    "credential_values_recorded": false
+  },
+  "model": {
+    "id": "deepseek-ai/DeepSeek-V4-Flash:deepinfra",
+    "base_url": "https://router.huggingface.co/v1",
+    "confirmed_in_all_three_deployments": true
+  },
+  "public_pricing": {
+    "currency": "USD",
+    "unit": "per million tokens",
+    "standard_input": 0.09,
+    "standard_output": 0.18,
+    "cached_input": 0.018,
+    "sources": [
+      "https://router.huggingface.co/v1/models",
+      "https://deepinfra.com/deepseek-ai/DeepSeek-V4-Flash",
+      "https://huggingface.co/docs/inference-providers/pricing"
+    ],
+    "account_specific_pricing_verified": false
+  },
+  "test_harness_fix": "Percent-encode connection-option spaces as %20, not +, for libpq PostgreSQL URLs.",
+  "remaining": [
+    "provision dedicated shared budget database and restricted writer role",
+    "connect main/QA/preview privately to the shared authority",
+    "configure distinct main and non-production inference credentials",
+    "finalize bounded pricing policy with documented upward rounding",
+    "activate email worker with approved rollout"
+  ],
+  "production_application_data_modified": false,
+  "images_deployed": false,
+  "paid_inference_calls": 0,
+  "emails_sent": 0
+}

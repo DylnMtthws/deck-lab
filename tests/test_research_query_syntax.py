@@ -366,7 +366,13 @@ class TestPlainQueryUnchanged:
         finally:
             routes.parse_query = original
 
-        assert plain_html == unparsed_html
+        # The signed CSRF token includes a second-resolution timestamp and can
+        # differ across these requests. Compare the query output, not the token.
+        token = r'(<meta name="csrf-token" content=")[^"]+(">)'
+        assert re.search(token, plain_html) and re.search(token, unparsed_html)
+        assert re.sub(token, r"\1TOKEN\2", plain_html) == re.sub(
+            token, r"\1TOKEN\2", unparsed_html
+        )
 
 
 class TestSyntaxNotAppliedOnOtherTabs:

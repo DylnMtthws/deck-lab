@@ -1,0 +1,127 @@
+{
+  "version": "assistant-grounded-rag-review.v1",
+  "partner": "Claude Code Opus 5.5",
+  "model_verified": "claude-opus-5-5",
+  "parallel_task": {
+    "summary": "Rules retrieval corrections, source integrity and targeted tests",
+    "reported_targeted_tests": 33,
+    "session_id": "ce957d0e-edca-46e2-889d-a568db5c6565"
+  },
+  "initial_integration_review": {
+    "session_id": "0713bb94-6ebf-4d75-9cd2-c710a86f7389",
+    "approved": false,
+    "findings": [
+      "Functional improvement and distinct cuts must precede engine loss",
+      "Mana-base focus must retain land relevance",
+      "Negated functions must not become requested functions",
+      "Bounded facts receipts must preserve all counts",
+      "Trigger multipliers require a real commander trigger",
+      "Mill subjects and payoffs must be distinguished",
+      "Protection-loss text is not protection",
+      "Quote the matched activation, not an unrelated clause",
+      "Final-call instructions must not direct new tests",
+      "Fallback must disclose actual action state",
+      "Supplemental retrieval must not crowd out complete candidate facts",
+      "Full-name matching must exclude sideboard and substring collisions"
+    ]
+  },
+  "status": "Implementation corrected following skeptical feedback; current targeted regressions pass. QA functional quality evaluation remains separate.",
+  "qualification": "Engineering review only; not independent MTG expertise qualification",
+  "followup_reviews": [
+    {
+      "session_id": "33807a23-462a-47d8-9505-6aa77b63475e",
+      "findings": "Confirmed initial blockers corrected; identified need-expression regression, source-type recreation and graph filter ordering."
+    },
+    {
+      "session_id": "be3422d0-987a-4547-a175-29bab2167df3",
+      "findings": "Confirmed engine recreation and graph ordering fixes; identified negation-list carryover and broad have-no normalization.",
+      "reported_targeted_tests": 59
+    }
+  ],
+  "final_corrections": [
+    "Preserve need/add expressions while carrying unwanted-list scope across conjunctions",
+    "Require complete Oracle text and type equality before waiving static link loss",
+    "Filter full graph for changed providers before limiting review context",
+    "Preserve all feature counts within bounded facts view",
+    "Pin targeted evidence and disclose actual action state at budget exhaustion",
+    "Allow 1\u20133 replacement transport, matching existing joint validation",
+    "Carry negation across unwanted-function lists, preserving explicit new add/need clauses; regressions cover final reviewer examples"
+  ],
+  "rules_and_rulings": {
+    "session_id": "dde2c4b8-59c5-42c7-a1ba-3b692e879cca",
+    "targeted_tests": 71,
+    "opt_in_real_probes_passed": 2,
+    "rules_count": 3165,
+    "rulings_count": 79661,
+    "duplicates_dropped": 43,
+    "blank_comments_skipped": 2,
+    "canonical_test_commander_id_check": "Coordinator verified ruling counts against public canonical Oracle IDs: Vivi 2, Kinnan 4, Lathril 1, Meren 6"
+  },
+  "remaining_limits": [
+    "Finite text predicates and request parsing are incomplete; counts do not establish absence or optimality",
+    "No independent MTG expertise qualification",
+    "Same-source wording is not complete rules execution",
+    "Global package search and broader roadmap options remain deferred"
+  ],
+  "validation": {
+    "full_tests_passed": 2957,
+    "optional_tests_skipped": 34,
+    "final_targeted_tests_passed": 88,
+    "real_snapshot_probes_passed": 2,
+    "deterministic_checks_passed": 99,
+    "format_files_checked": 393,
+    "typed_source_files_checked": 181,
+    "lint": "passed",
+    "context_delivery_tests_passed": 11,
+    "delivery_followup_tests_passed": 13
+  },
+  "live_qa_context_correction": {
+    "observed": "Successful card_details receipts were evicted before the first live comparison answer; answer contradicted cast eligibility and claimed verified text/costs were missing. Initial run paused after two complete cases and one interrupted case; all disposable decks removed.",
+    "partner_session_id": "097df734-7211-47c6-9ede-95325739c010",
+    "partner_regressions": 8,
+    "additional_regressions": 3,
+    "corrections": [
+      "Pin four distinct consulted card identities with source provenance, unknown costs and truncation metadata",
+      "Compact printed card receipts before generic history eviction",
+      "Shorten supplemental retrieval before whole-section omission, retaining all feature counts and explicit disclosure",
+      "Protect consulted cards from generic state field-count cap"
+    ],
+    "remaining_limits": [
+      "Four-card retention and 900-character Oracle excerpts are bounded; omissions are explicit",
+      "A missing or ambiguous lookup still has transport ok=true, with source status preserved; it adds no consulted fact",
+      "Development conversational assessment remains separate from independent expert evaluation"
+    ],
+    "skeptical_followup": {
+      "reviewer_reported": "Feature lists longer than twelve can be truncated by generic compaction before supplemental shortening.",
+      "coordinator_verification": "Current source has nine categories, not the twenty-five claimed by the reviewer. The future-growth case is valid: added an explicit feature-list exemption and 25-category regression with and without pressure.",
+      "status": "Reported compaction flaw corrected and targeted regressions passed; review is engineering feedback, not MTG expert certification."
+    },
+    "test_stability_fix": "Existing research HTML equality check now ignores only timestamped CSRF token values; full suite rerun passed."
+  },
+  "delivery_followup": {
+    "partner_session_id": "70e6fb10-35ca-4878-88ee-a75ec0101251",
+    "partner_tests": 11,
+    "coordinator_additional_tests": 1,
+    "observations": [
+      "Land count returned by inspect_deck was evicted before the answer",
+      "Reviewed replacement entry/card IDs were lost while display names survived, leading to rejected preview attempts"
+    ],
+    "corrections": [
+      "Share quantity-aware library_composition between runtime and inspect_deck; pin current-revision counts and curve",
+      "Pin schema-checked reviewed alternative IDs separately from display names; never treat transport as authorization",
+      "Exclude plans still requiring semantic review even if contradictory ready flags are supplied"
+    ],
+    "remaining_limits": [
+      "Model can still use a wrong ID; tools reject it",
+      "Full twelve-case assessment remains on frozen prior build; affected-case rechecks are recorded separately after this correction",
+      "These fixes address delivery, not broad MTG expert judgment or coherent package construction"
+    ],
+    "metadata_correction": {
+      "observed": "Live ready=true/status=reviewed result retained requires_semantic_review=true from raw discovery, hiding legitimate accepted-plan IDs.",
+      "fix": "Clear pending flag only after completed reviewed status; label prepare result ready_for_preview. Pending/failed review remains blocked.",
+      "regression": "Parameterized find_replacements and prepare_improvement integration starts with a pending raw payload, asserts corrected reviewed metadata, and creates a suggestion preview from retained IDs after broad receipts.",
+      "skeptical_partner_review": "Claude Opus 5.5 read-only review found no permission/validation bypass; existing owner, revision, constraints, review and legality checks remain authoritative.",
+      "review_session": "70e6fb10-35ca-4878-88ee-a75ec0101251"
+    }
+  }
+}

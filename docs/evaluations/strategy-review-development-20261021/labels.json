@@ -1,0 +1,225 @@
+[
+  {
+    "case_id": "halfling-on",
+    "claim_values": {
+      "extra_can_cast": true,
+      "source_can_cast": false,
+      "extra_protects": false
+    },
+    "claim_evidence": {
+      "extra_can_cast": [
+        "kinnan",
+        "halfling"
+      ],
+      "source_can_cast": [
+        "kinnan",
+        "halfling"
+      ],
+      "extra_protects": [
+        "kinnan",
+        "halfling"
+      ]
+    },
+    "preserve_ids": [
+      "role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "halfling-off",
+    "claim_values": {
+      "extra_exists": false,
+      "source_can_cast": false
+    },
+    "claim_evidence": {
+      "extra_exists": [
+        "halfling",
+        "scenario"
+      ],
+      "source_can_cast": [
+        "halfling",
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "legendary_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "hawker-on",
+    "claim_values": {
+      "three_total": true,
+      "extra_casts": true,
+      "all_casts": false
+    },
+    "claim_evidence": {
+      "three_total": [
+        "kinnan",
+        "resources",
+        "scenario"
+      ],
+      "extra_casts": [
+        "kinnan",
+        "resources",
+        "scenario"
+      ],
+      "all_casts": [
+        "kinnan",
+        "resources",
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "activation_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "hawker-off",
+    "claim_values": {
+      "casts_spell": false,
+      "activation_use": true
+    },
+    "claim_evidence": {
+      "casts_spell": [
+        "scenario"
+      ],
+      "activation_use": [
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "conditional_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "mystic-preserve",
+    "claim_values": {
+      "two_green": true,
+      "seven_paid": false
+    },
+    "claim_evidence": {
+      "two_green": [
+        "kinnan",
+        "scenario"
+      ],
+      "seven_paid": [
+        "kinnan",
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "contribution",
+      "drawback",
+      "tap_caution"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "mystic-new",
+    "claim_values": {
+      "immediate_tap": false
+    },
+    "claim_evidence": {
+      "immediate_tap": [
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "future_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "rock-vs-creature-now",
+    "claim_values": {
+      "rock_now": true,
+      "creature_now": false,
+      "artifact_universal": false
+    },
+    "claim_evidence": {
+      "rock_now": [
+        "scenario",
+        "kinnan"
+      ],
+      "creature_now": [
+        "scenario",
+        "kinnan"
+      ],
+      "artifact_universal": [
+        "scenario",
+        "kinnan"
+      ]
+    },
+    "preserve_ids": [
+      "cost_tradeoff"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "land-untap",
+    "claim_values": {
+      "direct_trigger": false,
+      "land_trigger": false
+    },
+    "claim_evidence": {
+      "direct_trigger": [
+        "kinnan",
+        "resources"
+      ],
+      "land_trigger": [
+        "kinnan",
+        "resources"
+      ]
+    },
+    "preserve_ids": [
+      "land_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "restriction-persists",
+    "claim_values": {
+      "restriction_lost": false,
+      "same_as_extra": false
+    },
+    "claim_evidence": {
+      "restriction_lost": [
+        "resources",
+        "kinnan"
+      ],
+      "same_as_extra": [
+        "resources",
+        "kinnan"
+      ]
+    },
+    "preserve_ids": [
+      "storage_role"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  },
+  {
+    "case_id": "sink-not-engine",
+    "claim_values": {
+      "activate_now": false,
+      "guaranteed_future": false
+    },
+    "claim_evidence": {
+      "activate_now": [
+        "kinnan",
+        "scenario"
+      ],
+      "guaranteed_future": [
+        "kinnan",
+        "scenario"
+      ]
+    },
+    "preserve_ids": [
+      "destination",
+      "uncertainty"
+    ],
+    "review_status": "ai_source_verified_not_expert_reviewed"
+  }
+]

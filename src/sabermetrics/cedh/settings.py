@@ -12,6 +12,7 @@ cEDH gateway, which is what a global hard stop has to mean.
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,8 @@ class SimulatorSettings(BaseModel):
     games: int = 20000
     objective_turn: int = 3
     timeout_seconds: float = 330.0
+    #: QA-only request for the simulator's five-test diagnostic envelope.
+    diagnostics_enabled: bool = False
 
 
 class MetaSettings(BaseModel):
@@ -164,13 +167,58 @@ def load_cedh_settings(path: Path | None = None) -> CedhSettings:
             update={"model": settings.model.model_copy(update=applied)}
         )
 
-    simulator_updates: dict[str, Any] = {}
+    # Pricing follows deployment-specific model pins. Validate these values
+    # explicitly: model_copy updates do not run Pydantic validation, and NaN
+    # or negative rates would invalidate the shared cost ceiling's accounting.
+    price_overrides: dict[str, float] = {}
+    for field, env_name in (
+        ("input", "CEDH_MODEL_INPUT_PRICE"),
+        ("output", "CEDH_MODEL_OUTPUT_PRICE"),
+        ("cached_input", "CEDH_MODEL_CACHED_INPUT_PRICE"),
+    ):
+        value = os.environ.get(env_name)
+        if value is None:
+            continue
+        try:
+            rate = float(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"{env_name} must be a finite nonnegative USD rate per million tokens"
+            ) from exc
+        if not math.isfinite(rate) or rate < 0:
+            raise ValueError(
+                f"{env_name} must be a finite nonnegative USD rate per million tokens"
+            )
+        price_overrides[field] = rate
+    if price_overrides:
+        pricing = ModelPricing.model_validate(
+            {**settings.model.pricing.model_dump(), **price_overrides}
+        )
+        settings = settings.model_copy(
+            update={"model": settings.model.model_copy(update={"pricing": pricing})}
+        )
+
+    # The diagnostics profile is deliberately controlled only by this explicit
+    # QA environment switch; a committed YAML setting cannot enable it.
+    simulator_updates: dict[str, Any] = {"diagnostics_enabled": False}
     simulator_url = os.environ.get("CEDH_SIMULATOR_URL")
     if simulator_url:
         simulator_updates.update(mode="http", url=simulator_url)
     simulator_timeout = os.environ.get("CEDH_SIMULATOR_TIMEOUT")
     if simulator_timeout:
         simulator_updates["timeout_seconds"] = float(simulator_timeout)
+    diagnostics_value = os.environ.get("CEDH_SIMULATOR_DIAGNOSTICS")
+    if diagnostics_value is not None:
+        normalized = diagnostics_value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            simulator_updates["diagnostics_enabled"] = True
+        elif normalized in {"0", "false", "no", "off", ""}:
+            simulator_updates["diagnostics_enabled"] = False
+        else:
+            raise ValueError(
+                "CEDH_SIMULATOR_DIAGNOSTICS must be one of "
+                "1/0, true/false, yes/no, or on/off"
+            )
     if simulator_updates:
         settings = settings.model_copy(
             update={

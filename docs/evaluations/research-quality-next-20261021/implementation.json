@@ -1,0 +1,101 @@
+{
+  "purpose": "Review-preservation, source-bound strategic evidence and bounded latency experiment",
+  "baseline_commit": "a1be525",
+  "baseline_runtime_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+  "changes": {
+    "preservation": "Production review v9 removes model-proposed subspans. Code discovers at most three exact locally provable original facts and reuses all binding/admission guards after semantic normalization; parent uncertainty and full Oracle fallback remain.",
+    "limitations": "Subspan admission intentionally covers only narrow locally checked printed properties and exact complete quotations. General strategic subclaims and dependent references abstain.",
+    "mana": "Canonical local snapshot-bound Kinnan evidence, exact official rules/ruling dependencies, distinct source and additional mana restrictions/riders. Conditions do not assert available resources or strategic superiority.",
+    "resources": "Exact fixed activation-mana per draw arithmetic for isolated supported abilities. Mana-symbol requirements, including colorless C, remain separate; energy/taps/life/sacrifices have no exchange rate. No pruning or learned ranking.",
+    "wire": "After candidate/enrichment packing freezes, share identical scope text and alias repeated evidence/condition reference keys. Whole source identities, offsets and hashes remain reconstructable. Freed bytes do not expand the shortlist.",
+    "knowledge": "Permission/review workflow with signed content-bound receipts, trusted registry validation, full stored manifests and read-only provenance/content audit.",
+    "evaluation": "Ten frozen AI-authored development cases; capture-time suite hash required. Missing judgments never earn success. Human independence and expert validation remain absent.",
+    "selection_context": "Freeze retained IDs/order, whole printed sources and strategic contracts before local evidence lookup. Attach a compact conditional mana projection after compression; optional arithmetic yields space, whole candidate records do not. Skip empty context, expose actual wire inclusion and omissions, keep reviewer evidence complete."
+  },
+  "wire_fixtures": [
+    {
+      "fixture": "draw",
+      "candidates": 8,
+      "baseline_bytes": 23065,
+      "candidate_bytes": 21377,
+      "candidate_records_losslessly_reconstructed": true,
+      "candidate_coverage_equal": true,
+      "arithmetic_aid_included": true
+    },
+    {
+      "fixture": "tap",
+      "candidates": 8,
+      "baseline_bytes": 23121,
+      "candidate_bytes": 20684,
+      "candidate_records_losslessly_reconstructed": true,
+      "candidate_coverage_equal": true,
+      "arithmetic_aid_included": false
+    }
+  ],
+  "wire_scope": "Synthetic offline fixtures only; bytes exclude system/schema. No transport latency or quality gain inferred.",
+  "expert_strategy_sources_added": 0,
+  "unfulfilled_external_inputs": [
+    "Permissioned independently expert-reviewed strategic material",
+    "Independent human benchmark authorship/adjudication"
+  ],
+  "runtime_measurement_status": "QA d05218e verifies actual selector evidence inclusion (5bounded rows,8retained,23478chars). Earlier and final samples do not establish latency reduction; all remain partial/unverified. Human-independent evaluation and expert sources remain absent.",
+  "frozen_development_manifest_sha256": "69421f9436ad3d51fef4cc0192222d4eef2c187ea0754fba86d7eb8504eb065a",
+  "regression_checks": {
+    "full_suite_before_final_cache_fixes": {
+      "passed": 4439,
+      "skipped": 34,
+      "seconds": 172.2
+    },
+    "final_targeted_checks": {
+      "passed": 372,
+      "seconds": 15.02
+    },
+    "adversarial_provenance": "three rounds; final bounded clearance",
+    "adversarial_preservation": "four rounds; final bounded clearance",
+    "adversarial_runtime": "two rounds; final bounded clearance, 93 focused tests",
+    "mypy": "10 modified/new source modules passed",
+    "final_full_suite": {
+      "passed": 4506,
+      "skipped": 34,
+      "seconds": 193.91
+    },
+    "final_mypy": "6 second-phase source modules passed",
+    "adversarial_local_preservation": "two rounds; final bounded clearance, 91 targeted tests",
+    "adversarial_selection_context": "final bounded clearance; tiny probes and source inspection",
+    "latest_packing_targeted_tests": 94,
+    "latest_packing_mypy": "3 source modules passed",
+    "final_packing_adversarial": "52 targeted checks; bounded clearance"
+  },
+  "local_preservation_wire": {
+    "same_user_payload": true,
+    "scope": "Representative offline request; schema JSON is not measured provider transport or latency. New local proof can discover eligible facts omitted by model.",
+    "builds": [
+      {
+        "prompt_version": "assistant-claim-review.v8",
+        "user_bytes": 565,
+        "system_bytes": 5372,
+        "native_schema_json_bytes": 2408,
+        "retained_subspans": 0,
+        "fulfillment": "partial"
+      },
+      {
+        "prompt_version": "assistant-claim-review.v9",
+        "user_bytes": 565,
+        "system_bytes": 4804,
+        "native_schema_json_bytes": 1625,
+        "retained_subspans": 1,
+        "fulfillment": "partial"
+      }
+    ]
+  },
+  "actual_pool_wire_fixture": {
+    "scope": "Eight-source reconstruction from public QA facts padded to recorded21675-byte baseline, not exact input replay",
+    "baseline_bytes": 21675,
+    "helper_bytes": 1880,
+    "candidate_bytes": 23584,
+    "retained_candidates": 8,
+    "whole_sources_and_contracts_unchanged": true,
+    "near_full_omission_disclosed": true
+  },
+  "qa_runtime_sha": "d05218ee59bea426a70c144dac5f25afc310bd49"
+}

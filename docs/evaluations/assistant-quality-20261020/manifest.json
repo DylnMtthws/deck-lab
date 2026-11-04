@@ -1,0 +1,41 @@
+{
+  "schema": "assistant-quality-benchmark.v1",
+  "frozen_at": "2026-10-20",
+  "base_head": "eaeeda91",
+  "authorship": "AI independently authored from goals and catalog facts; not human/expert certification",
+  "candidate_evaluated_before_freeze": false,
+  "candidate_implementation_inspected": false,
+  "split": {
+    "development": {
+      "cases": 16,
+      "archetypes": [
+        "lands",
+        "mana_activation",
+        "sacrifice_recursion",
+        "spellslinger"
+      ]
+    },
+    "heldout": {
+      "cases": 16,
+      "archetypes": [
+        "combat",
+        "control",
+        "graveyard",
+        "tokens"
+      ]
+    }
+  },
+  "split_unit": "disjoint archetypes, card oracle evidence and case IDs; primary general rules shared",
+  "files_sha256": {
+    "CONTRACT.md": "ae994cc132376fbe9a887fb7cacb29e7196b250efc42b7cecd4ab4ca83c08146",
+    "rules.evidence.json": "2885f0c4d545c7cc0576741ffe2d829b0f6264c763a88df0c8bd8cddbe30ae37",
+    "development.cases.json": "13ae140bb154211f9d1ca9c701d9e0dcfb349758bded765af8857e0672f36583",
+    "development.labels.json": "d24eb4e4611d35a3534f8f53e374cb8dbefa3ed47d50f05afdacaa2c7f7d711d",
+    "development.evidence.json": "1f52fd0f4f3392b584782a207b3cff880d96968542439afd201f743731e3b3ec",
+    "heldout.cases.json": "a66ddd666b059bad40297fa93847704b7cfd227a3228ba0a60d90d5f83ec4a8c",
+    "heldout.labels.json": "88a1aa32fcf6147af8f691e3d4567409fb0a6be2d7f6f969f79ff8b982009024",
+    "heldout.evidence.json": "ef65e6daeb82b8cbfbec8cea47153e363b74d60b3d7988d4985f87c0d59b066d"
+  },
+  "freeze_revision": 3,
+  "freeze_note": "Pre-candidate audit: public package goals explicit, probes balanced, authoring source removed, and candidate pool equals shell membership to prevent preferred-card leakage. Harness-only calibration tested before revision; no candidate answers inspected or evaluated."
+}

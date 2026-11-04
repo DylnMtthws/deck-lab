@@ -192,7 +192,7 @@ def test_new_deck_dialog_offers_empty_and_generate(tmp_path) -> None:
     )
     generate = re.search(
         r'<input type="radio" name="deck_start" value="generate"[^>]*>\s*'
-        r"Generate from a strategy pack",
+        r"Generate a deck",
         html,
     )
     assert empty and generate
@@ -203,7 +203,7 @@ def test_new_deck_dialog_offers_empty_and_generate(tmp_path) -> None:
     assert 'createElement("select")' in GENERATE_JS.read_text()
     pack_select = _harness()["packSelect"]
     assert pack_select["tag"] == "SELECT"
-    assert pack_select["label"] == "Strategy pack"
+    assert pack_select["label"] == "Deck plan"
     assert "What should this deck focus on?" in html
     assert "data-generate-progress" in html
     assert 'role="status"' in html

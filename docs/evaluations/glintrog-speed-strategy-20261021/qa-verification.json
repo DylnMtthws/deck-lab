@@ -1,0 +1,70 @@
+{
+  "status": "qa_only_quality_acceptance_open",
+  "qa_runtime_commit": "265ccd6fc07069326f902c1f74a9da19f5663ef4",
+  "production_changed": false,
+  "implementation": [
+    "Dedicated lossless whole-deck local evidence path, bounded at128entries/38KB packet and48KB synthesis envelope.",
+    "One read-only SQLite snapshot with scoped source validation and inexpensive revision/currentness checks.",
+    "Generic engine explanation and review contract covering costs, payoffs, renewal, bounds and lethal shortfall.",
+    "Ordinary single-call reviewer admission uses75second reserve; discovery retains larger reserve.",
+    "Distinct ruling provenance preserved under identical body text.",
+    "Whole-deck synthesis uses one120second attempt, same4096token budget and unchanged model/schema; other request profiles unchanged.",
+    "Sanitized provider error-class diagnostics."
+  ],
+  "validation": {
+    "full_suite_before_final_envelope_and_attempt_policy": {
+      "passed": 4709,
+      "skipped": 34
+    },
+    "envelope_related_targeted_passed": 323,
+    "final_attempt_policy_targeted_passed": 133,
+    "adversarial_attempt_policy_targeted_passed": 81,
+    "final_ruling_merge_targeted_passed": 54,
+    "lint_and_diff_checks": "passed",
+    "qa_native_smokes": "passed"
+  },
+  "completed_sample": {
+    "baseline_seconds": 318.755,
+    "candidate_seconds": 150.827,
+    "observed_completion_reduction_pct": 52.68,
+    "baseline_first_source_seconds": 184.04,
+    "candidate_first_source_seconds": 28.158,
+    "baseline_configured_cost_usd": 0.01315,
+    "candidate_configured_cost_usd": 0.010308,
+    "all92deck_entries_available": true,
+    "semantic_review_attempted": true,
+    "semantic_review_status": "unverified",
+    "review_failure": "AnswerPatchRejected: Citation is not in supplied evidence",
+    "final_status": "incomplete",
+    "original_deck_and_chat_untouched": true,
+    "disposable_clone_removed": true
+  },
+  "preceding_failed_samples": [
+    {
+      "seconds": 234.978,
+      "outcome": "synthesis_provider_failure"
+    },
+    {
+      "seconds": 205.301,
+      "outcome": "synthesis_provider_failure"
+    }
+  ],
+  "quality_acceptance": {
+    "accepted": false,
+    "blind_ai_review": "Candidate preferred for coverage; both partial.",
+    "remaining": [
+      "Explicit discard->Pirate damage->explore land renewal chain.",
+      "Finite fuel budget and conditional lethal explanation.",
+      "Generated printed-stat error and failed correction binding.",
+      "Draw versus put-into-hand distinction; alternate-finish costs and targeting."
+    ],
+    "human_expert_review": false,
+    "statistical_noninferiority": false
+  },
+  "measurement_limits": [
+    "Single successful candidate sample versus one baseline; no causal speed attribution or reliable percentiles.",
+    "Two prior failures are retained, not hidden as discarded warmups.",
+    "Recorded configured cost is not independently verified provider billing.",
+    "Earlier aborted preflights are not successful benchmark samples."
+  ]
+}

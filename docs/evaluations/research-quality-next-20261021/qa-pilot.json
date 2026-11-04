@@ -1,0 +1,128 @@
+{
+  "purpose": "Bounded chronological QA diagnostics, no causal latency or broad quality noninferiority claim",
+  "baseline_sha256": "898fbadeb6e9ae9fae2065fb2da950fb78f3fbcf05305542d3db4bfe8b5e3fe1",
+  "candidate_sha256": "8f5bec0de239dd6b9532be2b8016aeb87493285162c2ceb114eb1cdff9422db1",
+  "protocol": {
+    "same_prompts": true,
+    "fresh_disposable_decks": true,
+    "runs_per_build_per_case": 1,
+    "poll_seconds": 1.5,
+    "limitations": [
+      "Uncontrolled provider/network load and stochastic selections",
+      "First supported publication can be one literal cost fact",
+      "Configured costs are application accounting, not audited billing",
+      "AI adversarial review is not independent human expert adjudication"
+    ]
+  },
+  "candidate_runtime_sha": "655e27a59c3d923fd921b838e096031e99d57968",
+  "cases": {
+    "marchesa": {
+      "baseline": {
+        "build_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+        "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+        "first_source_seconds": 18.454,
+        "first_supported_seconds": 79.717,
+        "elapsed_seconds": 91.609,
+        "configured_cost_usd": 0.0053809999999999995,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 13986,
+        "cached_input_tokens": 0,
+        "output_tokens_including_reasoning": 4307,
+        "semantic_review_generation_records": 1
+      },
+      "candidate": {
+        "build_sha": "655e27a59c3d923fd921b838e096031e99d57968",
+        "prompt": "Find three additional repeatable draw creatures for Marchesa. Prefer low casting cost and explain activation costs and prerequisites.",
+        "first_source_seconds": 16.271,
+        "first_supported_seconds": 87.903,
+        "elapsed_seconds": 116.2,
+        "configured_cost_usd": 0.00669,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 15225,
+        "cached_input_tokens": 896,
+        "output_tokens_including_reasoning": 6074,
+        "semantic_review_generation_records": 1
+      }
+    },
+    "kinnan": {
+      "baseline": {
+        "build_sha": "ea9b8de5cdb2471a59c200b7f0bc139afa014201",
+        "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+        "first_source_seconds": 16.741,
+        "first_supported_seconds": 62.271,
+        "elapsed_seconds": 98.548,
+        "configured_cost_usd": 0.006692999999999999,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [
+          "c0: Tap-symbol activation also requires continuous control or haste; the rest is supported."
+        ],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 14675,
+        "cached_input_tokens": 1408,
+        "output_tokens_including_reasoning": 6264,
+        "semantic_review_generation_records": 1
+      },
+      "candidate": {
+        "build_sha": "655e27a59c3d923fd921b838e096031e99d57968",
+        "prompt": "Give me three additional mana-producing creatures for Kinnan, Bonder Prodigy. Prefer low casting cost. Explain what each contributes with Kinnan, its full activation cost, and its biggest drawback.",
+        "first_source_seconds": 15.904,
+        "first_supported_seconds": 70.696,
+        "elapsed_seconds": 109.362,
+        "configured_cost_usd": 0.007574,
+        "deck_unchanged": true,
+        "return_projection_identical": true,
+        "status": "incomplete",
+        "review_status": "unverified",
+        "fulfillment": "partial",
+        "unresolved": [],
+        "reviewed_subspans": 0,
+        "generation_records": 3,
+        "input_tokens": 19341,
+        "cached_input_tokens": 2304,
+        "output_tokens_including_reasoning": 6177,
+        "semantic_review_generation_records": 1
+      }
+    }
+  },
+  "binding_checks": [
+    {
+      "case": "marchesa",
+      "bound_claim_spans": 12,
+      "checked_workspace_evidence_hashes": 30,
+      "deck_unchanged": true,
+      "return_projection_identical": true
+    },
+    {
+      "case": "kinnan",
+      "bound_claim_spans": 13,
+      "checked_workspace_evidence_hashes": 37,
+      "deck_unchanged": true,
+      "return_projection_identical": true
+    }
+  ],
+  "assessment": {
+    "latency": "Both chronological candidate samples were slower and costlier; no latency improvement demonstrated.",
+    "quality": "Blinded AI reviews found mixed quality and partial fulfillment for both. Candidate preserves Mystic contribution/drawback; source-versus-Kinnan restrictions/riders remain insufficiently explicit. Candidate Marchesa recast wording is incorrect for direct battlefield return; both omit explicit Archaeologist draw quantity.",
+    "scope": "Two cases, one run per build. No statistical noninferiority or human-expert certification.",
+    "source_pool_attribution": "16 workspace cards is not evidence of 16 selector source records. The 16-plus-commander bound is a stress reproduction, not an established cause of the live omission."
+  }
+}

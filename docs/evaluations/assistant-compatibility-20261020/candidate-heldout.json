@@ -1,0 +1,316 @@
+{
+  "version": "assistant-strategy-report.v1",
+  "split": "heldout",
+  "suite_sha256": "069b601d537a7bbf4718bd612b91d4b7a432648cfc72cfce5dbaca52196d1071",
+  "status": "pass",
+  "cases": [
+    {
+      "id": "artifact-fodder-mismatch",
+      "strategy": "artifact-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.006752,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "artifact-fodder-ingredient",
+      "strategy": "artifact-fodder",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000721,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "charge-type-mismatch",
+      "strategy": "charge-type",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000847,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "charge-type-ingredient",
+      "strategy": "charge-type",
+      "ranked_ids": [
+        "dependent",
+        "independent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000696,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "mentioned-tribe-mismatch",
+      "strategy": "mentioned-tribe",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000646,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "mentioned-tribe-ingredient",
+      "strategy": "mentioned-tribe",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000793,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "recursion-hand-mismatch",
+      "strategy": "recursion-hand",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "independent",
+          "over": "dependent",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000643,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "recursion-hand-ingredient",
+      "strategy": "recursion-hand",
+      "ranked_ids": [
+        "independent",
+        "dependent"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000588,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    }
+  ],
+  "candidate_recall": {
+    "numerator": 16,
+    "denominator": 16,
+    "rate": 1.0
+  },
+  "recommendation_quality_pairs": {
+    "numerator": 4,
+    "denominator": 4,
+    "rate": 1.0
+  },
+  "factual_errors": {
+    "numerator": 0,
+    "denominator": 8,
+    "rate": 0.0
+  },
+  "jev_recommendation_quality_pairs": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "jev_claim_accuracy": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "unjudged_claims": 0,
+  "jev_comparison": {
+    "status": "not_requested",
+    "baseline_pair_rate": 1.0,
+    "jev_pair_rate": null,
+    "pair_rate_delta": null,
+    "elapsed_seconds": null,
+    "scope": "Shadow overhead and bounded judgment quality; no end-to-end answer speedup is inferred."
+  },
+  "latency": {
+    "retrieval_ranking_p50_seconds": 0.000721,
+    "retrieval_ranking_max_seconds": 0.006752,
+    "end_to_end_answer_seconds": null
+  },
+  "cost": {
+    "configured_usd": 0.0,
+    "live_jev_requested": false
+  },
+  "scope": "Controlled synthetic corpus, exact profile checks and predeclared ordering pairs. Not live narration, broad corpus recall or independent expert certification. Held-out split is consumed for this release once evaluated."
+}

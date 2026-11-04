@@ -1,0 +1,8 @@
+{
+  "schema": "research-viability-protocol.redirect.v1",
+  "status": "consolidated_not_active_spec",
+  "canonical_spec": "../../specs/research-assistant/deck-inference-v1.json",
+  "section": "measurement_protocol",
+  "prior_draft_sha256": "177bedb5ca61499c0044f988f3bd235245613193559385411dacfc988c8a3fd8",
+  "note": "No runs were captured against the draft. Results and the evidence ledger remain in this evaluation directory."
+}

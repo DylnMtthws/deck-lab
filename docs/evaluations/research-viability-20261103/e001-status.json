@@ -1,0 +1,84 @@
+{
+  "experiment": "E001",
+  "status": "completed_diagnostic_requested_explanation_not_delivered",
+  "candidate_sha": "12af094c1a5adeeb2a90949b3a00f530b75f82f0",
+  "qa_deployed": true,
+  "production_unchanged_verified": true,
+  "live_turns_submitted": 1,
+  "automatic_restarts": 0,
+  "observations": {
+    "poll_observed_elapsed_seconds": 58.821,
+    "first_source_seconds": 22.807,
+    "first_supported_seconds": null,
+    "logged_configured_cost_usd": 0.004069,
+    "observed_model_ids": [
+      "deepseek-ai/DeepSeek-V4.1-Flash:deepinfra"
+    ],
+    "logged_cost_rows": 2,
+    "assistant_status": "incomplete",
+    "assistant_reason": "answer_partially_fulfilled",
+    "inference_preparation_seconds": 15.409396,
+    "inference_elapsed_seconds": 35.593299,
+    "semantic_assessments": 0,
+    "computational_candidates": 4,
+    "limitations": [
+      "source_discovery_unavailable",
+      "hypothesis_verification_deadline_reserve"
+    ],
+    "calls": [
+      {
+        "elapsed_seconds": 19.928146,
+        "error_type": "ModelValidationError",
+        "input_utf8_bytes": 33535,
+        "measurement_scope": "User/system/local schema measured separately; provider framing and effective overrides belong to transport receipts.",
+        "prompt_version": "assistant-deck-inference.v1.source_discovery",
+        "requested_output_tokens": 2048,
+        "schema": "SourceFirstDiscovery",
+        "schema_sha256": "57a1ad4f07f24738a83925ebbaa27288fcb6d36c374517cd4e43d5bf0c404f15",
+        "schema_utf8_bytes": 1667,
+        "stage": "source_discovery",
+        "status": "unavailable",
+        "system_utf8_bytes": 1196
+      }
+    ],
+    "payload_utf8_bytes": {
+      "hypothesis_verification": 45842,
+      "source_discovery": 33535
+    }
+  },
+  "interpretation": "Feasibility failed to deliver requested win-condition explanation: only source quotations and incomplete notice. Not evidence of useful speedup.",
+  "unknowns": [
+    "Exact failed response and validation reason not preserved",
+    "Effective per-stage remote settings beyond requested and logged fields",
+    "Full provider attempt/billing completeness",
+    "Independent domain quality assessment",
+    "Generalization and comparative performance"
+  ],
+  "hypotheses_not_proven": [
+    "Reasoning/output budget may have exhausted room for structured JSON",
+    "Repeated currentness/source validation may explain local preparation overhead"
+  ],
+  "source_manifest_sha256": "07a7a91abb73731ae055a398972a677976f4c0a9846e670f8f4b9bafd69228a0",
+  "candidate_manifest_sha256": "15dd771faaa6072abf7e5bf3d997bebe781b47489903d480425558aa6cb83481",
+  "raw_artifact_sha256": {
+    "results.json": "4965d02ef1798322ec11baa24679b5fa3dcdc9213741c95378b4d7b580ad0f2c",
+    "registry.json": "4063ac0a98a7cf6aa2f72cf08098ec78bc555ed19bb0fd14ec99d774d0ae348d",
+    "execution.json": "97082e492618422c707db3a5e119dabea457411eb4923362633e624b0ee0389c",
+    "frozen-plan.json": "c72ff5f5735603b467f9550f009011f1a0c47ba0b384bca16270b2cb0916f852"
+  },
+  "cleanup": {
+    "all_disposable_decks_removed": true,
+    "original_deck_unchanged": true,
+    "projection_identical": true,
+    "deployment_backup_preserved_and_verified": true
+  },
+  "history": [
+    {
+      "status": "blocked_qa_ssh_timeout",
+      "stage": "QA image upload over SSH",
+      "live_turns": 0,
+      "note": "Earlier SSH outage; connection restored and same pinned image resumed."
+    }
+  ],
+  "next_step": "Alternate-provider artifact diagnosis, then preregister a narrowly scoped follow-up. Do not erase this failed sample or count another run as its replacement."
+}

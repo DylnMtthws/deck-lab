@@ -1,0 +1,53 @@
+{
+  "schema": "assistant-mechanical-subset.v1",
+  "scope": "Synthetic, self-authored finite closed-world scenarios. Offline adapter inputs, not independent Magic rules truth or infinite-loop labels.",
+  "cards": [{
+    "oracle_id": "fixture-battery",
+    "name": "Fixture Battery",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "oracle_text": "Remove a charge counter from Fixture Battery: Add {C}.\n{2}: Put a charge counter on Fixture Battery.\n{0}: Return Fixture Battery to its owner's hand."
+  }],
+  "initial_state": {
+    "no_external_effects": true,
+    "player": "me", "active_player": "me", "priority_player": "me",
+    "phase": "precombat_main", "stack_empty": true, "life": 20,
+    "mana": {"W": 0, "U": 0, "B": 0, "R": 0, "G": 0, "C": 0},
+    "objects": [{
+      "id": "battery", "card_id": "fixture-battery", "zone": "battlefield",
+      "incarnation": 0, "counters": {"charge": 2}, "tapped": false,
+      "controlled_since_turn_start": true, "controller": "me", "owner": "me"
+    }]
+  },
+  "scenarios": [
+    {
+      "id": "two_finite_activations",
+      "actions": [
+        {"action": "activate", "source": "battery", "incarnation": 0, "ability_index": 0, "ability_quote": "Remove a charge counter from Fixture Battery: Add {C}."},
+        {"action": "activate", "source": "battery", "incarnation": 0, "ability_index": 0, "ability_quote": "Remove a charge counter from Fixture Battery: Add {C}."}
+      ],
+      "expected_status": "valid", "expected_valid_steps": 2, "expected_final_mana_c": 2
+    },
+    {
+      "id": "counter_renewal_cost_is_not_free",
+      "actions": [
+        {"action": "activate", "source": "battery", "incarnation": 0, "ability_index": 0, "ability_quote": "Remove a charge counter from Fixture Battery: Add {C}."},
+        {"action": "activate", "source": "battery", "incarnation": 0, "ability_index": 1, "ability_quote": "{2}: Put a charge counter on Fixture Battery.", "mana_payment": {"C": 2}}
+      ],
+      "expected_status": "invalid", "expected_valid_steps": 1, "expected_final_mana_c": 1
+    },
+    {
+      "id": "hand_return_requires_recast",
+      "actions": [
+        {"action": "activate", "source": "battery", "incarnation": 0, "ability_index": 2, "ability_quote": "{0}: Return Fixture Battery to its owner's hand."},
+        {"action": "activate", "source": "battery", "incarnation": 1, "ability_index": 0, "ability_quote": "Remove a charge counter from Fixture Battery: Add {C}."}
+      ],
+      "expected_status": "invalid", "expected_valid_steps": 1, "expected_final_mana_c": 0
+    },
+    {
+      "id": "arbitrary_state_write_is_not_execution",
+      "actions": [{"action": "set_counters", "source": "battery", "incarnation": 0, "counters": {"charge": 100}}],
+      "expected_status": "unsupported", "expected_valid_steps": 0, "expected_final_mana_c": 0
+    }
+  ]
+}

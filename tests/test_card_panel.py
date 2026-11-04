@@ -182,8 +182,14 @@ def _database(tmp_path: Path) -> tuple[Path, str]:
 def _assert_panel_markup(html: str) -> None:
     head = html.index("dl-builder-rail-head")
     panel = html.index("data-card-panel")
-    curve = html.index('id="mana-curve"')
-    assert head < panel < curve
+    assert head < panel
+    if 'id="mana-curve"' in html:
+        curve = html.index('id="mana-curve"')
+        # Owner analytics moved left; shared decks retain the read-only right rail.
+        if "data-assistant-sidebar" in html:
+            assert curve < head
+        else:
+            assert head < curve
     assert 'class="dl-card-panel"' in html
     assert 'aria-label="Card preview"' in html
     assert 'aria-live="polite"' in html

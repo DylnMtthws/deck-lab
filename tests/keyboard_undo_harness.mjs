@@ -758,6 +758,32 @@ async function main() {
       restored: afterUndo && afterUndo.quantity,
       bodies: commandBodies(),
     };
+  } else if (scenario === "external-document") {
+    const next = JSON.parse(JSON.stringify(api.getState()));
+    next.revision = Number(next.revision || 0) + 1;
+    next.entries = next.entries.filter((entry) => entry.id !== "entry-ring");
+    next.entries.push({
+      id: "entry-petal", card_id: "petal", name: "Lotus Petal",
+      is_commander: false, quantity: 1, zone_id: "zone-main", sort_order: 0,
+      type_line: "Artifact", mana_cost: "{0}", mana_value: 0, oracle_text: "",
+      color_identity: [], image_uri: "", role: "ramp", format_legal: true,
+      commander_legal: true, validation_issues: [],
+    });
+    doc.revision = next.revision;
+    doc.entries = JSON.parse(JSON.stringify(next.entries));
+    const accepted = api.replaceDocument(next);
+    await flush();
+    const afterAdopt = booted.windowObj.DeckLabHistory.stats();
+    const enabled = !document.querySelector("[data-undo]").disabled;
+    document.querySelector("[data-undo]").click();
+    await flush();
+    result = {
+      accepted,
+      enabled,
+      afterAdopt,
+      afterUndo: api.getState().entries.map((entry) => entry.card_id).sort(),
+      bodies: commandBodies(),
+    };
   } else result = { error: "unknown scenario " + scenario };
   console.log(JSON.stringify(result));
 }

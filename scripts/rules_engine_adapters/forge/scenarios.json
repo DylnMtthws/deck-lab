@@ -1,0 +1,1406 @@
+{
+  "schema": "forge-bridge-scenarios.v2",
+  "note": "'request' is sent to Forge verbatim (bridge vocabulary = the harness ops). 'expect' is hand-derived from Oracle text + Comprehensive Rules and is NEVER sent to the engine; it is only compared with what Forge reports. expect.trace is an ordered subsequence: Forge's trace is filtered to the listed event types and projected onto the listed keys.",
+  "scenarios": [
+    {
+      "request": {
+        "scenario_id": "dark_ritual_paid_from_swamp",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Swamp"
+              ],
+              "library": [
+                "Island",
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Swamp",
+            "produce": "B"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Swamp: {T}: Add {B} (CR 305.6). Dark Ritual {B}: Add {B}{B}{B}. Pool B1 pays {B}; resolution adds BBB; instant goes to graveyard (CR 608.2n).",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "mana_pool": {
+              "B": 3
+            },
+            "hand": [],
+            "graveyard": [
+              "Dark Ritual"
+            ],
+            "battlefield": [
+              {
+                "name": "Swamp",
+                "tapped": true
+              }
+            ]
+          }
+        },
+        "trace": [
+          {
+            "event": "mana",
+            "source": "Swamp",
+            "produced": {
+              "B": 1
+            }
+          },
+          {
+            "event": "cast",
+            "card": "Dark Ritual",
+            "paid": {
+              "B": 1
+            },
+            "tax": 0
+          },
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Dark Ritual"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "dark_ritual_rejected_wrong_color",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Island"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Island",
+            "produce": "U"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Pool holds only {U}; {B} cannot be paid (CR 601.2h, 202.1). Cast is illegal at action 1; Dark Ritual stays in hand, the U stays floating, nothing resolves.",
+        "outcome": "illegal",
+        "illegal_at": 1,
+        "reason_code": "unpayable_cost",
+        "players": {
+          "you": {
+            "mana_pool": {
+              "U": 1
+            },
+            "hand": [
+              "Dark Ritual"
+            ],
+            "graveyard": []
+          }
+        },
+        "trace_absent": [
+          {
+            "event": "cast"
+          },
+          {
+            "event": "resolve"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "dark_ritual_rejected_no_mana",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Swamp"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Empty pool; the harness model pays only from the pool (mana comes from explicit activations), so {B} is unpayable even with an untapped Swamp. Swamp must stay untapped.",
+        "outcome": "illegal",
+        "illegal_at": 0,
+        "reason_code": "unpayable_cost",
+        "players": {
+          "you": {
+            "mana_pool": {},
+            "hand": [
+              "Dark Ritual"
+            ],
+            "battlefield": [
+              {
+                "name": "Swamp",
+                "tapped": false
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "vivi_curiosity_ritual_three_opponents",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Vivi Ornitier|Id:1",
+                "Curiosity|AttachedTo:1",
+                "Swamp"
+              ],
+              "library": [
+                "Island",
+                "Island",
+                "Island",
+                "Island",
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp1",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp2",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp3",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Swamp",
+            "produce": "B"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Vivi: whenever you cast a noncreature spell, +1/+1 counter and 1 damage to EACH opponent. Curiosity: whenever enchanted creature deals damage to an opponent, you may draw. Three opponents dealt damage = three Curiosity triggers (CR 603.2c). Vivi's trigger goes above Dark Ritual and resolves first; the Curiosity triggers go on the stack after it resolves and resolve before Dark Ritual.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "life": 40,
+            "mana_pool": {
+              "B": 3
+            },
+            "hand": [
+              "Island",
+              "Island",
+              "Island"
+            ],
+            "graveyard": [
+              "Dark Ritual"
+            ],
+            "battlefield": [
+              {
+                "name": "Curiosity",
+                "tapped": false,
+                "counters": {}
+              },
+              {
+                "name": "Swamp",
+                "tapped": true,
+                "counters": {}
+              },
+              {
+                "name": "Vivi Ornitier",
+                "tapped": false,
+                "power": 1,
+                "toughness": 4,
+                "counters": {
+                  "+1/+1": 1
+                }
+              }
+            ]
+          },
+          "opp1": {
+            "life": 39
+          },
+          "opp2": {
+            "life": 39
+          },
+          "opp3": {
+            "life": 39
+          }
+        },
+        "trace": [
+          {
+            "event": "cast",
+            "card": "Dark Ritual"
+          },
+          {
+            "event": "trigger",
+            "source": "Vivi Ornitier"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Vivi Ornitier"
+          },
+          {
+            "event": "counters",
+            "target": "Vivi Ornitier",
+            "kind": "+1/+1",
+            "n": 1
+          },
+          {
+            "event": "damage",
+            "source": "Vivi Ornitier",
+            "amount": 1
+          },
+          {
+            "event": "damage",
+            "source": "Vivi Ornitier",
+            "amount": 1
+          },
+          {
+            "event": "damage",
+            "source": "Vivi Ornitier",
+            "amount": 1
+          },
+          {
+            "event": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "draw",
+            "player": "you"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "draw",
+            "player": "you"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "draw",
+            "player": "you"
+          },
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Dark Ritual"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "vivi_curiosity_ritual_decline_draws",
+        "optional_trigger_policy": "decline",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Vivi Ornitier|Id:1",
+                "Curiosity|AttachedTo:1",
+                "Swamp"
+              ],
+              "library": [
+                "Island",
+                "Island",
+                "Island",
+                "Island",
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp1",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp2",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp3",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Swamp",
+            "produce": "B"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "As above but each 'you may draw' is declined: damage and counter still happen, no draws, three Curiosity triggers still resolve.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "hand": [],
+            "mana_pool": {
+              "B": 3
+            },
+            "library": [
+              "Island",
+              "Island",
+              "Island",
+              "Island",
+              "Island"
+            ]
+          },
+          "opp1": {
+            "life": 39
+          },
+          "opp2": {
+            "life": 39
+          },
+          "opp3": {
+            "life": 39
+          }
+        },
+        "trace": [
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Vivi Ornitier"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Curiosity"
+          },
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Dark Ritual"
+          }
+        ],
+        "trace_absent": [
+          {
+            "event": "draw"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "vivi_creature_spell_does_not_trigger",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Ornithopter"
+              ],
+              "battlefield": [
+                "Vivi Ornitier|Id:1",
+                "Curiosity|AttachedTo:1"
+              ],
+              "library": [
+                "Island",
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Ornithopter"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Ornithopter ({0}) is an artifact CREATURE spell; Vivi triggers only on noncreature spells. No trigger, counter, damage or draw; Ornithopter enters.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "hand": [],
+            "battlefield": [
+              {
+                "name": "Curiosity",
+                "counters": {}
+              },
+              {
+                "name": "Ornithopter",
+                "power": 0,
+                "counters": {}
+              },
+              {
+                "name": "Vivi Ornitier",
+                "power": 0,
+                "counters": {}
+              }
+            ]
+          },
+          "opp": {
+            "life": 40
+          }
+        },
+        "trace": [
+          {
+            "event": "cast",
+            "card": "Ornithopter",
+            "paid": {}
+          },
+          {
+            "event": "enters",
+            "card": "Ornithopter"
+          }
+        ],
+        "trace_absent": [
+          {
+            "event": "trigger"
+          },
+          {
+            "event": "damage"
+          },
+          {
+            "event": "draw"
+          },
+          {
+            "event": "counters"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "vivi_mana_once_per_turn",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Vivi Ornitier|Counters:P1P1=2"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Vivi Ornitier",
+            "produce": {
+              "U": 1,
+              "R": 1
+            }
+          },
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Vivi Ornitier",
+            "produce": {
+              "U": 2
+            }
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Vivi power 2: {0}: add X=2 mana in U/R combination; activate only once each turn. First activation adds {U}{R}; second is illegal.",
+        "outcome": "illegal",
+        "illegal_at": 1,
+        "reason_code": "activation_limit",
+        "players": {
+          "you": {
+            "mana_pool": {
+              "R": 1,
+              "U": 1
+            }
+          }
+        },
+        "trace": [
+          {
+            "event": "mana",
+            "source": "Vivi Ornitier",
+            "produced": {
+              "R": 1,
+              "U": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "vivi_mana_not_on_opponents_turn",
+        "active_player": 1,
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Vivi Ornitier|Counters:P1P1=1"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Vivi Ornitier",
+            "produce": {
+              "U": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Vivi's mana ability: 'Activate only during your turn.' It is the opponent's turn.",
+        "outcome": "illegal",
+        "illegal_at": 0,
+        "reason_code": "not_your_turn",
+        "players": {
+          "you": {
+            "mana_pool": {}
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "lightning_bolt_kills_opposing_vivi",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Lightning Bolt"
+              ],
+              "battlefield": [
+                "Mountain"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Vivi Ornitier"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Mountain",
+            "produce": "R"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Lightning Bolt",
+            "targets": [
+              {
+                "card": "Vivi Ornitier",
+                "controller": 1
+              }
+            ]
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Bolt deals 3 to Vivi (0/3); lethal damage, Vivi dies as a state-based action (CR 704.5g). Your instant does not trigger the OPPONENT's Vivi (it says 'you cast').",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "graveyard": [
+              "Lightning Bolt"
+            ]
+          },
+          "opp": {
+            "life": 40,
+            "graveyard": [
+              "Vivi Ornitier"
+            ],
+            "battlefield": []
+          }
+        },
+        "trace": [
+          {
+            "event": "cast",
+            "card": "Lightning Bolt",
+            "paid": {
+              "R": 1
+            }
+          },
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Lightning Bolt"
+          },
+          {
+            "event": "damage",
+            "source": "Lightning Bolt",
+            "target": "perm:Vivi Ornitier",
+            "amount": 3
+          },
+          {
+            "event": "sba_dies",
+            "card": "Vivi Ornitier"
+          }
+        ],
+        "trace_absent": [
+          {
+            "event": "trigger"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "counterspell_counters_bolt",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Lightning Bolt"
+              ],
+              "battlefield": [
+                "Mountain"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Counterspell"
+              ],
+              "battlefield": [
+                "Island",
+                "Island"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Mountain",
+            "produce": "R"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Lightning Bolt",
+            "targets": [
+              {
+                "player": 1
+              }
+            ]
+          },
+          {
+            "op": "activate_mana",
+            "player": 1,
+            "card": "Island",
+            "produce": "U",
+            "count": 2
+          },
+          {
+            "op": "cast",
+            "player": 1,
+            "card": "Counterspell",
+            "targets": [
+              {
+                "stack_card": "Lightning Bolt"
+              }
+            ]
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Counterspell (instant) targets Bolt on the stack, resolves first (LIFO), Bolt is countered to its owner's graveyard and deals no damage.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "graveyard": [
+              "Lightning Bolt"
+            ]
+          },
+          "opp": {
+            "life": 40,
+            "graveyard": [
+              "Counterspell"
+            ]
+          }
+        },
+        "trace": [
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Counterspell"
+          },
+          {
+            "event": "countered",
+            "card": "Lightning Bolt"
+          }
+        ],
+        "trace_absent": [
+          {
+            "event": "damage"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "sorcery_rejected_on_opponents_turn",
+        "active_player": 1,
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Birthday Escape"
+              ],
+              "battlefield": [
+                "Island"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Island",
+            "produce": "U"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Birthday Escape"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Sorcery timing (CR 307.1): only in your main phase with an empty stack. It is the opponent's turn.",
+        "outcome": "illegal",
+        "illegal_at": 1,
+        "reason_code": "timing",
+        "players": {
+          "you": {
+            "hand": [
+              "Birthday Escape"
+            ],
+            "mana_pool": {
+              "U": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "brainstorm_put_back_order",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Brainstorm"
+              ],
+              "battlefield": [
+                "Island"
+              ],
+              "library": [
+                "Swamp",
+                "Mountain",
+                "Forest",
+                "Plains"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Island",
+            "produce": "U"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Brainstorm"
+          },
+          {
+            "op": "resolve",
+            "choices": {
+              "put_back_top_first": [
+                "Mountain",
+                "Swamp"
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Draw Swamp, Mountain, Forest; put back Mountain then Swamp with Mountain on top. Library top-first: Mountain, Swamp, Plains. Hand: Forest.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "hand": [
+              "Forest"
+            ],
+            "library": [
+              "Mountain",
+              "Swamp",
+              "Plains"
+            ],
+            "graveyard": [
+              "Brainstorm"
+            ]
+          }
+        },
+        "trace": [
+          {
+            "event": "draw",
+            "card": "Swamp"
+          },
+          {
+            "event": "draw",
+            "card": "Mountain"
+          },
+          {
+            "event": "draw",
+            "card": "Forest"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "commander_tax_second_cast",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "commander_casts": {
+              "Vivi Ornitier": 1
+            },
+            "zones": {
+              "command": [
+                "Vivi Ornitier|IsCommander"
+              ],
+              "battlefield": [
+                "Sol Ring",
+                "Volcanic Island",
+                "Volcanic Island",
+                "Volcanic Island"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Sol Ring"
+          },
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Volcanic Island",
+            "produce": "U"
+          },
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Volcanic Island",
+            "produce": "R"
+          },
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Volcanic Island",
+            "produce": "U"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Vivi Ornitier",
+            "from": "command"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "CR 903.8: {2} more for each previous cast from the command zone. One previous cast -> {1}{U}{R} + {2} = 5; pool C2 U2 R1 pays exactly. Vivi enters; casts become 2.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "mana_pool": {},
+            "command": [],
+            "commander_casts": {
+              "Vivi Ornitier": 2
+            }
+          }
+        },
+        "trace": [
+          {
+            "event": "cast",
+            "card": "Vivi Ornitier",
+            "zone": "command",
+            "tax": 2,
+            "paid": {
+              "C": 2,
+              "R": 1,
+              "U": 2
+            }
+          },
+          {
+            "event": "enters",
+            "card": "Vivi Ornitier"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "sauron_amasses_when_opponent_casts",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "hand": [
+                "Dark Ritual"
+              ],
+              "battlefield": [
+                "Swamp"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Sauron, the Dark Lord"
+              ],
+              "library": [
+                "Island"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "activate_mana",
+            "player": 0,
+            "card": "Swamp",
+            "produce": "B"
+          },
+          {
+            "op": "cast",
+            "player": 0,
+            "card": "Dark Ritual"
+          },
+          {
+            "op": "resolve"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Sauron: whenever an opponent casts a spell, amass Orcs 1 -> opp creates a 0/0 Orc Army token and puts a +1/+1 counter on it (CR 701.47a). The trigger resolves before Dark Ritual.",
+        "outcome": "legal",
+        "players": {
+          "you": {
+            "mana_pool": {
+              "B": 3
+            }
+          },
+          "opp": {
+            "battlefield": [
+              {
+                "name": "Orc Army",
+                "token": true,
+                "power": 1,
+                "toughness": 1,
+                "counters": {
+                  "+1/+1": 1
+                }
+              },
+              {
+                "name": "Sauron, the Dark Lord",
+                "token": false,
+                "power": 7,
+                "toughness": 6,
+                "counters": {}
+              }
+            ]
+          }
+        },
+        "trace": [
+          {
+            "event": "trigger",
+            "source": "Sauron, the Dark Lord",
+            "controller": "opp"
+          },
+          {
+            "event": "resolve",
+            "item": "trigger",
+            "source": "Sauron, the Dark Lord"
+          },
+          {
+            "event": "resolve",
+            "item": "spell",
+            "card": "Dark Ritual"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "scenario_id": "advance_turn_untaps_and_draws",
+        "players": [
+          {
+            "label": "you",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Island|Tapped"
+              ],
+              "library": [
+                "Swamp",
+                "Swamp"
+              ]
+            }
+          },
+          {
+            "label": "opp",
+            "life": 40,
+            "zones": {
+              "battlefield": [
+                "Mountain|Tapped"
+              ],
+              "library": [
+                "Forest",
+                "Plains"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "op": "advance_turn"
+          }
+        ]
+      },
+      "expect": {
+        "basis": "Next turn belongs to opp (CR 500.1): opp's untap step untaps only opp's permanents (CR 502.3); opp draws in the draw step (CR 504.1). Your Island stays tapped.",
+        "outcome": "legal",
+        "active_player": "opp",
+        "players": {
+          "you": {
+            "battlefield": [
+              {
+                "name": "Island",
+                "tapped": true
+              }
+            ],
+            "hand": []
+          },
+          "opp": {
+            "battlefield": [
+              {
+                "name": "Mountain",
+                "tapped": false
+              }
+            ],
+            "hand": [
+              "Forest"
+            ],
+            "library": [
+              "Plains"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

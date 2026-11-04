@@ -19,6 +19,17 @@ All schemas use additive evolution — new fields with defaults, new tables inde
 
 ## 1. SQLite Database Schema
 
+Research Assistant `assistant-strategy.v1` and `assistant-recall.v1` are additive
+Pydantic receipt contracts. Strategy context contains a content fingerprint,
+commander identities, preferences, detected engine contracts with source quotes
+and support quantities, requirement gaps, and draw-route prerequisites. Recall
+records per-card channel provenance and missing-channel limitations. They do not
+create or train a card corpus. Optional `assistant_card_vectors` artifacts contain
+`oracle_id`, `content_hash`, `embedding_model`, and `embedding_json`; vectors are
+usable only with exact current canonical content and a configured local encoder.
+Artifact absence never triggers a network fetch. No schema migration is required
+for the deterministic path.
+
 <context name="sqlite_schema">
 
 ### 1.1 Cards and Pricing
@@ -899,3 +910,67 @@ combos:
 - Document each later migration here with: version, date, description, migration script reference
 
 </context>
+
+
+## Research Assistant grounded retrieval schema
+
+The explicit offline importer creates additive SQLite tables:
+
+- `assistant_rules(rule_id TEXT PRIMARY KEY, text TEXT NOT NULL, content_sha256 TEXT NOT NULL)`
+- `assistant_rules_metadata(singleton INTEGER PRIMARY KEY CHECK(singleton=1), source_url TEXT NOT NULL, source_version TEXT NOT NULL, content_sha256 TEXT NOT NULL, rules_count INTEGER NOT NULL)`
+- `assistant_rules_fts` is an FTS5 index of rule ID and text.
+
+Rule replacement and index replacement share one transaction. Malformed input
+is rejected before replacement; runtime access is read-only and does not create
+missing tables. Existing `card_rulings` remains the source of per-Oracle rulings,
+with its original source/date attribution. No new service or account data is
+required. Snapshot hashes identify imported bytes, not currentness.
+
+`DeckFacts`, `FeatureEvidence` and `CardEvidence` are strict Pydantic envelopes
+for current-library matches. `EngineGraph` and `EngineLink` carry exact endpoint
+source text, prerequisites and static inference status. `ContextRank` carries
+request relevance, not probability of improvement. All envelopes use explicit
+version strings; derived deck facts are fingerprinted by revision, zones,
+identities, quantities and source text.
+
+
+The offline Scryfall rulings importer adds `card_rulings_snapshots`, keyed by
+`namespace`, with `source_url`, `source_version`, `content_sha256`, `raw_bytes`,
+`input_format`, `rows_count`, `wotc_count`, `scryfall_count`, `duplicates_dropped`,
+`empty_comments_skipped`, `descriptor_uri`, `descriptor_updated_at`, and
+`imported_at`. It replaces only `card_rulings.source IN
+('scryfall-bulk:wotc', 'scryfall-bulk:scryfall')` atomically, preserving other
+providers. Re-importing identical verified input is idempotent. Source labels
+record upstream attribution and are not independent authentication. A changed
+snapshot may allocate different ruling row IDs; persisted citations must retain
+the snapshot hash and version alongside the row identifier. Runtime retrieval
+withholds namespace rows when the recorded row count is inconsistent.
+
+`DeckFacts.commanders` is separate from library feature counts, with explicit
+example omissions. The focused tool presents <=7500 characters while retaining
+all feature counts; per-feature examples and query matches carry exact clipped
+quotes and truncation flags.
+
+### Research Assistant additive reply contracts (2026-10-17)
+
+AssistantStep adds optional research_task and research_hypotheses (bounded typed
+objects). Final results add research and answer_review receipts. Requested
+counts are 0..99 per side with a supported package limit of three; coordinated hypotheses contain 1..3 distinct pairs.
+Answer review patches identify a reply-part index, exact old text, replacement,
+and bounded source-index/exact-quote citations. Claims and quotes are checked
+against the actual supplied strings, not model confidence. Existing proposal
+authorization and storage schemas are unchanged.
+
+Implementation refinements: the first provider response requires a non-null typed
+brief. Explicit add/cut/swap cardinalities are a code-side floor; larger requests
+retain their unsupported remainder. Independent choices count distinct cards,
+while coordinated requests need one package. These are ingredient-count checks,
+not proof all free-text deliverables were answered. Every hypothesis cut has its
+own typed loss explanation. Reviewed and tested plans count toward completion.
+At most one continuation runs with room for research and a final response; its
+previous partial draft survives provider/budget failure. Hypotheses must be
+restated in the final step, and never acquire action authority.
+Answer checks use literal source text, protect measurement statements, reject new
+unsupported numeric/mana tokens, disclose omitted evidence and preserve the draft
+when checking cannot run because of cost/time limits. Research and check receipts
+are saved in both the result and its structured presentation.

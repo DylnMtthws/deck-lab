@@ -1,0 +1,31 @@
+{
+  "sources": 81,
+  "source_kinds": {
+    "official_rules": 14,
+    "strategy_excerpt": 1,
+    "authored_guidance": 64,
+    "user_supplied": 1,
+    "wiki_secondary": 1
+  },
+  "author_declarations": {
+    "not_recorded": 27,
+    "Deck Lab / OpenAI Codex (AI-authored; not expert reviewed)": 48,
+    "Deck Lab / OpenAI Codex, summarizing Reid Duke": 3,
+    "Original author not supplied; provided by the Deck Lab user": 1,
+    "Wikipedia contributors; linked revision and page history provide attribution": 1,
+    "Deck Lab AI assistant": 1
+  },
+  "declared_review_statuses": {
+    "not_recorded": 78,
+    "unreviewed_community_strategy; mechanical claims require separate current Oracle/rules evidence": 1,
+    "community_edited_not_expert_reviewed": 1,
+    "ai_source_review_not_expert_reviewed": 1
+  },
+  "verified_expert_strategy_sources": 0,
+  "missing_coverage": [
+    "signed independent human expert strategy reviews"
+  ],
+  "limitations": "Packaged inventory only. Official rules are mechanical evidence, not expert strategic review. Legacy declarations are unverified; inspect signed review receipts separately.",
+  "capture_date": "2026-11-03",
+  "scope": "Current packaged config files in local checkout; not QA or production database inventory."
+}

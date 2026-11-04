@@ -1,0 +1,1938 @@
+{
+  "version": "assistant-strategy-benchmark.v1",
+  "provenance": "24 frozen authored mechanical scenarios, 2026-10-20. Synthetic source text, not current Oracle records. Eight cases reserved until final validation. Labels are developer expectations, not independent expert reviews. These cases measure bounded compatibility regressions, not broad deck-building quality.",
+  "cases": [
+    {
+      "id": "elf-fodder-mismatch",
+      "split": "development",
+      "strategy": "elf-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another Elf: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "elf-fodder-ingredient",
+      "split": "development",
+      "strategy": "elf-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 green Elf creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another Elf: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "artifact-fodder-mismatch",
+      "split": "heldout",
+      "strategy": "artifact-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice an artifact: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "artifact-fodder-ingredient",
+      "split": "heldout",
+      "strategy": "artifact-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a Treasure token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice an artifact: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "nontoken-fodder-mismatch",
+      "split": "development",
+      "strategy": "nontoken-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice a nontoken creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "nontoken-fodder-ingredient",
+      "split": "development",
+      "strategy": "nontoken-fodder",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice a nontoken creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "self-death-mismatch",
+      "split": "development",
+      "strategy": "self-death",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "When this creature dies, draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "self-death-ingredient",
+      "split": "development",
+      "strategy": "self-death",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Sacrifice a creature: Scry 1.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "When this creature dies, draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "charge-type-mismatch",
+      "split": "heldout",
+      "strategy": "charge-type",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target creature.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Artifact",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a charge counter from this artifact: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Artifact",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "charge-type-ingredient",
+      "split": "heldout",
+      "strategy": "charge-type",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a charge counter on target artifact.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Artifact",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a charge counter from this artifact: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Artifact",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "creature-counter-mismatch",
+      "split": "development",
+      "strategy": "creature-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target artifact.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "creature-counter-ingredient",
+      "split": "development",
+      "strategy": "creature-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target creature.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "opponent-counter-mismatch",
+      "split": "development",
+      "strategy": "opponent-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target creature an opponent controls.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "opponent-counter-ingredient",
+      "split": "development",
+      "strategy": "opponent-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target creature you control.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "self-counter-mismatch",
+      "split": "development",
+      "strategy": "self-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on this creature.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "self-counter-ingredient",
+      "split": "development",
+      "strategy": "self-counter",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Put a +1/+1 counter on target creature.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "Remove a +1/+1 counter from this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "mentioned-tribe-mismatch",
+      "split": "heldout",
+      "strategy": "mentioned-tribe",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token. Elves you control get +1/+1.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another Elf: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "mentioned-tribe-ingredient",
+      "split": "heldout",
+      "strategy": "mentioned-tribe",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Elf creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another Elf: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "conditional-token-mismatch",
+      "split": "development",
+      "strategy": "conditional-token",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "If an opponent controls a creature, create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "conditional-token-ingredient",
+      "split": "development",
+      "strategy": "conditional-token",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a 1/1 Soldier creature token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice another creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "recursion-hand-mismatch",
+      "split": "heldout",
+      "strategy": "recursion-hand",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Return target creature card from your graveyard to your hand.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "recursion-hand-ingredient",
+      "split": "heldout",
+      "strategy": "recursion-hand",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Return target creature card from your graveyard to the battlefield.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Sacrifice this creature: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "discard-economy-mismatch",
+      "split": "development",
+      "strategy": "discard-economy",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a Treasure token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Discard a card: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [
+        [
+          "independent",
+          "dependent"
+        ]
+      ],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    },
+    {
+      "id": "discard-economy-ingredient",
+      "split": "development",
+      "strategy": "discard-economy",
+      "document": {
+        "revision": 1,
+        "entries": [
+          {
+            "id": "fixture-commander",
+            "oracle_id": "fixture-commander",
+            "name": "Fixture Commander",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Flying",
+            "color_identity": [
+              "W",
+              "U",
+              "B",
+              "R",
+              "G"
+            ],
+            "is_commander": true
+          },
+          {
+            "id": "provider",
+            "oracle_id": "provider",
+            "name": "Provider",
+            "type_line": "Creature",
+            "mana_value": 2,
+            "mana_cost": "{1}{U}",
+            "oracle_text": "Create a Treasure token.",
+            "color_identity": [],
+            "zone_name": "Library",
+            "quantity": 1
+          }
+        ]
+      },
+      "catalog": [
+        {
+          "id": "dependent",
+          "oracle_id": "dependent",
+          "name": "Dependent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}, Discard a card: Draw a card.",
+          "color_identity": []
+        },
+        {
+          "id": "independent",
+          "oracle_id": "independent",
+          "name": "Independent",
+          "type_line": "Creature \u2014 Elf",
+          "mana_value": 2,
+          "mana_cost": "{1}{U}",
+          "oracle_text": "{2}: Draw a card.",
+          "color_identity": []
+        }
+      ],
+      "args": {
+        "query": "draw",
+        "function": "draw",
+        "limit": 8
+      },
+      "required_ids": [
+        "dependent",
+        "independent"
+      ],
+      "preferred_pairs": [],
+      "facts": [
+        {
+          "card_id": "independent",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1
+        }
+      ]
+    }
+  ]
+}

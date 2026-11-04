@@ -1,0 +1,67 @@
+{
+  "purpose": "Computational augmentation to reduce redundant provider work while preserving evidence and uncertainty",
+  "baseline_runtime_sha": "54ced23af3d707a6dd060d52846a3f3ed036a265",
+  "decision": {
+    "use_now": [
+      "Explicit dependency gate within the existing semantic review",
+      "Compact transport retaining complete claims, parent context, evidence and occurrence offsets",
+      "Complete-cost grammar and conservative progression-scope abstention"
+    ],
+    "defer": [
+      "Learned deck-fit ranker or distillation: insufficient independent adjudicated labels",
+      "Scalar/Pareto pruning across mana, energy, sacrifice, output and timing: incomparable resources and unknown prerequisites",
+      "Smaller-model or confidence bypass of strategy review without a quality evaluation",
+      "ANN or more encoder/model concurrency on the shared 8GB host"
+    ],
+    "retain": [
+      "Semantic selection and strategic comparison",
+      "Full candidate coverage and eligibility checks",
+      "Initial whole-selection semantic review",
+      "One corrective followup when an explicit missing rule has new complete candidate evidence",
+      "Full corrective evidence/context where complete dependency closure is unproved"
+    ]
+  },
+  "contracts": [
+    "Retrieval gaps are typed proposals, never evidence or verdicts. Unspecified, current-state, strategic and reviewer uncertainty do not trigger generic rule searches.",
+    "Missing rule propositions receive query space before long claims. New official text is candidate evidence, never certified entailment.",
+    "Claim IDs, source indices, exact local spans/hashes, protected units, citation membership and correction binding remain authoritative.",
+    "Only opaque claim/parent hashes leave the model wire; occurrence offsets, exact text, full evidence and parent context remain. JSON is minified.",
+    "Skipped corrective work preserves all original judgments, supported fragments, unresolved claims and whole-request fulfillment.",
+    "Unsupported progression/cost forms remain unknown rather than receiving fabricated zero or unconditional graph support. Oracle text is retained.",
+    "New source identity/hash/index diagnostics are append-only. No cross-request semantic verdict cache or training was added."
+  ],
+  "adversarial_review": {
+    "initial": "Three independent Codex architecture/algorithm reviews agreed against unvalidated ML replacement; Claude unavailable.",
+    "wire_r1": "Found duplicate-occurrence ambiguity when offsets removed; fixed by retaining start/end and regression.",
+    "wire_r2": "Cleared exact occurrence/cache-key repro; four focused tests.",
+    "gate_r1": "Found missing proposition truncation and preexisting level-protection edge scope defect; both fixed.",
+    "gate_r2": "No new consequential findings;135 targeted tests, ordinary controls preserved."
+  },
+  "measurement": {
+    "frozen_replay": "frozen-replay.json",
+    "limits": [
+      "Saved Kinnan trace avoids its previously unproductive31.188-second corrective stage; this is a frozen counterfactual, not a live speedup estimate.",
+      "Wire user bytes shrink13.1\u201313.3%; including larger gap system/schema instructions net serialized reduction is about6%. Bytes are not token counts.",
+      "Full fallback currently saves no corrective source/context bytes; no completeness certificate exists.",
+      "No broad strategic quality or no-quality-loss claim established; previous answers remain partial.",
+      "Selection remains a40\u201358-second measured bottleneck in the baseline."
+    ]
+  },
+  "validation": {
+    "focused_passed": 197,
+    "full_suite": {
+      "passed": 4220,
+      "skipped": 34,
+      "warnings": 53,
+      "seconds": 167.79
+    },
+    "static": "Black, Ruff, scoped mypy and diff checks passed"
+  },
+  "external_docs_consulted": [
+    "https://docs.typesafe.ai/llms.txt",
+    "https://docs.typesafe.ai/cookbooks/sde_cascade"
+  ],
+  "jev": "No calls: user previously waitlisted. A typed gate remains a future measured option, not a required dependency.",
+  "qa_diagnostic": "qa-diagnostic.json",
+  "live_acceptance": "Architecture accepted within bounds; quality noninferiority NOT established. New Kinnan answer has material remaining information loss and misleading strategic conclusions."
+}

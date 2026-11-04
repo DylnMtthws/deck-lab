@@ -1,0 +1,805 @@
+[
+  {
+    "id": "dev-01",
+    "split": "development",
+    "archetype": "sacrifice_recursion",
+    "cohort": "repeatable_outlet",
+    "prompt": "Choose a repeatable outlet that sacrifices other creatures; preserve counter setup for Marchesa. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Yawgmoth, Thran Physician",
+        "Harvester of Souls",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "candidate_pool": [
+        "Yawgmoth, Thran Physician",
+        "Harvester of Souls",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "package": [
+        "Marchesa, the Black Rose",
+        "Unspeakable Symbol",
+        "Yawgmoth, Thran Physician"
+      ],
+      "package_question": "Controlled sacrifice plus counter setup enabling Marchesa death returns, with life and fodder required.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Harvester of Souls",
+      "card:Marchesa, the Black Rose",
+      "card:Unspeakable Symbol",
+      "card:Yawgmoth, Thran Physician",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Yawgmoth can sacrifice itself to its first ability."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-02",
+    "split": "development",
+    "archetype": "sacrifice_recursion",
+    "cohort": "missing_component",
+    "prompt": "Choose counter setup for Marchesa; the shell already has a sacrifice outlet. Do not call a pair an autonomous recursion loop. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Marchesa, the Black Rose",
+        "Unspeakable Symbol",
+        "Harvester of Souls"
+      ],
+      "candidate_pool": [
+        "Marchesa, the Black Rose",
+        "Unspeakable Symbol",
+        "Harvester of Souls"
+      ],
+      "package": [
+        "Marchesa, the Black Rose",
+        "Harvester of Souls"
+      ],
+      "package_question": "Autonomous repeated Marchesa recursion with no external counter source or sacrifice outlet.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Harvester of Souls",
+      "card:Marchesa, the Black Rose",
+      "card:Unspeakable Symbol",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Marchesa death return requires the dying creature to have a +1/+1 counter."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-03",
+    "split": "development",
+    "archetype": "sacrifice_recursion",
+    "cohort": "mandatory_trigger",
+    "prompt": "Prefer an outlet usable without spending mana; distinguish optional activation from mandatory upkeep sacrifice. Keep Marchesa setup. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Viscera Seer",
+        "Kami of the Tended Garden",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "candidate_pool": [
+        "Viscera Seer",
+        "Kami of the Tended Garden",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "package": [
+        "Viscera Seer",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "package_question": "Controlled sacrifice plus counter setup enabling delayed Marchesa returns.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Kami of the Tended Garden",
+      "card:Marchesa, the Black Rose",
+      "card:Unspeakable Symbol",
+      "card:Viscera Seer",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Kami upkeep sacrifice is an activated ability you can use whenever you have priority."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-04",
+    "split": "development",
+    "archetype": "sacrifice_recursion",
+    "cohort": "cut_loss",
+    "prompt": "Select death-linked mana production; remove a redundant expensive draw payoff and preserve the only outlet and counter source. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Impulsive Pilferer",
+        "Harvester of Souls",
+        "Yawgmoth, Thran Physician",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "candidate_pool": [
+        "Impulsive Pilferer",
+        "Harvester of Souls",
+        "Yawgmoth, Thran Physician",
+        "Unspeakable Symbol",
+        "Marchesa, the Black Rose"
+      ],
+      "package": [
+        "Impulsive Pilferer",
+        "Harvester of Souls"
+      ],
+      "package_question": "Autonomous repeatable death-recursion engine using only these two cards.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Harvester of Souls",
+      "card:Impulsive Pilferer",
+      "card:Marchesa, the Black Rose",
+      "card:Unspeakable Symbol",
+      "card:Yawgmoth, Thran Physician",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Impulsive Pilferer creates a Treasure when it dies."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-05",
+    "split": "development",
+    "archetype": "spellslinger",
+    "cohort": "copy_vs_cast",
+    "prompt": "Choose repeatable draw for copied instants as well as cast instants. Combat access is absent. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Archmage Emeritus",
+        "Young Pyromancer",
+        "Ponder",
+        "Brainstorm"
+      ],
+      "candidate_pool": [
+        "Archmage Emeritus",
+        "Young Pyromancer",
+        "Ponder",
+        "Brainstorm"
+      ],
+      "package": [
+        "Archmage Emeritus",
+        "Ponder"
+      ],
+      "package_question": "Draw from casting the named cantrip while the creature is present.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Archmage Emeritus",
+      "card:Brainstorm",
+      "card:Ponder",
+      "card:Young Pyromancer",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Young Pyromancer triggers when an instant is copied without being cast."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-06",
+    "split": "development",
+    "archetype": "spellslinger",
+    "cohort": "net_advantage",
+    "prompt": "Choose a repeatable cast/copy draw engine rather than a one-shot cantrip. Evaluate card economy after the spell leaves hand. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Archmage Emeritus",
+        "Ponder",
+        "Brainstorm"
+      ],
+      "candidate_pool": [
+        "Archmage Emeritus",
+        "Ponder",
+        "Brainstorm"
+      ],
+      "package": [
+        "Ponder",
+        "Brainstorm"
+      ],
+      "package_question": "Repeatable draw engine using only the two named spells, without other cards.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Archmage Emeritus",
+      "card:Brainstorm",
+      "card:Ponder",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Brainstorm draws three then puts two cards from hand on top of the library."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-07",
+    "split": "development",
+    "archetype": "spellslinger",
+    "cohort": "interaction_role",
+    "prompt": "Protect an instant/sorcery engine from any spell on the stack; choose broad counter interaction over a noncreature-only alternative. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Counterspell",
+        "Negate",
+        "Archmage Emeritus"
+      ],
+      "candidate_pool": [
+        "Counterspell",
+        "Negate",
+        "Archmage Emeritus"
+      ],
+      "package": [
+        "Counterspell",
+        "Archmage Emeritus"
+      ],
+      "package_question": "Cast interaction that also triggers the existing draw engine.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Archmage Emeritus",
+      "card:Counterspell",
+      "card:Negate",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Negate can target a creature spell."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-08",
+    "split": "development",
+    "archetype": "spellslinger",
+    "cohort": "token_payoff",
+    "prompt": "Choose a cast-triggered token producer, with no promise that it is itself a draw engine; preserve the draw engine. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Young Pyromancer",
+        "Ponder",
+        "Archmage Emeritus"
+      ],
+      "candidate_pool": [
+        "Young Pyromancer",
+        "Ponder",
+        "Archmage Emeritus"
+      ],
+      "package": [
+        "Young Pyromancer",
+        "Archmage Emeritus"
+      ],
+      "package_question": "Complementary token and draw payoffs when other instant/sorcery spells are cast.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Archmage Emeritus",
+      "card:Ponder",
+      "card:Young Pyromancer",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Young Pyromancer creates a token when you cast an instant or sorcery."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-09",
+    "split": "development",
+    "archetype": "mana_activation",
+    "cohort": "optional_cash_in",
+    "prompt": "Choose a two-mana rock that can later cash itself in for a card. Preserve the cheap two-mana-output rock. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Mind Stone",
+        "Thought Vessel",
+        "Sol Ring"
+      ],
+      "candidate_pool": [
+        "Mind Stone",
+        "Thought Vessel",
+        "Sol Ring"
+      ],
+      "package": [
+        "Mind Stone",
+        "Sol Ring"
+      ],
+      "package_question": "Two complementary mana sources, one with an optional one-shot cash-in.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Mind Stone",
+      "card:Sol Ring",
+      "card:Thought Vessel",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Mind Stone draws automatically when it taps for mana."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-10",
+    "split": "development",
+    "archetype": "mana_activation",
+    "cohort": "setup_cost",
+    "prompt": "Choose two mana output from one tap at low setup cost rather than paying four mana up front. Remove the expensive substitute. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Sol Ring",
+        "Hedron Archive",
+        "Mind Stone"
+      ],
+      "candidate_pool": [
+        "Sol Ring",
+        "Hedron Archive",
+        "Mind Stone"
+      ],
+      "package": [
+        "Hedron Archive",
+        "Mind Stone"
+      ],
+      "package_question": "Repeatable draw engine that preserves its own draw-producing permanents.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Hedron Archive",
+      "card:Mind Stone",
+      "card:Sol Ring",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Hedron Archive draw activation costs {2}, tapping, and sacrificing the artifact."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-11",
+    "split": "development",
+    "archetype": "mana_activation",
+    "cohort": "self_sacrifice",
+    "prompt": "Choose a mana rock whose draw cash-in has no mana or tap cost; preserve the shell low-cost ramp. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Commander's Sphere",
+        "Hedron Archive",
+        "Sol Ring"
+      ],
+      "candidate_pool": [
+        "Commander's Sphere",
+        "Hedron Archive",
+        "Sol Ring"
+      ],
+      "package": [
+        "Commander's Sphere",
+        "Sol Ring"
+      ],
+      "package_question": "Complementary ramp sources with a one-shot cash-in.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Commander's Sphere",
+      "card:Hedron Archive",
+      "card:Sol Ring",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Commander's Sphere draw activation requires tapping it."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-12",
+    "split": "development",
+    "archetype": "mana_activation",
+    "cohort": "basic_setup",
+    "prompt": "Choose a creature that can sacrifice itself to find up to two basics; the library contains basics. Distinguish setup from activation cost. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Burnished Hart",
+        "Thought Vessel",
+        "Sol Ring"
+      ],
+      "candidate_pool": [
+        "Burnished Hart",
+        "Thought Vessel",
+        "Sol Ring"
+      ],
+      "package": [
+        "Burnished Hart",
+        "Thought Vessel"
+      ],
+      "package_question": "Repeatable land-ramp recursion engine with no additional cards.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Burnished Hart",
+      "card:Sol Ring",
+      "card:Thought Vessel",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Burnished Hart sacrifice activation costs {3} in addition to sacrificing it."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-13",
+    "split": "development",
+    "archetype": "lands",
+    "cohort": "draw_landfall",
+    "prompt": "Choose mandatory draw plus life for each land entry; no attacks or creature spells are planned. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Tatyova, Benthic Druid",
+        "Lotus Cobra",
+        "Sword of the Animist"
+      ],
+      "candidate_pool": [
+        "Tatyova, Benthic Druid",
+        "Lotus Cobra",
+        "Sword of the Animist"
+      ],
+      "package": [
+        "Tatyova, Benthic Druid",
+        "Rampant Growth"
+      ],
+      "package_question": "Land entry supplied by ramp triggers the landfall draw payoff.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Lotus Cobra",
+      "card:Rampant Growth",
+      "card:Sword of the Animist",
+      "card:Tatyova, Benthic Druid",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Tatyova landfall draw is optional because it says may."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-14",
+    "split": "development",
+    "archetype": "lands",
+    "cohort": "mana_not_draw",
+    "prompt": "Choose immediate mana from a landfall trigger; remove attack-dependent ramp in a shell with no attackers. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Lotus Cobra",
+        "Aesi, Tyrant of Gyre Strait",
+        "Sword of the Animist"
+      ],
+      "candidate_pool": [
+        "Lotus Cobra",
+        "Aesi, Tyrant of Gyre Strait",
+        "Sword of the Animist"
+      ],
+      "package": [
+        "Lotus Cobra",
+        "Rampant Growth"
+      ],
+      "package_question": "Ramp supplies a land entry that triggers the mana payoff.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Aesi, Tyrant of Gyre Strait",
+      "card:Lotus Cobra",
+      "card:Rampant Growth",
+      "card:Sword of the Animist",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Lotus Cobra adds one mana of any color when its landfall trigger resolves."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-15",
+    "split": "development",
+    "archetype": "lands",
+    "cohort": "extra_land_permission",
+    "prompt": "Choose extra land-play permission with landfall draw. Do not confuse putting lands onto battlefield with extra land plays. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Aesi, Tyrant of Gyre Strait",
+        "Cultivate",
+        "Sword of the Animist"
+      ],
+      "candidate_pool": [
+        "Aesi, Tyrant of Gyre Strait",
+        "Cultivate",
+        "Sword of the Animist"
+      ],
+      "package": [
+        "Aesi, Tyrant of Gyre Strait",
+        "Cultivate"
+      ],
+      "package_question": "Ramp supplies both a land entry and a land in hand for extra-land permission.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Aesi, Tyrant of Gyre Strait",
+      "card:Cultivate",
+      "card:Sword of the Animist",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Cultivate grants permission to play an additional land each turn."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "dev-16",
+    "split": "development",
+    "archetype": "lands",
+    "cohort": "missing_attacker",
+    "prompt": "Choose land deployment that works without attackers or creatures to equip. Preserve the landfall draw payoff. Recommend one card, one cut, assess the named package, and answer the factual probe. Discuss cost, setup, and tradeoff. This is a prioritization review: recommend one card to retain or prioritize from the current shell and cut one different card.",
+    "context": {
+      "scope": "Synthetic strategic shell, not a complete Commander deck; assume sufficient colors and legal availability, no unstated components.",
+      "deck": [
+        "Rampant Growth",
+        "Sword of the Animist",
+        "Tatyova, Benthic Druid"
+      ],
+      "candidate_pool": [
+        "Rampant Growth",
+        "Sword of the Animist",
+        "Tatyova, Benthic Druid"
+      ],
+      "package": [
+        "Sword of the Animist",
+        "Tatyova, Benthic Druid"
+      ],
+      "package_question": "Reliable landfall ramp/draw engine when no creature is available to equip or attack.",
+      "package_interpretation": "Assess the named package against this explicit goal; coherent does not mean infinite, autonomous, or unconditional unless the goal says so.",
+      "recommendation_mode": "prioritize_or_retain_from_current_shell"
+    },
+    "evidence_ids": [
+      "card:Rampant Growth",
+      "card:Sword of the Animist",
+      "card:Tatyova, Benthic Druid",
+      "rules:core"
+    ],
+    "claim_questions": [
+      {
+        "id": "probe-1",
+        "assertion": "Sword of the Animist land search requires an equipped creature to attack."
+      }
+    ],
+    "requested": {
+      "recommendations": 1,
+      "cuts": 1,
+      "packages": 1,
+      "topics": [
+        "cost",
+        "setup",
+        "tradeoff"
+      ]
+    }
+  }
+]

@@ -157,7 +157,7 @@
     select = document.createElement("select");
     select.className = "dl-field";
     select.setAttribute("data-generate-pack", "");
-    select.setAttribute("aria-label", "Strategy pack");
+    select.setAttribute("aria-label", "Deck plan");
     var slot = root.querySelector("[data-generate-pack-slot]");
     if (slot) slot.appendChild(select);
     else root.appendChild(select);
@@ -318,11 +318,11 @@
       if (!packId) {
         showFailed(root, {
           error_code: "unsupported",
-          error_detail: "Choose a supported strategy pack."
+          error_detail: "Choose a deck plan."
         });
         return;
       }
-      var payload = { pack_id: packId, flex_slots: 0 };
+      var payload = { pack_id: packId, flex_slots: 0, commander_id: commanderId(root) };
       var focus = intent ? String(intent.value || "").trim() : "";
       if (focus) payload.raw_intent = focus;
       fetch("/lab/build", {

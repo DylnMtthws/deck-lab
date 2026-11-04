@@ -1,0 +1,30 @@
+{% extends "deck_lab/base.html" %}
+{% block title %}Goldfish Lab · Deck Lab{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='deck-lab-goldfish.css') }}">{% endblock %}
+{% block main_class %}dl-goldfish-main{% endblock %}
+{% block content %}
+<div class="gf-page gf-home">
+    <nav class="gf-breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('builder.library') }}">Build</a><span aria-hidden="true">/</span><span aria-current="page">Goldfish Lab</span></nav>
+    <header class="gf-page-head"><div><p class="gf-eyebrow">Deck Lab · Goldfish</p><h1>See how your deck holds together</h1><p class="gf-lede">Run repeatable solo tests, review the traces, and compare small changes against the original deck. These checks measure consistency and coverage, not a multiplayer win rate.</p></div></header>
+    <p class="gf-coverage-warning" role="note">Experimental simulator coverage: only authored card effects are executed. Combos, combat finishes, and complete strategy recovery are not yet measured. Unsupported results are not deck failures.</p>
+    <section class="gf-import-section" aria-labelledby="gf-reference-title">
+        <div class="gf-section-head"><div><p class="gf-eyebrow">Reference decks</p><h2 id="gf-reference-title">Start with a benchmark list</h2></div></div>
+        <div class="gf-reference-grid">
+        {% for reference in references %}
+            <article class="gf-reference-card">
+                <div><p class="gf-eyebrow">{{ reference.commander }}</p><h3>{{ reference.title }}</h3><p>{{ reference.summary or 'User-supplied reference list for diagnostic coverage.' }}</p></div>
+                <dl><div><dt>Mainboard</dt><dd>{{ reference.mainboard_count }}</dd></div><div><dt>Commander</dt><dd>{{ reference.commander_count }}</dd></div>{% if reference.sideboard_count %}<div><dt>Sideboard</dt><dd>{{ reference.sideboard_count }} · excluded from runs</dd></div>{% endif %}</dl>
+                {% if reference.budget == 'unknown' %}<p class="gf-note-pill">Budget unknown</p>{% endif %}
+                {% if reference.primer_url %}<a class="gf-text-link" href="{{ reference.primer_url }}" target="_blank" rel="noopener noreferrer">Read deck primer <span aria-hidden="true">↗</span></a>{% endif %}
+                <form method="post" action="/goldfish/references/{{ reference.id }}" class="gf-import-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="gf-button gf-button-primary" type="submit">Import a copy</button></form>
+            </article>
+        {% else %}
+            <p class="gf-muted">Reference lists are not available right now.</p>
+        {% endfor %}
+        </div>
+    </section>
+    <section class="gf-owned-decks" aria-labelledby="gf-owned-title"><div class="gf-section-head"><div><p class="gf-eyebrow">Your decks</p><h2 id="gf-owned-title">Continue a diagnostic</h2></div><a class="gf-button gf-button-quiet" href="{{ url_for('builder.library') }}">Open deck library</a></div>
+        {% if decks %}<ul class="gf-owned-list">{% for deck in decks %}<li><div><strong>{{ deck.title }}</strong><span>{{ deck.commander_names or 'Commander not set' }}</span></div><a href="/build/deck/{{ deck.id }}/diagnostics">Open report <span aria-hidden="true">→</span></a></li>{% endfor %}</ul>{% else %}<p class="gf-muted">No decks yet. Import a reference list or create one in Build.</p>{% endif %}
+    </section>
+</div>
+{% endblock %}

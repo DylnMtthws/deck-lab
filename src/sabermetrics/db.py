@@ -1507,7 +1507,15 @@ class DeckDocumentSimulationsRepo:
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
 
-    def insert(self, *, deck_id: str, owner_id: str) -> str:
+    def insert(
+        self,
+        *,
+        deck_id: str,
+        owner_id: str,
+        deck_sha256: str = "",
+        revision: int = 0,
+        result_json: str | None = None,
+    ) -> str:
         """Queue one simulation and return its id."""
         simulation_id = new_id()
         created_at = datetime.now(UTC).isoformat(timespec="microseconds")
@@ -1516,8 +1524,16 @@ class DeckDocumentSimulationsRepo:
                 "INSERT INTO deck_document_simulations "
                 "(id, deck_id, owner_id, deck_sha256, revision, status, "
                 "result_json, reason, created_at) "
-                "VALUES (?, ?, ?, '', 0, 'queued', NULL, '', ?)",
-                (simulation_id, deck_id, owner_id, created_at),
+                "VALUES (?, ?, ?, ?, ?, 'queued', ?, '', ?)",
+                (
+                    simulation_id,
+                    deck_id,
+                    owner_id,
+                    deck_sha256,
+                    revision,
+                    result_json,
+                    created_at,
+                ),
             )
             conn.commit()
         return simulation_id
