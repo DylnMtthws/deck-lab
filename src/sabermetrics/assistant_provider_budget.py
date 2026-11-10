@@ -14,6 +14,8 @@ Permits do not reserve dollars.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
 import uuid
 from collections.abc import Callable
@@ -26,6 +28,7 @@ from sabermetrics.cedh.cost_ledger import (
     operation_phase,
     operation_timings,
 )
+from sabermetrics.cedh.model_gateway import GenerationResult, UsageRecord
 
 
 class ProviderOperationCancelled(RuntimeError):
@@ -83,6 +86,50 @@ def admitted_provider_operation():
         yield
 
 
+def _observed_usage(result: Any) -> dict[str, Any]:
+    """Extract explicit provider-receipt totals; missing/default-only usage is unknown.
+
+    The gateway currently defaults absent raw usage to zero. An all-zero record
+    cannot distinguish that case from a genuine zero-token response, so abstain.
+    Provider request identity, rather than wrapper call identity, deduplicates
+    nested observations. This does not settle or estimate financial usage.
+    """
+    if not isinstance(result, GenerationResult) or not isinstance(
+        result.usage, UsageRecord
+    ):
+        return {}
+    record = result.usage
+    names = ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens")
+    if not set(names).issubset(record.model_fields_set):
+        return {}
+    values = {name: getattr(record, name) for name in names}
+    if (
+        any(
+            type(value) is not int or not 0 <= value <= 10**12
+            for value in values.values()
+        )
+        or values["cached_input_tokens"] > values["input_tokens"]
+        or not (
+            values["input_tokens"]
+            + values["output_tokens"]
+            + values["reasoning_tokens"]
+        )
+        or not isinstance(record.request_id, str)
+        or not 1 <= len(record.request_id) <= 200
+        or not record.provider
+        or not record.model_id
+    ):
+        return {}
+    identity = hashlib.sha256(
+        json.dumps(
+            [record.provider, record.model_id, record.request_id],
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    return {"usage_observation_id": identity, "usage_observed": values}
+
+
 class BudgetedGateway:
     """Transparent adapter; no copied ledger, retry policy or provider state.
 
@@ -124,6 +171,7 @@ class BudgetedGateway:
                     "model_id": getattr(self.gateway, "model_id", ""),
                     "phase_timings": phases,
                 }
+                usage_observed: dict[str, Any] = {}
                 try:
                     if self.on_checkpoint:
                         with operation_phase("checkpoint_callback", state="started"):
@@ -142,12 +190,15 @@ class BudgetedGateway:
                             # knows its HTTP transport boundary.
                             with operation_phase("gateway_execution"):
                                 result = self.gateway.generate(request)
+                        usage_observed = _observed_usage(result)
                         check_operation_current()
                         return result
                 finally:
                     if self.on_checkpoint:
                         with operation_phase("checkpoint_callback", state="finished"):
-                            self.on_checkpoint({**event, "state": "finished"})
+                            self.on_checkpoint(
+                                {**event, "state": "finished", **usage_observed}
+                            )
         finally:
             if deferred and previous is None:
                 del _LOCAL.admitted_budget

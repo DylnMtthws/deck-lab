@@ -1,0 +1,65 @@
+{
+  "recorded_at": "2026-11-10T20:41:46.117280+00:00",
+  "scope": "Offline only; no product model calls, data acquisition, server/browser, QA or production deployment",
+  "full_offline_suite": {
+    "passed": 5232,
+    "skipped": 28,
+    "deselected": 12,
+    "seconds": 216.62,
+    "command": "pytest -q -m 'not model and not postgres and not simulator' --disable-warnings --tb=short --maxfail=5",
+    "candidate_note": "Includes Codex findings fixes; before final executor-rejection cleanup and stable finding anchors"
+  },
+  "post_full_suite_targeted": {
+    "passed": 84,
+    "seconds": 4.75,
+    "files": [
+      "tests/test_assistant_events_integration.py",
+      "tests/test_assistant_routes.py",
+      "tests/test_assistant_events_ui.py",
+      "tests/test_build_assistant_sidebar_ui.py"
+    ]
+  },
+  "static": {
+    "mypy_src": "pass",
+    "ruff_src_tests_migration": "pass",
+    "black_src_tests_migration": "pass",
+    "node_syntax": "pass",
+    "git_diff_check": "pass"
+  },
+  "hermetic_regressions": {
+    "intelligence": "pass (26/26 cases, 99/99 checks)",
+    "strategy_development": "pass",
+    "strategy_heldout": "pass",
+    "live_jev_requested": false
+  },
+  "review": {
+    "codex_integrated": "three concrete findings fixed with regression tests",
+    "claude_integrated": "pending"
+  },
+  "limitations": [
+    "Fixture metrics do not measure live end-to-end answers or latency",
+    "No paid paired benchmark or independent expert strategic adjudication",
+    "No browser or assistive-technology session",
+    "No deployment or PR publication"
+  ],
+  "claude_review_followup": {
+    "recorded_at": "2026-11-10T21:08:59.979918+00:00",
+    "full_offline_suite": {
+      "passed": 5254,
+      "skipped": 28,
+      "deselected": 12,
+      "seconds": 216.98,
+      "command": "pytest -q -m 'not model and not postgres and not simulator' --disable-warnings --tb=short --maxfail=5"
+    },
+    "assistant_tests": {
+      "passed": 2538,
+      "skipped": 2
+    },
+    "static": {
+      "ruff_black_changed_files": "pass",
+      "mypy_changed_src": "pass",
+      "node_syntax": "pass"
+    },
+    "journal_overhead": "validation/journal-overhead.json (synthetic, single connection)"
+  }
+}

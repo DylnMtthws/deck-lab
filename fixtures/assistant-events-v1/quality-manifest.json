@@ -1,0 +1,10 @@
+{
+  "schema": "assistant-quality-policy-manifest.v1",
+  "files_sha256": {
+    "quality-cases.json": "c436225117533e3e8bbda054bd0ce904ee73d1751b8ec8d3ea0733a1a451cd6f"
+  },
+  "limitations": [
+    "AI-authored policy cases, not independent expert adjudication.",
+    "No heldout labels or paid run receipts are included."
+  ]
+}

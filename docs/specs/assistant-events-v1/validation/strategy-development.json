@@ -1,0 +1,324 @@
+{
+  "version": "assistant-strategy-report.v1",
+  "split": "development",
+  "suite_sha256": "814c5fdbb13bd5b63a2a8b4fa642731cd282f838e44ddb96bee69463e75c7cfa",
+  "status": "pass",
+  "cases": [
+    {
+      "id": "draw-versus-filtering",
+      "strategy": "generic",
+      "ranked_ids": [
+        "draw-engine",
+        "looter"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "draw-engine",
+          "over": "looter",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "looter",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "filtering",
+          "actual": "filtering",
+          "passed": true
+        },
+        {
+          "card_id": "draw-engine",
+          "path": "suitability.resource_accounting.net_hand_delta_per_activation",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.014826,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "sacrifice-support",
+      "strategy": "aristocrats",
+      "ranked_ids": [
+        "sac-engine",
+        "counter-engine"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "sac-engine",
+          "over": "counter-engine",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "sac-engine",
+          "path": "suitability.resource_accounting.permanent_sacrifice_cost",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.003416,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "counter-support",
+      "strategy": "counters",
+      "ranked_ids": [
+        "counter-engine",
+        "sac-engine"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "counter-engine",
+          "over": "sac-engine",
+          "passed": true
+        }
+      ],
+      "factual_checks": [
+        {
+          "card_id": "counter-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified",
+          "actual": "unverified",
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.001733,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "cheap-casting",
+      "strategy": "tempo",
+      "ranked_ids": [
+        "cheap-draw",
+        "expensive-draw"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "cheap-draw",
+          "over": "expensive-draw",
+          "passed": true
+        }
+      ],
+      "factual_checks": [],
+      "retrieval_ranking_seconds": 0.001671,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "tokens-are-not-nontokens",
+      "strategy": "tokens",
+      "ranked_ids": [
+        "nontoken-engine"
+      ],
+      "candidate_recall": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "nontoken-engine",
+          "path": "suitability.rules_interactions.status",
+          "expected": "unverified",
+          "actual": "unverified",
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.001561,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "spell-hand-accounting",
+      "strategy": "spellslinger",
+      "ranked_ids": [
+        "draw-spell"
+      ],
+      "candidate_recall": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "draw-spell",
+          "path": "suitability.resource_accounting.kind",
+          "expected": "spell_from_hand",
+          "actual": "spell_from_hand",
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.001699,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "commander-damage-engine",
+      "strategy": "cast-damage",
+      "ranked_ids": [
+        "damage-aura",
+        "looter"
+      ],
+      "candidate_recall": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [
+        {
+          "preferred": "damage-aura",
+          "over": "looter",
+          "passed": true
+        }
+      ],
+      "factual_checks": [],
+      "retrieval_ranking_seconds": 0.002038,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    },
+    {
+      "id": "no-invented-mana",
+      "strategy": "resource-poor",
+      "ranked_ids": [
+        "draw-engine"
+      ],
+      "candidate_recall": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "recommendation_pairs": [],
+      "factual_checks": [
+        {
+          "card_id": "draw-engine",
+          "path": "suitability.strategic_judgment.support",
+          "expected": [
+            {
+              "dimension": "mana",
+              "detected_sources": 0,
+              "cards": [],
+              "sources_omitted": 0
+            }
+          ],
+          "actual": [
+            {
+              "dimension": "mana",
+              "detected_sources": 0,
+              "cards": [],
+              "sources_omitted": 0
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "retrieval_ranking_seconds": 0.000945,
+      "jev": {
+        "status": "not_requested",
+        "configured_cost_usd": 0.0
+      },
+      "jev_recommendation_pairs": [],
+      "jev_claim_checks": []
+    }
+  ],
+  "candidate_recall": {
+    "numerator": 13,
+    "denominator": 13,
+    "rate": 1.0
+  },
+  "recommendation_quality_pairs": {
+    "numerator": 5,
+    "denominator": 5,
+    "rate": 1.0
+  },
+  "factual_errors": {
+    "numerator": 0,
+    "denominator": 7,
+    "rate": 0.0
+  },
+  "jev_recommendation_quality_pairs": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "jev_claim_accuracy": {
+    "numerator": 0,
+    "denominator": 0,
+    "rate": null
+  },
+  "unjudged_claims": 2,
+  "jev_comparison": {
+    "status": "not_requested",
+    "baseline_pair_rate": 1.0,
+    "jev_pair_rate": null,
+    "pair_rate_delta": null,
+    "elapsed_seconds": null,
+    "scope": "Shadow overhead and bounded judgment quality; no end-to-end answer speedup is inferred."
+  },
+  "latency": {
+    "retrieval_ranking_p50_seconds": 0.001733,
+    "retrieval_ranking_max_seconds": 0.014826,
+    "end_to_end_answer_seconds": null
+  },
+  "cost": {
+    "configured_usd": 0.0,
+    "live_jev_requested": false
+  },
+  "scope": "Controlled synthetic corpus, exact profile checks and predeclared ordering pairs. Not live narration, broad corpus recall or independent expert certification. Held-out split is consumed for this release once evaluated."
+}

@@ -1,0 +1,13 @@
+{
+  "schema": "assistant-quality-policy-cases.v1",
+  "status": "frozen offline policy regressions; not live answer-quality measurements",
+  "cases": [
+    {"id": "marchesa-discovery", "commander": "Marchesa, the Black Rose", "request": "Find three additional repeatable draw creatures for Marchesa, the Black Rose.", "task_class": "discover", "dimensions": ["eligible_candidates", "casting_and_activation_costs", "repeatability_prerequisites", "deck_interaction", "count_or_supported_shortfall"]},
+    {"id": "kinnan-comparison", "commander": "Kinnan, Bonder Prodigy", "request": "Compare Basalt Monolith and a mana creature in my Kinnan, Bonder Prodigy deck.", "task_class": "compare", "dimensions": ["printed_facts", "setup", "pairwise_tradeoffs", "deck_interaction", "no_invented_measurements"]},
+    {"id": "tayam-win-condition", "commander": "Tayam, Luminous Enigma", "request": "Explain the win conditions in this Tayam, Luminous Enigma deck and each prerequisite.", "task_class": "explain", "dimensions": ["current_deck_membership", "actual_win_condition", "prerequisites", "unsupported_interaction_visible"]},
+    {"id": "zaxara-protected", "commander": "Zaxara, the Exemplary", "request": "Suggest one change to this Zaxara, the Exemplary deck without cutting its protected cards.", "task_class": "swap", "dimensions": ["protected_cards", "eligible_candidate", "loss_and_gain", "no_unreviewed_action"]},
+    {"id": "insufficient-evidence", "commander": "Unknown", "request": "Show the measured win rate of this deck in my local metagame.", "task_class": "explain", "dimensions": ["no_fabricated_measurement", "missing_evidence_visible"]},
+    {"id": "rules-reference", "commander": "None", "request": "What does rule 302.6 say?", "task_class": "explain", "dimensions": ["source_identity", "version", "literal_excerpt", "no_freshness_claim"]},
+    {"id": "followup-scope", "commander": "Marchesa, the Black Rose", "request": "Compare those two without finding additional cards.", "task_class": "compare", "dimensions": ["current_request_scope", "no_carried_discovery_quota"]}
+  ]
+}

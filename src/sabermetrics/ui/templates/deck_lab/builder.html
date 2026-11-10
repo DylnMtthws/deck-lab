@@ -99,7 +99,7 @@
                 </div>
                 <button class="dl-button is-ghost is-sm" type="button" data-assistant-constraints-toggle aria-expanded="false" aria-controls="assistant-constraints" title="Measurement objective, budget, power level, theme and protected cards">Settings</button>
             </div>
-            <p class="dl-assistant-provider" data-assistant-provider hidden role="status"></p>
+            <p class="dl-assistant-provider" data-assistant-provider hidden></p>
             <div class="dl-assistant-scroll" data-assistant-scroll>
             <form class="dl-assistant-constraints" id="assistant-constraints" data-assistant-constraints hidden>
                 <label>Measure improvement in<select class="dl-field" data-assistant-objective aria-describedby="assistant-objective-help">
@@ -124,16 +124,22 @@
                 <button type="button" data-assistant-starter="Find cards that could support this deck's plan. Show catalog-backed options without adding them.">Find cards</button>
                 <button type="button" data-assistant-starter="Explain the latest Goldfish observations, including unknowns and coverage limits.">Explain results</button>
             </div></div>
-                <div class="dl-assistant-transcript" data-assistant-transcript role="log" aria-label="Conversation with Research Assistant" aria-live="polite" aria-relevant="additions text"></div>
+                <div class="dl-assistant-transcript" data-assistant-transcript role="log" aria-label="Conversation with Research Assistant" aria-live="polite" aria-relevant="additions"></div>
                 <div class="dl-assistant-experiments" data-assistant-experiments></div>
                 <div class="dl-assistant-proposals" data-assistant-proposals></div>
             </div>
+            <button class="dl-button is-ghost is-sm dl-assistant-jump" type="button" data-assistant-jump hidden>Jump to latest ↓</button>
             <form class="dl-assistant-composer" data-assistant-composer>
                 <label class="dl-visually-hidden" for="assistant-message">Message the Research Assistant</label>
-                <textarea id="assistant-message" class="dl-field" data-assistant-message maxlength="2000" placeholder="Ask about this deck or request a specific change" required></textarea>
+                <textarea id="assistant-message" class="dl-field" data-assistant-message aria-describedby="assistant-composer-help assistant-steering-help" maxlength="2000" placeholder="Ask about this deck or request a specific change" required></textarea>
+                <small id="assistant-composer-help">Enter to send · Shift+Enter for a new line. Use Send on touch devices.</small>
+                <small id="assistant-steering-help" data-assistant-steering-help hidden>Restarts research using the remaining time and allowance; earlier work may still consume that allowance.</small>
+                <small data-assistant-count hidden aria-live="off"></small>
                 <div class="dl-assistant-composer-actions"><button class="dl-button is-ghost is-sm" type="button" data-assistant-stop hidden>Stop</button><button class="dl-button is-primary is-sm" type="submit" data-assistant-send>Send</button></div>
             </form>
-            <p class="dl-assistant-status" data-assistant-status role="status" aria-live="polite"></p>
+            <p class="dl-assistant-status dl-visually-hidden" data-assistant-status role="status" aria-live="polite" aria-atomic="true"></p>
+            <p class="dl-assistant-status" data-assistant-alert role="alert" aria-atomic="true"></p>
+            <button class="dl-button is-ghost is-sm" type="button" data-assistant-reconnect hidden>Reconnect / refresh status</button>
         </div>
         <div class="dl-assistant-pane" id="assistant-pane-analytics" role="tabpanel" aria-labelledby="assistant-tab-analytics" data-assistant-pane="analytics" hidden>
             <section data-rail-block="curve"><h2 class="dl-eyebrow" id="mana-curve-heading">Mana curve</h2><div class="dl-mana-curve" id="mana-curve"></div></section>

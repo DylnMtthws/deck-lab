@@ -13,9 +13,29 @@
   var experimentsNode = sidebar.querySelector("[data-assistant-experiments]");
   var proposalsNode = sidebar.querySelector("[data-assistant-proposals]");
   var status = sidebar.querySelector("[data-assistant-status]");
+  var publicView = emptyPublicView();
+  var publicClock = null;
+  var clientObservationReceived = new Map();
+  var clientObservationSent = new Map();
+  var activityNode = null;
+  var publicFindingRuns = new Map();
+  var historicalFindingLoads = new Map();
+  var publicAnswerRuns = new Map();
+  var activityTimer = null;
+  var activityLabel = null;
+  var activityDetails = null;
+  var activityHistory = null;
+  var activitySignature = "";
+  var activityAnnounced = "";
+  var timerTick = 0;
+  var connectionLost = false;
+  var pollFailures = 0;
+  var operationalPollStarted = 0;
+  var pageAlive = true;
   var busy = false;
   var sending = false;
   var pendingSubmission = null;
+  var pendingSteering = new Map();
   var sessionEpoch = 0;
   var refreshSequence = 0;
   var sessionRequestSequence = 0;
@@ -51,6 +71,7 @@
   if (scrollSurface || transcript) (scrollSurface || transcript).addEventListener("scroll", function () {
     var surface = scrollSurface || transcript;
     followingLatest = surface.scrollHeight - surface.scrollTop - surface.clientHeight < 72;
+    updateJumpToLatest();
   }, { passive: true });
   proposalsNode.addEventListener("change", function () {
     var checked = proposalsNode.querySelectorAll("[data-replacement]:checked");
@@ -67,6 +88,182 @@
     if (cls) node.className = cls;
     if (text !== undefined && text !== null) node.textContent = String(text);
     return node;
+  }
+  // Public-event reducer deliberately contains no DOM or network operations.
+  // A head snapshot is advisory until all pages/deltas have been applied.
+  function emptyPublicView() {
+    return { runId: null, sequence: 0, run: null, entities: {}, staging: null, operational: {}, history: {} };
+  }
+  function reducePublicEvents(previous, projection) {
+    if (!projection || projection.contract_version !== "assistant.events.v1") return { view: emptyPublicView(), legacy: true };
+    var head = projection.run || {};
+    if (!head.run_id) return { view: emptyPublicView(), legacy: true };
+    var cursor = projection.cursor || {};
+    if (projection.mode === "reset_required") return { view: emptyPublicView(), reset: true };
+    var view = previous && previous.runId === head.run_id ? previous : emptyPublicView();
+    view = Object.assign({}, view, { runId: head.run_id, operational: projection.operational || {}, history: projection.history || {} });
+    if (projection.mode === "snapshot") {
+      var page = projection.snapshot_page || {};
+      if (!Number.isInteger(page.page_index) || !Number.isInteger(page.page_count) || page.page_index < 0 || page.page_count < 1 || page.page_count > 64 || page.page_index >= page.page_count || !Number.isSafeInteger(page.through_sequence) || page.through_sequence < 0 || !page.token) return { view: emptyPublicView(), reset: true };
+      var staging = view.staging;
+      if (!staging || staging.token !== page.token) {
+        if (page.page_index !== 0) return { view: emptyPublicView(), reset: true };
+        staging = { token: page.token, through: page.through_sequence, count: page.page_count, pages: [], bytes: 0, entities: {} };
+      }
+      if (staging.count !== page.page_count || staging.through !== page.through_sequence) return { view: emptyPublicView(), reset: true };
+      if (page.page_index !== staging.pages.length) return { view: emptyPublicView(), reset: true };
+      var bytes = new TextEncoder().encode(JSON.stringify(page)).length;
+      if (bytes > 128 * 1024 || staging.bytes + bytes > 8 * 1024 * 1024) return { view: emptyPublicView(), reset: true };
+      staging.bytes += bytes; staging.pages.push(page.page_index);
+      var invalid = false;
+      Object.keys(page.entities || {}).forEach(function (collection) {
+        if (["answer_blocks", "findings", "claims", "citations", "activity", "steering", "obligations"].indexOf(collection) < 0 || !Array.isArray(page.entities[collection])) { invalid = true; return; }
+        var records = staging.entities[collection] || (staging.entities[collection] = {});
+        page.entities[collection].forEach(function (record) {
+          if (!record || !record.id || record.run_id !== head.run_id) { invalid = true; return; }
+          records[record.id] = record;
+        });
+      });
+      if (invalid) return { view: emptyPublicView(), reset: true };
+      view.staging = staging;
+      if (staging.pages.length < staging.count) return { view: view, page: { token: staging.token, index: staging.pages.length } };
+      view.entities = staging.entities; view.sequence = staging.through; view.staging = null;
+    } else if (projection.mode === "delta") {
+      if (!view.runId || !previous || previous.runId !== head.run_id || cursor.after_sequence !== view.sequence) return { view: emptyPublicView(), reset: true };
+      var entities = Object.assign({}, view.entities);
+      var sequence = view.sequence;
+      var valid = true;
+      (projection.events || []).forEach(function (event) {
+        if (event.run_id !== head.run_id || event.generation !== head.generation) { valid = false; return; }
+        if (event.sequence <= sequence) return; // replay is harmless
+        if (event.sequence !== sequence + 1 || ["run.accepted", "run.started", "run.ended", "activity.started", "activity.finished", "finding.upserted", "finding.withdrawn", "answer.block.upserted", "claim.updated", "steering.received", "steering.applied", "steering.rejected", "stop.requested", "obligation.upserted", "obligations.refined"].indexOf(event.kind) < 0) { valid = false; return; }
+        var payload = event.payload || {};
+        if (payload.collection) {
+          if (["answer_blocks", "findings", "claims", "citations", "activity", "steering", "obligations"].indexOf(payload.collection) < 0 || !payload.entity || !payload.entity.id || payload.entity.run_id !== head.run_id) { valid = false; return; }
+          entities[payload.collection] = Object.assign({}, entities[payload.collection] || {});
+          entities[payload.collection][payload.entity.id] = payload.entity;
+        }
+        sequence = event.sequence;
+      });
+      if (!valid || sequence !== cursor.through_sequence) return { view: emptyPublicView(), reset: true };
+      view.entities = entities; view.sequence = sequence;
+    } else return { view: emptyPublicView(), reset: true };
+    if (!Number.isSafeInteger(head.last_sequence) || view.sequence > head.last_sequence) return { view: emptyPublicView(), reset: true };
+    // Never announce terminal status before final artifacts reach the browser.
+    if (view.sequence === head.last_sequence) view.run = head;
+    return { view: view, more: view.sequence < head.last_sequence };
+  }
+  function expectedTarget(forStop) {
+    var run = publicView.run;
+    return { expected_run_id: run && run.run_id || data.turn_id || null,
+      expected_generation: Number(run && run.generation || researchWorkspace().generation || 0),
+      expected_revision: Number(forStop && run ? run.deck_revision : forStop && data.revision !== undefined ? data.revision : state.revision || 0) };
+  }
+  function elapsedLabel(run, clock, tick) {
+    if (!run || !clock || (["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) >= 0 && !run.ended_at)) return "Timing unavailable";
+    var start = Date.parse(run.budget_started_at || run.accepted_at || "");
+    var end = run.ended_at ? Date.parse(run.ended_at) : clock.server + Math.max(0, tick - clock.tick);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "Timing unavailable";
+    var seconds = Math.floor((end - start) / 1000);
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0") + (run.budget_started_at ? " elapsed" : " attempt elapsed");
+  }
+  function terminalLabel(run) {
+    if (run.lifecycle === "completed") return run.legacy_fulfillment === "nonanswer" ? "No substantive answer" : run.fulfillment === "complete" ? "Answer ready" : run.fulfillment === "partial" ? "Answer incomplete" : "Answer ready · fulfillment not assessed";
+    return ({ failed: "Failed", interrupted: "Interrupted", stopped: "Stopped · published findings retained", superseded: "Superseded", queued: "Queued", running: "Working on your request" })[run.lifecycle] || "Research state unavailable";
+  }
+  function isUsefulPublicFinding(record, runId) {
+    return !!record && record.run_id === runId && typeof record.text === "string" && !!record.text.trim()
+      && ["printed_fact", "rule_excerpt", "unranked_candidate"].indexOf(record.type) >= 0
+      && ["source_rendered", "retrieved_unranked"].indexOf(record.review_state) >= 0
+      && ["withdrawn", "superseded"].indexOf(record.status) < 0 && Array.isArray(record.sources) && record.sources.length > 0;
+  }
+  function publicReceiptTiming(projection, result, tick, previous) {
+    var run = projection && projection.run;
+    if (!run || !run.run_id || result.reset || result.legacy || !Number.isFinite(tick)) return null;
+    var timing = previous && previous.run_id === run.run_id ? Object.assign({}, previous) : {run_id: run.run_id, first_useful: null, terminal: null};
+    var records = projection.mode === "snapshot" ? projection.snapshot_page && projection.snapshot_page.entities && projection.snapshot_page.entities.findings || []
+      : (projection.events || []).filter(function(event){return event.payload && event.payload.collection === "findings";}).map(function(event){return event.payload.entity;});
+    if (timing.first_useful === null && records.some(function(record){return isUsefulPublicFinding(record, run.run_id);})) timing.first_useful = tick;
+    if (timing.terminal === null && result.view.run && result.view.sequence === run.last_sequence && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) >= 0) timing.terminal = tick;
+    return timing;
+  }
+  function clientRenderPayloads(view, timing, tick, rendered) {
+    var run = view && view.run;
+    if (!run || !timing || timing.run_id !== run.run_id || !Number.isFinite(tick)
+        || !Number.isSafeInteger(run.generation) || !Number.isSafeInteger(run.deck_revision)) return [];
+    var output = [];
+    ["first_useful", "terminal"].forEach(function(kind){
+      var received = timing[kind];
+      if (!rendered[kind] || !Number.isFinite(received) || received < 0 || tick < received) return;
+      output.push({run_id: run.run_id, expected_run_id: run.run_id, expected_generation: run.generation,
+        expected_revision: run.deck_revision, clock_domain: "client_monotonic", kind: kind,
+        first_useful: kind === "first_useful", received_to_rendered_seconds: (tick-received)/1000});
+    });
+    return output;
+  }
+  function completePublicAnswers(view) {
+    var run = view && view.run;
+    if (!run || ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) < 0) return [];
+    var groups = new Map();
+    Object.values(view.entities && view.entities.answer_blocks || {}).forEach(function (block) {
+      if (!block || block.run_id !== run.run_id || typeof block.answer_id !== "string" || !block.answer_id || !Number.isSafeInteger(block.answer_version) || block.answer_version < 1) return;
+      var group = groups.get(block.answer_id);
+      if (!group || block.answer_version > group.version) {
+        group = { id: block.answer_id, run_id: run.run_id, version: block.answer_version, hash: block.logical_text_hash, count: block.segment_count, segments: new Map(), invalid: false };
+        groups.set(block.answer_id, group);
+      }
+      if (block.answer_version !== group.version) return;
+      if (typeof block.logical_text_hash !== "string" || !/^[0-9a-f]{64}$/.test(block.logical_text_hash) || block.logical_text_hash !== group.hash || !Number.isSafeInteger(block.segment_count) || block.segment_count < 1 || block.segment_count > 100 || block.segment_count !== group.count || !Number.isSafeInteger(block.segment_index) || block.segment_index < 0 || block.segment_index >= group.count || typeof block.text !== "string" || group.segments.has(block.segment_index)) { group.invalid = true; return; }
+      group.segments.set(block.segment_index, block);
+    });
+    var answers = [];
+    groups.forEach(function (group) {
+      if (group.invalid || group.segments.size !== group.count) return;
+      var parts = [], reviewed = true;
+      for (var index = 0; index < group.count; index += 1) {
+        var block = group.segments.get(index); if (!block) return;
+        parts.push(block.text); if (block.review_state !== "reviewed") reviewed = false;
+      }
+      var text = parts.join("");
+      if (!text.trim() || new TextEncoder().encode(text).length > 1024 * 1024) return;
+      answers.push({ id: group.id, run_id: group.run_id, version: group.version, hash: group.hash, text: text, reviewed: reviewed, anchor_id: "public-answer:" + group.run_id + ":" + group.id });
+    });
+    return answers;
+  }
+  function legacyAnswerMatches(message, answer) {
+    return !!message && message.role === "assistant" && message.run_id === answer.run_id && typeof message.content === "string" && message.content === answer.text;
+  }
+  function showError(message) {
+    var alert = sidebar.querySelector("[data-assistant-alert]");
+    if (alert && alert.textContent !== message) alert.textContent = message;
+  }
+  function clearError() { var alert = sidebar.querySelector("[data-assistant-alert]"); if (alert) alert.textContent = ""; }
+  function updateJumpToLatest() {
+    var jump = sidebar.querySelector("[data-assistant-jump]");
+    if (jump) jump.hidden = followingLatest;
+  }
+  function renderReadableEvidence(host, evidence) {
+    if (!evidence) return;
+    var entries = Array.isArray(evidence) ? evidence : [evidence];
+    entries.slice(0, 12).forEach(function (source) {
+      if (typeof source === "string") { host.appendChild(element("p", source)); return; }
+      if (!source || typeof source !== "object") return;
+      var title = source.title || source.source_kind || source.kind || source.source_type || source.card_name;
+      if (title) host.appendChild(element("strong", title));
+      var quote = source.relevant_excerpt || source.quote || source.excerpt || source.oracle_text || source.text;
+      if (typeof quote === "string") host.appendChild(element("blockquote", quote));
+      var version = source.source_version || source.version || source.source_date;
+      if (version) host.appendChild(element("small", "Captured source: " + version));
+      if (source.truncated || source.truncation) host.appendChild(element("small", "Excerpt is incomplete; inspect the full source before relying on omitted conditions."));
+      var url = safeSourceUrl(source.source_url || source.url);
+      if (url) { var link = element("a", "Open source"); link.href = url; link.target = "_blank"; link.rel = "noopener noreferrer"; host.appendChild(link); }
+      else host.appendChild(element("small", "No public source link recorded."));
+    });
+    var raw = element("details"); raw.appendChild(element("summary", "Raw evidence"));
+    raw.appendChild(element("pre", JSON.stringify(evidence, null, 2))); host.appendChild(raw);
+  }
+  function safeSourceUrl(value) {
+    try { var url = new URL(value); return url.protocol === "https:" && !url.username && !url.password ? url.href : null; } catch (_) { return null; }
   }
   function cardId(card) { return card && (card.id || card.card_id || card.incoming_card_id); }
   function knownCards(extra) {
@@ -180,7 +377,7 @@
   });
   function request(url, options) {
     options = options || {};
-    options.headers = Object.assign({ "Accept": "application/json" }, options.headers || {});
+    options.headers = Object.assign({ "Accept": "application/json", "X-Assistant-Contract": "assistant.events.v1" }, options.headers || {});
     if (options.body) {
       options.headers["Content-Type"] = "application/json";
       options.headers["X-CSRFToken"] = csrf();
@@ -190,6 +387,7 @@
         if (!response.ok) {
           var error = new Error(body.message || body.detail || body.error || "Research Assistant request failed.");
           error.retryNewSubmission = body.retry_new_submission === true;
+          error.httpStatus = response.status;
           throw error;
         }
         return body;
@@ -223,6 +421,7 @@
       if (on && focus) tab.focus();
     });
     settleDeferredScroll();
+    if (name === "chat") reportClientRender();
     try { localStorage.setItem("deck-lab-assistant-tab:" + state.id, name); } catch (_) {}
   }
   function settleDeferredScroll() {
@@ -279,7 +478,7 @@
     sidebar.classList.toggle("is-open", value);
     document.body.classList.toggle("dl-assistant-drawer-open", value);
     syncOpenButton();
-    if (value) settleDeferredScroll();
+    if (value) { settleDeferredScroll(); reportClientRender(); }
     if (value && tabs[0]) tabs[0].focus();
     if (!value && mobileOpen) mobileOpen.focus();
   }
@@ -288,7 +487,7 @@
     else if (railToggle) railToggle.click();
   });
   if (close) close.addEventListener("click", function () { if (isDrawer()) mobile(false); });
-  if (builder && window.MutationObserver) new MutationObserver(function () { syncOpenButton(); settleDeferredScroll(); }).observe(builder, { attributes: true, attributeFilter: ["class"] });
+  if (builder && window.MutationObserver) new MutationObserver(function () { syncOpenButton(); settleDeferredScroll(); reportClientRender(); }).observe(builder, { attributes: true, attributeFilter: ["class"] });
   if (drawerQuery && drawerQuery.addEventListener) drawerQuery.addEventListener("change", syncOpenButton);
   syncOpenButton();
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && sidebar.classList.contains("is-open")) mobile(false); });
@@ -327,7 +526,7 @@
   }
   function steerPayload(action, fields) {
     return Object.assign({ expected_revision: Number(state.revision || 0), expected_generation: Number(researchWorkspace().generation || 0),
-      action: action, client_request_id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "steer-" + Date.now() + "-" + Math.random().toString(36).slice(2) }, fields || {});
+      expected_run_id: expectedTarget(false).expected_run_id, action: action, client_request_id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "steer-" + Date.now() + "-" + Math.random().toString(36).slice(2) }, fields || {});
   }
   function acceptSession(next, sequence) {
     var incoming = next && next.session || next || {};
@@ -342,7 +541,10 @@
     }
     sessionEpoch += 1;
     acceptedSessionSequence = Math.max(acceptedSessionSequence, sequence);
+    if (publicView.runId && incoming.turn_id && publicView.runId !== incoming.turn_id) { publicView = emptyPublicView(); publicClock = null; }
     data = Object.assign({}, data, incoming);
+    connectionLost = false; pollFailures = 0;
+    clearError();
     render();
     return true;
   }
@@ -350,10 +552,34 @@
     if (!acceptSession(next, sequence)) throw new Error("Research changed before this acknowledgment arrived. Your draft has been kept; review the current research before trying again.");
   }
   function steer(action, fields) {
+    fields = fields || {};
+    // A repeated control click after an uncertain response must replay the
+    // original identity AND target, even if a poll found its replacement run.
+    var semantic = {};
+    Object.keys(fields).sort().forEach(function (key) {
+      if (key.indexOf("expected_") !== 0) semantic[key] = fields[key];
+    });
+    var key = JSON.stringify([action, semantic]);
+    var pending = pendingSteering.get(key);
+    if (!pending) {
+      if (pendingSteering.size >= 100) return Promise.reject(new Error("Resolve earlier research updates before sending more changes."));
+      pending = { body: JSON.stringify(steerPayload(action, fields)), promise: null };
+      pendingSteering.set(key, pending);
+    }
+    if (pending.promise) return pending.promise;
     var sequence = ++sessionRequestSequence;
-    return request(base + "/steer", { method: "POST", body: JSON.stringify(steerPayload(action, fields)) })
-      .then(function (next) { acceptMutation(next, sequence); status.textContent = "Research update acknowledged."; progressShown = status.textContent; return refresh(); })
-      .catch(function (error) { status.textContent = error.message; throw error; });
+    pending.promise = request(base + "/steer", { method: "POST", body: pending.body })
+      .then(function (next) {
+        acceptMutation(next, sequence);
+        pendingSteering.delete(key);
+        status.textContent = action === "pin" || action === "unpin" ? "Finding display updated." : action === "retry" ? "New research attempt accepted." : "Research restarted with your instruction using the remaining time and allowance.";
+        progressShown = status.textContent; return refresh();
+      })
+      .catch(function (error) {
+        if (error.retryNewSubmission || (error.httpStatus >= 400 && error.httpStatus < 500 && error.httpStatus !== 408)) pendingSteering.delete(key);
+        showError(error.message); throw error;
+      }).finally(function () { pending.promise = null; });
+    return pending.promise;
   }
   function workspaceDisclosure(title) {
     var details = element("details"); details.appendChild(element("summary", title));
@@ -407,7 +633,7 @@
       var id = String(claim.claim_id || "claim-" + index); ids.add(id);
       var part = record.claimNodes.get(id);
       if (!part) { part = workspaceDisclosure("Claim evidence"); record.claimNodes.set(id, part); record.claims.appendChild(part.node); }
-      var claimStatus = claim.correction_applied && claim.status === "contradicted" ? "corrected" : ["supported", "unverified", "contradicted", "withdrawn", "superseded"].indexOf(claim.status) >= 0 ? claim.status : "unverified";
+      var claimStatus = ["supported", "unverified", "contradicted", "withdrawn", "superseded"].indexOf(claim.status) >= 0 ? claim.status : "unverified";
       var title = claimStatus.charAt(0).toUpperCase() + claimStatus.slice(1) + ": " + (claim.text || "Claim");
       if (part.node.firstChild.textContent !== title) part.node.firstChild.textContent = title;
       part.node.dataset.claimStatus = claimStatus;
@@ -415,7 +641,7 @@
         body.appendChild(element("p", claimStatus === "supported" ? "Supported by supplied evidence; this does not establish a recommendation." : claimStatus === "corrected" ? "The original statement was contradicted. This is the reviewed correction; inspect its evidence." : claimStatus === "contradicted" ? "This claim conflicts with supplied evidence. Do not rely on it." : claimStatus === "withdrawn" || claimStatus === "superseded" ? "This finding is no longer current. Do not rely on its previous assessment." : "This claim has not been established."));
         if (claim.correction_applied && claim.original_text) body.appendChild(element("p", "Original statement: " + claim.original_text));
         if (claim.reason) body.appendChild(element("p", claim.reason));
-        if (claim.evidence) body.appendChild(element("pre", typeof claim.evidence === "string" ? claim.evidence : JSON.stringify(claim.evidence, null, 2)));
+        if (claim.evidence) renderReadableEvidence(body, claim.evidence);
       });
     });
     record.claimNodes.forEach(function (part, id) { if (!ids.has(id)) { part.node.remove(); record.claimNodes.delete(id); } });
@@ -427,7 +653,7 @@
         body.appendChild(element("p", "Version " + entry.version + ": " + (entry.reason || "Updated")));
         (entry.claims || []).forEach(function (claim) {
           body.appendChild(element("p", "Previous finding (" + (claim.previous_status || claim.status || "unverified") + "): " + (claim.text || "")));
-          if (claim.evidence) body.appendChild(element("pre", typeof claim.evidence === "string" ? claim.evidence : JSON.stringify(claim.evidence, null, 2)));
+          if (claim.evidence) renderReadableEvidence(body, claim.evidence);
         });
       });
     });
@@ -453,12 +679,12 @@
     if (!workspaceNode) {
       workspaceNode = element("section", null, "dl-research-workspace"); workspaceNode.setAttribute("aria-label", "Research workspace");
       workspaceNode.appendChild(element("h3", "Research"));
-      workspaceBadge = element("p", "", "dl-research-badge"); workspaceBadge.setAttribute("role", "status"); workspaceNode.appendChild(workspaceBadge);
+      workspaceBadge = element("p", "", "dl-research-badge");  workspaceNode.appendChild(workspaceBadge);
       var receipt = workspaceDisclosure("Request receipt · edit request"); workspaceNode.appendChild(receipt.node);
       var requestLabel = element("label", "Captured request");
       workspaceRequest = element("textarea"); workspaceRequest.rows = 3; requestLabel.appendChild(workspaceRequest); receipt.body.appendChild(requestLabel);
       workspaceReceipt = element("p"); receipt.body.appendChild(workspaceReceipt);
-      var edit = element("button", "Send revised request", "dl-button is-sm"); edit.type = "button";
+      var edit = element("button", "Restart with this instruction", "dl-button is-sm"); edit.type = "button";
       edit.addEventListener("click", function () { if (!workspaceRequest.value.trim()) return; edit.disabled = true; steer("message", { message: workspaceRequest.value.trim() }).catch(function () {}).finally(function () { edit.disabled = false; }); }); receipt.body.appendChild(edit);
       workspaceRetry = element("button", "Retry research", "dl-button is-sm"); workspaceRetry.type = "button";
       workspaceRetry.addEventListener("click", function () { workspaceRetry.disabled = true; steer("retry").catch(function () {}).finally(function () { workspaceRetry.disabled = false; }); }); workspaceNode.appendChild(workspaceRetry);
@@ -1034,6 +1260,15 @@
   }
   function renderMessages() {
     if (!transcript) return;
+    function latestItem() {
+      var items = Array.prototype.filter.call(transcript.children, function (node) { return !node.dataset || node.dataset.assistantProcessing !== "true"; });
+      return items[items.length - 1] || null;
+    }
+    function appendConversation(node) {
+      var last = transcript.lastElementChild;
+      if (last && last.dataset && last.dataset.assistantProcessing === "true") transcript.insertBefore(node, last);
+      else transcript.appendChild(node);
+    }
     var messages = data.messages || [];
     var workspaceMode = !!(data.research_workspace && Array.isArray(data.research_workspace.cards) && data.research_workspace.cards.length);
     var signature = JSON.stringify([workspaceMode, messages]);
@@ -1059,7 +1294,7 @@
       var message = messages[cursor];
       var role = ["user", "assistant", "tool"].indexOf(message.role) >= 0 ? message.role : "tool";
       if (role === "tool") {
-        var group = transcript.lastElementChild;
+        var group = latestItem();
         var activity = group && group.classList.contains("dl-assistant-activity") ? group.querySelector("details") : null;
         if (!activity) {
           group = element("article", null, "dl-assistant-message dl-assistant-activity"); group.dataset.role = "tool";
@@ -1068,7 +1303,7 @@
           var before = messages[cursor - 1];
           activity.dataset.disclosureKey = "activity:" + (before && before.id || "start");
           activity.appendChild(element("summary", "Research activity"));
-          group.appendChild(activity); transcript.appendChild(group);
+          group.appendChild(activity); appendConversation(group);
         }
         var toolMessages = [];
         var end = cursor;
@@ -1104,23 +1339,26 @@
       var article = element("article", null, "dl-assistant-message");
       article.dataset.role = role;
       article.dataset.messageIds = message && message.id || "";
+      if (role === "assistant") publicAnswerRuns.forEach(function (group) {
+        group.answers.forEach(function (record) { if (legacyAnswerMatches(message, record.answer)) article.dataset.messageIds += " " + record.answer.anchor_id; });
+      });
       article.setAttribute("aria-label", role === "assistant" ? "Research Assistant reply" : "Your message");
       appendReply(article, message);
       appendStructuredPresentation(article, message);
-      transcript.appendChild(article);
+      appendConversation(article);
       if (role === "assistant" && !previousIds.has(message && message.id || null)) newReply = article;
       renderedMessageIds.push(message && message.id || null);
       renderedMessageCount += 1;
       cursor += 1;
     }
-    if (newReply !== transcript.lastElementChild) newReply = null;
+    if (newReply !== latestItem()) newReply = null;
     if (openKeys.size) transcript.querySelectorAll("details[data-disclosure-key]").forEach(function (details) { details.open = openKeys.has(details.dataset.disclosureKey); });
     renderedMessageSignature = signature;
     syncActivities();
     refreshChartStaleness();
     if (!surface.clientHeight) {
       // Hidden tab: nothing can be measured. Settle the position when chat is shown.
-      if (followingLatest) { deferredScroll = true; deferredReply = newReply || (deferredReply === transcript.lastElementChild ? deferredReply : null); }
+      if (followingLatest) { deferredScroll = true; deferredReply = newReply || (deferredReply === latestItem() ? deferredReply : null); }
       return;
     }
     if (!workspaceMode) scrollTranscript(surface, newReply, anchor);
@@ -1152,8 +1390,10 @@
   function syncActivities() {
     if (!transcript) return;
     var groups = transcript.querySelectorAll(".dl-assistant-activity > details");
+    var conversation = Array.prototype.filter.call(transcript.children, function (node) { return !node.dataset || node.dataset.assistantProcessing !== "true"; });
+    var latest = conversation[conversation.length - 1];
     Array.prototype.forEach.call(groups, function (activity) {
-      var live = (data.research_workspace ? ["queued", "running"].indexOf(data.research_workspace.job && data.research_workspace.job.state || data.research_workspace.status) >= 0 : !!data.busy) && activity.parentNode === transcript.lastElementChild;
+      var live = (data.research_workspace ? ["queued", "running"].indexOf(data.research_workspace.job && data.research_workspace.job.state || data.research_workspace.status) >= 0 : !!data.busy) && activity.parentNode === latest;
       var waiting = Array.prototype.slice.call(activity.querySelectorAll("[data-pending-tool]"));
       var finished = Number(activity.dataset.finishedCount || 0);
       var parts = ["Research activity"];
@@ -1243,7 +1483,7 @@
       try { ensureDeckSaved(); } catch (error) { status.textContent = error.message; button.disabled = false; return; }
       request(base + "/apply", { method: "POST", body: JSON.stringify({ replacements: replacements, expected_revision: Number(state.revision || 0) }) })
         .then(function (result) { status.textContent = "Selected swaps applied. Review the updated deck, then rerun Goldfish."; return acceptUpdatedDocument(result); })
-        .catch(function (error) { status.textContent = error.message; button.disabled = false; });
+        .catch(function (error) { showError(error.message); button.disabled = false; });
     });
     proposalsNode.appendChild(button);
     button.disabled = true;
@@ -1369,7 +1609,7 @@
           request(base + "/experiments/" + encodeURIComponent(experiment.id) + "/adopt", {
             method: "POST", body: JSON.stringify({ alternative_id: alternative.id, expected_revision: Number(state.revision || 0) })
           }).then(function (updated) { status.textContent = "Alternative adopted. The update is in the deck history and can be undone."; return acceptUpdatedDocument(updated); })
-            .catch(function (error) { status.textContent = error.message; adopt.disabled = false; });
+            .catch(function (error) { showError(error.message); adopt.disabled = false; });
         });
         section.appendChild(adopt); card.appendChild(section);
       });
@@ -1380,18 +1620,188 @@
     if (focused) Array.prototype.find.call(experimentsNode.querySelectorAll("[data-experiment-focus]"), function (button) { return button.dataset.experimentFocus === focused; })?.focus();
     renderedExperimentSignature = signature;
   }
+  function publicRecords(collection) { return Object.values(publicView.entities[collection] || {}); }
+  function renderPublicFindings(viewOverride) {
+    var view = viewOverride || publicView;
+    var run = view.run;
+    var findings = Object.values(view.entities.findings || {});
+    if (run && findings.length) {
+      var group = publicFindingRuns.get(run.run_id);
+      if (!group) {
+        var section = element("section", null, "dl-assistant-grounded-findings"); section.dataset.assistantProcessing = "true"; section.dataset.messageIds = "public-findings:" + run.run_id;
+        var heading = element("h3", "Retrieved findings · final answer still separate"); section.appendChild(heading);
+        group = { node: section, heading: heading, records: new Map(), generation: run.generation }; publicFindingRuns.set(run.run_id, group);
+        if (run.lifecycle === "superseded") heading.textContent = "Superseded findings · research restarted";
+        else if (viewOverride) heading.textContent = "Earlier retrieved findings · inspect their source limitations";
+        var later = Array.from(publicFindingRuns.values()).sort(function(a,b){return a.generation-b.generation;}).find(function(g){return g.generation > run.generation && g.node.parentNode === transcript;});
+        if (later) transcript.insertBefore(section,later.node);
+      }
+      findings.forEach(function (finding) {
+        var record = group.records.get(finding.id);
+        var signature = JSON.stringify(finding);
+        if (record && record.signature === signature) return;
+        if (!record) { record = {node: element("article", null, "dl-assistant-partial-finding")}; group.records.set(finding.id, record); group.node.appendChild(record.node); }
+        var opened = record.node.querySelector && record.node.querySelector("details"); var wasOpen = !!(opened && opened.open);
+        record.node.replaceChildren(); record.signature = signature;
+        record.node.appendChild(element("strong", finding.type === "unranked_candidate" ? "Retrieved candidate · unranked" : finding.type === "rule_excerpt" ? "Retrieved rule excerpt" : "Captured printed fact"));
+        var retiredStatus = ["withdrawn", "superseded"].indexOf(finding.status) >= 0 ? finding.status : ["withdrawn", "superseded"].indexOf(finding.review_state) >= 0 ? finding.review_state : null;
+        record.node.dataset.findingStatus = retiredStatus || "current";
+        if (retiredStatus) record.node.appendChild(element("p", "This finding is " + retiredStatus + "; do not rely on its earlier assessment."));
+        record.node.appendChild(element("p", finding.text || "Finding unavailable"));
+        record.node.appendChild(element("small", "Deck revision " + (finding.deck_revision === undefined ? run.deck_revision : finding.deck_revision) + " · source retrieval is not strategic approval."));
+        (finding.limitations || []).forEach(function (text) { record.node.appendChild(element("small", text)); });
+        var sources = element("details"); sources.open = wasOpen; sources.appendChild(element("summary", "Sources and limitations"));
+        renderReadableEvidence(sources, finding.sources || []); record.node.appendChild(sources);
+      });
+    }
+    if (run && run.steered_from_run_id && publicFindingRuns.has(run.steered_from_run_id)) publicFindingRuns.get(run.steered_from_run_id).heading.textContent = "Superseded findings · research restarted";
+    while (publicFindingRuns.size > 8) { var key = Array.from(publicFindingRuns.keys()).filter(function(id){return id!==publicView.runId;}).sort(function(a,b){return (publicFindingRuns.get(a).generation||0)-(publicFindingRuns.get(b).generation||0);})[0]; var retired = publicFindingRuns.get(key); if (retired.node.parentNode) retired.node.remove(); publicFindingRuns.delete(key); }
+    Array.from(publicFindingRuns.values()).sort(function(a,b){return (a.generation||0)-(b.generation||0);}).forEach(function (group) {
+      if (group.node.parentNode !== transcript) transcript.appendChild(group.node);
+    });
+  }
+  function renderPublicAnswers() {
+    if (!transcript) return;
+    var run = publicView.run;
+    var answers = completePublicAnswers(publicView);
+    var surface = scrollSurface || transcript;
+    var anchor = surface && !followingLatest ? transcriptAnchor(surface) : null;
+    var changed = false, newReply = null;
+    if (run && publicAnswerRuns.has(run.run_id)) {
+      var present = new Set(answers.map(function (answer) { return answer.id; }));
+      var previous = publicAnswerRuns.get(run.run_id);
+      previous.answers.forEach(function (record, id) {
+        if (!present.has(id)) { if (record.node.parentNode) record.node.remove(); previous.answers.delete(id); changed = true; }
+      });
+    }
+    if (run && answers.length) {
+      var group = publicAnswerRuns.get(run.run_id);
+      if (!group) { group = { run_id: run.run_id, answers: new Map() }; publicAnswerRuns.set(run.run_id, group); }
+      answers.forEach(function (answer) {
+        var record = group.answers.get(answer.id);
+        if (!record) {
+          var article = element("article", null, "dl-assistant-message");
+          article.dataset.role = "assistant"; article.dataset.assistantProcessing = "true";
+          article.dataset.messageIds = answer.anchor_id;
+          article.setAttribute("aria-label", "Research Assistant reply");
+          record = {node: article, signature: null, answer: answer}; group.answers.set(answer.id, record);
+        }
+        var signature = JSON.stringify(answer);
+        if (record.signature !== signature) {
+          record.node.replaceChildren(); record.answer = answer; record.signature = signature;
+          var body = element("div", null, "dl-assistant-prose");
+          appendMarkdown(body, answer.text, []); record.node.appendChild(body);
+          record.node.appendChild(element("small", answer.reviewed ? "Review receipts available; inspect claim verdicts and sources." : "Final answer · claim review incomplete or unavailable."));
+          record.node.appendChild(element("small", "Deck revision " + run.deck_revision + "."));
+          changed = true;
+        }
+      });
+    }
+    publicAnswerRuns.forEach(function (group) {
+      group.answers.forEach(function (record) {
+        var inLegacy = (data.messages || []).some(function (message) { return legacyAnswerMatches(message, record.answer); });
+        if (inLegacy) {
+          if (record.node.parentNode === transcript) { record.node.remove(); changed = true; }
+        } else if (record.node.parentNode !== transcript) { transcript.appendChild(record.node); changed = true; newReply = record.node; }
+        record.node.dataset.superseded = run && run.steered_from_run_id === group.run_id ? "true" : "false";
+      });
+    });
+    while (publicAnswerRuns.size > 8) {
+      var key = publicAnswerRuns.keys().next().value;
+      publicAnswerRuns.get(key).answers.forEach(function (record) { if (record.node.parentNode) record.node.remove(); });
+      publicAnswerRuns.delete(key); changed = true;
+    }
+    if (changed && surface && surface.clientHeight) scrollTranscript(surface, newReply, anchor);
+  }
+  function renderActivity() {
+    var run = publicView.run;
+    if (!run && !data.turn_id) return;
+    if (!activityNode) {
+      activityNode = element("details", null, "dl-assistant-processing");
+      activityNode.dataset.assistantProcessing = "true"; activityNode.setAttribute("aria-live", "off"); activityNode.open = true;
+      var summary = element("summary");
+      var dot = element("span", "", "dl-assistant-processing-dot"); dot.setAttribute("aria-hidden", "true"); summary.appendChild(dot);
+      activityLabel = element("span"); summary.appendChild(activityLabel);
+      activityTimer = element("span", "", "dl-assistant-elapsed"); activityTimer.setAttribute("aria-hidden", "true"); summary.appendChild(activityTimer);
+      activityNode.appendChild(summary);
+      activityDetails = element("div", null, "dl-assistant-processing-details"); activityNode.appendChild(activityDetails);
+      activityHistory = element("ol"); activityDetails.appendChild(activityHistory);
+      activityNode.addEventListener("toggle", updateActivityTimer);
+    }
+    if (activityNode.parentNode !== transcript || transcript.lastElementChild !== activityNode) transcript.appendChild(activityNode);
+    var lifecycle = run ? run.lifecycle : researchWorkspace().job && researchWorkspace().job.state || (data.busy ? "running" : "completed");
+    var active = ["queued", "running"].indexOf(lifecycle) >= 0;
+    var label = run ? terminalLabel(run) : active ? (lifecycle === "queued" ? "Queued" : "Working on your request") : "Research ended · review details below";
+    var operations = publicRecords("activity");
+    var current = operations.filter(function (operation) { return operation.state === "started"; }).pop();
+    if (lifecycle === "running" && current && typeof current.label === "string") label = current.label;
+    if (active && !current && lifecycle !== "queued") label = progressText(data.messages, { chatBusy: true }).replace(/ · \d+ steps? finished/g, "") || label;
+    if (stopRequested && active) label = "Requesting stop…";
+    if (connectionLost) label = active ? "Connection lost; research may still be running" : "Updates unavailable; last confirmed: " + label;
+    var suffix = run ? " · evidence review " + ({ reviewed: "complete; inspect verdicts", partial: "partial", unavailable: "unavailable", not_started: "not started" }[run.evidence_status] || "unknown") : "";
+    if (run && run.fulfillment === "partial" && !active) suffix += " · request fulfillment partial";
+    var announcement = label + (active ? "" : suffix);
+    if (activityLabel.textContent !== announcement) activityLabel.textContent = announcement;
+    activityNode.dataset.active = active && !connectionLost ? "true" : "false";
+    if (!active && activityNode.dataset.lifecycle !== lifecycle) activityNode.open = false;
+    activityNode.dataset.lifecycle = lifecycle;
+    if (activityNode.dataset.runId !== String(run && run.run_id || data.turn_id)) {
+      activityNode.open = active; activityNode.dataset.runId = String(run && run.run_id || data.turn_id);
+    }
+    var details = [];
+    if (publicView.history_load_error) details.push("Earlier findings could not be loaded. Reconnect to retry; current research is unaffected.");
+    if (publicView.history && publicView.history.compacted) details.push("Earlier activity unavailable · " + Number(publicView.history.compacted_event_count || 0) + " event records compacted. Retained findings remain available.");
+    if (run && run.steered_from_run_id) {
+      var restarted = Date.parse(run.accepted_at || "");
+      details.push((Number.isFinite(restarted) ? "Restarted at " + new Date(restarted).toLocaleString() : "Restart time unavailable") + " · using the original deadline and allowance. Earlier findings remain superseded.");
+    }
+    if (run && run.fulfillment === "unknown" && typeof run.fulfillment_reason === "string") details.push(run.fulfillment_reason);
+    if (run && run.lifecycle === "stopped") details.push("An in-flight request may finish in the background and will be discarded.");
+    if (publicView.operational.cost_pending) details.push("Cost pending; unknown usage remains reserved.");
+    if (publicView.operational.background_work_pending) details.push("Previously started work may still occupy a worker.");
+    operations.forEach(function (operation) { details.push((operation.label || "Research activity") + " · " + (operation.state || "unknown")); });
+    if (!operations.length) {
+      currentTurn(data.messages || []).filter(function (message) { return message.role === "tool"; }).forEach(function (message) { details.push(toolLabel(message.action || {}) + (message.action && message.action.type === "tool_started" ? " · started" : " · result recorded")); });
+    }
+    var signature = JSON.stringify(details);
+    if (signature !== activitySignature) { activityHistory.replaceChildren(); details.forEach(function (text) { activityHistory.appendChild(element("li", text)); }); activitySignature = signature; }
+    if (announcement !== activityAnnounced) {
+      showProgress(announcement); activityAnnounced = announcement;
+    }
+    var reconnect = sidebar.querySelector("[data-assistant-reconnect]");
+    if (reconnect) { reconnect.hidden = !connectionLost && !publicView.history_load_error && !publicView.operational.background_work_pending && !publicView.operational.cost_pending; reconnect.textContent = connectionLost ? "Reconnect" : "Refresh pending status"; }
+    updateActivityTimer();
+    if (active && !timerTick && pageAlive) timerTick = window.setInterval(updateActivityTimer, 1000);
+    if (!active && timerTick) { window.clearInterval(timerTick); timerTick = 0; }
+    updateJumpToLatest();
+  }
+  function updateActivityTimer() {
+    if (!activityTimer) return;
+    var run = publicView.run;
+    var terminal = run && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) >= 0;
+    activityTimer.hidden = !activityNode.open && !terminal;
+    if (activityTimer.hidden) return;
+    var text = elapsedLabel(publicView.run, publicClock, performance.now());
+    if (activityTimer.textContent !== text) activityTimer.textContent = text;
+  }
+  function needsOperationalPoll() {
+    if (!publicView.run || ["queued", "running"].indexOf(publicView.run.lifecycle) >= 0 || (!publicView.operational.background_work_pending && !publicView.operational.cost_pending)) { operationalPollStarted = 0; return false; }
+    if (!operationalPollStarted) operationalPollStarted = performance.now();
+    return !document.hidden && performance.now() - operationalPollStarted < 60000;
+  }
   function render() {
     renderSettings(); renderWorkspace(); renderMessages(); renderProposals(); renderExperiments();
     var welcome = sidebar.querySelector("[data-assistant-welcome]");
     if (welcome) welcome.hidden = (data.messages || []).length > 0;
     var experimentsRunning = (data.experiments || []).some(function (item) { return ["queued", "running"].indexOf(item.status) >= 0; });
     busy = (data.research_workspace ? researchRunning() : !!data.busy) || experimentsRunning;
-    var send = sidebar.querySelector("[data-assistant-send]"); if (send) { send.disabled = sending; send.textContent = busy ? "Send steering" : "Send"; }
+    var send = sidebar.querySelector("[data-assistant-send]"); if (send) { send.disabled = sending; send.textContent = busy ? "Restart with this instruction" : "Send"; }
     var stop = sidebar.querySelector("[data-assistant-stop]"); if (stop) stop.hidden = !busy;
     syncActivities();
     if (!busy) stopRequested = false;
-    showProgress(data.research_workspace ? (stopRequested && busy ? "Stopping after the current step…" : "") : progressText(data.messages, { chatBusy: !!data.busy, experimentsRunning: experimentsRunning, stopping: stopRequested, startedAt: data.started_at, now: Date.now() / 1000 }));
-    if (busy) schedulePoll();
+    var helper = sidebar.querySelector("[data-assistant-steering-help]"); if (helper) helper.hidden = !busy;
+    renderPublicFindings(); renderPublicAnswers(); renderActivity();
+    if (busy || needsOperationalPoll()) schedulePoll();
     else if (pollTimer) { window.clearTimeout(pollTimer); pollTimer = 0; }
   }
   function showProgress(text) {
@@ -1401,27 +1811,113 @@
     if (text) { if (owned) { if (status.textContent !== text) status.textContent = text; progressShown = text; } }
     else if (progressShown) { if (status.textContent === progressShown) status.textContent = ""; progressShown = ""; }
   }
+  function publicUrl(view, page, historicalRunId) {
+    var query = new URLSearchParams({ contract: "assistant.events.v1" });
+    if (historicalRunId) query.set("run_id",historicalRunId);
+    else query.set("follow_current","1");
+    if (page) { query.set("snapshot_token", page.token); query.set("page_index", page.index); }
+    else if (view.runId && !view.staging) { if (!historicalRunId) query.set("run_id", view.runId); query.set("after_sequence", view.sequence); }
+    return base + "?" + query.toString();
+  }
+  function readPublicReply(next, view, depth, historicalRunId, receiptTiming) {
+    var receivedTick = performance.now();
+    var projection = next && (next.public_events || next.session && next.session.public_events);
+    if (!projection) return Promise.resolve({ next: next, view: emptyPublicView(), clock: null });
+    if (historicalRunId && (!projection.run || projection.run.run_id !== historicalRunId)) throw new Error("Historical research identity changed.");
+    var result = reducePublicEvents(view, projection);
+    var timing = historicalRunId ? null : publicReceiptTiming(projection,result,receivedTick,receiptTiming);
+    if (depth >= 128) throw new Error("Research updates could not be synchronized. Reconnect to refresh state.");
+    if (result.legacy) return Promise.resolve({ next: next, view: result.view, clock: null });
+    if (result.reset) {
+      if (depth > 1 && !view.runId) throw new Error("Research updates unavailable. Reconnect to refresh state.");
+      return request(publicUrl(emptyPublicView(),null,historicalRunId)).then(function (reply) { return readPublicReply(reply, emptyPublicView(), depth + 1,historicalRunId,null); });
+    }
+    if (result.page || result.more) return request(publicUrl(result.view, result.page,historicalRunId)).then(function (reply) { return readPublicReply(reply, result.view, depth + 1,historicalRunId,timing); });
+    var time = Date.parse(projection.server_time || "");
+    return Promise.resolve({ next: next, view: result.view, clock: Number.isFinite(time) ? { server: time, tick: performance.now() } : null, received: timing });
+  }
+  function loadPreviousFindings() {
+    if (!publicView.run) return;
+    var ids = [publicView.run.steered_from_run_id].concat((data.messages||[]).filter(function(m){return m.role==="user";}).reverse().map(function(m){return m.run_id;}));
+    ids = Array.from(new Set(ids.filter(function(id){return id && id !== publicView.runId;}))).slice(0,8);
+    var chain = Promise.resolve();
+    ids.forEach(function(id){
+      if (historicalFindingLoads.has(id)) return;
+      historicalFindingLoads.set(id,true);
+      chain = chain.then(function(){return request(publicUrl(emptyPublicView(),null,id));})
+        .then(function(reply){return readPublicReply(reply,emptyPublicView(),0,id);})
+        .then(function(result){
+          if (!result.view.run || result.view.run.run_id !== id) throw new Error("Historical research identity changed.");
+          var surface=scrollSurface||transcript, anchor=followingLatest?null:transcriptAnchor(surface);
+          renderPublicFindings(result.view); renderActivity();
+          if (anchor && surface.clientHeight) scrollTranscript(surface,null,anchor);
+        }).catch(function(){publicView.history_load_error=true; renderActivity();});
+    });
+    while (historicalFindingLoads.size>16) historicalFindingLoads.delete(historicalFindingLoads.keys().next().value);
+  }
+  function reportClientRender() {
+    var run = publicView.run;
+    if (!run || !pageAlive || document.hidden) return;
+    var pane = sidebar.querySelector('[data-assistant-pane="chat"]');
+    if (pane && pane.hidden) return;
+    if (typeof sidebar.checkVisibility === "function" && !sidebar.checkVisibility()) return;
+    if (typeof sidebar.getBoundingClientRect === "function") {
+      var rect=sidebar.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.bottom<=0 || rect.right<=0 || rect.top>=window.innerHeight || rect.left>=window.innerWidth) return;
+    }
+    var group = publicFindingRuns.get(run.run_id);
+    var findingRendered = group && group.node.parentNode === transcript && Object.values(publicView.entities.findings || {}).some(function(finding){
+      var record = group.records.get(finding.id);
+      return isUsefulPublicFinding(finding,run.run_id) && record && record.node.parentNode === group.node;
+    });
+    var terminalRendered = activityNode && activityNode.parentNode === transcript && activityNode.dataset.runId === run.run_id
+      && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle)>=0;
+    clientRenderPayloads(publicView,clientObservationReceived.get(run.run_id),performance.now(),{first_useful:!!findingRendered,terminal:!!terminalRendered}).forEach(function(payload){
+      var key=payload.run_id+":"+payload.kind;
+      if (clientObservationSent.has(key)) return;
+      // Mark before sending: telemetry is best effort and never retries research.
+      clientObservationSent.set(key,true);
+      request(base+"/latency",{method:"POST",body:JSON.stringify(payload)}).catch(function(){});
+    });
+    while(clientObservationSent.size>64) clientObservationSent.delete(clientObservationSent.keys().next().value);
+  }
   function refresh() {
-    // A failed refresh is transient: the next successful one may replace its message.
     var epoch = sessionEpoch;
     var sequence = ++refreshSequence;
     var requestSequence = ++sessionRequestSequence;
-    return request(base).then(function (next) {
-      if (epoch === sessionEpoch && sequence === refreshSequence) acceptSession(next, requestSequence);
-    }).catch(function (error) {
+    return request(publicUrl(publicView)).then(function (next) { return readPublicReply(next, publicView, 0); }).then(function (result) {
+      if (epoch === sessionEpoch && sequence === refreshSequence) {
+        publicView = result.view; publicClock = result.clock;
+        if (result.received) {
+          var oldTiming=clientObservationReceived.get(result.received.run_id);
+          var timing=Object.assign({},result.received);
+          if (oldTiming) ["first_useful","terminal"].forEach(function(kind){if(Number.isFinite(oldTiming[kind]) && (!Number.isFinite(timing[kind]) || oldTiming[kind]<timing[kind])) timing[kind]=oldTiming[kind];});
+          clientObservationReceived.set(timing.run_id,timing);
+          while(clientObservationReceived.size>32) clientObservationReceived.delete(clientObservationReceived.keys().next().value);
+        }
+        if (acceptSession(result.next, requestSequence)) reportClientRender();
+        loadPreviousFindings();
+      }
+    }).catch(function () {
       if (epoch !== sessionEpoch || sequence !== refreshSequence) return;
-      status.textContent = error.message; progressShown = error.message; if (busy) schedulePoll();
+      connectionLost = true; pollFailures += 1;
+      showError("Updates unavailable. The last confirmed research state is retained. Reconnect refreshes state without starting another attempt.");
+      renderActivity(); if (busy || needsOperationalPoll()) schedulePoll();
     });
   }
-  function schedulePoll() { if (pollTimer) return; pollTimer = window.setTimeout(function () { pollTimer = 0; refresh(); }, 1800); }
+  function schedulePoll() {
+    if (pollTimer || !pageAlive) return;
+    var delay = pollFailures ? [2000, 4000, 8000, 15000][Math.min(pollFailures - 1, 3)] : !busy ? 5000 : 1800;
+    pollTimer = window.setTimeout(function () { pollTimer = 0; refresh(); }, delay);
+  }
 
   sidebar.querySelectorAll("[data-assistant-mode]").forEach(function (button) {
     button.addEventListener("click", function () {
       var mode = button.dataset.assistantMode;
       var sequence = ++sessionRequestSequence;
-      request(base + "/settings", { method: "POST", body: JSON.stringify({ mode: mode, constraints: data.constraints || {} }) })
+      request(base + "/settings", { method: "POST", body: JSON.stringify(Object.assign(expectedTarget(false), { mode: mode, constraints: data.constraints || {} })) })
         .then(function (next) { acceptMutation(next, sequence); })
-        .catch(function (error) { status.textContent = error.message; });
+        .catch(function (error) { showError(error.message); });
     });
   });
   var constraintToggle = sidebar.querySelector("[data-assistant-constraints-toggle]");
@@ -1445,7 +1941,7 @@
       protected_cards: Array.prototype.slice.call(sidebar.querySelectorAll("[data-protected-card]:checked")).map(function (box) { return box.value; })
     };
     var sequence = ++sessionRequestSequence;
-    request(base + "/settings", { method: "POST", body: JSON.stringify({ mode: data.mode || "suggest", constraints: constraints }) })
+    request(base + "/settings", { method: "POST", body: JSON.stringify(Object.assign(expectedTarget(false), { mode: data.mode || "suggest", constraints: constraints })) })
       .then(function (next) { acceptMutation(next, sequence); protectedDirty = false; renderSettings(); if (statusNode) statusNode.textContent = "Constraints saved."; })
       .catch(function (error) { if (statusNode) statusNode.textContent = error.message; });
   });
@@ -1458,22 +1954,34 @@
     status.textContent = "Sending message…"; progressShown = status.textContent;
     if (!hasWorkspaceCards()) followingLatest = true;
     var send = sidebar.querySelector("[data-assistant-send]"); if (send) send.disabled = true;
-    var sequence = busy ? null : ++sessionRequestSequence;
+    var sequence = ++sessionRequestSequence;
     var signature = JSON.stringify([message, state.revision, data.mode, data.constraints]);
     if (!pendingSubmission || pendingSubmission.signature !== signature) pendingSubmission = {
-      signature: signature, id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "message-" + Date.now() + "-" + Math.random().toString(36).slice(2)
+      signature: signature, kind: busy ? "steer" : "message", target: expectedTarget(false), id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : "message-" + Date.now() + "-" + Math.random().toString(36).slice(2)
     };
-    var operation = busy ? steer("message", { message: message, client_request_id: pendingSubmission.id }) : request(base + "/messages", { method: "POST", body: JSON.stringify({ message: message, client_request_id: pendingSubmission.id, expected_revision: Number(state.revision || 0) }) }).then(function (next) { acceptMutation(next, sequence); return refresh(); });
+    var operation = pendingSubmission.kind === "steer" ? steer("message", Object.assign({}, pendingSubmission.target, { message: message, client_request_id: pendingSubmission.id })) : request(base + "/messages", { method: "POST", body: JSON.stringify(Object.assign({}, pendingSubmission.target, { message: message, client_request_id: pendingSubmission.id })) }).then(function (next) { acceptMutation(next, sequence); return refresh(); });
     operation.then(function () { pendingSubmission = null; if (input.value.trim() === message) input.value = ""; })
-      .catch(function (error) { if (error.retryNewSubmission) pendingSubmission = null; status.textContent = error.message; })
+      .catch(function (error) { if (error.retryNewSubmission) pendingSubmission = null; showError(error.message); })
       .finally(function () { sending = false; if (send) send.disabled = false; });
   });
   var stop = sidebar.querySelector("[data-assistant-stop]");
   if (stop) stop.addEventListener("click", function () {
-    stop.disabled = true;
-    request(base + "/stop", { method: "POST", body: JSON.stringify({}) }).then(function () { stopRequested = true; status.textContent = "Stop requested."; progressShown = status.textContent; return refresh(); })
-      .catch(function (error) { status.textContent = error.message; }).finally(function () { stop.disabled = false; });
+    stop.disabled = true; stopRequested = true; renderActivity();
+    request(base + "/stop", { method: "POST", body: JSON.stringify(expectedTarget(true)) }).then(function () { stopRequested = true; status.textContent = "Stop requested; an in-flight operation may finish."; progressShown = status.textContent; return refresh(); })
+      .catch(function (error) { stopRequested = false; showError(error.message); renderActivity(); return refresh(); }).finally(function () { stop.disabled = false; });
   });
+  var input = sidebar.querySelector("[data-assistant-message]");
+  if (input) {
+    input.addEventListener("keydown", function (event) {
+      var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !touch) { event.preventDefault(); if (composer && composer.requestSubmit) composer.requestSubmit(); }
+    });
+    input.addEventListener("input", function () { var counter = sidebar.querySelector("[data-assistant-count]"); if (counter) { counter.hidden = input.value.length < 1800; counter.textContent = input.value.length + " / 2,000"; } });
+  }
+  var jump = sidebar.querySelector("[data-assistant-jump]");
+  if (jump) jump.addEventListener("click", function () { followingLatest = true; var surface = scrollSurface || transcript; surface.scrollTop = surface.scrollHeight; updateJumpToLatest(); });
+  var reconnect = sidebar.querySelector("[data-assistant-reconnect]");
+  if (reconnect) reconnect.addEventListener("click", function () { pollFailures = 0; historicalFindingLoads.clear(); publicView.history_load_error=false; refresh(); });
   var latestSim = document.querySelector("[data-simulate-rerun]");
   if (latestSim) latestSim.addEventListener("click", function () { showTab("goldfish", false); });
   document.addEventListener("deck-lab:render", function (event) {
@@ -1484,7 +1992,7 @@
   });
   if (window.location.hash === "#goldfish") showTab("goldfish", false);
   refresh();
-  window.addEventListener("pagehide", function () { if (pollTimer) window.clearTimeout(pollTimer); pollTimer = 0; });
-  window.addEventListener("pageshow", function (event) { if (event.persisted) refresh(); });
+  window.addEventListener("pagehide", function () { pageAlive = false; if (pollTimer) window.clearTimeout(pollTimer); pollTimer = 0; if (timerTick) window.clearInterval(timerTick); timerTick = 0; });
+  window.addEventListener("pageshow", function (event) { pageAlive = true; if (event.persisted) refresh(); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
 }());

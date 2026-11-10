@@ -1,0 +1,696 @@
+{
+  "abstentions": {
+    "correct": 8,
+    "expected": 8,
+    "false_abstentions": [],
+    "missed_abstentions": [],
+    "observed": 8
+  },
+  "by_capability": {
+    "memory.bounds": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "memory.comparability": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "memory.freshness": {
+      "denominator": 3,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 3,
+      "unavailable": 0
+    },
+    "memory.no_history": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "memory.ownership": {
+      "denominator": 3,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 3,
+      "unavailable": 0
+    },
+    "memory.preferences": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "requirements.abstention": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "requirements.archetype": {
+      "denominator": 4,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 4,
+      "unavailable": 0
+    },
+    "requirements.role_precision": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "retrieval.abstention": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "retrieval.archetype": {
+      "denominator": 4,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 4,
+      "unavailable": 0
+    },
+    "retrieval.paraphrase": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "retrieval.ranking": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    }
+  },
+  "by_kind": {
+    "memory": {
+      "denominator": 12,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 12,
+      "unavailable": 0
+    },
+    "requirements": {
+      "denominator": 7,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 7,
+      "unavailable": 0
+    },
+    "retrieval": {
+      "denominator": 7,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 7,
+      "unavailable": 0
+    }
+  },
+  "by_label": {
+    "archetype=aristocrats": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "archetype=blink": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "archetype=cast_damage": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "archetype=cast_damage_draw": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "archetype=general": {
+      "denominator": 3,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 3,
+      "unavailable": 0
+    },
+    "archetype=landfall": {
+      "denominator": 3,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 3,
+      "unavailable": 0
+    },
+    "archetype=none": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "archetype=reanimator": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "archetype=spellslinger": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "corpus=bundled": {
+      "denominator": 6,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 6,
+      "unavailable": 0
+    },
+    "corpus=fixture": {
+      "denominator": 1,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "unavailable": 0
+    },
+    "intent=stated": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "intent=withheld": {
+      "denominator": 5,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 5,
+      "unavailable": 0
+    },
+    "scope=foreign": {
+      "denominator": 2,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 2,
+      "unavailable": 0
+    },
+    "scope=owner": {
+      "denominator": 10,
+      "errored": 0,
+      "failed": 0,
+      "pass_rate": 1.0,
+      "passed": 10,
+      "unavailable": 0
+    }
+  },
+  "cases": [
+    {
+      "abstained": false,
+      "capability": "memory.freshness",
+      "checks_passed": 14,
+      "checks_total": 14,
+      "expect_abstention": false,
+      "id": "memory-owner-current-held-out",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 14.952,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.comparability",
+      "checks_passed": 6,
+      "checks_total": 6,
+      "expect_abstention": false,
+      "id": "memory-noncomparable-never-wins",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.56,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.comparability",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": false,
+      "id": "memory-failed-alternative-not-measured",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.495,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.freshness",
+      "checks_passed": 9,
+      "checks_total": 9,
+      "expect_abstention": false,
+      "id": "memory-stale-adoption-is-not-improvement",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.505,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.freshness",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": false,
+      "id": "memory-expired-run-not-measured",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.485,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.preferences",
+      "checks_passed": 4,
+      "checks_total": 4,
+      "expect_abstention": false,
+      "id": "memory-saved-preferences-unverified",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.498,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "memory.ownership",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": true,
+      "id": "memory-foreign-owner-denied",
+      "kind": "memory",
+      "labels": {
+        "scope": "foreign"
+      },
+      "latency_ms": 0.377,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "memory.ownership",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": true,
+      "id": "memory-foreign-owner-own-deck-no-history",
+      "kind": "memory",
+      "labels": {
+        "scope": "foreign"
+      },
+      "latency_ms": 0.566,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "memory.ownership",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": true,
+      "id": "memory-missing-deck-not-found",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 0.352,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "memory.no_history",
+      "checks_passed": 4,
+      "checks_total": 4,
+      "expect_abstention": true,
+      "id": "memory-no-history",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 0.535,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.bounds",
+      "checks_passed": 6,
+      "checks_total": 6,
+      "expect_abstention": false,
+      "id": "memory-large-payload-unverifiable-deck",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 1.88,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "memory.bounds",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": false,
+      "id": "memory-limit-respected",
+      "kind": "memory",
+      "labels": {
+        "scope": "owner"
+      },
+      "latency_ms": 0.871,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.archetype",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": false,
+      "id": "retrieval-landfall-guidance",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "landfall",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.379,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.archetype",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": false,
+      "id": "retrieval-aristocrats-guidance",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "aristocrats",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.271,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.archetype",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": false,
+      "id": "retrieval-storm-synonym",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "spellslinger",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.222,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.archetype",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": false,
+      "id": "retrieval-flicker-synonym",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "blink",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.234,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.paraphrase",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": false,
+      "id": "retrieval-reanimation-paraphrase",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "reanimator",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.249,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": true,
+      "capability": "retrieval.abstention",
+      "checks_passed": 2,
+      "checks_total": 2,
+      "expect_abstention": true,
+      "id": "retrieval-off-topic-abstains",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "none",
+        "corpus": "bundled"
+      },
+      "latency_ms": 1.225,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "retrieval.ranking",
+      "checks_passed": 6,
+      "checks_total": 6,
+      "expect_abstention": false,
+      "id": "retrieval-fixture-ranking-and-commander-tiebreak",
+      "kind": "retrieval",
+      "labels": {
+        "archetype": "none",
+        "corpus": "fixture"
+      },
+      "latency_ms": 0.898,
+      "outcome": "passed",
+      "relevant_rank": 1
+    },
+    {
+      "abstained": false,
+      "capability": "requirements.archetype",
+      "checks_passed": 8,
+      "checks_total": 8,
+      "expect_abstention": false,
+      "id": "requirements-landfall-withheld-commander-text",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "landfall",
+        "intent": "withheld"
+      },
+      "latency_ms": 24.263,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "requirements.archetype",
+      "checks_passed": 4,
+      "checks_total": 4,
+      "expect_abstention": false,
+      "id": "requirements-landfall-stated-theme",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "landfall",
+        "intent": "stated"
+      },
+      "latency_ms": 7.143,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "requirements.abstention",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": true,
+      "id": "requirements-same-list-withheld-abstains",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "general",
+        "intent": "withheld"
+      },
+      "latency_ms": 7.1,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "requirements.archetype",
+      "checks_passed": 4,
+      "checks_total": 4,
+      "expect_abstention": false,
+      "id": "requirements-cast-damage-draw-stated",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "cast_damage_draw",
+        "intent": "stated"
+      },
+      "latency_ms": 15.743,
+      "outcome": "passed"
+    },
+    {
+      "abstained": false,
+      "capability": "requirements.archetype",
+      "checks_passed": 3,
+      "checks_total": 3,
+      "expect_abstention": false,
+      "id": "requirements-cast-damage-withheld-commander-text",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "cast_damage",
+        "intent": "withheld"
+      },
+      "latency_ms": 6.879,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "requirements.role_precision",
+      "checks_passed": 2,
+      "checks_total": 2,
+      "expect_abstention": true,
+      "id": "requirements-protection-scoped-not-self",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "general",
+        "intent": "withheld"
+      },
+      "latency_ms": 9.957,
+      "outcome": "passed"
+    },
+    {
+      "abstained": true,
+      "capability": "requirements.role_precision",
+      "checks_passed": 1,
+      "checks_total": 1,
+      "expect_abstention": true,
+      "id": "requirements-combat-treasure-not-ramp",
+      "kind": "requirements",
+      "labels": {
+        "archetype": "general",
+        "intent": "withheld"
+      },
+      "latency_ms": 6.946,
+      "outcome": "passed"
+    }
+  ],
+  "database": {
+    "path": null,
+    "status": "not_supplied"
+  },
+  "failures": [],
+  "generated_at": "2026-11-10T20:40:16.497467+00:00",
+  "latency_ms": {
+    "memory": {
+      "count": 12,
+      "max": 14.952,
+      "p50": 1.485,
+      "p95": 14.952
+    },
+    "requirements": {
+      "count": 7,
+      "max": 24.263,
+      "p50": 7.143,
+      "p95": 24.263
+    },
+    "retrieval": {
+      "count": 7,
+      "max": 1.379,
+      "p50": 1.234,
+      "p95": 1.379
+    }
+  },
+  "retrieval_ranking": {
+    "denominator": 6,
+    "hit_at_1": 6,
+    "hit_at_k": 6,
+    "mrr": 1.0
+  },
+  "status": "pass",
+  "suite_path": "/Users/dylan/Projects/mtg/deck-lab/worktrees/assistant-events-v1-20261110/tests/fixtures/assistant_intelligence_eval.json",
+  "suite_sha256": "f4f6b135a77bed8ed3374ab64f3d59da7ab16a1fd3e23d13bd8be14f3b6f58ce",
+  "suite_version": "assistant-intelligence-eval.v1",
+  "totals": {
+    "cases": 26,
+    "checks": 99,
+    "checks_passed": 99,
+    "errored": 0,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "passed": 26,
+    "unavailable": 0
+  },
+  "version": "assistant-intelligence-eval-report.v1"
+}

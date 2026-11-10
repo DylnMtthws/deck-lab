@@ -1,0 +1,69 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "assistant.events.v1",
+      "default": "assistant.events.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "generation": {
+      "title": "Generation",
+      "type": "integer"
+    },
+    "sequence": {
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "occurred_at": {
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "run.accepted",
+        "run.started",
+        "run.ended",
+        "activity.started",
+        "activity.finished",
+        "finding.upserted",
+        "finding.withdrawn",
+        "answer.block.upserted",
+        "claim.updated",
+        "steering.received",
+        "steering.applied",
+        "steering.rejected",
+        "stop.requested",
+        "obligation.upserted",
+        "obligations.refined"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "generation",
+    "sequence",
+    "event_id",
+    "occurred_at",
+    "kind",
+    "payload"
+  ],
+  "title": "PublicEvent",
+  "type": "object"
+}

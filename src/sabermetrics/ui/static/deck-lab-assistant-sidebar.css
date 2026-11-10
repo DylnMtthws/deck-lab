@@ -232,3 +232,32 @@
 .dl-research-card-controls [aria-pressed="true"] { border-color:var(--muted); font-weight:600; }
 .dl-research-card[data-card-status="withdrawn"],.dl-research-card[data-card-status="superseded"] { border-style:dashed; }
 .dl-research-claims [data-claim-status="contradicted"] { border-inline-start:2px solid var(--muted); padding-inline-start:8px; }
+
+/* Truthful activity stays alongside the conversation; ticks never announce. */
+.dl-assistant-processing { border:1px solid var(--line); border-radius:var(--r-md); padding:12px; background:var(--panel-2); font-size:.8125rem; line-height:1.5; }
+.dl-assistant-processing > summary { cursor:pointer; display:flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--body); }
+.dl-assistant-processing-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
+.dl-assistant-processing[data-active="true"] .dl-assistant-processing-dot { animation:dl-research-pulse 1.6s ease-in-out infinite; }
+.dl-assistant-elapsed { margin-inline-start:auto; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.dl-assistant-processing-details { padding-top:8px; overflow-wrap:anywhere; }
+.dl-assistant-processing-details ol { margin:0; padding-inline-start:20px; }
+.dl-assistant-jump { align-self:center; }
+.dl-assistant-composer > small { font-size:.75rem; color:var(--muted); }
+.dl-research-claims blockquote { margin:8px 0; padding-inline-start:10px; border-inline-start:2px solid var(--line); white-space:pre-wrap; }
+.dl-research-claims a { text-decoration:underline; }
+@keyframes dl-research-pulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .dl-assistant-sidebar *, .dl-assistant-card-preview { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+}
+
+.dl-assistant-grounded-findings { display:grid; gap:10px; }
+.dl-assistant-grounded-findings > h3 { margin:0; font:600 .8125rem/1.5 var(--sans); }
+.dl-assistant-grounded-findings .dl-assistant-partial-finding p { white-space:pre-wrap; }
+.dl-assistant-grounded-findings small { display:block; }
+.dl-assistant-grounded-findings pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* Collapsing activity hides its changing clock and all decorative motion. */
+.dl-assistant-processing:not([open]) > summary .dl-assistant-processing-dot,
+.dl-assistant-processing:not([open]) > summary .dl-assistant-elapsed { display:none; animation:none; }
+.dl-assistant-grounded-findings [data-finding-status="withdrawn"],
+.dl-assistant-grounded-findings [data-finding-status="superseded"] { border-style:dashed; opacity:.85; }

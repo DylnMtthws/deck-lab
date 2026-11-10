@@ -334,3 +334,58 @@ def run(
             "Small source-disjoint archetype split confounds archetype and split difficulty.",
         ],
     }
+
+
+def diagnose_retrieval_stages(
+    required_card_ids: list[str],
+    hand_plan_card_ids: list[str],
+    model_plan_card_ids: list[str],
+    *,
+    synthesis_fulfillment: str = "unknown",
+) -> dict[str, Any]:
+    """Attribute frozen structured failures without judging unstructured prose.
+
+    Required IDs come from a separately authored case label. This deterministic
+    diagnostic cannot certify that the label or its preferred strategy is right.
+    Additional relevant alternatives outside that label receive no automatic
+    credit. Unknown fulfillment is never interpreted as successful synthesis.
+    """
+    for values in (required_card_ids, hand_plan_card_ids, model_plan_card_ids):
+        if not isinstance(values, list) or any(
+            not isinstance(value, str) or not value for value in values
+        ):
+            raise ValueError("Diagnostic identities must be nonempty string lists")
+    if synthesis_fulfillment not in {"complete", "partial", "nonanswer", "unknown"}:
+        raise ValueError("Unknown synthesis fulfillment")
+    required = set(required_card_ids)
+    hand, model = set(hand_plan_card_ids), set(model_plan_card_ids)
+    if not required:
+        diagnosis = "insufficient_label"
+    elif not required <= hand and not required <= model:
+        diagnosis = "retrieval_or_corpus_gap"
+    elif not required <= hand:
+        diagnosis = "hand_plan_gap_model_retrieval_succeeded"
+    elif not required <= model:
+        diagnosis = "planning_gap"
+    elif synthesis_fulfillment in {"partial", "nonanswer"}:
+        diagnosis = "synthesis_or_fulfillment_gap"
+    elif synthesis_fulfillment == "complete":
+        diagnosis = "no_structured_gap_observed"
+    else:
+        diagnosis = "synthesis_unassessed"
+    return {
+        "schema": "assistant-stage-diagnostic.v1",
+        "diagnosis": diagnosis,
+        "required_count": len(required),
+        "hand_plan_recall": len(required & hand) / len(required) if required else None,
+        "model_plan_recall": (
+            len(required & model) / len(required) if required else None
+        ),
+        "hand_plan_missing": sorted(required - hand),
+        "model_plan_missing": sorted(required - model),
+        "synthesis_fulfillment": synthesis_fulfillment,
+        "limitations": [
+            "Structured labels and receipts only; no certification of prose or strategic usefulness.",
+            "A retrieval gap may reflect a wrong label and requires investigation.",
+        ],
+    }

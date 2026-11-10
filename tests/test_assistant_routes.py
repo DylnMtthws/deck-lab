@@ -328,14 +328,29 @@ def test_steering_ack_and_provider_checkpoints_stay_out_of_chat(setup, monkeypat
         "expected_revision": 0,
         "client_request_id": "once",
     }
+    # Completed work closes its original allowance: steering must not silently
+    # open a fresh paid group. A deliberate retry admits the new attempt.
+    assert client.post(url + "/steer", json=body).status_code == 409
+    assert not executor.jobs
+    retry = client.post(
+        url + "/steer",
+        json={
+            "action": "retry",
+            "expected_generation": 1,
+            "expected_revision": 0,
+            "client_request_id": "explicit-new-attempt",
+        },
+    )
+    assert retry.status_code == 200
+    body["expected_generation"] = 2
     ack = client.post(url + "/steer", json=body)
     assert ack.status_code == 200
-    assert ack.json["research_workspace"]["generation"] == 2
+    assert ack.json["research_workspace"]["generation"] == 3
     assert ack.json["research_workspace"]["cards"][0]["status"] == "superseded"
     assert ack.json["constraints"]["prioritized_candidates"] == ["candidate"]
     replay = client.post(url + "/steer", json=body)
     assert replay.json["turn_id"] == ack.json["turn_id"]
-    assert len(executor.jobs) == 1
+    assert len(executor.jobs) == 2  # retry predecessor plus its replacement
     assert (
         client.post(url + "/steer", json=dict(body, expected_revision=9)).status_code
         == 409
@@ -411,7 +426,10 @@ def test_unrelated_request_drains_legacy_jobs_without_paid_admission(
     for queued in decks:
         finished = AssistantStore(path).get(owner, queued)
         assert not finished["busy"]
-        assert finished["research_workspace"]["job"]["state"] == "completed"
+        assert finished["research_workspace"]["job"]["state"] == "failed"
+        public = AssistantStore(path).public_events(owner, queued)
+        assert public["run"]["lifecycle"] == "failed"
+        assert "answer" in public["run"]["missing_obligations"]
         assert finished["messages"][-1]["status"] == "failed"
     assert (
         client.post(
