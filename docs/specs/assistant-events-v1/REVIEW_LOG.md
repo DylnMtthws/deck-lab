@@ -33,4 +33,12 @@ polling; compaction counts persist transactionally and render as transport-histo
 disclosures without mutating terminal domain state. Historical findings reload
 through bounded sequential authorized reads, not an in-memory-only cache.
 
-Claude integrated review pending. Full offline validation pending.
+The full offline suite passed: 5232 passed, 28 skipped, 12 deliberately excluded
+live cases. The old completed-on-failure and auto-readmitted steering tests were
+updated to the approved failure/retry semantics without weakening no-provider-
+without-admission assertions. Follow-up testing caught ownership-loss worker
+cleanup; it now retires only the original job without reading a new owner's
+session. Executor startup rejection now closes only its own allowance, preserving
+a concurrent shared-allowance replacement. The final focused suite passed 84
+checks after those refinements. Full static checks and existing hermetic
+regression scripts pass. Claude integrated review remains pending.
