@@ -519,6 +519,7 @@ const surface = {
 };
 const scrollSurface = surface;
 var data = {busy: false, messages: []};
+var publicAnswerRuns = new Map();
 var renderedMessageSignature = null, renderedMessageCount = 0, renderedMessageIds = [];
 var followingLatest = true, deferredScroll = false, deferredReply = null;
 function renderToolStep(message) {
@@ -689,6 +690,12 @@ let requestId = 0, calls = [], rejectNext = false;
 var data = {}, state = {revision: 12}, base = '/assistant', status = element('p'), progressShown = '';
 var workspaceNode = null, workspaceCards = new Map(), workspaceList, workspaceBadge, workspaceRequest, workspaceReceipt, workspaceRetry;
 var sessionEpoch = 0, refreshSequence = 0, sessionRequestSequence = 0, acceptedSessionSequence = 0, pendingSubmission = null;
+var connectionLost = false, pollFailures = 0;
+var pendingSteering = new Map();
+const alertNode = element('p');
+const sidebar = {querySelector: () => alertNode};
+PURE_HELPERS
+var publicView = emptyPublicView();
 const transcript = element('div'), host = element('div'); host.appendChild(transcript);
 const scrollSurface = {clientHeight: 0, scrollTop: 187};
 let refreshes = 0;
@@ -707,7 +714,9 @@ function request(url, options) {
 }
 HELPERS
 const flush = () => new Promise(resolve => setImmediate(resolve));
-""".replace("HELPERS", _between(source, "researchWorkspace(", "protectedCards("))
+""".replace("PURE_HELPERS", _between(source, "emptyPublicView(", "cardId(")).replace(
+        "HELPERS", _between(source, "researchWorkspace(", "protectedCards(")
+    )
 
 
 def test_workspace_preserves_card_identity_disclosures_and_acknowledged_controls():
@@ -730,13 +739,13 @@ assert.equal(card.card.pinned, undefined, 'no optimistic pin before acknowledgme
 await flush();
 assert.equal(card.card.pinned, true);
 assert.equal(card.buttons.pin.attrs['aria-pressed'], 'true');
-assert.deepEqual(calls[0].payload, {expected_revision: 12, expected_generation: 4, action: 'pin', card_id: 'c1', client_request_id: 'request-1'});
+assert.deepEqual(calls[0].payload, {expected_revision: 12, expected_generation: 4, expected_run_id: null, action: 'pin', card_id: 'c1', client_request_id: 'request-1'});
 assert.equal(calls[0].url, '/assistant/steer');
 card.buttons.pin.click(); await flush(); assert.equal(card.card.pinned, false);
 card.buttons.exclude.click(); await flush(); assert.equal(card.card.excluded, true);
 rejectNext = true; card.buttons.prioritize.click(); await flush();
 assert.equal(card.buttons.prioritize.attrs['aria-pressed'], 'false');
-assert.equal(status.textContent, 'stale generation');
+assert.equal(alertNode.textContent, 'stale generation');
 assert.equal(card.buttons.prioritize.disabled, false);
 const nextCard = data.research_workspace.cards[0];
 nextCard.version = 2; nextCard.status = 'withdrawn'; nextCard.history = [{version: 2, reason: 'Incorrect interaction retracted', claims: [{text: 'Earlier unsafe interaction', status: 'supported', evidence: {quote: 'Old quote'}}]}];
@@ -800,12 +809,12 @@ assert.equal(calls[0].payload.action, 'message'); assert.equal(calls[0].payload.
 assert.equal(calls[0].payload.expected_generation, 8); assert.equal(calls[0].payload.expected_revision, 12);
 assert.equal(input.value, ''); assert.equal(send.disabled, false); assert.equal(followingLatest, false);
 input.value = 'Keep this draft'; rejectNext = true; composer.listeners.submit({preventDefault() {}}); await flush();
-assert.equal(input.value, 'Keep this draft'); assert.equal(status.textContent, 'stale generation'); assert.equal(sending, false);
+assert.equal(input.value, 'Keep this draft'); assert.equal(alertNode.textContent, 'stale generation'); assert.equal(sending, false);
 busy = false; input.value = 'New request'; composer.listeners.submit({preventDefault() {}}); await flush();
 assert.equal(calls[2].url, '/assistant/messages');
 assert.equal(typeof calls[2].payload.client_request_id, 'string');
 const {client_request_id, ...submitted} = calls[2].payload;
-assert.deepEqual(submitted, {message: 'New request', expected_revision: 12});
+assert.deepEqual(submitted, {message: 'New request', expected_revision: 12, expected_run_id: null, expected_generation: 8});
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """.replace("COMPOSER", composer))
 
@@ -907,7 +916,7 @@ await flush();
 assert.equal(input.value, 'Keep this request');
 assert.equal(data.research_workspace.generation, 6);
 assert.deepEqual([...workspaceCards.keys()], ['current']);
-assert.match(status.textContent, /Research changed/);
+assert.match(alertNode.textContent, /Research changed/);
 assert.equal(sending, false); assert.equal(send.disabled, false); assert.equal(refreshes, 0);
 // The idle /messages path uses the same admission check and draft protection.
 busy = false; composer.listeners.submit({preventDefault() {}});
@@ -941,7 +950,7 @@ await flush();
 assert.equal(data.research_workspace.generation, 5);
 assert.equal(steerPayload('pin', {card_id: 'current'}).expected_generation, 5);
 assert.deepEqual([...workspaceCards.keys()], ['current']);
-assert.match(status.textContent, /Research changed/);
+assert.match(alertNode.textContent, /Research changed/);
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """.replace("HANDLER", handler))
 
@@ -964,3 +973,61 @@ assert.match(title({name: "check_answer", ok: false, data: {claim_judgments: [{v
 assert.match(title({name: "check_answer", ok: false, data: {claim_judgments: []}}), /unavailable/);
 assert.match(title({name: "check_answer", ok: true, data: {claim_judgments: [{verdict: "supported"}]}}), /complete$/);
 """.replace("RENDERER", renderer))
+
+
+def test_uncertain_submission_replays_original_endpoint_and_target_after_refresh():
+    """Discovery of accepted work must not turn a replay into paid steering."""
+    source = SCRIPT.read_text()
+    composer = source.split(
+        '  var composer = sidebar.querySelector("[data-assistant-composer]");', 1
+    )[1].split('  var stop = sidebar.querySelector("[data-assistant-stop]");', 1)[0]
+    _run_node(_workspace_harness() + r"""
+(async () => {
+var busy = false, sending = false, followingLatest = false;
+const composer = new El('form'), input = new El('textarea'), send = new El('button');
+const sidebar = {querySelector: selector => selector === '[data-assistant-message]' ? input : send};
+data={turn_id:null,research_workspace:{generation:0,cards:[]}};
+COMPOSER
+input.value='Find draw support'; rejectNext=true;
+composer.listeners.submit({preventDefault(){}}); await flush();
+const original=JSON.parse(JSON.stringify(calls[0]));
+// A state refresh discovers that the first request was accepted remotely.
+busy=true; data.turn_id='accepted'; data.research_workspace.generation=1;
+composer.listeners.submit({preventDefault(){}}); await flush();
+assert.equal(calls[1].url,'/assistant/messages');
+assert.deepEqual(calls[1].payload,original.payload);
+assert.equal(input.value,'');
+})().catch(error => {console.error(error);process.exitCode=1;});
+""".replace("COMPOSER", composer))
+
+
+def test_card_and_retry_controls_replay_frozen_steering_after_lost_success():
+    """Every restart control must retain identity after an ambiguous response."""
+    _run_node(_workspace_harness() + r"""
+(async () => {
+for (const action of ['exclude','prioritize','retry']) {
+  pendingSteering.clear(); calls=[];
+  data={turn_id:'origin',updated_at:10,research_workspace:{generation:4,cards:[],job:{state:'running'}}};
+  let accepted=0;
+  const remoteIds=new Set();
+  request=(url,options)=>{
+    const payload=JSON.parse(options.body); calls.push({url,payload});
+    if (!remoteIds.has(payload.client_request_id)) {
+      remoteIds.add(payload.client_request_id); accepted++;
+      data={...data,turn_id:'replacement',updated_at:20,research_workspace:{generation:5,cards:[],job:{state:'completed'}}};
+      return Promise.reject(new Error('response lost after server accepted'));
+    }
+    return Promise.resolve({session:JSON.parse(JSON.stringify(data))});
+  };
+  const fields=action==='retry'?{}:{card_id:'c1'};
+  await steer(action,fields).catch(()=>{});
+  assert.equal(pendingSteering.size,1);
+  await steer(action,fields);
+  assert.equal(accepted,1,'repeated control must not create another replacement');
+  assert.deepEqual(calls[1],calls[0],'original expected target and id are replayed');
+  assert.equal(calls[1].payload.expected_run_id,'origin');
+  assert.equal(calls[1].payload.expected_generation,4);
+  assert.equal(pendingSteering.size,0,'accepted acknowledgment resolves uncertain action');
+}
+})().catch(error=>{console.error(error);process.exitCode=1;});
+""")

@@ -32,11 +32,19 @@ def view(row):
 
     if row is None:
         return {"state": "idle", "checkpoint": {}, "retry_allowed": False}
+    columns = set(row.keys())
+    public = (
+        json.loads(row["public_projection_json"])
+        if "public_projection_json" in columns and row["public_projection_json"]
+        else {}
+    )
+    complete = public.get("run", {}).get("fulfillment") == "complete"
     return {
         "id": row["id"],
         "state": row["state"],
         "checkpoint": json.loads(row["checkpoint_json"]),
-        "retry_allowed": row["state"] == "interrupted",
+        "retry_allowed": row["state"] in {"interrupted", "failed", "stopped"}
+        or (row["state"] == "completed" and not complete),
     }
 
 

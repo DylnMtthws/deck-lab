@@ -5,16 +5,18 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from flask import Blueprint, abort, current_app, g, jsonify, request
 from flask_login import current_user
 
 from sabermetrics import db
-from sabermetrics.assistant_store import AssistantStore, QueueFull
+from sabermetrics.assistant_store import AssistantStore, QueueFull, RunConflict
 from sabermetrics.cedh.settings import load_cedh_settings
 from sabermetrics.deck_documents import (
     DeckDocumentRepo,
@@ -36,10 +38,15 @@ _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="build-assistan
 _WORKER_SLOTS = threading.BoundedSemaphore(2)
 _DECK_LOCKS: dict[tuple[str, str], threading.RLock] = {}
 _LOCKS_GUARD = threading.Lock()
+# At most the bounded queued/running requests have live trace objects. This is
+# observation state only, never an execution cache or admission authority.
+_TURN_TRACES: dict[str, Any] = {}
+_TRACE_GUARD = threading.Lock()
 
 
 @bp.before_request
 def gate():
+    g.assistant_received_monotonic = time.monotonic()
     if not current_app.config.get("DECK_LAB_BUILDER_ENABLED"):
         abort(404)
     if not current_user.is_authenticated:
@@ -50,6 +57,27 @@ def gate():
     # requests for the same owner/deck so preferences cannot change between
     # validating a selected alternative and committing its commands.
     if request.method == "POST":
+        if request.headers.get(
+            "X-Assistant-Contract"
+        ) == "assistant.events.v1" and request.endpoint in {
+            "assistant.settings",
+            "assistant.message",
+            "assistant.steer",
+            "assistant.stop",
+        }:
+            target = request.get_json(silent=True)
+            if (
+                not isinstance(target, dict)
+                or not {"expected_run_id", "expected_generation", "expected_revision"}
+                <= target.keys()
+            ):
+                return (
+                    jsonify(
+                        error="run_conflict",
+                        message="Refresh research before changing this run; its exact target is required.",
+                    ),
+                    409,
+                )
         key = (str(current_user.id), str((request.view_args or {}).get("deck_id")))
         with _LOCKS_GUARD:
             lock = _DECK_LOCKS.setdefault(key, threading.RLock())
@@ -130,6 +158,21 @@ def conflict(error):
     )
 
 
+@bp.errorhandler(RunConflict)
+def run_conflict(error):
+    _path, owner, document, store = context(request.view_args["deck_id"])
+    payload = store.get(owner, document["id"])
+    return (
+        jsonify(
+            error="run_conflict",
+            message=str(error),
+            session=payload,
+            public_events=store.public_events(owner, document["id"]),
+        ),
+        409,
+    )
+
+
 @bp.errorhandler(TypeError)
 @bp.errorhandler(ValueError)
 @bp.errorhandler(InvalidCommand)
@@ -152,7 +195,73 @@ def session(deck_id):
         revision=document["revision"],
         experiments=experiment_service(path).list_for_deck(owner, deck_id),
     )
+    if request.args.get("contract") == "assistant.events.v1":
+        raw_cursor = request.args.get("after_sequence")
+        try:
+            cursor = int(raw_cursor) if raw_cursor is not None else None
+        except ValueError:
+            cursor = -1
+        try:
+            page = int(request.args.get("page_index", "0"))
+        except ValueError:
+            page = -1
+        selected = request.args.get("run_id")
+        if (
+            selected
+            and selected != payload.get("turn_id")
+            and not request.args.get("snapshot_token")
+        ):
+            selected, cursor = None, None
+        payload["public_events"] = store.public_events(
+            owner,
+            deck_id,
+            run_id=selected,
+            after_sequence=cursor,
+            snapshot_token=request.args.get("snapshot_token"),
+            page_index=page,
+        )
+        enrich_operational_cost(payload["public_events"])
     return jsonify(payload)
+
+
+def enrich_operational_cost(projection):
+    """Expose only pending/settled observation for this authorized opaque group."""
+    from sabermetrics.assistant_events import digest
+
+    group = (projection.get("run") or {}).get("budget_group_id")
+    if not group:
+        return
+    try:
+        state = authority().status()
+        selected = {key for key in state["turns"] if digest(key) == group}
+        if selected:
+            projection["operational"]["cost_pending"] = any(
+                attempt.get("settled") is not True
+                for attempt in state["attempts"].values()
+                if attempt.get("turn") in selected
+            )
+    except Exception:
+        projection["operational"]["cost_pending"] = None
+
+
+def public_binding(binding):
+    """Attach trusted deadline metadata; never expose the authority owner token."""
+    if not binding:
+        return binding
+    value = dict(binding)
+    try:
+        from sabermetrics.assistant_events import timestamp
+
+        control = authority()
+        state = control.status()["turns"][binding["id"]]
+        deadline = state["deadline"]
+        value["public_budget"] = {
+            "deadline_at": timestamp(deadline),
+            "started_at": timestamp(deadline - control.config.deadline),
+        }
+    except (KeyError, AttributeError, TypeError):
+        pass  # Missing immutable metadata stays unavailable, never guessed.
+    return value
 
 
 def body_object():
@@ -185,7 +294,11 @@ def settings(deck_id):
         ):
             raise ValueError("Protected cards must belong to this deck.")
     result = store.settings(
-        owner, deck_id, body.get("mode", existing["mode"]), constraints
+        owner,
+        deck_id,
+        body.get("mode", existing["mode"]),
+        constraints,
+        expected=body if "expected_run_id" in body else None,
     )
     if existing.get("busy") and not result.get("busy"):
         close_turn(existing.get("cost_turn"), cancel=True)
@@ -195,6 +308,13 @@ def settings(deck_id):
 def _work(path, owner, deck_id, turn, app):
     store = None
     token = turn["turn_id"]
+    from sabermetrics.assistant_latency import LatencyTrace
+
+    with _TRACE_GUARD:
+        trace = _TURN_TRACES.pop(token, None)
+    trace = trace or LatencyTrace(token, origin_scope="worker")
+    trace.mark("worker_started")
+    useful_persisted = False
 
     def stopped():
         try:
@@ -218,6 +338,36 @@ def _work(path, owner, deck_id, turn, app):
         except DeckNotFound:
             return True
 
+    def retire_aborted_run():
+        current = store.get(owner, deck_id)
+        if current.get("turn_id") != token or not current.get("busy"):
+            store.invalidate(owner, deck_id, token)
+            return
+        with db.connect(path) as conn:
+            revision = conn.execute(
+                "SELECT revision FROM deck_documents WHERE id=? AND owner_id=?",
+                (deck_id, owner),
+            ).fetchone()
+        if not revision or revision[0] != turn["revision"]:
+            store.invalidate(owner, deck_id, token)
+            return
+        code = (
+            "turn_expired"
+            if app.config.get("DECK_LAB_ASSISTANT_AI_ENABLED")
+            else "spending_disabled"
+        )
+        store.finish(
+            owner,
+            deck_id,
+            token,
+            {
+                "role": "assistant",
+                "status": "failed",
+                "error_code": code,
+                "content": "Research ended because its original deadline or paid allowance is no longer available. Published findings remain available.",
+            },
+        )
+
     heartbeat_stop = threading.Event()
 
     def heartbeat():
@@ -228,11 +378,17 @@ def _work(path, owner, deck_id, turn, app):
     heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
 
     def event(value):
+        nonlocal useful_persisted
         if value.get("type") == "provider_checkpoint":
+            trace.provider_checkpoint(value)
             if value.get("state") == "started" and stopped():
                 raise RuntimeError("This research generation is no longer active.")
             store.checkpoint(owner, deck_id, token, value)
             return
+        if value.get("type") == "judgment_reused":
+            trace.cache_hit()
+            return None
+        publication_nonce = uuid4().hex
         name = str(value.get("name") or "tool").replace("_", " ")
         if value.get("type") == "tool_started":
             content = "Working: " + name + "…"
@@ -270,12 +426,31 @@ def _work(path, owner, deck_id, turn, app):
                 or value.get("message")
                 or (name.capitalize() + " completed.")
             )
-        store.append(
+        persisted = store.append(
             owner,
             deck_id,
             token,
-            {"role": "tool", "content": content[:2000], "action": value},
+            {
+                "role": "tool",
+                "content": content[:2000],
+                "action": value,
+                "public_findings": value.get("public_findings", []),
+                "publication_nonce": publication_nonce,
+            },
         )
+        if (
+            not useful_persisted
+            and persisted.get("turn_id") == token
+            and persisted.get("public_findings_count", 0)
+            and persisted.get("last_publication_nonce") == publication_nonce
+        ):
+            trace.mark("first_useful_persisted")
+            useful_persisted = True
+        return {
+            "committed": persisted.get("last_publication_nonce") == publication_nonce,
+            "run_id": token,
+            "receipt_id": publication_nonce,
+        }
 
     try:
         store = AssistantStore(path)
@@ -283,7 +458,7 @@ def _work(path, owner, deck_id, turn, app):
         from sabermetrics.assistant_runtime import run_turn
 
         if stopped():
-            store.invalidate(owner, deck_id, token)
+            retire_aborted_run()
             return
         binding = turn.get("cost_turn")
         if not binding:
@@ -304,7 +479,7 @@ def _work(path, owner, deck_id, turn, app):
                 on_event=event,
             )
         if stopped():
-            store.invalidate(owner, deck_id, token)
+            retire_aborted_run()
             return
         store.finish(
             owner,
@@ -323,6 +498,9 @@ def _work(path, owner, deck_id, turn, app):
                 "reason": result.get("reason"),
             },
         )
+        public = store.public_events(owner, deck_id, run_id=token, after_sequence=0)
+        if public.get("run", {}).get("lifecycle") == "completed":
+            trace.mark("final_persisted")
     except Exception as error:
         logger.exception("Build assistant turn failed")
         from sabermetrics.ai_cost_control import BudgetDenied
@@ -346,9 +524,28 @@ def _work(path, owner, deck_id, turn, app):
                 "role": "assistant",
                 "content": content,
                 "status": "failed",
+                "error_code": (
+                    {
+                        "budget exhausted": "budget_exhausted",
+                        "spending disabled": "spending_disabled",
+                        "tool limit": "tool_limit",
+                        "turn unavailable": "turn_expired",
+                    }.get(str(error), "research_failed")
+                    if isinstance(error, BudgetDenied)
+                    else "research_failed"
+                ),
             },
         )
     finally:
+        if store is not None:
+            try:
+                store.record_latency(
+                    owner, deck_id, token, trace.snapshot().model_dump(mode="json")
+                )
+            except Exception:
+                logger.warning(
+                    "Assistant timing observation could not be persisted", exc_info=True
+                )
         replacement = None
         try:
             replacement = store.get(owner, deck_id) if store is not None else None
@@ -358,7 +555,11 @@ def _work(path, owner, deck_id, turn, app):
             replacement
             and replacement.get("busy")
             and replacement.get("turn_id") != token
-            and replacement.get("cost_turn") == turn.get("cost_turn")
+            and all(
+                (replacement.get("cost_turn") or {}).get(key)
+                == (turn.get("cost_turn") or {}).get(key)
+                for key in ("id", "owner")
+            )
         ):
             close_turn(turn.get("cost_turn"), app=app)
         heartbeat_stop.set()
@@ -381,6 +582,7 @@ def message(deck_id):
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 4000:
         raise ValueError("Enter a message between 1 and 4,000 characters.")
     binding = None
+    received = g.assistant_received_monotonic
 
     def admit():
         nonlocal binding
@@ -389,7 +591,7 @@ def message(deck_id):
             raise CostUnavailable(
                 "Conversational AI is not configured in this environment.", 503
             )
-        binding = admission(owner, deck_id, request_id)
+        binding = public_binding(admission(owner, deck_id, request_id))
         return binding
 
     try:
@@ -403,16 +605,37 @@ def message(deck_id):
             revision,
             request_id=request_id,
             admission=admit,
+            expected=body if "expected_run_id" in body else None,
         )
     except QueueFull as exc:
         close_turn(binding, cancel=True)
         return jsonify(error="busy", message=str(exc)), 429
+    except RunConflict:
+        close_turn(binding, cancel=True)
+        raise
     except ValueError as exc:
         close_turn(binding, cancel=True)
         return jsonify(error="busy", message=str(exc)), 409
     except Exception:
         close_turn(binding, cancel=True)
         raise
+    from sabermetrics.assistant_latency import LatencyTrace
+
+    with _TRACE_GUARD:
+        if (
+            payload.get("busy")
+            and (payload.get("research_workspace") or {}).get("job", {}).get("state")
+            == "queued"
+            and payload["turn_id"] not in _TURN_TRACES
+        ):
+            trace = LatencyTrace(
+                payload["turn_id"], origin_scope="request", origin_monotonic=received
+            )
+            trace.mark("request_received", at=received)
+            trace.mark("accepted")
+            _TURN_TRACES[payload["turn_id"]] = trace
+            while len(_TURN_TRACES) > 8:
+                _TURN_TRACES.pop(next(iter(_TURN_TRACES)))
     _dispatch(path, owner, deck_id, store)
     return jsonify(payload), 202
 
@@ -456,7 +679,7 @@ def _dispatch(path, owner, deck_id, store):
             current_app._get_current_object(),
         )
     except RuntimeError:
-        # No runtime started: release this claim back to the durable queue.
+        # No runtime started: terminalize the claim for an explicit safe retry.
         store.release_claim(owner, deck_id, turn["turn_id"])
         _WORKER_SLOTS.release()
 
@@ -465,7 +688,9 @@ def _dispatch(path, owner, deck_id, store):
 def steer(deck_id):
     path, owner, document, store = context(deck_id)
     body = body_object()
-    revision = expected_revision(body, document)
+    revision = body.get("expected_revision")
+    if type(revision) is not int:
+        raise TypeError("An integer deck revision is required.")
     existing = store.get(owner, deck_id)
     new_binding = None
 
@@ -476,14 +701,21 @@ def steer(deck_id):
                 "Conversational AI is not configured in this environment.", 503
             )
         binding = existing.get("cost_turn")
+        if body.get("action") == "retry":
+            new_binding = public_binding(
+                admission(owner, deck_id, body.get("client_request_id"))
+            )
+            return new_binding
         if binding:
             state = authority().status()["turns"][binding["id"]]
             import time
 
             if not state["closed"] and time.time() < state["deadline"]:
-                return binding
-        new_binding = admission(owner, deck_id, body.get("client_request_id"))
-        return new_binding
+                return public_binding(binding)
+        raise CostUnavailable(
+            "The original research allowance ended. Submit a new request to continue.",
+            409,
+        )
 
     try:
         payload = store.steer(
@@ -507,8 +739,16 @@ def steer(deck_id):
 @bp.post("/api/decks/<deck_id>/assistant/stop")
 def stop(deck_id):
     _path, owner, _document, store = context(deck_id)
-    close_turn(store.get(owner, deck_id).get("cost_turn"), cancel=True)
-    return jsonify(store.stop(owner, deck_id))
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        raise TypeError("Expected a JSON object.")
+    result = store.stop(
+        owner, deck_id, expected=body if "expected_run_id" in body else None
+    )
+    # Binding comes from the successfully targeted local decision, never a
+    # separate pre-mutation session read. Existing unknown reservations stay held.
+    close_turn(result.get("cost_turn"), cancel=True)
+    return jsonify(result)
 
 
 @bp.post("/api/decks/<deck_id>/assistant/experiments/<experiment_id>/adopt")

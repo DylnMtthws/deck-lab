@@ -19,6 +19,22 @@ All schemas use additive evolution — new fields with defaults, new tables inde
 
 ## 1. SQLite Database Schema
 
+### Additive assistant public journal migration 001 (2026-11-10)
+
+`build_assistant_jobs` adds `last_sequence`, `baseline_sequence`,
+`public_projection_json`, `public_baseline_json`, `public_writer_version`,
+`public_domain_hash` (detects non-journaling writes during a downgrade).
+Immutable lifecycle times and run receipts live in its versioned public projection.
+`build_assistant_events` stores owner/deck/run, sequence, kind and validated JSON,
+with cascading deck/job references and a unique run/sequence key.
+`build_assistant_public_snapshots` stores owner/deck/run-bound expiring frozen
+pages and watermark, with cascade deletion. Caps and compatibility rules are in
+`docs/specs/assistant-events-v1/SPEC.md`. Runtime initialization and
+`scripts/migrations/001_assistant_events.py` use the same idempotent transactional
+initializer; `assistant_public_schema_versions` records this additive migration.
+No historic timestamps or events are synthesized for legacy jobs.
+
+
 Research Assistant `assistant-strategy.v1` and `assistant-recall.v1` are additive
 Pydantic receipt contracts. Strategy context contains a content fingerprint,
 commander identities, preferences, detected engine contracts with source quotes

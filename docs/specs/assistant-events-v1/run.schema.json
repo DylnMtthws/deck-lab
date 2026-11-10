@@ -1,0 +1,258 @@
+{
+  "$defs": {
+    "PublicError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "PublicError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "client_request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Client Request Id"
+    },
+    "generation": {
+      "title": "Generation",
+      "type": "integer"
+    },
+    "deck_revision": {
+      "title": "Deck Revision",
+      "type": "integer"
+    },
+    "accepted_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accepted At"
+    },
+    "worker_started_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worker Started At"
+    },
+    "ended_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ended At"
+    },
+    "budget_group_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Budget Group Id"
+    },
+    "budget_started_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Budget Started At"
+    },
+    "deadline_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadline At"
+    },
+    "steered_from_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Steered From Run Id"
+    },
+    "superseded_by_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Superseded By Run Id"
+    },
+    "lifecycle": {
+      "enum": [
+        "queued",
+        "running",
+        "completed",
+        "stopped",
+        "failed",
+        "interrupted",
+        "superseded"
+      ],
+      "title": "Lifecycle",
+      "type": "string"
+    },
+    "evidence_status": {
+      "default": "not_started",
+      "enum": [
+        "not_started",
+        "partial",
+        "reviewed",
+        "unavailable"
+      ],
+      "title": "Evidence Status",
+      "type": "string"
+    },
+    "fulfillment": {
+      "default": "unknown",
+      "enum": [
+        "unknown",
+        "complete",
+        "partial"
+      ],
+      "title": "Fulfillment",
+      "type": "string"
+    },
+    "obligations": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Obligations",
+      "type": "array"
+    },
+    "missing_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Obligations",
+      "type": "array"
+    },
+    "legacy_fulfillment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Legacy Fulfillment"
+    },
+    "legacy_outcome_uncertain": {
+      "default": false,
+      "title": "Legacy Outcome Uncertain",
+      "type": "boolean"
+    },
+    "stop_requested_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stop Requested At"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "last_sequence": {
+      "default": 0,
+      "title": "Last Sequence",
+      "type": "integer"
+    },
+    "history_compacted": {
+      "default": false,
+      "title": "History Compacted",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id",
+    "generation",
+    "deck_revision",
+    "lifecycle"
+  ],
+  "title": "PublicRun",
+  "type": "object"
+}

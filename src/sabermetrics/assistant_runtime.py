@@ -1772,9 +1772,10 @@ def run_turn(
     mode: str = "suggest",
     constraints: dict[str, Any] | None = None,
     should_stop: Callable[[], bool] | None = None,
-    on_event: Callable[[dict[str, Any]], None] | None = None,
+    on_event: Callable[[dict[str, Any]], Any] | None = None,
     *,
     gateway=None,
+    run_id: str | None = None,
     experiment_service=None,
     answer_review_gateway=None,
     package_research_gateway=None,
@@ -1839,14 +1840,55 @@ def run_turn(
         "reason": "",
     }
 
-    def emit(event: dict[str, Any]) -> None:
+    from sabermetrics.assistant_events import digest
+    from sabermetrics.assistant_judgment_cache import (
+        ExactJudgmentCache,
+        JudgmentContext,
+        JudgmentReceipt,
+    )
+
+    if run_id is None:
+        run_id = next(
+            (
+                m.get("run_id")
+                for m in reversed(messages)
+                if m.get("role") == "user" and isinstance(m.get("run_id"), str)
+            ),
+            None,
+        )
+    judgment_cache = ExactJudgmentCache(run_id, owner_id) if run_id else None
+    obligation_contract = None
+    tool_arguments: dict[str, dict[str, Any]] = {}
+
+    def emit(event: dict[str, Any]) -> Any:
+        if event.get("type") == "tool_started" and isinstance(
+            event.get("arguments"), dict
+        ):
+            tool_arguments[str(event.get("name"))] = event["arguments"]
+        if (
+            event.get("type") == "tool_result"
+            and event.get("ok") is True
+            and obligation_contract is not None
+        ):
+            from sabermetrics.assistant_publishability import early_findings
+
+            public = early_findings(
+                str(event.get("name")),
+                event.get("data") or {},
+                obligation_contract,
+                arguments=tool_arguments.get(str(event.get("name")), {}),
+            )
+            if public:
+                event = dict(event, public_findings=[x.model_dump() for x in public])
         if event.get("type") == "tool_started" and event.get("name") == "check_answer":
             from sabermetrics.ai_cost_control import consume_tool_iteration
 
             consume_tool_iteration()
-        actions.append(event)
+        if event.get("type") != "obligations_refined":
+            actions.append(event)
         if on_event:
-            on_event(event)
+            return on_event(event)
+        return None
 
     def publish_catalog(cards: list[dict[str, Any]]) -> None:
         from sabermetrics.assistant_workspace import (
@@ -2031,6 +2073,11 @@ def run_turn(
             "commander abilities",
         )
         current_request = current_request if isinstance(current_request, str) else ""
+        from sabermetrics.assistant_obligations import build_obligations
+
+        obligation_contract = build_obligations(
+            current_request, result["revision"], constraints=constraints
+        )
         tools.research_request = current_request
         rule_cards = scoped_rule_cards(document, current_request)
         initial_rules = retrieve_rules(
@@ -2084,6 +2131,9 @@ def run_turn(
         checker_review_attempted = False
         stage_timings: list[dict[str, Any]] = []
         answer_repair_pending = False
+        state.setdefault("answer_obligations", {})[
+            "contract"
+        ] = obligation_contract.model_dump()
         read_cache: dict[str, dict[str, Any]] = {}
         successful_functional_queries: set[str] = set()
         cacheable = {
@@ -3177,6 +3227,20 @@ def run_turn(
                 task, disagreements = reconcile_task(
                     step.research_task, current_request
                 )
+                obligation_contract = build_obligations(
+                    current_request,
+                    result["revision"],
+                    task=task,
+                    constraints=constraints,
+                    version=2,
+                )
+                emit(
+                    {
+                        "type": "obligations_refined",
+                        "name": "request_requirements",
+                        "data": obligation_contract.model_dump(),
+                    }
+                )
                 state["research_brief_disagreements"] = disagreements
                 if task.evidence_scope in {"named_cards_only", "existing_candidates"}:
                     discovery_requirements = []
@@ -3206,6 +3270,7 @@ def run_turn(
                     "preferences"
                 ]
                 state["answer_obligations"] = {
+                    "contract": obligation_contract.model_dump(),
                     "kind": task.kind,
                     "evidence_scope": task.evidence_scope,
                     "deliverables": task.deliverables,
@@ -4340,24 +4405,144 @@ def run_turn(
                             "on_reviewed": publish_review_progress,
                             "check_current": tools.check,
                         }
-                    corrected, receipt = review_function(
-                        checker,
-                        parts,
-                        review_sources,
-                        current_request,
-                        research_context=review_context,
-                        protected_parts=(
-                            {
-                                i
-                                for i, part in enumerate(parts)
-                                if re.search(r"\d", part)
-                            }
-                            if measured_presentation is not None
-                            or state["workflow"].get("experiment_status")
-                            else set()
-                        ),
-                        **progressive_options,
+                    reuse_context = None
+                    reuse_text_hash = digest(parts)
+                    watcher = strategy_snapshot_cache.get("_strategy_snapshot_watcher")
+                    if (
+                        judgment_cache is not None
+                        and watcher is not None
+                        and review_sources
+                        and card_manifest
+                    ):
+                        try:
+                            fresh = watcher.generation() == watcher.version
+                            model_identity = getattr(checker, "model_id", None)
+                            if (
+                                fresh
+                                and isinstance(model_identity, str)
+                                and model_identity
+                            ):
+                                source_hashes = tuple(
+                                    digest(source) for source in review_sources
+                                )
+                                reuse_context = JudgmentContext(
+                                    owner_id=owner_id,
+                                    run_id=judgment_cache.run_id,
+                                    deck_revision=result["revision"],
+                                    deck_hash=digest(document),
+                                    task_scope_hash=digest(
+                                        [
+                                            current_request,
+                                            review_context,
+                                            {
+                                                "protected_parts": (
+                                                    [
+                                                        i
+                                                        for i, part in enumerate(parts)
+                                                        if re.search(r"\d", part)
+                                                    ]
+                                                    if measured_presentation is not None
+                                                    or state["workflow"].get(
+                                                        "experiment_status"
+                                                    )
+                                                    else []
+                                                ),
+                                                "full_deck_sources": deck_review_packet
+                                                is not None,
+                                                "progressive": selected_before_prose
+                                                and use_progressive_review,
+                                            },
+                                        ]
+                                    ),
+                                    constraints_hash=digest(constraints or {}),
+                                    steering_hash=digest(
+                                        [
+                                            current_request,
+                                            (constraints or {}).get(
+                                                "excluded_candidates", []
+                                            ),
+                                            (constraints or {}).get(
+                                                "prioritized_candidates", []
+                                            ),
+                                        ]
+                                    ),
+                                    evidence_manifest_hash=digest(
+                                        [
+                                            source_hashes,
+                                            card_manifest,
+                                            getattr(review_sources, "omitted", []),
+                                        ]
+                                    ),
+                                    source_hashes=source_hashes,
+                                    freshness_hash=digest(
+                                        {
+                                            "scope": "active_local_snapshot_only",
+                                            "cards": card_manifest,
+                                            "rules": review_rules,
+                                            "sources": source_hashes,
+                                        }
+                                    ),
+                                    prompt_version=digest(
+                                        [
+                                            review_function.__module__,
+                                            hashlib.sha256(
+                                                Path(__file__).read_bytes()
+                                            ).hexdigest(),
+                                        ]
+                                    ),
+                                    schema_version="existing-bound-review-receipts.v1",
+                                    model_id=model_identity,
+                                    policy_version="assistant.events.v1.exact-reuse",
+                                    judgment_kind=(
+                                        "claim_review"
+                                        if selected_before_prose
+                                        else "answer_review"
+                                    ),
+                                )
+                        except (
+                            OSError,
+                            ValueError,
+                            TypeError,
+                            AttributeError,
+                            sqlite3.Error,
+                        ):
+                            reuse_context = None  # Missing freshness/identity is a miss, never a wildcard.
+                    reused = (
+                        judgment_cache.get(reuse_context, text_hash=reuse_text_hash)
+                        if judgment_cache is not None and reuse_context is not None
+                        else None
                     )
+                    if reused is not None:
+                        tools.check()
+                        corrected = deepcopy(reused.value["corrected"])
+                        receipt = deepcopy(reused.value["receipt"])
+                        emit(
+                            {
+                                "type": "judgment_reused",
+                                "name": "check_answer",
+                                "receipt_id": reused.review_receipt_id,
+                            }
+                        )
+                    else:
+                        corrected, receipt = review_function(
+                            checker,
+                            parts,
+                            review_sources,
+                            current_request,
+                            research_context=review_context,
+                            protected_parts=(
+                                {
+                                    i
+                                    for i, part in enumerate(parts)
+                                    if re.search(r"\d", part)
+                                }
+                                if measured_presentation is not None
+                                or state["workflow"].get("experiment_status")
+                                else set()
+                            ),
+                            **progressive_options,
+                        )
+                    raw_review_result = deepcopy((corrected, receipt))
                     if selected_before_prose:
                         receipt["workspace_card_sources"] = card_manifest
                         publish_review_progress(corrected, receipt)
@@ -4479,7 +4664,7 @@ def run_turn(
                             ],
                         }
                     result["answer_review"] = receipt
-                    emit(
+                    review_ack = emit(
                         {
                             "type": "tool_result",
                             "name": "check_answer",
@@ -4493,6 +4678,25 @@ def run_turn(
                             "revision": result["revision"],
                         }
                     )
+                    if (
+                        judgment_cache is not None
+                        and reuse_context is not None
+                        and isinstance(review_ack, dict)
+                        and review_ack.get("committed") is True
+                        and review_ack.get("run_id") == run_id
+                        and (corrected, receipt) == raw_review_result
+                    ):
+                        judgment_cache.put(
+                            reuse_context,
+                            JudgmentReceipt(
+                                context_fingerprint=reuse_context.fingerprint(),
+                                text_hash=reuse_text_hash,
+                                evidence_manifest_hash=reuse_context.evidence_manifest_hash,
+                                review_receipt_id=str(review_ack["receipt_id"]),
+                                committed=True,
+                                value={"corrected": corrected, "receipt": receipt},
+                            ),
+                        )
                     if receipt.get("fulfillment") == "nonanswer":
                         state["answer_repair_feedback"] = {
                             "fulfillment": "nonanswer",

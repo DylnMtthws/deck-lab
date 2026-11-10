@@ -18,6 +18,19 @@ When changing a contract, update this document FIRST, then implement. Breaking c
 
 ## 1. Internal Module Contracts
 
+### Approved assistant.events.v1 (2026-11-10)
+
+See `docs/specs/assistant-events-v1/SPEC.md`. `assistant_events` validates public
+run/entity/event boundaries and reduces ordered deltas. `assistant_event_store`
+allocates sequences and stores the public projection in the SAME SQLite
+transaction as each domain mutation. `AssistantStore.public_events(owner, deck,
+run_id=None, after_sequence=None, snapshot_token=None, page_index=0)` returns
+mutually exclusive snapshot/delta/reset responses. Existing GET `/assistant`
+negotiates with `contract=assistant.events.v1` and adds `public_events` to legacy
+fields. Explicit mutation targeting is validated transactionally. No event
+projection authorizes a deck action or a model call.
+
+
 ### Research Assistant strategy and recall (2026-10-16)
 
 `assistant_strategy.build_strategy_context(document, constraints, assessment)`
