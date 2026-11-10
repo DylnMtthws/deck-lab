@@ -243,3 +243,33 @@ def test_client_latency_route_dedupes_and_never_changes_lifecycle(state):
             journal.row_for(conn, turn["turn_id"])["checkpoint_json"]
         )
     assert set(checkpoint["client_latency"]) == {"first_useful"}
+
+
+def test_reviewer_named_missing_obligations_survive_assessment():
+    from sabermetrics.assistant_events import review_outcome
+    from sabermetrics.assistant_obligations import build_obligations
+
+    obligations = build_obligations("Suggest three ramp cards and explain why", 0)
+    outcome = review_outcome(
+        {
+            "content": "x",
+            "answer_review": {
+                "fulfillment": "partial",
+                "missing_obligations": ["explain why"],
+            },
+        },
+        obligations.model_dump(),
+    )
+    assert outcome["fulfillment"] == "partial"
+    assert "explain why" in outcome["missing_obligations"]
+
+
+def test_interrupted_run_marks_open_activity_unavailable_not_failed(state):
+    _, path, owner, deck, store = state
+    turn = store.begin(owner, deck, "Research", 0)
+    store.claim(owner, deck)
+    store.append(owner, deck, turn["turn_id"], progress("planning"))
+    store.release_claim(owner, deck, turn["turn_id"])
+    activity = projection(path, turn["turn_id"])["entities"]["activity"]
+    assert projection(path, turn["turn_id"])["run"]["lifecycle"] == "interrupted"
+    assert [a["state"] for a in activity] == ["unavailable"]

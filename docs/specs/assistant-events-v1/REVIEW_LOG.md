@@ -82,3 +82,19 @@ publication, a steering.rejected event producer, planner-typed task class
 final_persisted for non-completed terminals. New regressions are in
 tests/test_assistant_events_followup.py. All 2538 assistant tests pass, with 2
 skipped.
+
+## Claude adversarial review of 7734e9c
+
+Confirmed P2: when obligations were present, the assessment replaced the
+reviewer's named missing obligations with an empty list. Assessment results
+are now merged with the reviewer's list instead. Accepted P3: interrupted
+runs close open activities as unavailable, not failed, because their outcome
+is unknown. Deferred P3s with reasons:
+- Branch-database hash migration: this branch has never been deployed, so
+  no existing database needs it.
+- Claim supersession without a replacement_id: no claims are published yet.
+  Revisit when claim publication lands.
+- Exclude/Prioritize controls stay enabled on finished runs: these already
+  returned 409 before this branch.
+Both changes have regression tests. All 2540 assistant tests pass, with 2
+skipped.

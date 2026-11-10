@@ -274,7 +274,8 @@ def review_outcome(
                 answer_present=bool(str(message.get("content") or "").strip()),
             )
             fulfillment = assessment.fulfillment
-            missing = assessment.missing_obligations
+            # Keep the reviewer's named gaps; coverage receipts may add more.
+            missing = list(dict.fromkeys([*assessment.missing_obligations, *missing]))
             reason = assessment.reason
         except ValueError:
             fulfillment = "unknown"

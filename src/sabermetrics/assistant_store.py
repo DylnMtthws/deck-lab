@@ -295,7 +295,7 @@ class AssistantStore:
             outcome = (
                 "completed"
                 if state == "completed" and stage
-                else "failed" if state in {"failed", "interrupted"} else "unavailable"
+                else "failed" if state == "failed" else "unavailable"
             )
             journal.upsert(
                 conn,
