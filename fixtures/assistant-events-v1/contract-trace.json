@@ -165,6 +165,7 @@
         "comparison"
       ],
       "legacy_fulfillment": null,
+      "fulfillment_reason": null,
       "legacy_outcome_uncertain": false,
       "stop_requested_at": null,
       "error": null,

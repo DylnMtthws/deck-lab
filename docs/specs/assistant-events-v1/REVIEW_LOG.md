@@ -42,3 +42,43 @@ session. Executor startup rejection now closes only its own allowance, preservin
 a concurrent shared-allowance replacement. The final focused suite passed 84
 checks after those refinements. Full static checks and existing hermetic
 regression scripts pass. Claude integrated review remains pending.
+
+## Claude integrated review of d3c811b — follow-up
+
+Codex began these fixes and ran out of usage partway through. Claude
+Opus 5.5 verified the partial edits and finished the rest.
+
+- P1 runtime failures labeled completed: already fixed in 3061fde.
+- P2 open activities: a new stage closes the prior stage as completed, and the
+  terminal transaction closes every open activity: completed for a stage at
+  completed, failed at failed/interrupted, unavailable otherwise.
+- P2 frozen elapsed time: a terminal summary keeps the frozen elapsed text
+  visible while collapsed; only the live clock hides when collapsed.
+- P2 evidence partial with zero claims: evidence_status is now unavailable until
+  claim/citation mappings are published.
+- P2 unassessed obligations: legacy complete with obligations but no coverage
+  receipts maps to fulfillment unknown with a stated reason (QUALITY item 6).
+  The UI shows "Answer ready · fulfillment not assessed" and uses
+  "incomplete" only for partial.
+- P3 rollback detection: explicit historical reads rebaseline when the job
+  state disagrees with the projection lifecycle or the domain hash changed.
+  Archive writes now update the domain hash.
+- P3 settings binding: closes the binding captured with the mutation result.
+- Steering against a terminal origin is rejected before any journal write.
+  Superseded runs withdraw published findings and claims.
+- Telemetry: provider usage receipts are deduplicated into the trace; the task
+  class is set from the exact source-rendered final receipt; a POST /latency
+  route stores one untrusted client render observation per run and kind
+  without changing lifecycle or sequence.
+- Journal cost: running per-run/per-deck totals maintained by triggers replace
+  the deck-wide COUNT/SUM per append. Cleanup is indexed and capped at 64 runs
+  per call. Synthetic measurements are in `validation/journal-overhead.json`.
+  At 2048 preloaded events, write p50 is 0.14 ms versus 0.34 ms for d3c811b.
+  Measured on one connection, so this does not cover concurrent lock wait.
+
+Still not implemented (disclosed, not hidden): claim/citation entity
+publication, a steering.rejected event producer, planner-typed task class
+(the runtime does not pass a typed ResearchTask to the worker), and
+final_persisted for non-completed terminals. New regressions are in
+tests/test_assistant_events_followup.py. All 2538 assistant tests pass, with 2
+skipped.

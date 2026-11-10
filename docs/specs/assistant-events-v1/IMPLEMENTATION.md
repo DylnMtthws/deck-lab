@@ -4,7 +4,8 @@ Branch feat/assistant-events-v1-20261110, based on 454614ff. Local changes only.
 
 Implemented: durable bounded journal and paged snapshots; additive migration and
 non-journaling-writer rebaseline; exact run targeting; shared-deadline restart;
-explicit lifecycle/fulfillment/evidence separation; activity/timer/recovery UI;
+explicit lifecycle/fulfillment/evidence separation (claim and citation entities
+are not yet published, so evidence coverage reports unavailable); activity/timer/recovery UI;
 source-rendered relevant early findings; planner obligations without a new call;
 content-free latency hooks; bounded exact committed-review reuse seam.
 
@@ -26,7 +27,9 @@ cases). Final executor-rejection and UI refinements then passed 84 focused tests
 Full-source mypy/Ruff/Black, JavaScript syntax and whitespace checks pass. Existing
 hermetic intelligence and development/heldout strategy regression scripts pass;
 reports are retained in `validation/`. These do not establish real-user quality,
-provider latency or spend improvements. Claude's independent review is pending.
+provider latency or spend improvements. Claude's independent review found further gaps,
+resolved in the follow-up recorded in REVIEW_LOG.md; afterwards all 2538 assistant tests
+passed (2 skipped). The full offline suite was then rerun: 5254 passed, 28 skipped, 12 deselected.
 
 The public projection uses a conservative 5-MiB admission guard (below the
 approved 7.5-MiB ceiling) to guarantee 64 bounded pages despite indivisible

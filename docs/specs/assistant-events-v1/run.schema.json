@@ -208,6 +208,18 @@
       "default": null,
       "title": "Legacy Fulfillment"
     },
+    "fulfillment_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fulfillment Reason"
+    },
     "legacy_outcome_uncertain": {
       "default": false,
       "title": "Legacy Outcome Uncertain",

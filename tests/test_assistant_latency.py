@@ -194,3 +194,82 @@ def test_nested_provider_wrappers_do_not_count_same_transport_interval_as_two_at
     trace.provider_checkpoint({**event, "call_id": "inner"})
     assert trace.snapshot().provider_calls == 2
     assert trace.snapshot().provider_attempts_observed == 1
+
+
+def test_finished_usage_receipts_deduplicate_across_wrappers_without_phases():
+    trace = LatencyTrace("run", clock=lambda: 0.0)
+    receipt = {
+        "type": "provider_checkpoint",
+        "state": "finished",
+        "usage_observation_id": "a" * 64,
+        "usage_observed": {
+            "input_tokens": 12,
+            "cached_input_tokens": 3,
+            "output_tokens": 4,
+            "reasoning_tokens": 2,
+        },
+    }
+    for call in ("outer", "inner", "outer"):
+        trace.provider_checkpoint({**receipt, "call_id": call})
+    report = trace.snapshot()
+    assert report.usage_calls_observed == 1
+    assert report.usage_tokens_observed["input_tokens"] == 12
+    assert report.provider_calls == 2
+
+
+@pytest.mark.parametrize(
+    "kind, first, seconds",
+    [
+        ("terminal", True, 0.1),
+        ("first_useful", False, 0.1),
+        ("terminal", False, 86400.1),
+        ("other", False, 0.1),
+    ],
+)
+def test_client_observation_rejects_incoherent_or_unbounded(kind, first, seconds):
+    with pytest.raises(ValueError):
+        ClientLatencyObservation(
+            run_id="run",
+            kind=kind,
+            first_useful=first,
+            received_to_rendered_seconds=seconds,
+        )
+
+
+def test_client_terminal_observation_is_separate_and_bounded():
+    observation = ClientLatencyObservation(
+        run_id="run",
+        kind="terminal",
+        first_useful=False,
+        received_to_rendered_seconds=86400.0,
+    )
+    assert observation.clock_domain == "client_monotonic"
+
+
+def test_task_classes_require_typed_metadata_not_tool_guesses():
+    from sabermetrics.assistant_latency import task_class_from_metadata
+    from sabermetrics.assistant_research_task import ResearchTask
+
+    assert task_class_from_metadata(task={"kind": "compare"}) == "unknown"
+    assert task_class_from_metadata(task=ResearchTask(kind="compare")) == "comparison"
+    assert task_class_from_metadata(task=ResearchTask(kind="discover")) == "discovery"
+    assert (
+        task_class_from_metadata(
+            task=ResearchTask(kind="explain", evidence_scope="current_deck")
+        )
+        == "deck_review"
+    )
+    assert (
+        task_class_from_metadata(
+            task=ResearchTask(kind="explain", evidence_scope="named_cards_only")
+        )
+        == "unknown"
+    )
+    assert (
+        task_class_from_metadata(task=ResearchTask(requires_empirical_evidence=True))
+        == "unknown"
+    )
+    assert (
+        task_class_from_metadata(answer_review={"status": "source_rendered"})
+        == "exact_fact"
+    )

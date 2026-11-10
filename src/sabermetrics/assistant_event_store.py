@@ -28,6 +28,7 @@ MAX_DECK_EVENTS = 16384
 MAX_DECK_BYTES = 8 * 1024 * 1024
 SNAPSHOT_TTL = 300
 MAX_OWNER_SNAPSHOTS = 4
+MAX_CLEANUP_RUNS = 64
 
 
 def initialize(conn: Any) -> None:
@@ -41,6 +42,8 @@ def initialize(conn: Any) -> None:
         "public_writer_version": "TEXT",
         "public_domain_hash": "TEXT",
         "compacted_event_count": "INTEGER NOT NULL DEFAULT 0",
+        "retained_event_count": "INTEGER NOT NULL DEFAULT 0 CHECK(retained_event_count>=0)",
+        "retained_event_bytes": "INTEGER NOT NULL DEFAULT 0 CHECK(retained_event_bytes>=0)",
     }.items():
         if name not in columns:
             conn.execute(
@@ -62,6 +65,16 @@ def initialize(conn: Any) -> None:
           pages_json TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS assistant_public_snapshots_owner
           ON build_assistant_public_snapshots(owner_id,created_at);
+        CREATE INDEX IF NOT EXISTS assistant_public_snapshots_expiry
+          ON build_assistant_public_snapshots(expires_at);
+        CREATE INDEX IF NOT EXISTS assistant_public_retained_deck
+          ON build_assistant_jobs(deck_id,created_at) WHERE retained_event_count>0;
+        CREATE INDEX IF NOT EXISTS assistant_public_retained_expiry
+          ON build_assistant_jobs(state,updated_at) WHERE retained_event_count>0;
+        CREATE TABLE IF NOT EXISTS build_assistant_event_totals (
+          deck_id TEXT PRIMARY KEY REFERENCES deck_documents(id) ON DELETE CASCADE,
+          event_count INTEGER NOT NULL CHECK(event_count>=0),
+          event_bytes INTEGER NOT NULL CHECK(event_bytes>=0));
         CREATE TABLE IF NOT EXISTS assistant_public_schema_versions (
           version INTEGER PRIMARY KEY, applied_at REAL NOT NULL);
         """
@@ -72,6 +85,43 @@ def initialize(conn: Any) -> None:
         "INSERT OR IGNORE INTO assistant_public_schema_versions VALUES (1,?)",
         (time.time(),),
     )
+
+    # Versioned backfill runs once, in the caller's migration transaction. Triggers
+    # also cover older writers' direct DELETEs and foreign-key cascades.
+    if not conn.execute(
+        "SELECT 1 FROM assistant_public_schema_versions WHERE version=2"
+    ).fetchone():
+        conn.execute("""UPDATE build_assistant_jobs SET
+          retained_event_count=(SELECT COUNT(*) FROM build_assistant_events WHERE run_id=build_assistant_jobs.id),
+          retained_event_bytes=(SELECT COALESCE(SUM(length(CAST(event_json AS BLOB))),0)
+            FROM build_assistant_events WHERE run_id=build_assistant_jobs.id)""")
+        conn.execute("""INSERT INTO build_assistant_event_totals
+          SELECT deck_id,COUNT(*),SUM(length(CAST(event_json AS BLOB)))
+          FROM build_assistant_events GROUP BY deck_id
+          ON CONFLICT(deck_id) DO UPDATE SET
+            event_count=excluded.event_count,event_bytes=excluded.event_bytes""")
+        conn.execute(
+            "INSERT INTO assistant_public_schema_versions VALUES (2,?)", (time.time(),)
+        )
+    conn.execute("""CREATE TRIGGER IF NOT EXISTS assistant_public_event_insert
+      AFTER INSERT ON build_assistant_events BEGIN
+        UPDATE build_assistant_jobs SET retained_event_count=retained_event_count+1,
+          retained_event_bytes=retained_event_bytes+length(CAST(NEW.event_json AS BLOB))
+          WHERE id=NEW.run_id;
+        INSERT INTO build_assistant_event_totals VALUES
+          (NEW.deck_id,1,length(CAST(NEW.event_json AS BLOB)))
+          ON CONFLICT(deck_id) DO UPDATE SET event_count=event_count+1,
+            event_bytes=event_bytes+excluded.event_bytes;
+      END""")
+    conn.execute("""CREATE TRIGGER IF NOT EXISTS assistant_public_event_delete
+      AFTER DELETE ON build_assistant_events BEGIN
+        UPDATE build_assistant_jobs SET retained_event_count=retained_event_count-1,
+          retained_event_bytes=retained_event_bytes-length(CAST(OLD.event_json AS BLOB))
+          WHERE id=OLD.run_id;
+        UPDATE build_assistant_event_totals SET event_count=event_count-1,
+          event_bytes=event_bytes-length(CAST(OLD.event_json AS BLOB))
+          WHERE deck_id=OLD.deck_id;
+      END""")
 
 
 def row_for(conn: Any, run_id: str) -> Any:
@@ -180,52 +230,56 @@ def upsert(
 
 def compact(conn: Any, deck_id: str, run_id: str) -> None:
     """Checkpoint retained public state before dropping replay history."""
-    run_count = conn.execute(
-        "SELECT COUNT(*) FROM build_assistant_events WHERE run_id=?", (run_id,)
-    ).fetchone()[0]
-    if run_count > MAX_RUN_EVENTS:
+    run = row_for(conn, run_id)
+    if run is not None and run["retained_event_count"] > MAX_RUN_EVENTS:
         _compact_run(conn, run_id)
-    count, size = conn.execute(
-        "SELECT COUNT(*),COALESCE(SUM(length(CAST(event_json AS BLOB))),0) FROM build_assistant_events WHERE deck_id=?",
-        (deck_id,),
-    ).fetchone()
-    while count > MAX_DECK_EVENTS or size > MAX_DECK_BYTES:
+    while True:
+        totals = conn.execute(
+            "SELECT event_count,event_bytes FROM build_assistant_event_totals WHERE deck_id=?",
+            (deck_id,),
+        ).fetchone()
+        if not totals or (totals[0] <= MAX_DECK_EVENTS and totals[1] <= MAX_DECK_BYTES):
+            break
         oldest = conn.execute(
-            "SELECT e.run_id FROM build_assistant_events e JOIN build_assistant_jobs j ON j.id=e.run_id WHERE e.deck_id=? ORDER BY j.created_at,e.sequence LIMIT 1",
+            "SELECT id FROM build_assistant_jobs WHERE deck_id=? AND retained_event_count>0 ORDER BY created_at LIMIT 1",
             (deck_id,),
         ).fetchone()
         if not oldest:
             break
         _compact_run(conn, oldest[0])
-        count, size = conn.execute(
-            "SELECT COUNT(*),COALESCE(SUM(length(CAST(event_json AS BLOB))),0) FROM build_assistant_events WHERE deck_id=?",
-            (deck_id,),
-        ).fetchone()
+
+
+def discard_events(conn: Any, run_id: str) -> int:
+    """Delete retained rows; caller owns baseline/disclosure changes in this transaction."""
+    removed = conn.execute(
+        "DELETE FROM build_assistant_events WHERE run_id=?", (run_id,)
+    ).rowcount
+    return int(removed)
 
 
 def _compact_run(conn: Any, run_id: str) -> None:
     row = row_for(conn, run_id)
     projection = json.loads(row["public_projection_json"])
-    removed = conn.execute(
-        "SELECT COUNT(*) FROM build_assistant_events WHERE run_id=?", (run_id,)
-    ).fetchone()[0]
+    removed = discard_events(conn, run_id)
     # Disclosure is unsequenced transport metadata, not a mutation of a terminal answer.
     text = serialized(projection)
     conn.execute(
         "UPDATE build_assistant_jobs SET public_baseline_json=?,public_projection_json=?,baseline_sequence=last_sequence,compacted_event_count=compacted_event_count+? WHERE id=?",
         (text, text, removed, run_id),
     )
-    conn.execute("DELETE FROM build_assistant_events WHERE run_id=?", (run_id,))
 
 
 def cleanup(conn: Any, now: float) -> None:
-    """Lazy bounded housekeeping, without a background process."""
+    """Lazy indexed housekeeping; process at most 64 expired runs per call."""
     conn.execute(
         "DELETE FROM build_assistant_public_snapshots WHERE expires_at<=?", (now,)
     )
+    states = sorted(TERMINAL)
+    placeholders = ",".join("?" for _ in states)
     expired = conn.execute(
-        "SELECT DISTINCT e.run_id FROM build_assistant_events e JOIN build_assistant_jobs j ON e.run_id=j.id WHERE j.state NOT IN ('queued','running') AND j.updated_at<?",
-        (now - 86400,),
+        f"SELECT id FROM build_assistant_jobs WHERE state IN ({placeholders}) "
+        "AND updated_at<? AND retained_event_count>0 ORDER BY updated_at LIMIT ?",
+        (*states, now - 86400, MAX_CLEANUP_RUNS),
     ).fetchall()
     for row in expired:
         _compact_run(conn, row[0])

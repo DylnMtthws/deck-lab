@@ -655,3 +655,131 @@ def test_generic_nested_gateway_timings_never_claim_to_measure_transport():
     phases = [p["phase"] for event in events for p in event["phase_timings"]]
     assert "gateway_execution" in phases
     assert "transport" not in phases
+
+
+def test_actual_usage_is_normalized_and_nested_wrapper_identity_is_shared():
+    from sabermetrics.assistant_latency import LatencyTrace
+    from sabermetrics.cedh.model_gateway import GenerationResult, UsageRecord
+
+    usage = UsageRecord(
+        provider="fake",
+        model_id="model",
+        prompt_version="v1",
+        call_type="test",
+        mode="assistant",
+        request_id="provider-response-1",
+        input_tokens=20,
+        cached_input_tokens=5,
+        output_tokens=3,
+        reasoning_tokens=2,
+    )
+    result = GenerationResult(value={"ok": True}, usage=usage)
+
+    class Gateway:
+        def generate(self, request):
+            return result
+
+    events = []
+    wrapper = budget_gateway(
+        budget_gateway(Gateway(), on_checkpoint=events.append),
+        on_checkpoint=events.append,
+    )
+    assert wrapper.generate(SimpleNamespace()) is result
+    finished = [e for e in events if e["state"] == "finished"]
+    assert len(finished) == 2
+    assert finished[0]["usage_observation_id"] == finished[1]["usage_observation_id"]
+    assert "provider-response-1" not in str(finished)
+    trace = LatencyTrace("run")
+    for event in events + events:
+        trace.provider_checkpoint(event)
+    assert trace.snapshot().usage_calls_observed == 1
+    assert trace.snapshot().usage_tokens_observed["input_tokens"] == 20
+
+
+@pytest.mark.parametrize("tokens, request_id", [(None, "id"), (0, "id"), (3, "")])
+def test_missing_default_or_unidentified_usage_remains_unknown(tokens, request_id):
+    from sabermetrics.cedh.model_gateway import GenerationResult, UsageRecord
+
+    fields = (
+        {}
+        if tokens is None
+        else dict(
+            input_tokens=tokens,
+            cached_input_tokens=0,
+            output_tokens=0,
+            reasoning_tokens=0,
+        )
+    )
+    result = GenerationResult(
+        value={},
+        usage=UsageRecord(
+            provider="fake",
+            model_id="model",
+            prompt_version="v1",
+            call_type="test",
+            mode="assistant",
+            request_id=request_id,
+            **fields,
+        ),
+    )
+
+    class Gateway:
+        def generate(self, request):
+            return result
+
+    events = []
+    budget_gateway(Gateway(), on_checkpoint=events.append).generate(SimpleNamespace())
+    assert "usage_observed" not in events[-1]
+
+
+def test_deferred_real_gateway_usage_includes_observed_validation_attempts(
+    cost_gateway,
+):
+    import httpx
+
+    from sabermetrics.assistant_latency import LatencyTrace
+
+    make, _, request = cost_gateway
+    attempts = []
+
+    def handler(_):
+        attempts.append(1)
+        return httpx.Response(
+            200,
+            json={
+                "id": "actual-response-" + str(len(attempts)),
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"ok":true}' if len(attempts) == 2 else "bad json"
+                            )
+                        }
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "prompt_tokens_details": {"cached_tokens": 2},
+                    "completion_tokens_details": {"reasoning_tokens": 3},
+                },
+            },
+        )
+
+    gateway, _ = make("observed-usage.db", handler, spend=0)
+    events = []
+    result = budget_gateway(gateway, on_checkpoint=events.append).generate(request)
+    assert result.usage.validation_failures == 1
+    assert len(attempts) == 2
+    trace = LatencyTrace("run", origin_monotonic=0.0)
+    for event in events:
+        trace.provider_checkpoint(event)
+    report = trace.snapshot()
+    assert report.usage_calls_observed == 1
+    assert report.usage_tokens_observed == {
+        "input_tokens": 20,
+        "cached_input_tokens": 4,
+        "output_tokens": 34,
+        "reasoning_tokens": 6,
+    }
+    assert report.provider_attempts_observed == 2

@@ -269,8 +269,14 @@ class AssistantStore:
         p["busy"] = False
         if row:
             conn.execute(
-                "UPDATE build_assistant_jobs SET snapshot_json=? WHERE id=?",
-                (json.dumps(p), row["id"]),
+                "UPDATE build_assistant_jobs SET snapshot_json=?,public_domain_hash=? WHERE id=?",
+                (
+                    json.dumps(p),
+                    __import__(
+                        "sabermetrics.assistant_events", fromlist=["digest"]
+                    ).digest(p),
+                    row["id"],
+                ),
             )
 
     def _end_job(self, conn, row, state, **changes):
@@ -279,6 +285,46 @@ class AssistantStore:
 
         if not row or row["state"] in TERMINAL:
             return False
+        projection = journal.ensure_baseline(conn, journal.row_for(conn, row["id"]))
+        for operation in projection["entities"]["activity"]:
+            if operation.get("state") != "started":
+                continue
+            stage = operation.get("category") == "stage" or operation.get(
+                "operation_key"
+            ) in {"planning", "comparison", "verification"}
+            outcome = (
+                "completed"
+                if state == "completed" and stage
+                else "failed" if state in {"failed", "interrupted"} else "unavailable"
+            )
+            journal.upsert(
+                conn,
+                row["id"],
+                "activity.finished",
+                "activity",
+                dict(operation, state=outcome, ended_at=timestamp(time.time())),
+            )
+        if state == "superseded":
+            for finding in projection["entities"]["findings"]:
+                journal.upsert(
+                    conn,
+                    row["id"],
+                    "finding.withdrawn",
+                    "findings",
+                    dict(
+                        finding,
+                        status="superseded",
+                        version=int(finding.get("version", 1)) + 1,
+                    ),
+                )
+            for claim in projection["entities"]["claims"]:
+                journal.upsert(
+                    conn,
+                    row["id"],
+                    "claim.updated",
+                    "claims",
+                    dict(claim, status="superseded"),
+                )
         journal.update_run(
             conn,
             row["id"],
@@ -665,9 +711,12 @@ class AssistantStore:
             if state == "completed":
                 for kind, payload in final_entities(turn_id, item):
                     journal.append(conn, turn_id, kind, payload)
-            changes = review_outcome(item)
+            changes = review_outcome(item, p.get("answer_obligations"))
             if state == "failed":
                 changes["fulfillment"] = "partial"
+                changes["fulfillment_reason"] = (
+                    "Research failed before a complete answer was available."
+                )
                 changes["missing_obligations"] = list(
                     dict.fromkeys(["answer", *changes["missing_obligations"]])
                 )
@@ -878,6 +927,15 @@ class AssistantStore:
                 "retry",
             }:
                 raise ValueError("Unknown steering action.")
+            origin_row = self._job(conn, owner_id, deck_id, p.get("turn_id"))
+            if action in {"message", "exclude", "prioritize"} and (
+                not p.get("busy")
+                or not origin_row
+                or origin_row["state"] not in {"queued", "running"}
+            ):
+                raise RunConflict(
+                    "This research already ended. Start an explicit new attempt before changing its instructions."
+                )
             card = None
             if action in {"pin", "unpin", "exclude", "prioritize"}:
                 card = next(
@@ -1065,6 +1123,25 @@ class AssistantStore:
         }
         projection = journal.ensure_baseline(conn, journal.row_for(conn, row["id"]))
         operations = projection["entities"]["activity"]
+        if kind == "research_progress":
+            for previous in operations:
+                is_stage = previous.get("category") == "stage" or previous.get(
+                    "operation_key"
+                ) in {"planning", "comparison", "verification"}
+                if (
+                    is_stage
+                    and previous.get("state") == "started"
+                    and previous.get("operation_key") != label_key
+                ):
+                    journal.upsert(
+                        conn,
+                        row["id"],
+                        "activity.finished",
+                        "activity",
+                        dict(
+                            previous, state="completed", ended_at=timestamp(time.time())
+                        ),
+                    )
         current = next(
             (
                 x
@@ -1087,6 +1164,7 @@ class AssistantStore:
             id=operation_id,
             operation_id=operation_id,
             operation_key=label_key,
+            category="stage" if kind == "research_progress" else "tool",
             run_id=row["id"],
             label_key=label_key if label_key in labels else "working",
             label=labels.get(label_key, "Working on your request"),
@@ -1202,6 +1280,21 @@ class AssistantStore:
                         "has_more": False,
                     },
                 }
+            from sabermetrics.assistant_events import digest
+
+            if row["public_projection_json"]:
+                existing_projection = json.loads(row["public_projection_json"])
+                mismatch = existing_projection["run"]["lifecycle"] != row["state"]
+                mismatch = mismatch or bool(
+                    row["public_domain_hash"]
+                    and digest(json.loads(row["snapshot_json"]))
+                    != row["public_domain_hash"]
+                )
+                if mismatch:
+                    self._rebaseline_nonjournaled(
+                        conn, row, json.loads(row["snapshot_json"])
+                    )
+                    row = self._job(conn, owner_id, deck_id, selected)
             projection = journal.ensure_baseline(conn, row)
             calls = json.loads(row["checkpoint_json"]).get("calls", {})
             unknown = "started" in calls.values()
@@ -1406,6 +1499,60 @@ class AssistantStore:
                 (json.dumps(checkpoint), turn_id),
             )
             conn.commit()
+
+    def record_client_latency(self, owner_id, deck_id, body):
+        """Store one untrusted client render duration per run and kind.
+
+        Args:
+            owner_id: Authenticated owner; the run must belong to this owner/deck.
+            deck_id: Deck scope of the run.
+            body: Observation fields plus expected run/generation/revision.
+
+        Returns:
+            True when stored, False when this kind was already recorded.
+
+        Raises:
+            DeckNotFound: The run is not visible to this owner/deck.
+            RunConflict: The expected identity no longer matches the run.
+            ValueError: The observation is malformed.
+        """
+        from sabermetrics.assistant_latency import ClientLatencyObservation
+
+        if not isinstance(body, dict):
+            raise TypeError("A latency observation object is required.")
+        expected = {
+            key: body.get(key)
+            for key in ("expected_run_id", "expected_generation", "expected_revision")
+        }
+        fields = {k: v for k, v in body.items() if k not in expected}
+        observation = ClientLatencyObservation.model_validate(fields)
+        if expected["expected_run_id"] != observation.run_id:
+            raise RunConflict("Latency observation run mismatch.")
+        with db.connect(self.db_path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = self._job(conn, owner_id, deck_id, observation.run_id)
+            if row is None or not row["public_projection_json"]:
+                raise DeckNotFound("Research run not found.")
+            run = json.loads(row["public_projection_json"])["run"]
+            if (
+                type(expected["expected_generation"]) is not int
+                or type(expected["expected_revision"]) is not int
+                or expected["expected_generation"] != run.get("generation")
+                or expected["expected_revision"] != run.get("deck_revision")
+            ):
+                raise RunConflict("Latency observation targets stale run identity.")
+            checkpoint = json.loads(row["checkpoint_json"])
+            observed = checkpoint.setdefault("client_latency", {})
+            if observation.kind in observed:
+                conn.commit()
+                return False
+            observed[observation.kind] = observation.model_dump(mode="json")
+            conn.execute(
+                "UPDATE build_assistant_jobs SET checkpoint_json=? WHERE id=?",
+                (json.dumps(checkpoint), row["id"]),
+            )
+            conn.commit()
+            return True
 
     def retire_missing_context(self, owner_id, deck_id, turn_id):
         """Fence an original worker after deletion/ownership loss, without loading a new owner's session."""

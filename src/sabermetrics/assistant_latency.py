@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 TaskClass = Literal[
     "exact_fact",
@@ -100,8 +100,38 @@ class ClientLatencyObservation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
     run_id: str = Field(min_length=1, max_length=200)
     clock_domain: Literal["client_monotonic"] = "client_monotonic"
-    received_to_rendered_seconds: float = Field(ge=0, allow_inf_nan=False)
+    kind: Literal["first_useful", "terminal"] = "first_useful"
+    received_to_rendered_seconds: float = Field(ge=0, le=86400, allow_inf_nan=False)
     first_useful: bool
+
+    @model_validator(mode="after")
+    def coherent_kind(self) -> ClientLatencyObservation:
+        if self.first_useful != (self.kind == "first_useful"):
+            raise ValueError("first_useful must match observation kind")
+        return self
+
+
+def task_class_from_metadata(
+    *, task: Any = None, answer_review: Mapping[str, Any] | None = None
+) -> TaskClass:
+    """Classify typed planner output or the exact source-rendered final receipt.
+
+    Tool names/card lookups and empirical-evidence requests do not prove that a
+    request is exact-fact or simulation work. Ambiguous tasks stay unknown.
+    """
+    from sabermetrics.assistant_research_task import ResearchTask
+
+    if answer_review is not None and answer_review.get("status") == "source_rendered":
+        return "exact_fact"
+    if not isinstance(task, ResearchTask):
+        return "unknown"
+    if task.kind in {"discover", "fill", "swap"}:
+        return "discovery"
+    if task.kind == "compare":
+        return "comparison"
+    if task.kind == "explain" and task.evidence_scope == "current_deck":
+        return "deck_review"
+    return "unknown"
 
 
 class LatencyTrace:
@@ -229,6 +259,22 @@ class LatencyTrace:
         if state != "finished" or self._calls[call_id]:
             return
         self._calls[call_id] = True
+        observed = event.get("usage_observed")
+        identity = event.get("usage_observation_id")
+        names = {
+            "input_tokens",
+            "cached_input_tokens",
+            "output_tokens",
+            "reasoning_tokens",
+        }
+        if (
+            isinstance(identity, str)
+            and len(identity) == 64
+            and all(c in "0123456789abcdef" for c in identity)
+            and isinstance(observed, dict)
+            and set(observed) == names
+        ):
+            self.usage(identity, **observed)
         rows = event.get("phase_timings")
         if not isinstance(rows, list):
             return

@@ -15,6 +15,8 @@
   var status = sidebar.querySelector("[data-assistant-status]");
   var publicView = emptyPublicView();
   var publicClock = null;
+  var clientObservationReceived = new Map();
+  var clientObservationSent = new Map();
   var activityNode = null;
   var publicFindingRuns = new Map();
   var historicalFindingLoads = new Map();
@@ -166,8 +168,38 @@
     return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0") + (run.budget_started_at ? " elapsed" : " attempt elapsed");
   }
   function terminalLabel(run) {
-    if (run.lifecycle === "completed") return run.legacy_fulfillment === "nonanswer" ? "No substantive answer" : run.fulfillment === "complete" ? "Answer ready" : "Answer incomplete";
+    if (run.lifecycle === "completed") return run.legacy_fulfillment === "nonanswer" ? "No substantive answer" : run.fulfillment === "complete" ? "Answer ready" : run.fulfillment === "partial" ? "Answer incomplete" : "Answer ready · fulfillment not assessed";
     return ({ failed: "Failed", interrupted: "Interrupted", stopped: "Stopped · published findings retained", superseded: "Superseded", queued: "Queued", running: "Working on your request" })[run.lifecycle] || "Research state unavailable";
+  }
+  function isUsefulPublicFinding(record, runId) {
+    return !!record && record.run_id === runId && typeof record.text === "string" && !!record.text.trim()
+      && ["printed_fact", "rule_excerpt", "unranked_candidate"].indexOf(record.type) >= 0
+      && ["source_rendered", "retrieved_unranked"].indexOf(record.review_state) >= 0
+      && ["withdrawn", "superseded"].indexOf(record.status) < 0 && Array.isArray(record.sources) && record.sources.length > 0;
+  }
+  function publicReceiptTiming(projection, result, tick, previous) {
+    var run = projection && projection.run;
+    if (!run || !run.run_id || result.reset || result.legacy || !Number.isFinite(tick)) return null;
+    var timing = previous && previous.run_id === run.run_id ? Object.assign({}, previous) : {run_id: run.run_id, first_useful: null, terminal: null};
+    var records = projection.mode === "snapshot" ? projection.snapshot_page && projection.snapshot_page.entities && projection.snapshot_page.entities.findings || []
+      : (projection.events || []).filter(function(event){return event.payload && event.payload.collection === "findings";}).map(function(event){return event.payload.entity;});
+    if (timing.first_useful === null && records.some(function(record){return isUsefulPublicFinding(record, run.run_id);})) timing.first_useful = tick;
+    if (timing.terminal === null && result.view.run && result.view.sequence === run.last_sequence && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) >= 0) timing.terminal = tick;
+    return timing;
+  }
+  function clientRenderPayloads(view, timing, tick, rendered) {
+    var run = view && view.run;
+    if (!run || !timing || timing.run_id !== run.run_id || !Number.isFinite(tick)
+        || !Number.isSafeInteger(run.generation) || !Number.isSafeInteger(run.deck_revision)) return [];
+    var output = [];
+    ["first_useful", "terminal"].forEach(function(kind){
+      var received = timing[kind];
+      if (!rendered[kind] || !Number.isFinite(received) || received < 0 || tick < received) return;
+      output.push({run_id: run.run_id, expected_run_id: run.run_id, expected_generation: run.generation,
+        expected_revision: run.deck_revision, clock_domain: "client_monotonic", kind: kind,
+        first_useful: kind === "first_useful", received_to_rendered_seconds: (tick-received)/1000});
+    });
+    return output;
   }
   function completePublicAnswers(view) {
     var run = view && view.run;
@@ -389,6 +421,7 @@
       if (on && focus) tab.focus();
     });
     settleDeferredScroll();
+    if (name === "chat") reportClientRender();
     try { localStorage.setItem("deck-lab-assistant-tab:" + state.id, name); } catch (_) {}
   }
   function settleDeferredScroll() {
@@ -445,7 +478,7 @@
     sidebar.classList.toggle("is-open", value);
     document.body.classList.toggle("dl-assistant-drawer-open", value);
     syncOpenButton();
-    if (value) settleDeferredScroll();
+    if (value) { settleDeferredScroll(); reportClientRender(); }
     if (value && tabs[0]) tabs[0].focus();
     if (!value && mobileOpen) mobileOpen.focus();
   }
@@ -454,7 +487,7 @@
     else if (railToggle) railToggle.click();
   });
   if (close) close.addEventListener("click", function () { if (isDrawer()) mobile(false); });
-  if (builder && window.MutationObserver) new MutationObserver(function () { syncOpenButton(); settleDeferredScroll(); }).observe(builder, { attributes: true, attributeFilter: ["class"] });
+  if (builder && window.MutationObserver) new MutationObserver(function () { syncOpenButton(); settleDeferredScroll(); reportClientRender(); }).observe(builder, { attributes: true, attributeFilter: ["class"] });
   if (drawerQuery && drawerQuery.addEventListener) drawerQuery.addEventListener("change", syncOpenButton);
   syncOpenButton();
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && sidebar.classList.contains("is-open")) mobile(false); });
@@ -1706,7 +1739,7 @@
     if (stopRequested && active) label = "Requesting stop…";
     if (connectionLost) label = active ? "Connection lost; research may still be running" : "Updates unavailable; last confirmed: " + label;
     var suffix = run ? " · evidence review " + ({ reviewed: "complete; inspect verdicts", partial: "partial", unavailable: "unavailable", not_started: "not started" }[run.evidence_status] || "unknown") : "";
-    if (run && run.fulfillment !== "complete" && !active) suffix += " · request fulfillment " + run.fulfillment;
+    if (run && run.fulfillment === "partial" && !active) suffix += " · request fulfillment partial";
     var announcement = label + (active ? "" : suffix);
     if (activityLabel.textContent !== announcement) activityLabel.textContent = announcement;
     activityNode.dataset.active = active && !connectionLost ? "true" : "false";
@@ -1718,7 +1751,11 @@
     var details = [];
     if (publicView.history_load_error) details.push("Earlier findings could not be loaded. Reconnect to retry; current research is unaffected.");
     if (publicView.history && publicView.history.compacted) details.push("Earlier activity unavailable · " + Number(publicView.history.compacted_event_count || 0) + " event records compacted. Retained findings remain available.");
-    if (run && run.steered_from_run_id) details.push("Restarted from earlier research using the same deadline and allowance. Earlier findings remain superseded.");
+    if (run && run.steered_from_run_id) {
+      var restarted = Date.parse(run.accepted_at || "");
+      details.push((Number.isFinite(restarted) ? "Restarted at " + new Date(restarted).toLocaleString() : "Restart time unavailable") + " · using the original deadline and allowance. Earlier findings remain superseded.");
+    }
+    if (run && run.fulfillment === "unknown" && typeof run.fulfillment_reason === "string") details.push(run.fulfillment_reason);
     if (run && run.lifecycle === "stopped") details.push("An in-flight request may finish in the background and will be discarded.");
     if (publicView.operational.cost_pending) details.push("Cost pending; unknown usage remains reserved.");
     if (publicView.operational.background_work_pending) details.push("Previously started work may still occupy a worker.");
@@ -1740,8 +1777,10 @@
   }
   function updateActivityTimer() {
     if (!activityTimer) return;
-    activityTimer.hidden = !activityNode.open;
-    if (!activityNode.open) return;
+    var run = publicView.run;
+    var terminal = run && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle) >= 0;
+    activityTimer.hidden = !activityNode.open && !terminal;
+    if (activityTimer.hidden) return;
     var text = elapsedLabel(publicView.run, publicClock, performance.now());
     if (activityTimer.textContent !== text) activityTimer.textContent = text;
   }
@@ -1780,20 +1819,22 @@
     else if (view.runId && !view.staging) { if (!historicalRunId) query.set("run_id", view.runId); query.set("after_sequence", view.sequence); }
     return base + "?" + query.toString();
   }
-  function readPublicReply(next, view, depth, historicalRunId) {
+  function readPublicReply(next, view, depth, historicalRunId, receiptTiming) {
+    var receivedTick = performance.now();
     var projection = next && (next.public_events || next.session && next.session.public_events);
     if (!projection) return Promise.resolve({ next: next, view: emptyPublicView(), clock: null });
     if (historicalRunId && (!projection.run || projection.run.run_id !== historicalRunId)) throw new Error("Historical research identity changed.");
     var result = reducePublicEvents(view, projection);
+    var timing = historicalRunId ? null : publicReceiptTiming(projection,result,receivedTick,receiptTiming);
     if (depth >= 128) throw new Error("Research updates could not be synchronized. Reconnect to refresh state.");
     if (result.legacy) return Promise.resolve({ next: next, view: result.view, clock: null });
     if (result.reset) {
       if (depth > 1 && !view.runId) throw new Error("Research updates unavailable. Reconnect to refresh state.");
-      return request(publicUrl(emptyPublicView(),null,historicalRunId)).then(function (reply) { return readPublicReply(reply, emptyPublicView(), depth + 1,historicalRunId); });
+      return request(publicUrl(emptyPublicView(),null,historicalRunId)).then(function (reply) { return readPublicReply(reply, emptyPublicView(), depth + 1,historicalRunId,null); });
     }
-    if (result.page || result.more) return request(publicUrl(result.view, result.page,historicalRunId)).then(function (reply) { return readPublicReply(reply, result.view, depth + 1,historicalRunId); });
+    if (result.page || result.more) return request(publicUrl(result.view, result.page,historicalRunId)).then(function (reply) { return readPublicReply(reply, result.view, depth + 1,historicalRunId,timing); });
     var time = Date.parse(projection.server_time || "");
-    return Promise.resolve({ next: next, view: result.view, clock: Number.isFinite(time) ? { server: time, tick: performance.now() } : null });
+    return Promise.resolve({ next: next, view: result.view, clock: Number.isFinite(time) ? { server: time, tick: performance.now() } : null, received: timing });
   }
   function loadPreviousFindings() {
     if (!publicView.run) return;
@@ -1814,6 +1855,32 @@
     });
     while (historicalFindingLoads.size>16) historicalFindingLoads.delete(historicalFindingLoads.keys().next().value);
   }
+  function reportClientRender() {
+    var run = publicView.run;
+    if (!run || !pageAlive || document.hidden) return;
+    var pane = sidebar.querySelector('[data-assistant-pane="chat"]');
+    if (pane && pane.hidden) return;
+    if (typeof sidebar.checkVisibility === "function" && !sidebar.checkVisibility()) return;
+    if (typeof sidebar.getBoundingClientRect === "function") {
+      var rect=sidebar.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.bottom<=0 || rect.right<=0 || rect.top>=window.innerHeight || rect.left>=window.innerWidth) return;
+    }
+    var group = publicFindingRuns.get(run.run_id);
+    var findingRendered = group && group.node.parentNode === transcript && Object.values(publicView.entities.findings || {}).some(function(finding){
+      var record = group.records.get(finding.id);
+      return isUsefulPublicFinding(finding,run.run_id) && record && record.node.parentNode === group.node;
+    });
+    var terminalRendered = activityNode && activityNode.parentNode === transcript && activityNode.dataset.runId === run.run_id
+      && ["completed", "failed", "interrupted", "stopped", "superseded"].indexOf(run.lifecycle)>=0;
+    clientRenderPayloads(publicView,clientObservationReceived.get(run.run_id),performance.now(),{first_useful:!!findingRendered,terminal:!!terminalRendered}).forEach(function(payload){
+      var key=payload.run_id+":"+payload.kind;
+      if (clientObservationSent.has(key)) return;
+      // Mark before sending: telemetry is best effort and never retries research.
+      clientObservationSent.set(key,true);
+      request(base+"/latency",{method:"POST",body:JSON.stringify(payload)}).catch(function(){});
+    });
+    while(clientObservationSent.size>64) clientObservationSent.delete(clientObservationSent.keys().next().value);
+  }
   function refresh() {
     var epoch = sessionEpoch;
     var sequence = ++refreshSequence;
@@ -1821,7 +1888,14 @@
     return request(publicUrl(publicView)).then(function (next) { return readPublicReply(next, publicView, 0); }).then(function (result) {
       if (epoch === sessionEpoch && sequence === refreshSequence) {
         publicView = result.view; publicClock = result.clock;
-        acceptSession(result.next, requestSequence);
+        if (result.received) {
+          var oldTiming=clientObservationReceived.get(result.received.run_id);
+          var timing=Object.assign({},result.received);
+          if (oldTiming) ["first_useful","terminal"].forEach(function(kind){if(Number.isFinite(oldTiming[kind]) && (!Number.isFinite(timing[kind]) || oldTiming[kind]<timing[kind])) timing[kind]=oldTiming[kind];});
+          clientObservationReceived.set(timing.run_id,timing);
+          while(clientObservationReceived.size>32) clientObservationReceived.delete(clientObservationReceived.keys().next().value);
+        }
+        if (acceptSession(result.next, requestSequence)) reportClientRender();
         loadPreviousFindings();
       }
     }).catch(function () {

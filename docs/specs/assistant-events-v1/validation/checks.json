@@ -41,5 +41,25 @@
     "No paid paired benchmark or independent expert strategic adjudication",
     "No browser or assistive-technology session",
     "No deployment or PR publication"
-  ]
+  ],
+  "claude_review_followup": {
+    "recorded_at": "2026-11-10T21:08:59.979918+00:00",
+    "full_offline_suite": {
+      "passed": 5254,
+      "skipped": 28,
+      "deselected": 12,
+      "seconds": 216.98,
+      "command": "pytest -q -m 'not model and not postgres and not simulator' --disable-warnings --tb=short --maxfail=5"
+    },
+    "assistant_tests": {
+      "passed": 2538,
+      "skipped": 2
+    },
+    "static": {
+      "ruff_black_changed_files": "pass",
+      "mypy_changed_src": "pass",
+      "node_syntax": "pass"
+    },
+    "journal_overhead": "validation/journal-overhead.json (synthetic, single connection)"
+  }
 }

@@ -68,6 +68,7 @@ class PublicRun(ContractModel):
     obligations: list[dict[str, Any]] = Field(default_factory=list)
     missing_obligations: list[str] = Field(default_factory=list)
     legacy_fulfillment: str | None = None
+    fulfillment_reason: str | None = None
     legacy_outcome_uncertain: bool = False
     stop_requested_at: str | None = None
     error: PublicError | None = None
@@ -246,7 +247,9 @@ def final_entities(
     ]
 
 
-def review_outcome(message: dict[str, Any]) -> dict[str, Any]:
+def review_outcome(
+    message: dict[str, Any], obligations: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Map fulfillment without turning a completed execution into proof of quality."""
     review = message.get("answer_review") or {}
     legacy = review.get("fulfillment", "unknown")
@@ -260,14 +263,29 @@ def review_outcome(message: dict[str, Any]) -> dict[str, Any]:
         missing = []
     if legacy == "nonanswer":
         missing = ["answer", *missing]
+    reason = "Legacy fulfillment verdict; finer coverage was not assessed."
+    if obligations is not None:
+        from sabermetrics.assistant_obligations import assess_fulfillment
+
+        try:
+            assessment = assess_fulfillment(
+                obligations,
+                legacy_fulfillment=str(legacy),
+                answer_present=bool(str(message.get("content") or "").strip()),
+            )
+            fulfillment = assessment.fulfillment
+            missing = assessment.missing_obligations
+            reason = assessment.reason
+        except ValueError:
+            fulfillment = "unknown"
+            reason = "Persisted obligation coverage is unavailable."
     return {
         "fulfillment": fulfillment,
         "legacy_fulfillment": str(legacy),
+        "fulfillment_reason": reason,
         "missing_obligations": [str(x)[:200] for x in missing[:32]],
         # No exact final-text receipt is currently supplied by legacy finish().
-        "evidence_status": (
-            "partial" if review.get("claim_judgments") else "unavailable"
-        ),
+        "evidence_status": "unavailable",
     }
 
 

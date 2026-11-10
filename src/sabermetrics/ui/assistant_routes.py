@@ -317,7 +317,7 @@ def settings(deck_id):
         expected=body if "expected_run_id" in body else None,
     )
     if existing.get("busy") and not result.get("busy"):
-        close_turn(existing.get("cost_turn"), cancel=True)
+        close_turn(result.get("cost_turn"), cancel=True)
     return jsonify(result)
 
 
@@ -518,6 +518,14 @@ def _work(path, owner, deck_id, turn, app):
                 "reason": result.get("reason"),
             },
         )
+        from sabermetrics.assistant_latency import task_class_from_metadata
+
+        review = result.get("answer_review")
+        task_class = task_class_from_metadata(
+            answer_review=review if isinstance(review, dict) else None
+        )
+        if task_class != "unknown":
+            trace.task_class = task_class
         public = store.public_events(owner, deck_id, run_id=token, after_sequence=0)
         if public.get("run", {}).get("lifecycle") == "completed":
             trace.mark("final_persisted")
@@ -759,6 +767,19 @@ def steer(deck_id):
         experiments=experiment_service(path).list_for_deck(owner, deck_id),
     )
     return jsonify(payload), 200
+
+
+@bp.post("/api/decks/<deck_id>/assistant/latency")
+def client_latency(deck_id):
+    """Record a best-effort, content-free client render observation."""
+    from pydantic import ValidationError
+
+    _path, owner, _document, store = context(deck_id)
+    try:
+        recorded = store.record_client_latency(owner, deck_id, body_object())
+    except ValidationError:
+        return jsonify(error="invalid", message="Invalid latency observation."), 400
+    return jsonify(recorded=recorded)
 
 
 @bp.post("/api/decks/<deck_id>/assistant/stop")
