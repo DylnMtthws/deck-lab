@@ -173,11 +173,17 @@ class AssistantStore:
         )
         baseline = journal.ensure_baseline(conn, journal.row_for(conn, row["id"]))
         baseline["run"]["last_sequence"] = watermark
-        baseline["run"]["history_compacted"] = True
         text = serialized(baseline)
         conn.execute(
             "UPDATE build_assistant_jobs SET last_sequence=?,baseline_sequence=?,public_projection_json=?,public_baseline_json=? WHERE id=?",
             (watermark, watermark, text, text, row["id"]),
+        )
+        removed = conn.execute(
+            "SELECT COUNT(*) FROM build_assistant_events WHERE run_id=?", (row["id"],)
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE build_assistant_jobs SET compacted_event_count=compacted_event_count+? WHERE id=?",
+            (removed, row["id"]),
         )
         conn.execute("DELETE FROM build_assistant_events WHERE run_id=?", (row["id"],))
         conn.execute(
@@ -649,18 +655,23 @@ class AssistantStore:
             )
             p["busy"] = False
             from sabermetrics import assistant_event_store as journal
-            from sabermetrics.assistant_events import final_entities, review_outcome
-
-            for kind, payload in final_entities(turn_id, item):
-                journal.append(conn, turn_id, kind, payload)
-            state = (
-                "failed"
-                if item.get("status") in {"failed", "provider_error", "error"}
-                else "completed"
+            from sabermetrics.assistant_events import (
+                final_entities,
+                review_outcome,
+                terminal_result,
             )
+
+            state, runtime_code = terminal_result(item)
+            if state == "completed":
+                for kind, payload in final_entities(turn_id, item):
+                    journal.append(conn, turn_id, kind, payload)
             changes = review_outcome(item)
             if state == "failed":
-                code = item.get("error_code")
+                changes["fulfillment"] = "partial"
+                changes["missing_obligations"] = list(
+                    dict.fromkeys(["answer", *changes["missing_obligations"]])
+                )
+                code = item.get("error_code") or runtime_code
                 if code not in {
                     "turn_expired",
                     "spending_disabled",
@@ -768,7 +779,11 @@ class AssistantStore:
                 "SELECT * FROM build_assistant_jobs WHERE state='running'"
             ).fetchall():
                 if expired(old):
-                    old_p = self._load(conn, old["owner_id"], old["deck_id"])
+                    try:
+                        old_p = self._load(conn, old["owner_id"], old["deck_id"])
+                    except DeckNotFound:
+                        self._end_job(conn, old, "superseded")
+                        continue
                     self._end_job(conn, old, "interrupted")
                     if old_p.get("turn_id") == old["id"]:
                         old_p["busy"] = False
@@ -827,7 +842,7 @@ class AssistantStore:
             ).fetchone()
             if prior:
                 if prior["request_json"] != request_json:
-                    raise ValueError(
+                    raise RunConflict(
                         "Client request ID was already used for another action."
                     )
                 previous = json.loads(prior["response_json"])
@@ -1199,6 +1214,7 @@ class AssistantStore:
                 "observed_at": timestamp(now),
             }
             base = journal.response_base(projection, operational)
+            base["history"] = journal.history_metadata(row)
             head = row["last_sequence"]
             baseline = row["baseline_sequence"]
             event_rows = None
@@ -1293,6 +1309,7 @@ class AssistantStore:
                 head = current_row["last_sequence"]
                 baseline = current_row["baseline_sequence"]
                 base = journal.response_base(current_projection, operational)
+                base["history"] = journal.history_metadata(current_row)
                 if watermark < baseline:
                     conn.commit()
                     return dict(
@@ -1388,4 +1405,16 @@ class AssistantStore:
                 "UPDATE build_assistant_jobs SET checkpoint_json=? WHERE id=?",
                 (json.dumps(checkpoint), turn_id),
             )
+            conn.commit()
+
+    def retire_missing_context(self, owner_id, deck_id, turn_id):
+        """Fence an original worker after deletion/ownership loss, without loading a new owner's session."""
+        with db.connect(self.db_path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            document = conn.execute(
+                "SELECT owner_id FROM deck_documents WHERE id=?", (deck_id,)
+            ).fetchone()
+            if document is None or document[0] != owner_id:
+                row = self._job(conn, owner_id, deck_id, turn_id)
+                self._end_job(conn, row, "superseded")
             conn.commit()

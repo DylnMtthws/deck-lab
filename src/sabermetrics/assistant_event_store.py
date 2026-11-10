@@ -40,6 +40,7 @@ def initialize(conn: Any) -> None:
         "public_baseline_json": "TEXT",
         "public_writer_version": "TEXT",
         "public_domain_hash": "TEXT",
+        "compacted_event_count": "INTEGER NOT NULL DEFAULT 0",
     }.items():
         if name not in columns:
             conn.execute(
@@ -205,11 +206,14 @@ def compact(conn: Any, deck_id: str, run_id: str) -> None:
 def _compact_run(conn: Any, run_id: str) -> None:
     row = row_for(conn, run_id)
     projection = json.loads(row["public_projection_json"])
-    # This metadata is part of the baseline, never a fabricated historical event.
+    removed = conn.execute(
+        "SELECT COUNT(*) FROM build_assistant_events WHERE run_id=?", (run_id,)
+    ).fetchone()[0]
+    # Disclosure is unsequenced transport metadata, not a mutation of a terminal answer.
     text = serialized(projection)
     conn.execute(
-        "UPDATE build_assistant_jobs SET public_baseline_json=?,public_projection_json=?,baseline_sequence=last_sequence WHERE id=?",
-        (text, text, run_id),
+        "UPDATE build_assistant_jobs SET public_baseline_json=?,public_projection_json=?,baseline_sequence=last_sequence,compacted_event_count=compacted_event_count+? WHERE id=?",
+        (text, text, removed, run_id),
     )
     conn.execute("DELETE FROM build_assistant_events WHERE run_id=?", (run_id,))
 
@@ -263,3 +267,13 @@ def response_base(
 def new_token() -> str:
     """Opaque, non-authorizing snapshot handle."""
     return uuid.uuid4().hex
+
+
+def history_metadata(row: Any) -> dict[str, Any]:
+    """Disclose unavailable replay without changing immutable domain artifacts."""
+    return {
+        "compacted": row["baseline_sequence"] > 0,
+        "compacted_event_count": row["compacted_event_count"],
+        "compacted_through_sequence": row["baseline_sequence"],
+        "retained_event_count": row["last_sequence"] - row["baseline_sequence"],
+    }

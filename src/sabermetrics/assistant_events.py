@@ -72,7 +72,6 @@ class PublicRun(ContractModel):
     stop_requested_at: str | None = None
     error: PublicError | None = None
     last_sequence: int = 0
-    history_compacted: bool = False
 
     @model_validator(mode="after")
     def bound_header(self) -> PublicRun:
@@ -270,3 +269,31 @@ def review_outcome(message: dict[str, Any]) -> dict[str, Any]:
             "partial" if review.get("claim_judgments") else "unavailable"
         ),
     }
+
+
+def terminal_result(message: dict[str, Any]) -> tuple[str, str | None]:
+    """Map actual runtime outcomes; an explanatory notice is not a completed answer."""
+    status = message.get("status")
+    known = {
+        "failed": ("failed", "research_failed"),
+        "error": ("failed", "research_failed"),
+        "provider_error": ("failed", "provider_unavailable"),
+        "provider_unavailable": ("failed", "provider_unavailable"),
+        "budget_exhausted": ("failed", "budget_exhausted"),
+        "stopped": ("stopped", None),
+        "revision_conflict": ("superseded", None),
+    }
+    if status is not None and not isinstance(status, str):
+        return "failed", "research_failed"
+    if status in known:
+        state, code = known[status]
+        if status == "budget_exhausted" and message.get("reason") in {
+            "model_call_budget",
+            "tool_or_context_budget",
+            "final_answer_required",
+        }:
+            code = "tool_limit"
+        return state, code
+    if status in {None, "done", "completed", "incomplete"}:
+        return "completed", None
+    return "failed", "research_failed"

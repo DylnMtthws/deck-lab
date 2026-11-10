@@ -27,7 +27,11 @@ transaction as each domain mutation. `AssistantStore.public_events(owner, deck,
 run_id=None, after_sequence=None, snapshot_token=None, page_index=0)` returns
 mutually exclusive snapshot/delta/reset responses. Existing GET `/assistant`
 negotiates with `contract=assistant.events.v1` and adds `public_events` to legacy
-fields. Explicit mutation targeting is validated transactionally. No event
+fields. Explicit `run_id` reads honor that authorized historical run; the live UI
+adds `follow_current=1` for current-run discovery. Historical reads/paging never
+use that flag. `public_events.history` discloses compaction counts independently
+of immutable run state and is refreshed alongside transport metadata.
+Explicit mutation targeting is validated transactionally. No event
 projection authorizes a deck action or a model call.
 
 

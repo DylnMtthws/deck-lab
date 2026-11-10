@@ -53,7 +53,7 @@ def test_fresh_v1_target_submit_and_shared_deadline_restart_replay(web):
     # An old tab polling A must discover current B instead of following A forever.
     old_poll = client.get(
         url
-        + f"?contract=assistant.events.v1&run_id={first.json['turn_id']}&after_sequence={before['run']['last_sequence']}"
+        + f"?contract=assistant.events.v1&follow_current=1&run_id={first.json['turn_id']}&after_sequence={before['run']['last_sequence']}"
     )
     assert old_poll.json["public_events"]["run"]["run_id"] == restart.json["turn_id"]
     rejected = client.post(url + "/stop", json=binding(first))
@@ -214,3 +214,200 @@ def test_v1_mutation_cannot_omit_target_fields(web):
     )
     assert response.status_code == 409
     assert response.json["error"] == "run_conflict"
+
+
+def test_explicit_historical_run_bootstraps_after_expired_token(web):
+    import time
+
+    from sabermetrics.assistant_obligations import build_obligations
+    from sabermetrics.assistant_publishability import early_findings
+    from tests.test_assistant_publishability import card_receipt
+
+    client, path, owner, deck, _control = web
+    url = f"/api/decks/{deck}/assistant"
+    request = "What does Basalt Monolith say?"
+    first = client.post(
+        url + "/messages",
+        json={"message": request, "expected_revision": 0, "client_request_id": "a"},
+    )
+    store = AssistantStore(path)
+    finding = early_findings(
+        "card_details", card_receipt(), build_obligations(request, 0)
+    )[0].model_dump()
+    store.append(owner, deck, first.json["turn_id"], {"public_findings": [finding]})
+    second = client.post(
+        url + "/steer",
+        json={
+            **binding(first),
+            "action": "message",
+            "message": "Explain the restrictions",
+            "client_request_id": "b",
+        },
+    )
+    assert second.status_code == 200
+    with db.connect(path) as conn:
+        conn.execute(
+            "UPDATE build_assistant_public_snapshots SET expires_at=?",
+            (time.time() - 1,),
+        )
+        conn.commit()
+    history = client.get(
+        url + f'?contract=assistant.events.v1&run_id={first.json["turn_id"]}'
+    ).json["public_events"]
+    assert history["run"]["run_id"] == first.json["turn_id"]
+    assert history["run"]["lifecycle"] == "superseded"
+    assert (
+        history["snapshot_page"]["entities"]["findings"][0]["text"] == finding["text"]
+    )
+    current = client.get(
+        url
+        + f'?contract=assistant.events.v1&follow_current=1&run_id={first.json["turn_id"]}'
+    ).json["public_events"]
+    assert current["run"]["run_id"] == second.json["turn_id"]
+
+
+def test_failed_local_publication_compensates_external_admission(web, monkeypatch):
+    import pytest
+
+    from sabermetrics import assistant_event_store
+
+    client, path, _owner, deck, control = web
+
+    def fail_after_admission(*args, **kwargs):
+        raise RuntimeError("injected local persistence failure")
+
+    monkeypatch.setattr(assistant_event_store, "create_run", fail_after_admission)
+    with pytest.raises(RuntimeError, match="injected local"):
+        client.post(
+            f"/api/decks/{deck}/assistant/messages",
+            json={
+                "message": "Research",
+                "expected_revision": 0,
+                "client_request_id": "one",
+            },
+        )
+    assert len(control.status()["turns"]) == 1
+    assert all(turn["closed"] for turn in control.status()["turns"].values())
+    with db.connect(path) as conn:
+        assert (
+            conn.execute("SELECT COUNT(*) FROM build_assistant_jobs").fetchone()[0] == 0
+        )
+        assert (
+            conn.execute("SELECT COUNT(*) FROM assistant_submissions").fetchone()[0]
+            == 0
+        )
+
+
+def test_failed_authority_closure_cannot_create_fresh_allowance(web, monkeypatch):
+    client, path, owner, deck, control = web
+    url = f"/api/decks/{deck}/assistant"
+    first = client.post(
+        url + "/messages",
+        json={
+            "message": "Research",
+            "expected_revision": 0,
+            "client_request_id": "one",
+        },
+    )
+
+    def outage(*args, **kwargs):
+        raise OSError("authority closure unavailable")
+
+    monkeypatch.setattr(control, "cancel_turn", outage)
+    assert client.post(url + "/stop", json=binding(first)).status_code == 200
+    assert (
+        AssistantStore(path).public_events(owner, deck)["run"]["lifecycle"] == "stopped"
+    )
+    assert (
+        client.post(
+            url + "/messages",
+            json={
+                "message": "Another request",
+                "expected_revision": 0,
+                "client_request_id": "two",
+            },
+        ).status_code
+        == 429
+    )
+    assert len(control.status()["turns"]) == 1
+    assert all(not turn["closed"] for turn in control.status()["turns"].values())
+
+
+def test_executor_rejection_closes_original_allowance_for_explicit_retry(
+    web, monkeypatch
+):
+    from sabermetrics.ui import assistant_routes
+    from tests.test_resimulate_delta import RecordingExecutor
+
+    client, path, owner, deck, control = web
+
+    class RejectedExecutor:
+        def submit(self, *args, **kwargs):
+            raise RuntimeError("executor shutting down")
+
+    monkeypatch.setattr(assistant_routes, "_EXECUTOR", RejectedExecutor())
+    url = f"/api/decks/{deck}/assistant"
+    first = client.post(
+        url + "/messages",
+        json={
+            "message": "Research",
+            "expected_revision": 0,
+            "client_request_id": "one",
+        },
+    )
+    assert first.status_code == 202
+    assert (
+        AssistantStore(path).public_events(owner, deck)["run"]["lifecycle"]
+        == "interrupted"
+    )
+    assert all(turn["closed"] for turn in control.status()["turns"].values())
+    monkeypatch.setattr(assistant_routes, "_EXECUTOR", RecordingExecutor())
+    retry = client.post(
+        url + "/steer",
+        json={**binding(first), "action": "retry", "client_request_id": "two"},
+    )
+    assert retry.status_code == 200, retry.json
+    assert len(control.status()["turns"]) == 2
+
+
+def test_executor_rejection_preserves_a_concurrent_shared_budget_replacement(
+    web, monkeypatch
+):
+    from sabermetrics.ui import assistant_routes
+
+    client, path, owner, deck, control = web
+    store = AssistantStore(path)
+
+    class SupersedingRejectedExecutor:
+        def submit(self, *args, **kwargs):
+            current = store.get(owner, deck)
+            store.steer(
+                owner,
+                deck,
+                {
+                    "action": "message",
+                    "message": "New instruction",
+                    "expected_generation": 1,
+                    "expected_revision": 0,
+                    "client_request_id": "replacement",
+                },
+                0,
+                admission=lambda: current["cost_turn"],
+            )
+            raise RuntimeError("executor shutting down")
+
+    monkeypatch.setattr(assistant_routes, "_EXECUTOR", SupersedingRejectedExecutor())
+    first = client.post(
+        f"/api/decks/{deck}/assistant/messages",
+        json={
+            "message": "Research",
+            "expected_revision": 0,
+            "client_request_id": "one",
+        },
+    )
+    assert first.status_code == 202
+    current = store.get(owner, deck)
+    assert current["turn_id"] != first.json["turn_id"] and current["busy"]
+    assert current["research_workspace"]["job"]["state"] == "queued"
+    assert len(control.status()["turns"]) == 1
+    assert all(not turn["closed"] for turn in control.status()["turns"].values())

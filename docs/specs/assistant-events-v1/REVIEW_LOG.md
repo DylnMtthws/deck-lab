@@ -24,4 +24,13 @@ local authority tests for shared steering allowance, stale-stop fencing, current
 run discovery from an old tab, and cancellation after a deck revision change.
 No claim is made that static or deterministic tests establish live answer quality.
 
-Final adversarial integrated review pending.
+## Codex integrated review of d3c811b
+
+Three concrete findings addressed with regressions: actual runtime terminal
+statuses now map exhaustively, including provider_unavailable and budget_exhausted;
+explicit historical run reads are honored while follow_current=1 serves live
+polling; compaction counts persist transactionally and render as transport-history
+disclosures without mutating terminal domain state. Historical findings reload
+through bounded sequential authorized reads, not an in-memory-only cache.
+
+Claude integrated review pending. Full offline validation pending.

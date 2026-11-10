@@ -206,6 +206,8 @@ activityNode.open=true;activityNode.listeners.toggle();
 tick+=100000;updateActivityTimer();assert.equal(activityTimer.textContent,'0:15 elapsed');
 assert.equal(activityTimer.hidden,false);
 activityNode.open=false;activityNode.listeners.toggle();assert.equal(activityTimer.hidden,true);
+publicView.history={compacted:true,compacted_event_count:17};renderActivity();
+assert(activityHistory.children.some(node=>/17 event records compacted/.test(node.textContent)));
 connectionLost=true;renderActivity();assert.equal(activityNode.dataset.active,'false');
 assert.match(activityLabel.textContent,/Updates unavailable.*Answer ready/);
 """
@@ -366,5 +368,43 @@ data.messages=[];
 renderPublicAnswers();
 assert.equal(transcript.children.length,1,'bounded previous-run answer history survives transcript rebuilding');
 assert.equal(transcript.children[0].dataset.superseded,'true');
+"""
+    )
+
+
+def test_historical_paging_never_follows_current_or_mutates_live_view():
+    source = SCRIPT.read_text()
+    transport = (
+        "function publicUrl("
+        + source.split("  function publicUrl(", 1)[1].split(
+            "  function loadPreviousFindings(", 1
+        )[0]
+    )
+    _run(
+        SETUP
+        + r"""
+var base='/assistant';
+const performance={now:()=>0};
+let requested=[];
+function request(url){
+  requested.push(url);
+  const query=new URL(url,'https://example.test').searchParams;
+  assert.equal(query.get('follow_current'),null);
+  assert.equal(query.get('run_id'),'a');
+  return Promise.resolve({turn_id:'current-b',public_events:snapshot(1,2,{findings:[{id:'old',run_id:'a',text:'Retained fact'}]})});
+}
+"""
+        + transport
+        + r"""
+assert.equal(new URL(publicUrl({runId:'a',sequence:2}),'https://example.test').searchParams.get('follow_current'),'1');
+assert.equal(new URL(publicUrl({runId:'b',sequence:2},null,'a'),'https://example.test').searchParams.get('run_id'),'a');
+const live=emptyPublicView();
+readPublicReply({turn_id:'current-b',public_events:snapshot(0,2,{})},live,0,'a').then(result=>{
+ assert.equal(result.view.run.run_id,'a');
+ assert.equal(result.view.entities.findings.old.text,'Retained fact');
+ assert.equal(live.run,null,'historical staging cannot replace the live view');
+ assert.equal(requested.length,1);
+});
+assert.throws(()=>readPublicReply({public_events:{run:{run_id:'wrong'}}},emptyPublicView(),0,'a'),/identity/);
 """
     )

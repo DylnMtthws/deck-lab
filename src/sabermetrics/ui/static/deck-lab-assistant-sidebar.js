@@ -17,6 +17,7 @@
   var publicClock = null;
   var activityNode = null;
   var publicFindingRuns = new Map();
+  var historicalFindingLoads = new Map();
   var publicAnswerRuns = new Map();
   var activityTimer = null;
   var activityLabel = null;
@@ -89,7 +90,7 @@
   // Public-event reducer deliberately contains no DOM or network operations.
   // A head snapshot is advisory until all pages/deltas have been applied.
   function emptyPublicView() {
-    return { runId: null, sequence: 0, run: null, entities: {}, staging: null, operational: {} };
+    return { runId: null, sequence: 0, run: null, entities: {}, staging: null, operational: {}, history: {} };
   }
   function reducePublicEvents(previous, projection) {
     if (!projection || projection.contract_version !== "assistant.events.v1") return { view: emptyPublicView(), legacy: true };
@@ -98,7 +99,7 @@
     var cursor = projection.cursor || {};
     if (projection.mode === "reset_required") return { view: emptyPublicView(), reset: true };
     var view = previous && previous.runId === head.run_id ? previous : emptyPublicView();
-    view = Object.assign({}, view, { runId: head.run_id, operational: projection.operational || {} });
+    view = Object.assign({}, view, { runId: head.run_id, operational: projection.operational || {}, history: projection.history || {} });
     if (projection.mode === "snapshot") {
       var page = projection.snapshot_page || {};
       if (!Number.isInteger(page.page_index) || !Number.isInteger(page.page_count) || page.page_index < 0 || page.page_count < 1 || page.page_count > 64 || page.page_index >= page.page_count || !Number.isSafeInteger(page.through_sequence) || page.through_sequence < 0 || !page.token) return { view: emptyPublicView(), reset: true };
@@ -1587,15 +1588,20 @@
     renderedExperimentSignature = signature;
   }
   function publicRecords(collection) { return Object.values(publicView.entities[collection] || {}); }
-  function renderPublicFindings() {
-    var run = publicView.run;
-    var findings = publicRecords("findings");
+  function renderPublicFindings(viewOverride) {
+    var view = viewOverride || publicView;
+    var run = view.run;
+    var findings = Object.values(view.entities.findings || {});
     if (run && findings.length) {
       var group = publicFindingRuns.get(run.run_id);
       if (!group) {
-        var section = element("section", null, "dl-assistant-grounded-findings"); section.dataset.assistantProcessing = "true";
+        var section = element("section", null, "dl-assistant-grounded-findings"); section.dataset.assistantProcessing = "true"; section.dataset.messageIds = "public-findings:" + run.run_id;
         var heading = element("h3", "Retrieved findings · final answer still separate"); section.appendChild(heading);
-        group = { node: section, heading: heading, records: new Map() }; publicFindingRuns.set(run.run_id, group);
+        group = { node: section, heading: heading, records: new Map(), generation: run.generation }; publicFindingRuns.set(run.run_id, group);
+        if (run.lifecycle === "superseded") heading.textContent = "Superseded findings · research restarted";
+        else if (viewOverride) heading.textContent = "Earlier retrieved findings · inspect their source limitations";
+        var later = Array.from(publicFindingRuns.values()).sort(function(a,b){return a.generation-b.generation;}).find(function(g){return g.generation > run.generation && g.node.parentNode === transcript;});
+        if (later) transcript.insertBefore(section,later.node);
       }
       findings.forEach(function (finding) {
         var record = group.records.get(finding.id);
@@ -1616,8 +1622,8 @@
       });
     }
     if (run && run.steered_from_run_id && publicFindingRuns.has(run.steered_from_run_id)) publicFindingRuns.get(run.steered_from_run_id).heading.textContent = "Superseded findings · research restarted";
-    while (publicFindingRuns.size > 8) { var key = publicFindingRuns.keys().next().value; var retired = publicFindingRuns.get(key); if (retired.node.parentNode) retired.node.remove(); publicFindingRuns.delete(key); }
-    publicFindingRuns.forEach(function (group) {
+    while (publicFindingRuns.size > 8) { var key = Array.from(publicFindingRuns.keys()).filter(function(id){return id!==publicView.runId;}).sort(function(a,b){return (publicFindingRuns.get(a).generation||0)-(publicFindingRuns.get(b).generation||0);})[0]; var retired = publicFindingRuns.get(key); if (retired.node.parentNode) retired.node.remove(); publicFindingRuns.delete(key); }
+    Array.from(publicFindingRuns.values()).sort(function(a,b){return (a.generation||0)-(b.generation||0);}).forEach(function (group) {
       if (group.node.parentNode !== transcript) transcript.appendChild(group.node);
     });
   }
@@ -1710,6 +1716,8 @@
       activityNode.open = active; activityNode.dataset.runId = String(run && run.run_id || data.turn_id);
     }
     var details = [];
+    if (publicView.history_load_error) details.push("Earlier findings could not be loaded. Reconnect to retry; current research is unaffected.");
+    if (publicView.history && publicView.history.compacted) details.push("Earlier activity unavailable · " + Number(publicView.history.compacted_event_count || 0) + " event records compacted. Retained findings remain available.");
     if (run && run.steered_from_run_id) details.push("Restarted from earlier research using the same deadline and allowance. Earlier findings remain superseded.");
     if (run && run.lifecycle === "stopped") details.push("An in-flight request may finish in the background and will be discarded.");
     if (publicView.operational.cost_pending) details.push("Cost pending; unknown usage remains reserved.");
@@ -1724,7 +1732,7 @@
       showProgress(announcement); activityAnnounced = announcement;
     }
     var reconnect = sidebar.querySelector("[data-assistant-reconnect]");
-    if (reconnect) { reconnect.hidden = !connectionLost && !publicView.operational.background_work_pending && !publicView.operational.cost_pending; reconnect.textContent = connectionLost ? "Reconnect" : "Refresh pending status"; }
+    if (reconnect) { reconnect.hidden = !connectionLost && !publicView.history_load_error && !publicView.operational.background_work_pending && !publicView.operational.cost_pending; reconnect.textContent = connectionLost ? "Reconnect" : "Refresh pending status"; }
     updateActivityTimer();
     if (active && !timerTick && pageAlive) timerTick = window.setInterval(updateActivityTimer, 1000);
     if (!active && timerTick) { window.clearInterval(timerTick); timerTick = 0; }
@@ -1764,25 +1772,47 @@
     if (text) { if (owned) { if (status.textContent !== text) status.textContent = text; progressShown = text; } }
     else if (progressShown) { if (status.textContent === progressShown) status.textContent = ""; progressShown = ""; }
   }
-  function publicUrl(view, page) {
+  function publicUrl(view, page, historicalRunId) {
     var query = new URLSearchParams({ contract: "assistant.events.v1" });
+    if (historicalRunId) query.set("run_id",historicalRunId);
+    else query.set("follow_current","1");
     if (page) { query.set("snapshot_token", page.token); query.set("page_index", page.index); }
-    else if (view.runId && !view.staging) { query.set("run_id", view.runId); query.set("after_sequence", view.sequence); }
+    else if (view.runId && !view.staging) { if (!historicalRunId) query.set("run_id", view.runId); query.set("after_sequence", view.sequence); }
     return base + "?" + query.toString();
   }
-  function readPublicReply(next, view, depth) {
+  function readPublicReply(next, view, depth, historicalRunId) {
     var projection = next && (next.public_events || next.session && next.session.public_events);
     if (!projection) return Promise.resolve({ next: next, view: emptyPublicView(), clock: null });
+    if (historicalRunId && (!projection.run || projection.run.run_id !== historicalRunId)) throw new Error("Historical research identity changed.");
     var result = reducePublicEvents(view, projection);
     if (depth >= 128) throw new Error("Research updates could not be synchronized. Reconnect to refresh state.");
     if (result.legacy) return Promise.resolve({ next: next, view: result.view, clock: null });
     if (result.reset) {
       if (depth > 1 && !view.runId) throw new Error("Research updates unavailable. Reconnect to refresh state.");
-      return request(publicUrl(emptyPublicView())).then(function (reply) { return readPublicReply(reply, emptyPublicView(), depth + 1); });
+      return request(publicUrl(emptyPublicView(),null,historicalRunId)).then(function (reply) { return readPublicReply(reply, emptyPublicView(), depth + 1,historicalRunId); });
     }
-    if (result.page || result.more) return request(publicUrl(result.view, result.page)).then(function (reply) { return readPublicReply(reply, result.view, depth + 1); });
+    if (result.page || result.more) return request(publicUrl(result.view, result.page,historicalRunId)).then(function (reply) { return readPublicReply(reply, result.view, depth + 1,historicalRunId); });
     var time = Date.parse(projection.server_time || "");
     return Promise.resolve({ next: next, view: result.view, clock: Number.isFinite(time) ? { server: time, tick: performance.now() } : null });
+  }
+  function loadPreviousFindings() {
+    if (!publicView.run) return;
+    var ids = [publicView.run.steered_from_run_id].concat((data.messages||[]).filter(function(m){return m.role==="user";}).reverse().map(function(m){return m.run_id;}));
+    ids = Array.from(new Set(ids.filter(function(id){return id && id !== publicView.runId;}))).slice(0,8);
+    var chain = Promise.resolve();
+    ids.forEach(function(id){
+      if (historicalFindingLoads.has(id)) return;
+      historicalFindingLoads.set(id,true);
+      chain = chain.then(function(){return request(publicUrl(emptyPublicView(),null,id));})
+        .then(function(reply){return readPublicReply(reply,emptyPublicView(),0,id);})
+        .then(function(result){
+          if (!result.view.run || result.view.run.run_id !== id) throw new Error("Historical research identity changed.");
+          var surface=scrollSurface||transcript, anchor=followingLatest?null:transcriptAnchor(surface);
+          renderPublicFindings(result.view); renderActivity();
+          if (anchor && surface.clientHeight) scrollTranscript(surface,null,anchor);
+        }).catch(function(){publicView.history_load_error=true; renderActivity();});
+    });
+    while (historicalFindingLoads.size>16) historicalFindingLoads.delete(historicalFindingLoads.keys().next().value);
   }
   function refresh() {
     var epoch = sessionEpoch;
@@ -1792,6 +1822,7 @@
       if (epoch === sessionEpoch && sequence === refreshSequence) {
         publicView = result.view; publicClock = result.clock;
         acceptSession(result.next, requestSequence);
+        loadPreviousFindings();
       }
     }).catch(function () {
       if (epoch !== sessionEpoch || sequence !== refreshSequence) return;
@@ -1876,7 +1907,7 @@
   var jump = sidebar.querySelector("[data-assistant-jump]");
   if (jump) jump.addEventListener("click", function () { followingLatest = true; var surface = scrollSurface || transcript; surface.scrollTop = surface.scrollHeight; updateJumpToLatest(); });
   var reconnect = sidebar.querySelector("[data-assistant-reconnect]");
-  if (reconnect) reconnect.addEventListener("click", function () { pollFailures = 0; refresh(); });
+  if (reconnect) reconnect.addEventListener("click", function () { pollFailures = 0; historicalFindingLoads.clear(); publicView.history_load_error=false; refresh(); });
   var latestSim = document.querySelector("[data-simulate-rerun]");
   if (latestSim) latestSim.addEventListener("click", function () { showTab("goldfish", false); });
   document.addEventListener("deck-lab:render", function (event) {

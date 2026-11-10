@@ -340,3 +340,116 @@ def test_escaped_answer_segments_remain_wire_bounded_and_exact():
     assert "".join(payload["entity"]["text"] for _, payload in events) == text
     assert all(len(serialized(payload).encode()) < 32 * 1024 for _, payload in events)
     assert len({payload["entity"]["logical_text_hash"] for _, payload in events}) == 1
+
+
+@pytest.mark.parametrize(
+    "status,reason,lifecycle,code",
+    [
+        ("done", "", "completed", None),
+        ("completed", "", "completed", None),
+        ("incomplete", "", "completed", None),
+        ("failed", "", "failed", "research_failed"),
+        ("provider_error", "", "failed", "provider_unavailable"),
+        (
+            "provider_unavailable",
+            "provider_not_configured",
+            "failed",
+            "provider_unavailable",
+        ),
+        ("budget_exhausted", "model_call_budget", "failed", "tool_limit"),
+        ("budget_exhausted", "tool_or_context_budget", "failed", "tool_limit"),
+        ("budget_exhausted", "final_answer_required", "failed", "tool_limit"),
+        ("budget_exhausted", "", "failed", "budget_exhausted"),
+        ("stopped", "stopped_or_mode_changed", "stopped", None),
+        ("revision_conflict", "deck_changed", "superseded", None),
+        ("unexpected", "", "failed", "research_failed"),
+    ],
+)
+def test_actual_runtime_terminal_statuses_are_not_mislabeled(
+    state, status, reason, lifecycle, code
+):
+    _, _, owner, deck, store = state
+    turn = store.begin(owner, deck, "Research", 0)
+    store.finish(
+        owner,
+        deck,
+        turn["turn_id"],
+        {"content": "An explanatory notice", "status": status, "reason": reason},
+    )
+    response = store.public_events(owner, deck)
+    assert response["run"]["lifecycle"] == lifecycle
+    assert (response["run"]["error"] or {}).get("code") == code
+    if lifecycle != "completed":
+        assert not response["snapshot_page"]["entities"].get("answer_blocks")
+
+
+def test_compaction_disclosure_counts_removed_events_without_mutating_terminal_answer(
+    state,
+):
+    _, path, owner, deck, store = state
+    turn = store.begin(owner, deck, "Research", 0)
+    store.finish(owner, deck, turn["turn_id"], {"content": "Answer", "status": "done"})
+    with db.connect(path) as conn:
+        row = journal.row_for(conn, turn["turn_id"])
+        before = json.loads(row["public_projection_json"])
+        count = conn.execute(
+            "SELECT COUNT(*) FROM build_assistant_events WHERE run_id=?",
+            (turn["turn_id"],),
+        ).fetchone()[0]
+        journal._compact_run(conn, turn["turn_id"])
+        conn.commit()
+    response = store.public_events(owner, deck)
+    assert response["history"]["compacted"] is True
+    assert response["history"]["compacted_event_count"] == count
+    assert response["history"]["retained_event_count"] == 0
+    with db.connect(path) as conn:
+        row = journal.row_for(conn, turn["turn_id"])
+        assert json.loads(row["public_baseline_json"]) == before
+        assert json.loads(row["public_projection_json"]) == before
+
+
+def test_genuine_pre_v1_schema_upgrades_without_fabricated_timestamps(tmp_path):
+    from sabermetrics.assistant_jobs import initialize as legacy_jobs
+    from sabermetrics.assistant_workspace import create_workspace
+
+    _client_result, path, owner = _client(tmp_path)
+    deck = _seed_deck(path, owner)
+    payload = {
+        "mode": "suggest",
+        "constraints": {},
+        "messages": [{"role": "assistant", "content": "Retained old answer"}],
+        "busy": False,
+        "turn_id": "legacy",
+        "revision": 0,
+        "research_workspace": create_workspace("Old request", 0, 1),
+    }
+    original = json.dumps(payload)
+    with db.connect(path) as conn:
+        conn.execute(
+            "CREATE TABLE build_assistant_sessions(deck_id TEXT PRIMARY KEY REFERENCES deck_documents(id) ON DELETE CASCADE, owner_id TEXT NOT NULL,payload_json TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 0)"
+        )
+        legacy_jobs(conn)
+        conn.execute(
+            "INSERT INTO build_assistant_sessions(deck_id,owner_id,payload_json) VALUES (?,?,?)",
+            (deck, owner, original),
+        )
+        conn.execute(
+            "INSERT INTO build_assistant_jobs(id,owner_id,deck_id,generation,state,snapshot_json,created_at,updated_at) VALUES (?,?,?,1,'completed',?,1,999999)",
+            ("legacy", owner, deck, original),
+        )
+        assert "public_projection_json" not in {
+            row[1] for row in conn.execute("PRAGMA table_info(build_assistant_jobs)")
+        }
+        conn.commit()
+    store = AssistantStore(path)
+    AssistantStore(path)
+    public = store.public_events(owner, deck)
+    assert public["run"]["lifecycle"] == "completed"
+    assert public["run"]["accepted_at"] is None and public["run"]["ended_at"] is None
+    assert public["cursor"]["through_sequence"] == 0
+    assert store.get(owner, deck)["messages"] == payload["messages"]
+    with db.connect(path) as conn:
+        assert (
+            conn.execute("SELECT snapshot_json FROM build_assistant_jobs").fetchone()[0]
+            == original
+        )

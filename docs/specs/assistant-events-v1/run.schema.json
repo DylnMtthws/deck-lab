@@ -240,11 +240,6 @@
       "default": 0,
       "title": "Last Sequence",
       "type": "integer"
-    },
-    "history_compacted": {
-      "default": false,
-      "title": "History Compacted",
-      "type": "boolean"
     }
   },
   "required": [

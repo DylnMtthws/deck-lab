@@ -23,7 +23,8 @@ All schemas use additive evolution — new fields with defaults, new tables inde
 
 `build_assistant_jobs` adds `last_sequence`, `baseline_sequence`,
 `public_projection_json`, `public_baseline_json`, `public_writer_version`,
-`public_domain_hash` (detects non-journaling writes during a downgrade).
+`public_domain_hash` (detects non-journaling writes during a downgrade), and
+`compacted_event_count` (transactionally counts removed journal records).
 Immutable lifecycle times and run receipts live in its versioned public projection.
 `build_assistant_events` stores owner/deck/run, sequence, kind and validated JSON,
 with cascading deck/job references and a unique run/sequence key.

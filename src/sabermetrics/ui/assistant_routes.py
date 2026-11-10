@@ -207,7 +207,8 @@ def session(deck_id):
             page = -1
         selected = request.args.get("run_id")
         if (
-            selected
+            request.args.get("follow_current") == "1"
+            and selected
             and selected != payload.get("turn_id")
             and not request.args.get("snapshot_token")
         ):
@@ -242,6 +243,21 @@ def enrich_operational_cost(projection):
             )
     except Exception:
         projection["operational"]["cost_pending"] = None
+
+
+def replacement_uses_budget(replacement, turn):
+    """Presentation metadata cannot change the identity of a shared allowance."""
+    binding = turn.get("cost_turn") or {}
+    return bool(
+        binding
+        and replacement
+        and replacement.get("busy")
+        and replacement.get("turn_id") != turn.get("turn_id")
+        and all(
+            (replacement.get("cost_turn") or {}).get(key) == binding.get(key)
+            for key in ("id", "owner")
+        )
+    )
 
 
 def public_binding(binding):
@@ -339,7 +355,11 @@ def _work(path, owner, deck_id, turn, app):
             return True
 
     def retire_aborted_run():
-        current = store.get(owner, deck_id)
+        try:
+            current = store.get(owner, deck_id)
+        except DeckNotFound:
+            store.retire_missing_context(owner, deck_id, token)
+            return
         if current.get("turn_id") != token or not current.get("busy"):
             store.invalidate(owner, deck_id, token)
             return
@@ -501,6 +521,9 @@ def _work(path, owner, deck_id, turn, app):
         public = store.public_events(owner, deck_id, run_id=token, after_sequence=0)
         if public.get("run", {}).get("lifecycle") == "completed":
             trace.mark("final_persisted")
+    except DeckNotFound:
+        if store is not None:
+            store.retire_missing_context(owner, deck_id, token)
     except Exception as error:
         logger.exception("Build assistant turn failed")
         from sabermetrics.ai_cost_control import BudgetDenied
@@ -542,6 +565,8 @@ def _work(path, owner, deck_id, turn, app):
                 store.record_latency(
                     owner, deck_id, token, trace.snapshot().model_dump(mode="json")
                 )
+            except DeckNotFound:
+                pass  # Deleted runs need no retained timing receipt.
             except Exception:
                 logger.warning(
                     "Assistant timing observation could not be persisted", exc_info=True
@@ -551,16 +576,7 @@ def _work(path, owner, deck_id, turn, app):
             replacement = store.get(owner, deck_id) if store is not None else None
         except Exception:
             pass
-        if not (
-            replacement
-            and replacement.get("busy")
-            and replacement.get("turn_id") != token
-            and all(
-                (replacement.get("cost_turn") or {}).get(key)
-                == (turn.get("cost_turn") or {}).get(key)
-                for key in ("id", "owner")
-            )
-        ):
+        if not replacement_uses_budget(replacement, turn):
             close_turn(turn.get("cost_turn"), app=app)
         heartbeat_stop.set()
         if heartbeat_thread.ident is not None:
@@ -679,9 +695,18 @@ def _dispatch(path, owner, deck_id, store):
             current_app._get_current_object(),
         )
     except RuntimeError:
-        # No runtime started: terminalize the claim for an explicit safe retry.
-        store.release_claim(owner, deck_id, turn["turn_id"])
-        _WORKER_SLOTS.release()
+        # A never-started worker must not strand the original allowance, or
+        # close a concurrently accepted replacement sharing that allowance.
+        try:
+            try:
+                replacement = store.release_claim(owner, deck_id, turn["turn_id"])
+            except DeckNotFound:
+                store.retire_missing_context(owner, deck_id, turn["turn_id"])
+                replacement = None
+            if not replacement_uses_budget(replacement, turn):
+                close_turn(turn.get("cost_turn"), cancel=True)
+        finally:
+            _WORKER_SLOTS.release()
 
 
 @bp.post("/api/decks/<deck_id>/assistant/steer")
